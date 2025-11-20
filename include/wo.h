@@ -19,10 +19,11 @@
         moving any GC reference type objects is not allowed (read-only operations
         are permitted).
 
-    2. If attempting to write values to other VMs, you must ensure to use
-        `wo_set_val_migratory` for assignment operations, or use `wo_enter_gcguard`
+    2. If attempting to write values to a VM, you must use `wo_enter_gcguard`
         and `wo_leave_gcguard` to ensure the write operation is completed within
-        the target virtual machine's GC scope.
+        the target virtual machine's GC scope. If you are already in the GC scope 
+        of one VM, you must exit it before entering the GC scope of another VM; or 
+        use `wo_swap_gcguard` to simplify this process.
 
     3. When writing data to custom GC-Structs, you need to use
         `wo_set_val_with_write_barrier` for assignment operations to ensure the
@@ -695,9 +696,16 @@ WO_API void wo_pop_stack(wo_vm vm, wo_size_t sz);
 // 1) Use data from updated args & reserved stack, avoid using old pointers.
 // 2) Donot use inout_args_maynull & inout_s_maynull if invoke another vm (not current vm).
 WO_API wo_value wo_invoke_value(
-    wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
+    wo_vm vm, wo_value vmfunc, 
+    wo_int_t argc, 
+    wo_value* inout_args_maynull, 
+    wo_value* inout_s_maynull);
 WO_API void wo_dispatch_value(
-    wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
+    wo_vm vm, 
+    wo_value vmfunc, 
+    wo_int_t argc, 
+    wo_value* inout_args_maynull, 
+    wo_value* inout_s_maynull);
 
 #define WO_ABORTED ((wo_value)NULL)
 #define WO_CONTINUE ((wo_value)(void *)-1)

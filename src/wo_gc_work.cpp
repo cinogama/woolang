@@ -369,32 +369,30 @@ namespace wo
                                 _gc_vm_gray_unit_lists.insert(std::make_pair(vmimpl, _wo_gray_unit_list_t{}));
                         }
 
-                        // 0. Notify all vm to make sure all vm reach gc_checkpoint
+                        // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
                         for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                             if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                                wo_assure(vmimpl->interrupt(vmbase::GC_SYNC_BEGIN_INTERRUPT));
+                                wo_assure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
 
-                        // Wait all vm 
                         for (auto* vmimpl : vmbase::_gc_ready_vm_list)
                         {
                             if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             {
-                                switch (vmimpl->wait_interrupt(vmbase::GC_SYNC_BEGIN_INTERRUPT))
+                                switch (vmimpl->wait_interrupt(vmbase::GC_INTERRUPT, false))
                                 {
                                 case vmbase::interrupt_wait_result::LEAVED:
                                     if (vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
                                     {
                                         // NOTE: In fact, there is a very small probability that the 
                                         //      vm just completes self-marking within a subtle time interval.
-                                        //      So we need recheck for GC_SYNC_BEGIN_INTERRUPT
-                                        if (vmimpl->clear_interrupt(vmbase::GC_SYNC_BEGIN_INTERRUPT))
-                                            // Current VM not receive GC_SYNC_BEGIN_INTERRUPT, and we already mark GC_HANGUP_INTERRUPT
+                                        //      So we need recheck for GC_INTERRUPT
+                                        if (vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
+                                            // Current VM not receive GC_INTERRUPT, and we already mark GC_HANGUP_INTERRUPT
                                             // the vm will be mark by gc-worker-thread.
-                                            gc_marking_vmlist.push_back(vmimpl);
                                             break;
 
                                         // NOTE: Oh! the small probability event happened! the vm has been
-                                        //       self marked. We need clear GC_SYNC_BEGIN_INTERRUPT & GC_HANGUP_INTERRUPT
+                                        //       self marked. We need clear GC_INTERRUPT & GC_HANGUP_INTERRUPT
                                         //       and wake up the vm;
                                         if (!vmimpl->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
                                             // NOTE: GC_HANGUP_INTERRUPT has been received by vm, we need wake it up.
@@ -402,27 +400,19 @@ namespace wo
                                     }
                                     /* fallthrough */
                                     [[fallthrough]];
+                                case vmbase::interrupt_wait_result::TIMEOUT:
                                 case vmbase::interrupt_wait_result::ACCEPT:
                                     // Current vm is self marking...
                                     self_marking_vmlist.push_back(vmimpl);
-                                    break;
+                                    continue;
                                 }
+                                // Current vm will be mark by gc-work-thread.
+                                gc_marking_vmlist.push_back(vmimpl);
                             }
                             else
-                            {
                                 // Current vm will be marked by gc-work-thread, 
                                 // and mark it's static-space only.
                                 gc_destructor_vmlist.push_back(vmimpl);
-                            }
-                        }
-
-                        //////////////////////////////// BEGIN SYNC FINISHED ////////////////////////////////
-
-                        // 1. Interrupt self-marking-vm as GC_INTERRUPT
-                        for (auto* vmimpl : self_marking_vmlist)
-                        {
-                            wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
-                            wo_assure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
                         }
                     }
                     else
@@ -444,7 +434,7 @@ namespace wo
                             if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             {
                                 // Must make sure HANGUP successfully.
-                                (void)vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT);
+                                (void)vmimpl->wait_interrupt(vmbase::GC_HANGUP_INTERRUPT, true);
 
                                 // Current vm will be mark by gc-work-thread.
                                 gc_marking_vmlist.push_back(vmimpl);
@@ -469,9 +459,9 @@ namespace wo
                         // 0.3.1. Wait until all self-marking vm work finished
                         for (auto* vmimpl : self_marking_vmlist)
                         {
+                            auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT, true);
                             wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
-                            vmbase::interrupt_wait_result self_mark_gc_state
-                                = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
+                            wo_assert(self_mark_gc_state != vmbase::interrupt_wait_result::TIMEOUT);
 
                             // vmimpl may be in leave state here, in which case: 
                             // 1. the vm self-marked successfully ended and has returned to executing
@@ -517,7 +507,8 @@ namespace wo
                             //      WE MUST WAIT UNTIL VM SELF-MARKING END EVEN IF THE VM IS LEAVED.
                             //  OR SOME MARK JOB WILL NOT ABLE TO BE DONE. SOME OF THE UNIT MIGHT
                             //  BE MISSING MARKED. IT'S VERY DANGEROUS!!!!
-                            while (vmimpl->check_interrupt(vmbase::GC_HANGUP_INTERRUPT))
+                            while (vmimpl->check_interrupt(
+                                (vmbase::vm_interrupt_type)(vmbase::GC_INTERRUPT | vmbase::GC_HANGUP_INTERRUPT)))
                             {
                                 using namespace std;
                                 std::this_thread::sleep_for(10ms);

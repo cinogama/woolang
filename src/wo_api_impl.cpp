@@ -4252,17 +4252,12 @@ void wo_gc_checkpoint(wo_vm vm)
     auto* vmm = WO_VM(vm);
 
     // If in GC, hang up here to make sure safe.
-    auto interrupt_state = vmm->vm_interrupt.load(std::memory_order_acquire);
-
-    if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT)
-        vmm->gc_checkpoint_sync_begin();
-    else if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
-        vmm->gc_checkpoint_self_mark();
-
-    if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
+    if (vmm->check_interrupt(
+        (wo::vmbase::vm_interrupt_type)(
+            wo::vmbase::vm_interrupt_type::GC_INTERRUPT
+            | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)))
     {
-        if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
-            vmm->hangup();
+        vmm->gc_checkpoint_self_mark();
     }
 }
 
@@ -4295,11 +4290,9 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
 {
     auto* vmm = WO_VM(vm);
 
-    if (vmm->check_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
         wo_gc_checkpoint(vm);
-
-        wo_assure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
 
         if (nullptr != _this_thread_gc_guarded_vm)
         {

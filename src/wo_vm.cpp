@@ -131,6 +131,9 @@ namespace wo
         for (auto* vm_instance : _alive_vm_list)
             if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
                 vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
+        for (auto* vm_instance : _alive_vm_list)
+            if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
+                vm_instance->wait_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT, false);
 
         wo::vm_debuggee_bridge_base* old_debuggee = attaching_debuggee;
         attaching_debuggee = dbg;
@@ -161,7 +164,7 @@ namespace wo
     }
     bool vmbase::is_aborted() const noexcept
     {
-        return vm_interrupt.load(std::memory_order::memory_order_acquire) 
+        return vm_interrupt.load(std::memory_order::memory_order_acquire)
             & vm_interrupt_type::ABORT_INTERRUPT;
     }
     bool vmbase::interrupt(vm_interrupt_type type)noexcept
@@ -177,7 +180,7 @@ namespace wo
     {
         return 0 != (vm_interrupt.load(std::memory_order_acquire) & type);
     }
-    vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type)noexcept
+    vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept
     {
         using namespace std;
         size_t retry_count = 0;
@@ -201,20 +204,24 @@ namespace wo
             else
                 i = 0;
 
-            std::this_thread::sleep_for(10ms);
-            if (!warning_raised && ++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
+            if (force_wait)
             {
-                // Wait for too much time.
-                std::string warning_info = "Wait for too much time for waiting interrupt.\n";
-                std::stringstream dump_callstack_info;
+                std::this_thread::sleep_for(10ms);
+                if (!warning_raised && ++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
+                {
+                    // Wait for too much time.
+                    std::string warning_info = "Wait for too much time for waiting interrupt.\n";
+                    std::stringstream dump_callstack_info;
 
-                dump_call_stack(32, false, dump_callstack_info);
-                warning_info += dump_callstack_info.str();
-                wo_warning(warning_info.c_str());
+                    dump_call_stack(32, false, dump_callstack_info);
+                    warning_info += dump_callstack_info.str();
+                    wo_warning(warning_info.c_str());
 
-                warning_raised = true;
+                    warning_raised = true;
+                }
             }
-
+            else
+                return interrupt_wait_result::TIMEOUT;
         } while (true);
 
         return interrupt_wait_result::ACCEPT;
@@ -431,7 +438,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-                };
+            };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -470,7 +477,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-                };
+            };
             auto print_global_static = [&]() {
                 //const global 4byte
                 uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
@@ -495,19 +502,19 @@ namespace wo
                 }
                 else
                     tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                };
+            };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-                };
+            };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -991,95 +998,95 @@ namespace wo
         std::vector<callstack_info> result(std::min(callstack_layer_count, max_count));
         auto generate_callstack_info_with_ip =
             [this, near_env_pointer, need_offset](const wo::byte_t* rip, runtime_env** out_env)
+        {
+            const program_debug_data_info::location* src_location_info = nullptr;
+            std::string function_signature;
+            std::string file_path;
+            size_t row_number = 0;
+            size_t col_number = 0;
+
+            runtime_env* callenv = near_env_pointer;
+            call_way callway;
+
+            if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
+                callway = call_way::NEAR;
+            else
             {
-                const program_debug_data_info::location* src_location_info = nullptr;
-                std::string function_signature;
-                std::string file_path;
-                size_t row_number = 0;
-                size_t col_number = 0;
+                if (runtime_env::fetch_far_runtime_env(rip, &callenv))
+                    callway = call_way::FAR;
+                else
+                    callway = call_way::NATIVE;
+            }
 
-                runtime_env* callenv = near_env_pointer;
-                call_way callway;
+            switch (callway)
+            {
+            case call_way::NEAR:
+            case call_way::FAR:
+            {
+                // Update call env for near & far call.
+                *out_env = callenv;
 
-                if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
-                    callway = call_way::NEAR;
+                if (callenv->program_debug_info != nullptr)
+                {
+                    src_location_info = &callenv->program_debug_info
+                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    function_signature = callenv->program_debug_info
+                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+
+                    file_path = src_location_info->source_file;
+                    row_number = src_location_info->begin_row_no;
+                    col_number = src_location_info->begin_col_no;
+                }
                 else
                 {
-                    if (runtime_env::fetch_far_runtime_env(rip, &callenv))
-                        callway = call_way::FAR;
-                    else
-                        callway = call_way::NATIVE;
-                }
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
 
-                switch (callway)
+                    (void)result;
+                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                    function_signature = std::string("<unknown function ") + rip_str;
+                    file_path = "<unknown file>";
+                }
+                break;
+            }
+            case call_way::NATIVE:
+            {
+                // Is extern native function address.
+                auto fnd = env->extern_native_functions.find(
+                    reinterpret_cast<wo_native_func_t>(
+                        reinterpret_cast<intptr_t>(rip)));
+
+                if (fnd != env->extern_native_functions.end())
                 {
-                case call_way::NEAR:
-                case call_way::FAR:
+                    function_signature = fnd->second.function_name;
+                    file_path = fnd->second.library_name.value_or("<builtin>");
+                }
+                else
                 {
-                    // Update call env for near & far call.
-                    *out_env = callenv;
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
 
-                    if (callenv->program_debug_info != nullptr)
-                    {
-                        src_location_info = &callenv->program_debug_info
-                            ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                        function_signature = callenv->program_debug_info
-                            ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    (void)result;
+                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
 
-                        file_path = src_location_info->source_file;
-                        row_number = src_location_info->begin_row_no;
-                        col_number = src_location_info->begin_col_no;
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
-
-                        (void)result;
-                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
-
-                        function_signature = std::string("<unknown function ") + rip_str;
-                        file_path = "<unknown file>";
-                    }
-                    break;
+                    function_signature = std::string("<unknown extern function ") + rip_str;
+                    file_path = "<unknown library>";
                 }
-                case call_way::NATIVE:
-                {
-                    // Is extern native function address.
-                    auto fnd = env->extern_native_functions.find(
-                        reinterpret_cast<wo_native_func_t>(
-                            reinterpret_cast<intptr_t>(rip)));
+                break;
+            }
+            default:
+                wo_error("Cannot be here.");
+            }
 
-                    if (fnd != env->extern_native_functions.end())
-                    {
-                        function_signature = fnd->second.function_name;
-                        file_path = fnd->second.library_name.value_or("<builtin>");
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
-
-                        (void)result;
-                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
-
-                        function_signature = std::string("<unknown extern function ") + rip_str;
-                        file_path = "<unknown library>";
-                    }
-                    break;
-                }
-                default:
-                    wo_error("Cannot be here.");
-                }
-
-                return callstack_info{
-                    function_signature,
-                    file_path,
-                    row_number,
-                    col_number,
-                    callway,
-                };
+            return callstack_info{
+                function_signature,
+                file_path,
+                row_number,
+                col_number,
+                callway,
             };
+        };
 
         runtime_env* current_env_pointer = near_env_pointer;
         for (auto& callstack_state : callstack_ips)
@@ -1160,16 +1167,6 @@ namespace wo
     _label_break_trace:
         return call_trace_count;
     }
-    void vmbase::gc_checkpoint_sync_begin() noexcept
-    {
-        if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
-        {
-            wo_assure(clear_interrupt(
-                (vm_interrupt_type)(
-                    vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT 
-                    | vm_interrupt_type::GC_HANGUP_INTERRUPT)));
-        }
-    }
     void vmbase::gc_checkpoint_self_mark() noexcept
     {
         if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
@@ -1185,6 +1182,8 @@ namespace wo
 
             wo_assure(clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT));
         }
+        else if (clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+            hangup();
     }
 
     bool vmbase::assure_stack_size(wo_size_t assure_stack_size) noexcept
@@ -3171,11 +3170,7 @@ namespace wo
 
                 const auto interrupt_state = vm_interrupt.load(std::memory_order_acquire);
 
-                if (interrupt_state & vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT)
-                {
-                    gc_checkpoint_sync_begin();
-                }
-                else if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
+                if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                 {
                     gc_checkpoint_self_mark();
                 }
@@ -3267,7 +3262,6 @@ namespace wo
                     // a vm_interrupt is invalid now, just roll back one byte and continue~
                     // so here do nothing
                     wo_assert(interrupt_state == 0
-                        || interrupt_state == vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT
                         || interrupt_state == vm_interrupt_type::GC_INTERRUPT);
                 }
 

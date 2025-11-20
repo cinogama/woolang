@@ -509,11 +509,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         {
             const auto interrupt_state = vmm->vm_interrupt.load(std::memory_order_acquire);
 
-            if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT)
-            {
-                vmm->gc_checkpoint_sync_begin();
-            }
-            else if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
+            if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
             {
                 vmm->sp = rt_sp;
                 vmm->gc_checkpoint_self_mark();
@@ -593,7 +589,6 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
                 // a vm_interrupt is invalid now, just roll back one byte and continue~
                 // so here do nothing
                 wo_assert(interrupt_state == 0
-                    || interrupt_state == wo::vmbase::vm_interrupt_type::GC_SYNC_BEGIN_INTERRUPT
                     || interrupt_state == wo::vmbase::vm_interrupt_type::GC_INTERRUPT);
             }
             return wo_result_t::WO_API_NORMAL;
