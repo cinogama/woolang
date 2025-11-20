@@ -11,13 +11,13 @@ build_release_win32:
     - cd build
     - del CMakeCache.txt
     - cmake .. -A x64 -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
-    - cmake --build . --config Release --parallel
+    - cmake --build . --config RELWITHDEBINFO --parallel
     - cd ..
   artifacts:
     name: win32-wo-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
-      - build/Release/woolang.exe
-      - build/Release/libwoo.dll
+      - build/RELWITHDEBINFO/woolang.exe
+      - build/RELWITHDEBINFO/libwoo.dll
     expire_in: 1 week
   # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
   cache:
@@ -36,7 +36,7 @@ build_release:
     - cd build
     - rm -f CMakeCache.txt
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
-    - make -j 4
+    - cmake --build . --config RELWITHDEBINFO --parallel 4
     - cd ..
   artifacts:
     name: ubuntu-wo-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -61,7 +61,7 @@ build_release_arm64:
     - cd build
     - rm -f CMakeCache.txt
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
-    - make -j 4
+    - cmake --build . --config RELWITHDEBINFO --parallel 4
     - cd ..
   artifacts:
     name: ubuntu-arm64-wo-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -86,7 +86,7 @@ build_release_arm64_mac:
     - cd build
     - rm -f CMakeCache.txt
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
-    - make -j 4
+    - cmake --build . --config RELWITHDEBINFO --parallel 4
     - cd ..
   artifacts:
     name: mac-arm64-wo-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -116,7 +116,7 @@ test_coverage_debug:
     - cd build
     - rm -f CMakeCache.txt
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=DEBUG -DBUILD_SHARED_LIBS=ON -DWO_BUILD_FOR_COVERAGE_TEST=ON -DWO_BUILD_FOR_ASAN_TEST=ON
-    - make -j 4
+    - cmake --build . --config DEBUG --parallel 4
     - cd ..
     # Begin coverage test
     - cd test
@@ -156,7 +156,7 @@ test_debug_arm64:
     - cd build
     - rm -f CMakeCache.txt
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=DEBUG -DBUILD_SHARED_LIBS=ON
-    - make -j 4
+    - cmake --build . --config DEBUG --parallel 4
     - cd ..
     # Begin coverage test
     - cd test
@@ -188,7 +188,7 @@ test_debug_arm64_mac:
     - cd build
     - rm -f CMakeCache.txt
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=DEBUG -DBUILD_SHARED_LIBS=ON
-    - make -j 4
+    - cmake --build . --config DEBUG --parallel 4
     - cd ..
     # Begin coverage test
     - cd test
@@ -309,7 +309,7 @@ test_memory_debug:
     - cd build
     - rm -f CMakeCache.txt
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=DEBUG -DBUILD_SHARED_LIBS=ON
-    - make -j 4
+    - cmake --build . --config DEBUG --parallel 4
     - cd ..
     # Begin coverage test
     - cd test
