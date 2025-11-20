@@ -95,8 +95,7 @@ namespace wo
     public:
         struct leave_context
         {
-            bool m_leaved;
-            wo::vmbase *m_vm;
+            wo_vm m_vm;
         };
 
     private:
@@ -303,7 +302,7 @@ namespace wo
         inline static std::set<vmbase *> _alive_vm_list;
         inline static std::set<vmbase *> _gc_ready_vm_list;
 
-        inline thread_local static vmbase *_this_thread_vm = nullptr;
+        inline thread_local static vmbase *_this_thread_gc_guard_vm = nullptr;
         inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
 
     protected:

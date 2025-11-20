@@ -608,15 +608,6 @@ WO_API wo_string_t wo_work_path(void);
 WO_API void wo_set_exe_path(wo_string_t path);
 WO_API wo_bool_t wo_set_work_path(wo_string_t path);
 
-// NOTE: Only used for special cases, such as in coroutine libraries,
-//       when it is necessary to switch out of a virtual machine in the 
-//       middle of execution to reassign the current thread's virtual 
-//       machine.
-// 
-//       In most cases, Woolang automatically handles these settings, so 
-//       manual invocation is not required.
-WO_API wo_vm wo_set_this_thread_vm(wo_vm vm_may_null);
-
 WO_API void wo_enable_jit(wo_bool_t option);
 WO_API wo_bool_t wo_virtual_binary(
     wo_string_t filepath,

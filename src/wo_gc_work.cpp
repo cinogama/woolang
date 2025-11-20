@@ -1034,7 +1034,7 @@ namespace wo
 
             bool need_re_entry_gc_guard = true;
 
-            auto* current_vm_instance = wo::vmbase::_this_thread_vm;
+            auto* current_vm_instance = wo::vmbase::_this_thread_gc_guard_vm;
             wo::value* current_vm_stack_top = nullptr;
 
             if (current_vm_instance != nullptr)
@@ -1045,7 +1045,7 @@ namespace wo
                 current_vm_instance->sp = current_vm_instance->stack_storage;
 
                 need_re_entry_gc_guard = 
-                    wo_leave_gcguard(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm));
+                    wo_leave_gcguard(reinterpret_cast<wo_vm>(current_vm_instance));
             }
 
             using namespace std;
@@ -1138,7 +1138,7 @@ namespace wo
             {
                 warn = false;
                 std::string warning_info = "Out of memory, trying GC for extra memory.\n";
-                auto* cur_vm = wo::vmbase::_this_thread_vm;
+                auto* cur_vm = wo::vmbase::_this_thread_gc_guard_vm;
                 if (cur_vm != nullptr)
                 {
                     std::stringstream dump_callstack_info;

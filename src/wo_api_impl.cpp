@@ -60,25 +60,6 @@ struct _wo_swap_gc_guard
         wo_swap_gcguard(_vm);
     }
 };
-struct _wo_in_thread_vm_guard
-{
-    wo_vm last_vm;
-
-    _wo_in_thread_vm_guard() = delete;
-    _wo_in_thread_vm_guard(const _wo_in_thread_vm_guard&) = delete;
-    _wo_in_thread_vm_guard(_wo_in_thread_vm_guard&&) = delete;
-    _wo_in_thread_vm_guard& operator = (const _wo_in_thread_vm_guard&) = delete;
-    _wo_in_thread_vm_guard& operator = (_wo_in_thread_vm_guard&&) = delete;
-
-    _wo_in_thread_vm_guard(wo_vm target_vm)
-        : last_vm(wo_set_this_thread_vm(target_vm))
-    {
-    }
-    ~_wo_in_thread_vm_guard()
-    {
-        wo_set_this_thread_vm(last_vm);
-    }
-};
 
 struct dylib_table_instance
 {
@@ -430,9 +411,17 @@ void wo_cause_fail(
     va_list v1;
     va_start(v1, reasonfmt);
 
-    wo_execute_fail_handler(
-        reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm),
-        src_file, lineno, functionname, rterrcode, _wo_vformat(reasonfmt, v1).data());
+    auto this_thread_vm = wo_swap_gcguard(nullptr);
+    {
+        wo_execute_fail_handler(
+            this_thread_vm,
+            src_file, 
+            lineno, 
+            functionname,
+            rterrcode, 
+            _wo_vformat(reasonfmt, v1).data());
+    }
+    wo_swap_gcguard(this_thread_vm);
 
     va_end(v1);
 }
@@ -690,10 +679,10 @@ struct _wo_reserved_stack_args_update_guard
     size_t m_rs_offset;
     size_t m_args_offset;
 
-    _wo_reserved_stack_args_update_guard(const _wo_in_thread_vm_guard&) = delete;
-    _wo_reserved_stack_args_update_guard(_wo_in_thread_vm_guard&&) = delete;
-    _wo_reserved_stack_args_update_guard& operator = (const _wo_in_thread_vm_guard&) = delete;
-    _wo_reserved_stack_args_update_guard& operator = (_wo_in_thread_vm_guard&&) = delete;
+    _wo_reserved_stack_args_update_guard(const _wo_reserved_stack_args_update_guard&) = delete;
+    _wo_reserved_stack_args_update_guard(_wo_reserved_stack_args_update_guard&&) = delete;
+    _wo_reserved_stack_args_update_guard& operator = (const _wo_reserved_stack_args_update_guard&) = delete;
+    _wo_reserved_stack_args_update_guard& operator = (_wo_reserved_stack_args_update_guard&&) = delete;
 
     _wo_reserved_stack_args_update_guard(
         wo_vm _vm,
@@ -3119,7 +3108,6 @@ wo_value wo_reserve_stack(wo_vm vm, wo_size_t stack_sz, wo_value* inout_args_may
         // NOTE: Make sure this_thread_vm is vm, if stack allocate failed, we 
         //      can report the correct vm.
         _wo_swap_gc_guard g(vm);
-        _wo_in_thread_vm_guard g2(vm);
 
         const size_t args_offset =
             inout_args_maynull ? vmbase->sb - WO_VAL(*inout_args_maynull) : 0;
@@ -3160,8 +3148,7 @@ wo_value wo_invoke_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
     _wo_swap_gc_guard g(vm);
-    _wo_in_thread_vm_guard g2(vm);
-    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
+    _wo_reserved_stack_args_update_guard g2(vm, inout_args_maynull, inout_s_maynull);
 
     wo::value* valfunc = WO_VAL(vmfunc);
     wo_value result = nullptr;
@@ -3182,8 +3169,7 @@ void wo_dispatch_value(
     wo_vm vm, wo_value vmfunc, wo_int_t argc, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
     _wo_swap_gc_guard g(vm);
-    _wo_in_thread_vm_guard g2(vm);
-    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
+    _wo_reserved_stack_args_update_guard g2(vm, inout_args_maynull, inout_s_maynull);
 
     switch (WO_VAL(vmfunc)->m_type)
     {
@@ -3205,8 +3191,8 @@ wo_value wo_dispatch(
     wo_vm vm, wo_value* inout_args_maynull, wo_value* inout_s_maynull)
 {
     _wo_swap_gc_guard g(vm);
-    _wo_in_thread_vm_guard g2(vm);
-    _wo_reserved_stack_args_update_guard g3(vm, inout_args_maynull, inout_s_maynull);
+    _wo_reserved_stack_args_update_guard g2(
+        vm, inout_args_maynull, inout_s_maynull);
 
     auto* vmm = WO_VM(vm);
 
@@ -3306,7 +3292,6 @@ wo_bool_t wo_jit(wo_vm vm)
 wo_value wo_run(wo_vm vm)
 {
     _wo_swap_gc_guard g(vm);
-    _wo_in_thread_vm_guard g2(vm);
 
     auto* vmm = WO_VM(vm);
 
@@ -4232,21 +4217,6 @@ wo_integer_t wo_crc64_file(wo_string_t filepath)
     return (wo_integer_t)wo::crc_64(file, 0);
 }
 
-wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
-{
-    auto* vm = WO_VM(vm_may_null);
-
-    auto* old_one = wo::vmbase::_this_thread_vm;
-    wo::vmbase::_this_thread_vm = vm;
-
-#if WO_ENABLE_RUNTIME_CHECK
-    if (vm != nullptr)
-        vm->attaching_thread_id = std::this_thread::get_id();
-#endif
-
-    return CS_VM(old_one);
-}
-
 void wo_gc_checkpoint(wo_vm vm)
 {
     auto* vmm = WO_VM(vm);
@@ -4261,26 +4231,24 @@ void wo_gc_checkpoint(wo_vm vm)
     }
 }
 
-thread_local static wo_vm _this_thread_gc_guarded_vm = nullptr;
-
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
     auto* vmm = WO_VM(vm);
 
     if (vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
-        if (vm != _this_thread_gc_guarded_vm)
+        if (vmm != wo::vmbase::_this_thread_gc_guard_vm)
         {
-            if (_this_thread_gc_guarded_vm != nullptr)
+            if (wo::vmbase::_this_thread_gc_guard_vm != nullptr)
                 wo_fail(WO_FAIL_CONFLICT_GC_GUARD,
                     "GC scope conflict, need to leave GC scope of VM `%p` first",
-                    _this_thread_gc_guarded_vm);
+                    wo::vmbase::_this_thread_gc_guard_vm);
 
             // Or else, if _this_thread_gc_guarded_vm is nullptr, an error has 
             // been raised, nothing need to be done.
         }
 
-        _this_thread_gc_guarded_vm = nullptr;
+        wo::vmbase::_this_thread_gc_guard_vm = nullptr;
 
         return WO_TRUE;
     }
@@ -4294,14 +4262,14 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
     {
         wo_gc_checkpoint(vm);
 
-        if (nullptr != _this_thread_gc_guarded_vm)
+        if (nullptr != wo::vmbase::_this_thread_gc_guard_vm)
         {
             wo_fail(WO_FAIL_CONFLICT_GC_GUARD,
                 "GC scope conflict, need to leave GC scope of VM `%p` first",
-                _this_thread_gc_guarded_vm);
+                wo::vmbase::_this_thread_gc_guard_vm);
         }
 
-        _this_thread_gc_guarded_vm = vm;
+        wo::vmbase::_this_thread_gc_guard_vm = vmm;
 
         return WO_TRUE;
     }
@@ -4310,7 +4278,7 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
 
 wo_vm wo_swap_gcguard(wo_vm vm_may_null)
 {
-    auto* last_vm = _this_thread_gc_guarded_vm;
+    wo_vm last_vm = CS_VM(wo::vmbase::_this_thread_gc_guard_vm);
     if (last_vm != vm_may_null)
     {
         if (last_vm != nullptr)

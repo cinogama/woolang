@@ -6,18 +6,11 @@ namespace wo
 
     void assure_leave_this_thread_vm_shared_mutex::leave(leave_context* out_context) noexcept
     {
-        out_context->m_vm = vmbase::_this_thread_vm;
-        out_context->m_leaved =
-            out_context->m_vm != nullptr
-            && wo_leave_gcguard(reinterpret_cast<wo_vm>(out_context->m_vm));
+        out_context->m_vm = wo_swap_gcguard(nullptr);
     }
     void assure_leave_this_thread_vm_shared_mutex::enter(const leave_context& in_context) noexcept
     {
-        if (in_context.m_leaved)
-        {
-            wo_assert(in_context.m_vm != nullptr);
-            wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(in_context.m_vm)));
-        }
+        wo_swap_gcguard(in_context.m_vm);
     }
     void assure_leave_this_thread_vm_shared_mutex::lock(leave_context* out_context) noexcept
     {
