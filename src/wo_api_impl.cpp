@@ -492,7 +492,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
             size_t not_close_vm_count = 0;
             for (auto& alive_vms : wo::vmbase::_alive_vm_list)
             {
-                if (alive_vms->virtual_machine_type == wo::vmbase::vm_type::NORMAL)
+                if (alive_vms->virtual_machine_type != wo::vmbase::vm_type::GC_DESTRUCTOR)
                 {
                     if (0 == not_close_vm_count)
                         not_closed_vm_call_stacks << "Unclosed VM list:";

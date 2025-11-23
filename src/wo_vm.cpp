@@ -1171,14 +1171,25 @@ namespace wo
             // In very small probability that another round of stw GC start in here. 
             // We will make sure GC_HANGUP_INTERRUPT marked repeatly until successful in gc-work.
             if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
-                gc::mark_vm(this, SIZE_MAX);
+                gc::mark_vm(this, nullptr);
 
-            wo_assure(clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT));
+            if (!clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                // `gc_checkpoint_self_mark` might be invoked in gc-work thread, if vm is WEAK_NORMAL.
+                wakeup();
         }
         else if (clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
             hangup();
     }
-
+    void vmbase::switch_vm_kind(vm_type new_type) noexcept
+    {
+        wo_assert(new_type == vm_type::NORMAL || new_type == vm_type::WEAK_NORMAL);
+        wo_assert(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
+        {
+            wo_assert(virtual_machine_type != vm_type::GC_DESTRUCTOR);
+            virtual_machine_type = new_type;
+        }
+        wo_leave_gcguard(reinterpret_cast<wo_vm>(this));
+    }
     bool vmbase::assure_stack_size(wo_size_t assure_stack_size) noexcept
     {
         wo_assert(!check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));

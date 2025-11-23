@@ -146,10 +146,16 @@ namespace wo
     class vmbase
     {
     public:
-        enum class vm_type
+        enum class vm_type: uint8_t
         {
             INVALID,
+
+            // Normal virtual machine, used for executing code. GC treats it as a root object 
+            // and directly marks its internal registers and stack space.
             NORMAL,
+
+            // Just like NORMAL, but if WEAK_NORMAL leaved, it should be marked by manually.
+            WEAK_NORMAL,
 
             // If vm's type is GC_DESTRUCTOR, GC_THREAD will not trying to pause it.
             GC_DESTRUCTOR,
@@ -186,7 +192,10 @@ namespace wo
             // 1) When the virtual machine receives GC_INTERRUPT, it sets GC_HANGUP_INTERRUPT to notify 
             //      the GC worker thread that the current virtual machine has received the interrupt request.
 
-            LEAVE_INTERRUPT = 1 << 10,
+            GC_WEAK_PENDING_INTERRUPT = 1 << 10,
+            // 
+
+            LEAVE_INTERRUPT = 1 << 11,
             // When GC work trying GC_INTERRUPT, it will wait for vm cleaning GC_INTERRUPT flag(and hangs), 
             // and the wait will be endless, besides: If LEAVE_INTERRUPT was setted, 'wait_interrupt' will 
             // try to wait in unlimitted time.
@@ -204,27 +213,27 @@ namespace wo
             // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
             //            successful. (We use 'wo_assure' here)' (Except in case of exception restore)
 
-            ABORT_INTERRUPT = 1 << 11,
+            ABORT_INTERRUPT = 1 << 12,
             // If virtual machine interrupt with ABORT_INTERRUPT, vm will stop immediately.
 
-            PENDING_INTERRUPT = 1 << 12,
+            PENDING_INTERRUPT = 1 << 13,
             // VM will be pending finish using and returned to pooled-vm, PENDING_INTERRUPT
             // only setted when vm is not running.
 
-            BR_YIELD_INTERRUPT = 1 << 13,
+            BR_YIELD_INTERRUPT = 1 << 14,
             // VM will yield & return from running-state while received BR_YIELD_INTERRUPT
 
-            DETACH_DEBUGGEE_INTERRUPT = 1 << 14,
+            DETACH_DEBUGGEE_INTERRUPT = 1 << 15,
             // VM will handle DETACH_DEBUGGEE_INTERRUPT before DEBUG_INTERRUPT, if vm handled
             // this interrupt, DEBUG_INTERRUPT will be cleared.
 
-            STACK_OVERFLOW_INTERRUPT = 1 << 15,
+            STACK_OVERFLOW_INTERRUPT = 1 << 16,
             // If stack size is not enough for PSH or PUSHN, STACK_OVERFLOW_INTERRUPT will be setted.
 
-            SHRINK_STACK_INTERRUPT = 1 << 16,
+            SHRINK_STACK_INTERRUPT = 1 << 17,
             // Advise vm to shrink it's stack usage, raised by GC-Job.
 
-            STACK_OCCUPYING_INTERRUPT = 1 << 17,
+            STACK_OCCUPYING_INTERRUPT = 1 << 18,
             // When reallocating (expanding or shrinking) stack space, stack read operations other
             // than runtime operations (since reallocation only occurs during runtime or when the VM
             // is inactive) include:
@@ -237,7 +246,7 @@ namespace wo
             // NOTE: GC-in-gc-thread will scan the stack in other thread, too, but we use gc_guard to make
             //  sure stack-reallocate never happend during GC scan.
 
-            CALL_FAR_RESYNC_VM_STATE_INTERRUPT = 1 << 18,
+            CALL_FAR_RESYNC_VM_STATE_INTERRUPT = 1 << 19,
             // [Only interrupt in VM] When a virtual machine attempts to call a function outside
             // its near code area, this is referred to as a "far call" (call far).
             // Since different code areas use different static constant tables, to ensure the virtual
@@ -357,7 +366,8 @@ namespace wo
         // When the depth reaches a certain threshold, all execution falls back to the VM runtime.
         uint8_t extern_state_jit_call_depth;
 
-        const vm_type virtual_machine_type;
+        // Only changed by `switch_vm_kind`
+        vm_type virtual_machine_type;
 
 #if WO_ENABLE_RUNTIME_CHECK
         // runtime information
@@ -415,7 +425,7 @@ namespace wo
         value *invoke(const byte_t *wo_func_addr, wo_int_t argc) noexcept;
         value *invoke(wo_native_func_t wo_func_addr, wo_int_t argc) noexcept;
         value *invoke(closure_t *wo_func_closure, wo_int_t argc) noexcept;
-
+        void switch_vm_kind(vm_type new_type) noexcept;
     public:
         // Operate support:
         static void ltx_impl(value *result, value *opnum1, value *opnum2) noexcept;

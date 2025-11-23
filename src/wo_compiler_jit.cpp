@@ -507,89 +507,94 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
         static wo_result_t _invoke_vm_checkpoint(
             wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
-            const auto interrupt_state = vmm->vm_interrupt.load(std::memory_order_acquire);
+            for (;;)
+            {
+                const auto interrupt_state = vmm->vm_interrupt.load(std::memory_order_acquire);
+                if (interrupt_state == wo::vmbase::vm_interrupt_type::NOTHING)
+                    break;
 
-            if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
-            {
-                vmm->sp = rt_sp;
-                vmm->gc_checkpoint_self_mark();
-            }
-            ///////////////////////////////////////////////////////////////////////
-            if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
-            {
-                vmm->sp = rt_sp;
-                if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                    vmm->hangup();
-            }
-            else if (interrupt_state & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT)
-            {
-                // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
-                // CLEAR ABORT_INTERRUPT
-                // store current context, then break out of jit function
-                vmm->ip = rt_ip;
-                vmm->sp = rt_sp;
-                vmm->bp = rt_bp;
+                if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
+                {
+                    vmm->sp = rt_sp;
+                    vmm->gc_checkpoint_self_mark();
+                }
+                ///////////////////////////////////////////////////////////////////////
+                if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
+                {
+                    vmm->sp = rt_sp;
+                    if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                        vmm->hangup();
+                }
+                else if (interrupt_state & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT)
+                {
+                    // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
+                    // CLEAR ABORT_INTERRUPT
+                    // store current context, then break out of jit function
+                    vmm->ip = rt_ip;
+                    vmm->sp = rt_sp;
+                    vmm->bp = rt_bp;
 
-                return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE;
-            }
-            else if (interrupt_state & wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT)
-            {
-                // NOTE: DONOT CLEAR BR_YIELD_INTERRUPT, IT SHOULD BE CLEAR IN VM-RUN
-                // store current context, then break out of jit function
-                vmm->ip = rt_ip;
-                vmm->sp = rt_sp;
-                vmm->bp = rt_bp;
+                    return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE;
+                }
+                else if (interrupt_state & wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT)
+                {
+                    // NOTE: DONOT CLEAR BR_YIELD_INTERRUPT, IT SHOULD BE CLEAR IN VM-RUN
+                    // store current context, then break out of jit function
+                    vmm->ip = rt_ip;
+                    vmm->sp = rt_sp;
+                    vmm->bp = rt_bp;
 
-                return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE; // return 
-            }
-            else if (interrupt_state & wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT)
-            {
-                // That should not be happend...
-                wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
-            }
-            else if (interrupt_state & wo::vmbase::vm_interrupt_type::PENDING_INTERRUPT)
-            {
-                // That should not be happend...
-                wo_error("Virtual machine handled a PENDING_INTERRUPT.");
-            }
-            else if (interrupt_state & wo::vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
-            {
-                while (vmm->check_interrupt(vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
-                    wo::gcbase::_shared_spin::spin_loop_hint();
-            }
-            else if (interrupt_state & wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
-            {
-                if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
-                    vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
-            }
-            else if (interrupt_state & wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
-            {
-                vmm->ip = rt_ip;
-                vmm->sp = rt_sp;
-                vmm->bp = rt_bp;
-                return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE;
-            }
-            else if (interrupt_state & wo::vmbase::vm_interrupt_type::SHRINK_STACK_INTERRUPT)
-            {
-                vmm->ip = rt_ip;
-                vmm->sp = rt_sp;
-                vmm->bp = rt_bp;
-                return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE;
-            }
-            // ATTENTION: it should be last interrupt..
-            else if (interrupt_state & wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT)
-            {
-                vmm->ip = rt_ip;
-                vmm->sp = rt_sp;
-                vmm->bp = rt_bp;
-                return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE; // return 
-            }
-            else
-            {
-                // a vm_interrupt is invalid now, just roll back one byte and continue~
-                // so here do nothing
-                wo_assert(interrupt_state == 0
-                    || interrupt_state == wo::vmbase::vm_interrupt_type::GC_INTERRUPT);
+                    return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE; // return 
+                }
+                else if (interrupt_state & wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT)
+                {
+                    // That should not be happend...
+                    wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
+                }
+                else if (interrupt_state & wo::vmbase::vm_interrupt_type::PENDING_INTERRUPT)
+                {
+                    // That should not be happend...
+                    wo_error("Virtual machine handled a PENDING_INTERRUPT.");
+                }
+                else if (interrupt_state & wo::vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
+                {
+                    while (vmm->check_interrupt(vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
+                        wo::gcbase::_shared_spin::spin_loop_hint();
+                }
+                else if (interrupt_state & wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
+                {
+                    if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
+                        vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
+                }
+                else if (interrupt_state & wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
+                {
+                    vmm->ip = rt_ip;
+                    vmm->sp = rt_sp;
+                    vmm->bp = rt_bp;
+                    return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE;
+                }
+                else if (interrupt_state & wo::vmbase::vm_interrupt_type::SHRINK_STACK_INTERRUPT)
+                {
+                    vmm->ip = rt_ip;
+                    vmm->sp = rt_sp;
+                    vmm->bp = rt_bp;
+                    return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE;
+                }
+                // ATTENTION: it should be last interrupt..
+                else if (interrupt_state & wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT)
+                {
+                    vmm->ip = rt_ip;
+                    vmm->sp = rt_sp;
+                    vmm->bp = rt_bp;
+                    return wo_result_t::WO_API_SYNC_CHANGED_VM_STATE; // return 
+                }
+                else
+                {
+                    // a vm_interrupt is invalid now, just roll back one byte and continue~
+                    // so here do nothing
+                    wo_assert(interrupt_state == 0
+                        || interrupt_state == wo::vmbase::vm_interrupt_type::GC_INTERRUPT);
+                }
             }
             return wo_result_t::WO_API_NORMAL;
         }

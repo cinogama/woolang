@@ -71,7 +71,7 @@ namespace wo
 
         void gc_start();
         void gc_stop();
-        void mark_vm(vmbase* marking_vm, size_t worker_id);
+        void mark_vm(vmbase* marking_vm, wo_gc_work_context_t ctx_may_null);
 
         WO_FORCE_INLINE bool gc_is_marking()
         {
