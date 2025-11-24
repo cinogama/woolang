@@ -721,11 +721,11 @@ WO_API wo_value wo_dispatch(
 //  correct locking, marking and barrier operations through the following functions:
 
 // NOTE: If writing to a gcstruct only involves assignment modifications to `wo_value` 
-// (via `wo_set_val...`), you can use `wo_gcunit_lock`; otherwise, you should use
-// `wo_gcunit_lock_force` to ensure thread safety.
+// (via `wo_set_val...`), you can use `wo_gcunit_lock_relaxed`; otherwise, you should use
+// `wo_gcunit_lock` to ensure thread safety.
 
-WO_API void wo_gcunit_lock_force(wo_value gc_reference_object);
-WO_API void wo_gcunit_unlock_force(wo_value gc_reference_object);
+WO_API void wo_gcunit_lock(wo_value gc_reference_object);
+WO_API void wo_gcunit_unlock(wo_value gc_reference_object);
 WO_API void wo_gcunit_lock_shared_force(wo_value gc_reference_object);
 WO_API void wo_gcunit_unlock_shared_force(wo_value gc_reference_object);
 
@@ -735,8 +735,8 @@ WO_API void wo_gcunit_unlock_shared_force(wo_value gc_reference_object);
 // To ensure compatibility with WO_FORCE_GC_OBJ_THREAD_SAFETY mode, this function
 //  still needs to be called when reading wo_value_storage of gcstruct
 
-WO_API void wo_gcunit_lock(wo_value gc_reference_object);
-WO_API void wo_gcunit_unlock(wo_value gc_reference_object);
+WO_API void wo_gcunit_lock_relaxed(wo_value gc_reference_object);
+WO_API void wo_gcunit_unlock_relaxed(wo_value gc_reference_object);
 WO_API void wo_gcunit_lock_shared(wo_value gc_reference_object);
 WO_API void wo_gcunit_unlock_shared(wo_value gc_reference_object);
 
