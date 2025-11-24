@@ -638,6 +638,17 @@ WO_API void wo_close_vm(wo_vm vm);
 WO_API wo_vm wo_borrow_vm(wo_vm vm);
 WO_API void wo_release_vm(wo_vm vm);
 
+/*
+NOTE: Before calling `wo_make_vm_weak`, please `ENSURE` that the target vm can 
+be correctly marked by the GC.
+
+Once `wo_make_vm_weak` is called, the virtual machine will no longer be treated 
+as a root object; if this function is called recklessly, it may lead to unexpected 
+termination of the virtual machine (as the GC may determine that the virtual 
+machine is unreferenced).
+*/
+WO_API void wo_make_vm_weak(wo_vm vm);
+
 WO_API wo_bool_t wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src);
 WO_API wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path);
 WO_API wo_bool_t wo_load_binary(

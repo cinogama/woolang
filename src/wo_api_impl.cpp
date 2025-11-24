@@ -2601,6 +2601,15 @@ void wo_release_vm(wo_vm vm)
         wo_close_vm(vm);
 }
 
+void wo_make_vm_weak(wo_vm vm)
+{
+    wo_vm swapback = wo_swap_gcguard(vm);
+    {
+        WO_VM(vm)->switch_vm_kind(wo::vmbase::vm_type::WEAK_NORMAL);
+    }
+    wo_swap_gcguard(swapback);
+}
+
 wo::compile_result _wo_compile_impl(
     wo_string_t virtual_src_path,
     const void* src,
