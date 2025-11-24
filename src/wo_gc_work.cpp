@@ -547,6 +547,7 @@ namespace wo
                                     {
                                         mark_vm(vmimpl, nullptr);
                                     }
+                                    // else: In very small probability, the vm has been self-marked.
 
                                     if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
                                         vmimpl->wakeup();
@@ -565,20 +566,68 @@ namespace wo
                             }
                         }
 
-                        // 0.3.2. Merge gray lists.
+                        // 0.3.2.
+                        std::vector<vmbase*> still_not_marked_weak_vmlist;
+                        for (auto* vmimpl : weak_marking_vmlist)
+                        {
+                            if (vmimpl->check_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
+                            {
+                                // This vm not marked yet.
+                                if (vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                                {
+                                    // Check if this vm still have GC_INTERRUPT, if not, it means the vm has been 
+                                    // self-marked.
+                                    if (vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
+                                    {
+                                        still_not_marked_weak_vmlist.push_back(vmimpl);
+                                        vmimpl->interrupt(vmbase::vm_interrupt_type::GC_WEAK_PENDING_INTERRUPT);
+
+                                        continue;
+                                    }
+                                    else
+                                    {
+                                        // In very small probability, the vm has been self-marked.
+                                        if (vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                                            vmimpl->wakeup();
+
+                                        continue;
+                                    }
+                                }
+                                // else: The vm already in hangup state and begin marking.
+                            }
+
+                            // Wait until specifing vm self-marking finished.
+                            while (vmimpl->check_interrupt(vmbase::GC_HANGUP_INTERRUPT))
+                            {
+                                std::vector<vmbase*> checking_for_mark_work_weak_vmlist;
+                                checking_for_mark_work_weak_vmlist.swap(still_not_marked_weak_vmlist);
+
+                                for (auto* checking_vm : checking_for_mark_work_weak_vmlist)
+                                {
+                                    if (checking_vm->check_interrupt(vmbase::GC_HANGUP_INTERRUPT))
+                                        still_not_marked_weak_vmlist.push_back(checking_vm);
+                                    else
+                                    {
+                                        // This vm has been enter gc-guard again and hanged, we will do mark job here.
+                                        mark_vm(checking_vm, nullptr);
+
+                                        wo_assure(checking_vm->clear_interrupt(vmbase::GC_WEAK_PENDING_INTERRUPT));
+                                        checking_vm->wakeup();
+                                    }
+                                }
+                            }
+                        }
+
+                        // 0.3.3. Merge gray lists.
                         size_t worker_id_counter = 0;
                         for (auto& [_vm, gray_list] : _gc_vm_gray_unit_lists)
                         {
                             // This vm has been marked.
-                            if (!_vm->check_interrupt(
-                                (vmbase::vm_interrupt_type)(vmbase::GC_INTERRUPT | vmbase::GC_HANGUP_INTERRUPT)))
-                            {
-                                auto& worker_gray_list = _gc_gray_unit_lists[
-                                    worker_id_counter++ % _gc_work_thread_count];
+                            auto& worker_gray_list = _gc_gray_unit_lists[
+                                worker_id_counter++ % _gc_work_thread_count];
 
-                                // Merge!
-                                worker_gray_list.splice_after(worker_gray_list.cbefore_begin(), gray_list);
-                            }
+                            // Merge!
+                            worker_gray_list.splice_after(worker_gray_list.cbefore_begin(), gray_list);
                         }
                     }
 
@@ -602,26 +651,6 @@ namespace wo
                         }
 
                     } while (false);
-
-                    if (!stopworld)
-                    {
-                        // TODO;
-                        //for (auto* vmimpl : weak_marking_vmlist)
-                        //{
-                        //    if (vmimpl->interrupt(vmbase::GC_HANGUP_INTERRUPT)
-                        //    {
-                        //    }
-                        //    else
-                        //    {
-                        //        while (vmimpl->check_interrupt(vmbase::GC_HANGUP_INTERRUPT))
-                        //        {
-                        //            // In marking, wait until finised.
-                        //            using namespace std;
-                        //            this_thread::sleep_for(10ms);
-                        //        }
-                        //    }
-                        //}
-                    }
 
                 } while (0);
 
@@ -662,7 +691,29 @@ namespace wo
 
                 _gc_is_marking = false;
 
-                // 3. OK, All unit has been marked. recheck weakref, remove it from list if ref has been lost
+                // 3.
+                if (!stopworld)
+                {
+                    for (auto* vmimpl : weak_marking_vmlist)
+                    {
+                        if (vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_WEAK_PENDING_INTERRUPT))
+                        {
+                            // This vm not been mark and unit in it maybe unrefed now, it cannot continue work,
+                            // so abort it.
+                            vmimpl->interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+                            if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                                vmimpl->wakeup();
+                        }
+
+                        wo_assert(!vmimpl->check_interrupt(
+                            (vmbase::vm_interrupt_type)(
+                                vmbase::GC_HANGUP_INTERRUPT 
+                                | vmbase::vm_interrupt_type::GC_INTERRUPT
+                                | vmbase::vm_interrupt_type::GC_WEAK_PENDING_INTERRUPT)));
+                    }
+                }
+
+                // 4. OK, All unit has been marked. recheck weakref, remove it from list if ref has been lost
                 do
                 {
                     std::lock_guard g1(weakref::_weak_ref_list_mx);
@@ -692,7 +743,7 @@ namespace wo
 
                 _gc_is_collecting_memo.store(false, std::memory_order_release);
 
-                // 4. OK, All unit has been marked. reduce gcunits
+                // 5. OK, All unit has been marked. reduce gcunits
                 size_t page_count, page_size;
                 char* pages = (char*)womem_enum_pages(&page_count, &page_size);
 
@@ -709,7 +760,7 @@ namespace wo
 
                 launch_round_of_mark();
 
-                // 5. Remove orpho vm
+                // 6. Remove orpho vm
                 if (fullgc && vmpool::global_vmpool_instance.has_value())
                     // Release unrefed vmpool.
                     vmpool::global_vmpool_instance.value()->gc_check_and_release_norefed_vm();
@@ -926,7 +977,8 @@ namespace wo
                                     }
                                     else
                                     {
-                                        ++_m_alive_units;
+                                        (void)_m_alive_units.fetch_add(1, std::memory_order_relaxed);
+
                                         wo_assert(attr->m_marked != (uint8_t)gcbase::gcmarkcolor::self_mark);
                                         attr->m_marked = (uint8_t)gcbase::gcmarkcolor::no_mark;
 
@@ -945,11 +997,11 @@ namespace wo
         public:
             void reset_alive_unit_count()
             {
-                _m_alive_units.store(0);
+                _m_alive_units.store(0, std::memory_order_release);
             }
             size_t get_alive_unit_count()
             {
-                return _m_alive_units.load();
+                return _m_alive_units.load(std::memory_order_acquire);
             }
 
             _gc_mark_thread_groups()
