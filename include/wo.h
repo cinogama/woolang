@@ -708,16 +708,24 @@ WO_API wo_value wo_dispatch(
 
 // Woolang 1.14.4, gcstruct is a gchandle with a mark callback. Users should perform
 //  correct locking, marking and barrier operations through the following functions:
-WO_API void wo_gcunit_lock(wo_value gc_reference_object);
-WO_API void wo_gcunit_unlock(wo_value gc_reference_object);
+
+// NOTE: If writing to a gcstruct only involves assignment modifications to `wo_value` 
+// (via `wo_set_val...`), you can use `wo_gcunit_lock`; otherwise, you should use
+// `wo_gcunit_lock_force` to ensure thread safety.
+
+WO_API void wo_gcunit_lock_force(wo_value gc_reference_object);
+WO_API void wo_gcunit_unlock_force(wo_value gc_reference_object);
 WO_API void wo_gcunit_lock_shared_force(wo_value gc_reference_object);
 WO_API void wo_gcunit_unlock_shared_force(wo_value gc_reference_object);
 
 // ATTENTION: If woolang DONOT support WO_FORCE_GC_OBJ_THREAD_SAFETY, following
-//  function will DO NOTHING, to lock shared forcely, you need use the force version.
+//  function will DO NOTHING, to lock forcely, you need use the force version.
 //
 // To ensure compatibility with WO_FORCE_GC_OBJ_THREAD_SAFETY mode, this function
 //  still needs to be called when reading wo_value_storage of gcstruct
+
+WO_API void wo_gcunit_lock(wo_value gc_reference_object);
+WO_API void wo_gcunit_unlock(wo_value gc_reference_object);
 WO_API void wo_gcunit_lock_shared(wo_value gc_reference_object);
 WO_API void wo_gcunit_unlock_shared(wo_value gc_reference_object);
 

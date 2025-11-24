@@ -4016,7 +4016,7 @@ wo_bool_t wo_gchandle_close(wo_value gchandle)
     return WO_CBOOL(gchandle_ptr->do_close());
 }
 
-void wo_gcunit_lock(wo_value gc_reference_object)
+void wo_gcunit_lock_force(wo_value gc_reference_object)
 {
     auto* value = WO_VAL(gc_reference_object);
     if (value->is_gcunit())
@@ -4029,7 +4029,8 @@ void wo_gcunit_lock(wo_value gc_reference_object)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
     }
 }
-void wo_gcunit_unlock(wo_value gc_reference_object)
+
+void wo_gcunit_unlock_force(wo_value gc_reference_object)
 {
     auto* value = WO_VAL(gc_reference_object);
     if (value->is_gcunit())
@@ -4042,6 +4043,7 @@ void wo_gcunit_unlock(wo_value gc_reference_object)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
     }
 }
+
 void wo_gcunit_lock_shared_force(wo_value gc_reference_object)
 {
     auto* value = WO_VAL(gc_reference_object);
@@ -4055,6 +4057,7 @@ void wo_gcunit_lock_shared_force(wo_value gc_reference_object)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
     }
 }
+
 void wo_gcunit_unlock_shared_force(wo_value gc_reference_object)
 {
     auto* value = WO_VAL(gc_reference_object);
@@ -4068,19 +4071,41 @@ void wo_gcunit_unlock_shared_force(wo_value gc_reference_object)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not lockable.");
     }
 }
+
+void wo_gcunit_lock(wo_value gc_reference_object)
+{
+#if WO_FORCE_GC_OBJ_THREAD_SAFETY
+    wo_gcunit_lock_force(gc_reference_object);
+#else
+    (void)gc_reference_object;
+#endif
+}
+
+void wo_gcunit_unlock(wo_value gc_reference_object)
+{
+#if WO_FORCE_GC_OBJ_THREAD_SAFETY
+    wo_gcunit_unlock_force(gc_reference_object);
+#else
+    (void)gc_reference_object;
+#endif
+}
+
 void wo_gcunit_lock_shared(wo_value gc_reference_object)
 {
 #if WO_FORCE_GC_OBJ_THREAD_SAFETY
     wo_gcunit_lock_shared_force(gc_reference_object);
-#endif
+#else
     (void)gc_reference_object;
+#endif
 }
+
 void wo_gcunit_unlock_shared(wo_value gc_reference_object)
 {
 #if WO_FORCE_GC_OBJ_THREAD_SAFETY
     wo_gcunit_unlock_shared_force(gc_reference_object);
-#endif
+#else
     (void)gc_reference_object;
+#endif
 }
 
 // DEBUGGEE TOOLS
