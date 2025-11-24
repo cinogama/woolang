@@ -731,16 +731,10 @@ WO_API void wo_gcunit_unlock_shared(wo_value gc_reference_object);
 
 WO_API void wo_gc_mark(wo_gc_work_context_t context, wo_value value_to_mark);
 WO_API void wo_gc_mark_unit(wo_gc_work_context_t context, void* unitaddr);
+WO_API void wo_gc_mark_weak_vm(wo_gc_work_context_t context, wo_vm vm);
 
 WO_API void wo_gc_checkpoint(wo_vm vm);
 
-// The set_val_with_barrier should be executed in the following scenarios:
-//  1) When about to write and overwrite a GC-managed wo_value within a gc-struct,
-//      where this value may hold instances requiring GC management (performed on 
-//      the value being overwritten).
-//  2) When a value assigned from A vm state to B vm state, and it not used as 
-//      arguments for `wo_invoke_value` or `wo_dispatch_value`.(performed both on 
-//      the value being read and overwritten)
 WO_API void wo_gc_write_barrier(wo_value value);
 WO_API void wo_set_val_with_write_barrier(wo_value value, wo_value val);
 

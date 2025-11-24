@@ -1182,13 +1182,16 @@ namespace wo
     }
     void vmbase::switch_vm_kind(vm_type new_type) noexcept
     {
-        wo_assert(new_type == vm_type::NORMAL || new_type == vm_type::WEAK_NORMAL);
-        wo_assert(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
-        {
-            wo_assert(virtual_machine_type != vm_type::GC_DESTRUCTOR);
-            virtual_machine_type = new_type;
-        }
-        wo_leave_gcguard(reinterpret_cast<wo_vm>(this));
+        // Must in gc guard or pending.
+        wo_assert(!check_interrupt(
+            (vm_interrupt_type)(
+                vm_interrupt_type::LEAVE_INTERRUPT 
+                | vm_interrupt_type::PENDING_INTERRUPT)));
+        wo_assert(
+            virtual_machine_type != vm_type::GC_DESTRUCTOR
+            && (new_type == vm_type::NORMAL || new_type == vm_type::WEAK_NORMAL));
+
+        virtual_machine_type = new_type;
     }
     bool vmbase::assure_stack_size(wo_size_t assure_stack_size) noexcept
     {

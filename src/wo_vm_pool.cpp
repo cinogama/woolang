@@ -65,6 +65,9 @@ namespace wo
         wo_assert(vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
         wo_assure(vm->interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
 
+        // Switch back to normal.
+        vm->switch_vm_kind(vmbase::vm_type::NORMAL);
+
         // Clear stack & register to make sure gc will not mark the useless data of current vm;
         vm->sp = vm->bp = vm->sb;
 
@@ -140,7 +143,9 @@ namespace wo
                 auto* env_ptr = vm->env.get();
 
                 auto r = m_pool.insert(
-                    std::make_pair(env_ptr, std::make_unique<vmpool_for_spec_env>(env_ptr)));
+                    std::make_pair(
+                        env_ptr, 
+                        std::make_unique<vmpool_for_spec_env>(env_ptr)));
 
                 wo_assert(r.second);
                 pool = r.first->second.get();

@@ -1327,8 +1327,8 @@ void wo_gc_immediately(wo_bool_t fullgc)
 }
 void wo_gc_mark(wo_gc_work_context_t context, wo_value gc_reference_object)
 {
-    wo::value* val = std::launder(reinterpret_cast<wo::value*>(gc_reference_object));
-    auto* worklist = std::launder(reinterpret_cast<wo::gc::_wo_gray_unit_list_t*>(context));
+    wo::value* val = reinterpret_cast<wo::value*>(gc_reference_object);
+    auto* worklist = reinterpret_cast<wo::gc::_wo_gray_unit_list_t*>(context);
 
     wo::gc::unit_attrib* attr;
     if (wo::gcbase* gcunit_addr = val->get_gcunit_and_attrib_ref(&attr))
@@ -1336,8 +1336,7 @@ void wo_gc_mark(wo_gc_work_context_t context, wo_value gc_reference_object)
 }
 void wo_gc_mark_unit(wo_gc_work_context_t context, void* unitaddr)
 {
-    auto* worklist = std::launder(
-        reinterpret_cast<wo::gc::_wo_gray_unit_list_t*>(context));
+    auto* worklist = reinterpret_cast<wo::gc::_wo_gray_unit_list_t*>(context);
 
     wo::gc::unit_attrib* attr;
     if (wo::gcbase* gcunit_addr =
@@ -1347,5 +1346,16 @@ void wo_gc_mark_unit(wo_gc_work_context_t context, void* unitaddr)
     {
         wo::gc::gc_mark_unit_as_gray(
             worklist, gcunit_addr, attr);
+    }
+}
+void wo_gc_mark_weak_vm(wo_gc_work_context_t context, wo_vm vm)
+{
+    wo::vmbase* vminstance = reinterpret_cast<wo::vmbase*>(vm);
+    if (vminstance->clear_interrupt(wo::vmbase::GC_WEAK_PENDING_INTERRUPT))
+    {
+        wo::gc::mark_vm(vminstance, context);
+
+        if (!vminstance->clear_interrupt(wo::vmbase::GC_HANGUP_INTERRUPT))
+            vminstance->wakeup();
     }
 }
