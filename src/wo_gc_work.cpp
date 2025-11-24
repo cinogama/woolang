@@ -331,20 +331,20 @@ namespace wo
             {
                 // Pick all gcunit before 1st mark begin.
                 // It means all unit alloced when marking will be skiped to free.
-                std::vector<vmbase*>
-                    gc_marking_vmlist,
-                    weak_marking_vmlist,
-                    self_marking_vmlist,
-                    gc_destructor_vmlist;
-
                 _wo_gray_unit_list_t mem_gray_list;
 
                 // 0. Mark all root value.
                 reset_alive_unit_count();
+
+                std::vector<vmbase*> weak_marking_vmlist;
                 do
                 {
                     // Lock alive vm list, block new vm create.
                     wo::assure_leave_this_thread_vm_shared_lock sg1(vmbase::_alive_vm_list_mx);
+                    std::vector<vmbase*>
+                        gc_marking_vmlist,
+                        self_marking_vmlist,
+                        gc_destructor_vmlist;
 
                     // Ignore old memo, they are useless.
                     auto* old_mem_units = m_memo_mark_gray_list.pick_all();
@@ -694,9 +694,11 @@ namespace wo
                 // 3.
                 if (!stopworld)
                 {
+                    wo::assure_leave_this_thread_vm_shared_lock sg1(vmbase::_alive_vm_list_mx);
                     for (auto* vmimpl : weak_marking_vmlist)
                     {
-                        if (vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_WEAK_PENDING_INTERRUPT))
+                        if (vmbase::_gc_ready_vm_list.find(vmimpl) != vmbase::_gc_ready_vm_list.end()
+                            && vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_WEAK_PENDING_INTERRUPT))
                         {
                             // This vm not been mark and unit in it maybe unrefed now, it cannot continue work,
                             // so abort it.
@@ -704,12 +706,6 @@ namespace wo
                             if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
                                 vmimpl->wakeup();
                         }
-
-                        wo_assert(!vmimpl->check_interrupt(
-                            (vmbase::vm_interrupt_type)(
-                                vmbase::GC_HANGUP_INTERRUPT 
-                                | vmbase::vm_interrupt_type::GC_INTERRUPT
-                                | vmbase::vm_interrupt_type::GC_WEAK_PENDING_INTERRUPT)));
                     }
                 }
 

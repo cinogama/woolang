@@ -52,6 +52,10 @@ namespace wo
         wo_assert(fetched_vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
         wo_assert(fetched_vm->bp == fetched_vm->sp && fetched_vm->bp == fetched_vm->sb);
 
+        if (fetched_vm->virtual_machine_type == vmbase::vm_type::WEAK_NORMAL)
+            // Switch back to normal.
+            fetched_vm->switch_vm_kind(vmbase::vm_type::NORMAL);
+
         wo_assure(fetched_vm->clear_interrupt(
             (vmbase::vm_interrupt_type)(
                 vmbase::vm_interrupt_type::PENDING_INTERRUPT
@@ -64,9 +68,6 @@ namespace wo
     {
         wo_assert(vm->check_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
         wo_assure(vm->interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
-
-        // Switch back to normal.
-        vm->switch_vm_kind(vmbase::vm_type::NORMAL);
 
         // Clear stack & register to make sure gc will not mark the useless data of current vm;
         vm->sp = vm->bp = vm->sb;
