@@ -13,15 +13,12 @@ namespace wo
 {
     namespace platform_info
     {
-        struct OSType
+        enum class OSType: uint8_t
         {
-            enum Type
-            {
-                UNKNOWN = 0x00'00'00'00,
-                WINDOWS = 0b0000'0001,
-                LINUX = 0b0000'0010,
-                MACOSX = 0b0000'0100,
-            };
+            UNKNOWN,
+            WINDOWS,
+            LINUX,
+            MACOSX,
         };
 
         constexpr auto OS_TYPE =
@@ -35,7 +32,7 @@ namespace wo
             OSType::UNKNOWN
 #endif
             ;
-        struct ArchType
+        struct ArchMask
         {
             enum Type
             {
@@ -49,37 +46,37 @@ namespace wo
 
         constexpr auto ARCH_TYPE =
 #if defined(_M_IX86) || defined(__i386__)
-            ArchType::X86 | 0;
+            ArchMask::X86 | 0;
 #           define WO_PLATFORM_32 
 #           define WO_PLATFORM_X86
 #           define WO_VM_SUPPORT_FAST_NO_ALIGN
 #elif  defined(__x86_64__) || defined(_M_X64) 
-            ArchType::X86 | ArchType::BIT64;
+            ArchMask::X86 | ArchMask::BIT64;
 #           define WO_PLATFORM_64
 #           define WO_PLATFORM_X64
 #           define WO_VM_SUPPORT_FAST_NO_ALIGN
 #elif  defined(_M_ARM)||defined(__arm__)
-            ArchType::ARM | 0;
+            ArchMask::ARM | 0;
 #           define WO_PLATFORM_32 
 #           define WO_PLATFORM_ARM
 #elif  defined(__aarch64__) ||defined(_M_ARM64) 
-            ArchType::ARM | ArchType::BIT64;
+            ArchMask::ARM | ArchMask::BIT64;
 #           define WO_PLATFORM_64
 #           define WO_PLATFORM_ARM64
 #else
 #   if !defined(WO_PLATFORM_32) && !defined(WO_PLATFORM_64)
 #       error "Unknown platform, you must specify platform manually."
 #   endif
-            ArchType::UNKNOWN
+            ArchMask::UNKNOWN
 #   ifdef WO_PLATFORM_64
-            | ArchType::BIT64
+            | ArchMask::BIT64
 #   endif
             ;
 #endif
 #ifdef WO_PLATFORM_32
-        static_assert(0 == (ARCH_TYPE & ArchType::BIT64));
+        static_assert(0 == (ARCH_TYPE & ArchMask::BIT64));
 #else
-        static_assert(0 != (ARCH_TYPE & ArchType::BIT64));
+        static_assert(0 != (ARCH_TYPE & ArchMask::BIT64));
 #endif
     }
     namespace config

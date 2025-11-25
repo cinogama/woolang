@@ -739,7 +739,7 @@ namespace wo
                 if (node->m_LANG_refilling_template_target_symbol.has_value())
                     type_symbol = node->m_LANG_refilling_template_target_symbol.value();
 
-                wo_assert(type_symbol->m_symbol_kind != lang_Symbol::VARIABLE);
+                wo_assert(type_symbol->m_symbol_kind != lang_Symbol::kind::VARIABLE);
 
                 if (!type_symbol->m_is_builtin)
                 {
@@ -792,7 +792,7 @@ namespace wo
                             }
                             else
                             {
-                                if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                                if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
                                     alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
                                         template_eval_state_instance)->m_alias_instance.get();
                                 else
@@ -802,14 +802,14 @@ namespace wo
                         }
                         else
                         {
-                            if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                            if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
                                 alias_instance = type_symbol->m_alias_instance;
                             else
                                 type_instance = type_symbol->m_type_instance;
                         }
 
                         bool type_or_alias_determined =
-                            type_symbol->m_symbol_kind == lang_Symbol::ALIAS
+                            type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS
                             ? alias_instance->m_determined_type.has_value()
                             : type_instance->get_determined_type().has_value()
                             ;
@@ -838,7 +838,7 @@ namespace wo
                             }
 
                             // NOTE: Type not decided is okay, but alias not.
-                            if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                            if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
                             {
                                 lex.record_lang_error(lexer::msglevel_t::error, node,
                                     WO_ERR_TYPE_DETERMINED_FAILED);
@@ -846,7 +846,7 @@ namespace wo
                             }
                         }
 
-                        if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                        if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
                         {
                             // Check symbol can be reach.
                             if (!check_symbol_is_reachable_in_current_scope(
@@ -899,7 +899,7 @@ namespace wo
                         }
                         else if (!node->duplicated_node)
                         {
-                            wo_assert(type_symbol->m_symbol_kind == lang_Symbol::TYPE);
+                            wo_assert(type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
                             if (!check_symbol_is_imported(
                                 lex,
                                 node,
@@ -915,7 +915,7 @@ namespace wo
 
                         finish_eval_template_ast(lex, eval_state);
 
-                        if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                        if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
                             alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
                                 eval_state)->m_alias_instance.get();
                         else
@@ -923,7 +923,7 @@ namespace wo
                                 eval_state)->m_type_instance.get();
                     }
 
-                    if (type_symbol->m_symbol_kind == lang_Symbol::ALIAS)
+                    if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
                     {
                         // Eval alias type.
                         node->m_LANG_alias_instance_only_for_lspv2 = alias_instance;
@@ -1060,7 +1060,7 @@ namespace wo
                     wo_assert(node->m_identifier->m_LANG_determined_symbol);
                     lang_Symbol* var_symbol = node->m_identifier->m_LANG_determined_symbol.value();
 
-                    wo_assert(var_symbol->m_symbol_kind == lang_Symbol::VARIABLE);
+                    wo_assert(var_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
                     if (var_symbol->m_is_template)
                     {
                         // TEMPLATE!!!

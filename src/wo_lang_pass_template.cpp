@@ -1048,8 +1048,15 @@ namespace wo
                     && !function_symbol->m_template_value_instances->m_mutable
                     && function_symbol->m_template_value_instances->m_origin_value_ast->node_type == ast::AstBase::AST_VALUE_FUNCTION
                     && (!function_variable_identifier->m_template_arguments.has_value()
-                        || function_symbol->m_template_value_instances->m_template_params.size()
-                        != function_variable_identifier->m_template_arguments.value().size()))
+                        /*
+                        Here, as long as the number of generic arguments is greater than or equal to the
+                        number of generic parameters, it is considered that the arguments have been filled.
+
+                        Parameter count mismatch issues will be handled elsewhere, this function only checks
+                        whether the arguments are satisfied.
+                        */
+                        || (function_symbol->m_template_value_instances->m_template_params.size() >
+                            function_variable_identifier->m_template_arguments.value().size())))
                 {
                     if (function_variable->m_identifier->m_template_arguments.has_value())
                         WO_CONTINUE_PROCESS_LIST(function_variable->m_identifier->m_template_arguments.value());
@@ -1078,7 +1085,8 @@ namespace wo
                 if (symbol->m_symbol_kind == lang_Symbol::kind::TYPE
                     && symbol->m_is_template
                     && symbol->m_template_type_instances->m_origin_value_ast->node_type == ast::AstBase::AST_TYPE_HOLDER
-                    && static_cast<ast::AstTypeHolder*>(symbol->m_template_type_instances->m_origin_value_ast)->m_formal == ast::AstTypeHolder::STRUCTURE
+                    && static_cast<ast::AstTypeHolder*>(
+                        symbol->m_template_type_instances->m_origin_value_ast)->m_formal == ast::AstTypeHolder::STRUCTURE
                     && (!struct_type_identifier->m_template_arguments.has_value()
                         || struct_type_identifier->m_template_arguments.value().size()
                         != symbol->m_template_type_instances->m_template_params.size()))

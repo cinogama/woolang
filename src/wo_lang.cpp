@@ -33,19 +33,19 @@ namespace wo
     {
         switch (m_symbol_kind)
         {
-        case VARIABLE:
+        case kind::VARIABLE:
             if (m_is_template)
                 delete m_template_value_instances;
             else
                 delete m_value_instance;
             break;
-        case TYPE:
+        case kind::TYPE:
             if (m_is_template)
                 delete m_template_type_instances;
             else
                 delete m_type_instance;
             break;
-        case ALIAS:
+        case kind::ALIAS:
             if (m_is_template)
                 delete m_template_alias_instances;
             else
@@ -77,14 +77,14 @@ namespace wo
     {
         switch (kind)
         {
-        case VARIABLE:
+        case kind::VARIABLE:
             m_value_instance = new lang_ValueInstance(
                 mutable_variable, this, std::nullopt);
             break;
-        case TYPE:
+        case kind::TYPE:
             m_type_instance = new lang_TypeInstance(this, std::nullopt);
             break;
-        case ALIAS:
+        case kind::ALIAS:
             m_alias_instance = new lang_AliasInstance(this, std::nullopt);
             break;
         default:
@@ -100,7 +100,7 @@ namespace wo
         ast::AstValueBase* template_value_base,
         const std::vector<ast::AstTemplateParam*>& template_params,
         bool mutable_variable)
-        : m_symbol_kind(VARIABLE)
+        : m_symbol_kind(kind::VARIABLE)
         , m_is_template(true)
         , m_is_global(false)
         , m_name(name)
@@ -137,13 +137,13 @@ namespace wo
     {
         if (is_alias)
         {
-            m_symbol_kind = ALIAS;
+            m_symbol_kind = kind::ALIAS;
             m_template_alias_instances = new TemplateAliasPrefab(
                 this, template_type_base, template_params);
         }
         else
         {
-            m_symbol_kind = TYPE;
+            m_symbol_kind = kind::TYPE;
             m_template_type_instances = new TemplateTypePrefab(
                 this, template_type_base, template_params);
         }

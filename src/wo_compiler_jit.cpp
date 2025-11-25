@@ -1968,24 +1968,36 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             if (opnum1.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)), opnum1.const_value()->m_integer));
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)),
+                    opnum1.const_value()->m_integer));
                 wo_assure(!ctx->c.setl(temp_result)); // op2 < const => const > op2
             }
             else if (opnum2.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), 
+                    opnum2.const_value()->m_integer));
                 wo_assure(!ctx->c.setg(temp_result));
             }
             else
             {
-                wo_assure(!ctx->c.mov(result_reg, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
-                wo_assure(!ctx->c.cmp(result_reg, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.mov(
+                    result_reg, 
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.cmp(
+                    result_reg, 
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
                 wo_assure(!ctx->c.setg(temp_result));
             }
 
             wo_assure(!ctx->c.movzx(result_reg.r32(), temp_result));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
-            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer))
+                , result_reg));
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), 
+                (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
@@ -2001,19 +2013,27 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             if (opnum1.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)), opnum1.const_value()->m_integer));
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)), 
+                    opnum1.const_value()->m_integer));
                 ctx->c.jle(x86_cmp_fail);
             }
             else if (opnum2.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), 
+                    opnum2.const_value()->m_integer));
                 ctx->c.jg(x86_cmp_fail);
             }
             else
             {
                 auto int_of_op1 = ctx->c.newInt64();
-                wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
-                wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.mov(
+                    int_of_op1, 
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.cmp(
+                    int_of_op1, 
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
                 ctx->c.jg(x86_cmp_fail);
             }
 
@@ -2037,19 +2057,27 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
 
             if (opnum1.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)), opnum1.const_value()->m_integer));
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)),
+                    opnum1.const_value()->m_integer));
                 ctx->c.jge(x86_cmp_fail);
             }
             else if (opnum2.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)),
+                    opnum2.const_value()->m_integer));
                 ctx->c.jl(x86_cmp_fail);
             }
             else
             {
                 auto int_of_op1 = ctx->c.newInt64();
-                wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
-                wo_assure(!ctx->c.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.mov(
+                    int_of_op1, 
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+                wo_assure(!ctx->c.cmp(
+                    int_of_op1, 
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
                 ctx->c.jl(x86_cmp_fail);
             }
 
@@ -3248,7 +3276,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
     {
         switch (platform_info::ARCH_TYPE)
         {
-        case platform_info::ArchType::X86 | platform_info::ArchType::BIT64:
+        case platform_info::ArchMask::X86 | platform_info::ArchMask::BIT64:
             asmjit_compiler_x64().analyze_jit(codebuf, env);
             break;
         default:
@@ -3260,7 +3288,7 @@ WO_ASMJIT_IR_ITERFACE_DECL(unpack)
     {
         switch (platform_info::ARCH_TYPE)
         {
-        case platform_info::ArchType::X86 | platform_info::ArchType::BIT64:
+        case platform_info::ArchMask::X86 | platform_info::ArchMask::BIT64:
             asmjit_compiler_x64::free_jit(env);
             break;
         default:

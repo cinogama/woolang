@@ -271,7 +271,7 @@ namespace wo
 
     struct lang_Symbol
     {
-        enum kind
+        enum class kind: uint8_t
         {
             VARIABLE,
             TYPE,
