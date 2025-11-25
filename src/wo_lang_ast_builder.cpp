@@ -1114,6 +1114,15 @@ namespace wo
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
             return new AstValueTypeid(type);
         }
+        auto pass_typeid_with_expr::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstValueBase* value = WO_NEED_AST_VALUE(2);
+            AstTypeHolder* type_holder = new AstTypeHolder(value);
+
+            type_holder->source_location = value->source_location;
+
+            return new AstValueTypeid(type_holder);
+        }
         auto pass_unary_operation::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token operation = WO_NEED_TOKEN(0);
@@ -1826,6 +1835,7 @@ namespace wo
             WO_AST_BUILDER(pass_literal);
             WO_AST_BUILDER(pass_literal_char);
             WO_AST_BUILDER(pass_typeid);
+            WO_AST_BUILDER(pass_typeid_with_expr);
             WO_AST_BUILDER(pass_unary_operation);
             WO_AST_BUILDER(pass_variable);
             WO_AST_BUILDER(pass_cast_type);

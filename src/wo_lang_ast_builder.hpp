@@ -195,6 +195,7 @@ struct NAME : public astnode_builder                    \
         WO_AST_BUILDER(pass_literal);
         WO_AST_BUILDER(pass_literal_char);
         WO_AST_BUILDER(pass_typeid);
+        WO_AST_BUILDER(pass_typeid_with_expr);
         WO_AST_BUILDER(pass_unary_operation);
         WO_AST_BUILDER(pass_variable);
         WO_AST_BUILDER(pass_cast_type);
