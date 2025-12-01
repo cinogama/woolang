@@ -306,6 +306,23 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 if (!type_match)
                     return "<released>";
             }
+            else
+            {
+                switch (val->m_type)
+                {
+                case wo::value::valuetype::invalid:
+                case wo::value::valuetype::integer_type:
+                case wo::value::valuetype::real_type:
+                case wo::value::valuetype::handle_type:
+                case wo::value::valuetype::bool_type:
+                case wo::value::valuetype::script_func_type:
+                case wo::value::valuetype::native_func_type:
+                    break;
+                default:
+                    // Unexpected type
+                    return "<unexpected type>";
+                }
+            }
 
             auto result = std::string("<")
                 + wo_type_name((wo_type_t)val->m_type) + "> "
@@ -886,7 +903,10 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         {
                             if (vmm->env)
                             {
-                                auto&& funcname = vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                                auto&& funcname =
+                                    vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(
+                                        current_runtime_ip);
+
                                 auto fnd = vmm->env->program_debug_info->_function_ip_data_buf.find(funcname);
                                 if (fnd != vmm->env->program_debug_info->_function_ip_data_buf.end())
                                 {

@@ -1553,8 +1553,10 @@ wo_string_t wo_cast_string(wo_value value)
         return _buf.c_str();
     case wo::value::valuetype::string_type:
         return _rsvalue->m_string->c_str();
+    case wo::value::valuetype::script_func_type:
+    case wo::value::valuetype::native_func_type:
     case wo::value::valuetype::closure_type:
-        return "<closure function>";
+        return "<function>";
     case wo::value::valuetype::invalid:
         return "nil";
     default:
