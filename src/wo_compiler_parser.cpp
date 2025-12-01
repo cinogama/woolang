@@ -775,10 +775,7 @@ namespace wo
 
         const lexer::peeked_token_t* peeked_token_instance = tkr.peek(true);
 
-        // Reused temporary containers to avoid repeated allocations in error recovery path.
-        std::vector<te_nt_index_t> reduceables;
-        reduceables.reserve(16);
-        std::string out_str;
+        std::unordered_set<te_nt_index_t> error_recover_reduceables;
 
         do
         {
@@ -853,9 +850,6 @@ namespace wo
                     while (!state_stack.empty())
                     {
                         size_t stateid = state_stack.back();
-
-                        // Collect reduceables efficiently using LR1_TABLE iterator to avoid double lookup.
-                        reduceables.clear();
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
                         if (lr1_fast_cache_enabled())
                         {
@@ -863,83 +857,47 @@ namespace wo
                             {
                                 int state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[stateid][1] * LR1_R_S_CACHE_SZ + i];
                                 if (state < 0)
-                                {
-                                    te_nt_index_t cand = RT_PRODUCTION_P[(-state) - 1].production_aim;
-                                    if (std::find(reduceables.begin(), reduceables.end(), cand) == reduceables.end())
-                                        reduceables.push_back(cand);
-                                }
+                                    error_recover_reduceables.insert(
+                                        RT_PRODUCTION_P[(-state) - 1].production_aim);
                             }
                         }
                         else
 #endif
                         {
-                            auto it = LR1_TABLE.find(stateid);
-                            if (it != LR1_TABLE.end())
-                            {
-                                // iterate once and collect reduction targets
-                                for (auto& act : it->second)
-                                {
-                                    if (!act.second.empty())
-                                    {
-                                        const auto& first_act = act.second.begin()->act;
-                                        if (first_act == action::act_type::reduction)
-                                        {
-                                            te_nt_index_t cand = RT_PRODUCTION_P[act.second.begin()->state].production_aim;
-                                            if (std::find(reduceables.begin(), reduceables.end(), cand) == reduceables.end())
-                                                reduceables.push_back(cand);
-                                        }
-                                    }
-                                }
-                            }
+                            if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
+                                for (auto act : LR1_TABLE.at(stateid))
+                                    if (act.second.size() && act.second.begin()->act == action::act_type::reduction)
+                                        error_recover_reduceables.insert(
+                                            RT_PRODUCTION_P[act.second.begin()->state].production_aim);
                         }
 
-                        if (!reduceables.empty())
+                        if (!error_recover_reduceables.empty())
                         {
-                            // Cache the peeked token locally to minimize calls into lexer peek().
-                            wo::lex_type out_lex = lex_type::l_empty;
-                            const lexer::peeked_token_t* local_peek = tkr.peek(true);
-                            while ((out_lex = local_peek->m_lex_type) != lex_type::l_eof)
+                            wo::lex_type out_lex;
+                            while ((out_lex = tkr.peek(true)->m_lex_type) != lex_type::l_eof)
                             {
-                                bool matched = false;
-                                // Cache token text once per lookahead iteration to avoid repeated copies.
-                                out_str = local_peek->m_token_text;
-                                for (te_nt_index_t fr : reduceables)
+                                for (te_nt_index_t fr : error_recover_reduceables)
                                 {
                                     // FIND NON-TE AND IT'S FOLLOW
                                     auto& follow_set = FOLLOW_READ(fr);
 
-                                    // linear scan; usually follow sets are small.
-                                    for (const auto& t : follow_set)
-                                    {
-                                        // first compare lex_type (cheap), only then compare string
-                                        if (t.t_type != out_lex)
-                                            continue;
-
-                                        if (t.t_name.empty() || t.t_name == out_str)
+                                    auto place = std::find_if(
+                                        follow_set.begin(), 
+                                        follow_set.end(), 
+                                        [&](const te& t)
                                         {
-                                            matched = true;
-                                            break;
-                                        }
-                                    }
-                                    if (matched)
-                                        break;
+                                            return t.t_type == out_lex;
+                                        });
+                                    if (place != follow_set.end())
+                                        goto error_progress_end;
                                 }
-                                if (matched)
-                                    break;
-
                                 tkr.move_forward(true);
-                                local_peek = tkr.peek(true);
+                                peeked_token_instance = tkr.peek(true);
                             }
-                            // if we exhausted to EOF without match, cannot recover from this state
-                            if (local_peek->m_lex_type == lex_type::l_eof)
-                                goto error_handle_fail;
-
-                            // update the external peeked instance to current lexer state before continue outer loop
-                            peeked_token_instance = local_peek;
-                            goto error_progress_end;
+                            goto error_handle_fail;
                         }
 
-                        if (node_stack.size())
+                        if (! node_stack.empty())
                         {
                             state_stack.pop_back();
                             sym_stack.pop_back();
