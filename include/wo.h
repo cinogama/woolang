@@ -412,7 +412,7 @@ WO_API void wo_set_gcstruct(
     wo_gcstruct_mark_func_t mark_func,
     wo_gchandle_close_func_t destruct_func);
 WO_API void wo_set_struct(wo_value value, uint16_t structsz);
-WO_API void wo_set_arr(wo_value value, wo_int_t count);
+WO_API void wo_set_arr(wo_value value, wo_size_t count);
 WO_API void wo_set_map(wo_value value, wo_size_t reserved);
 WO_API void wo_set_union(wo_value value, wo_integer_t id, wo_value value_may_null);
 
@@ -427,7 +427,7 @@ WO_API wo_string_t wo_cast_string(wo_value value);
 WO_API wo_bool_t wo_serialize(wo_value value, wo_string_t* out_str);
 WO_API wo_bool_t wo_deserialize(wo_value value, wo_string_t str, wo_type_t except_type);
 
-WO_API wo_string_t wo_type_name(wo_type_t value);
+WO_API wo_string_t wo_type_name(wo_type_t type);
 
 WO_API wo_result_t wo_ret_void(wo_vm vm);
 WO_API wo_result_t wo_ret_char(wo_vm vm, wo_wchar_t result);
@@ -456,6 +456,7 @@ WO_API wo_result_t wo_ret_gcstruct(
 WO_API wo_result_t wo_ret_dup(wo_vm vm, wo_value result);
 
 WO_API wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...);
+
 WO_API wo_result_t wo_ret_union(wo_vm vm, wo_integer_t id, wo_value value_may_null);
 
 WO_API void wo_set_option_void(wo_value val);
@@ -625,10 +626,11 @@ WO_API const void* wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
 WO_API void wo_close_virtual_file(wo_virtual_file_t file);
 
 WO_API wo_virtual_file_iter_t wo_open_virtual_file_iter(void);
-WO_API wo_string_t wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
+WO_API wo_string_t /* may null */ wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
 WO_API void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
 
 WO_API wo_bool_t wo_remove_virtual_file(wo_string_t filepath);
+
 WO_API wo_vm wo_create_vm(void);
 WO_API wo_vm wo_sub_vm(wo_vm vm);
 WO_API void wo_close_vm(wo_vm vm);
@@ -664,7 +666,7 @@ WO_API wo_bool_t wo_jit(wo_vm vm);
 // wo_run is used for init a vm.
 WO_API wo_value wo_run(wo_vm vm);
 
-WO_API wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* data);
+WO_API wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback_may_null, void* data);
 
 WO_API wo_bool_t wo_has_compile_error(wo_vm vm);
 WO_API wo_string_t wo_get_compile_error(wo_vm vm, wo_inform_style_t style);
@@ -698,7 +700,8 @@ WO_API void wo_pop_stack(wo_vm vm, wo_size_t sz);
 // 1) Use data from updated args & reserved stack, avoid using old pointers.
 // 2) Donot use inout_args_maynull & inout_s_maynull if invoke another vm (not current vm).
 WO_API wo_value wo_invoke_value(
-    wo_vm vm, wo_value vmfunc, 
+    wo_vm vm, 
+    wo_value vmfunc, 
     wo_int_t argc, 
     wo_value* inout_args_maynull, 
     wo_value* inout_s_maynull);
@@ -713,7 +716,9 @@ WO_API void wo_dispatch_value(
 #define WO_CONTINUE ((wo_value)(void *)-1)
 
 WO_API wo_value wo_dispatch(
-    wo_vm vm, wo_value* inout_args_maynull, wo_value* inout_s_maynull);
+    wo_vm vm, 
+    wo_value* inout_args_maynull, 
+    wo_value* inout_s_maynull);
 
 // User gc struct API.
 

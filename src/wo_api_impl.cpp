@@ -415,10 +415,10 @@ void wo_cause_fail(
     {
         wo_execute_fail_handler(
             this_thread_vm,
-            src_file, 
-            lineno, 
+            src_file,
+            lineno,
             functionname,
-            rterrcode, 
+            rterrcode,
             _wo_vformat(reasonfmt, v1).data());
     }
     wo_swap_gcguard(this_thread_vm);
@@ -1007,12 +1007,12 @@ void wo_set_struct(wo_value value, uint16_t structsz)
         maked_struct);
 }
 
-void wo_set_arr(wo_value value, wo_int_t count)
+void wo_set_arr(wo_value value, wo_size_t count)
 {
     auto* _rsvalue = WO_VAL(value);
 
     _rsvalue->set_gcunit<wo::value::valuetype::array_type>(
-        wo::array_t::gc_new<wo::gcbase::gctype::young>((size_t)count, wo::value{}));
+        wo::array_t::gc_new<wo::gcbase::gctype::young>(count, wo::value{}));
 }
 
 void wo_set_map(wo_value value, wo_size_t reserved)
@@ -2716,8 +2716,8 @@ wo::compile_result _wo_compile_impl(
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
 #endif
-            }
         }
+    }
     else
         // Load binary success. 
         compile_result = wo::compile_result::PROCESS_OK;
@@ -2741,7 +2741,7 @@ wo::compile_result _wo_compile_impl(
             *out_lexer_if_failed = std::move(compile_lexer);
     }
     return compile_result;
-    }
+}
 
 wo_bool_t _wo_load_source(
     wo_vm vm,
@@ -2865,16 +2865,16 @@ std::string _dump_src_info(
 
             auto print_src_file_print_lineno =
                 [&current_row_no, &result, &first_line, depth]()
-            {
-                char buf[20] = {};
-                if (first_line)
-                    first_line = false;
-                else
-                    result += "\n";
+                {
+                    char buf[20] = {};
+                    if (first_line)
+                        first_line = false;
+                    else
+                        result += "\n";
 
-                snprintf(buf, 20, "%-5zu | ", current_row_no + 1);
-                result += std::string(depth == 0 ? 0 : depth + 1, ' ') + buf;
-            };
+                    snprintf(buf, 20, "%-5zu | ", current_row_no + 1);
+                    result += std::string(depth == 0 ? 0 : depth + 1, ' ') + buf;
+                };
             auto print_notify_line =
                 [
                     &result,
@@ -4335,7 +4335,7 @@ wo_bool_t wo_lock_weak_ref(wo_value out_val, wo_weak_ref ref)
     return WO_CBOOL(wo::weakref::lock_weak_ref(WO_VAL(out_val), ref));
 }
 
-wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* data)
+wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback_may_null, void* data)
 {
     wo_vm _vm = wo_create_vm();
 
@@ -4365,7 +4365,9 @@ wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback, void* dat
 
     if (result != nullptr)
     {
-        callback(result, data);
+        if (callback_may_null != nullptr)
+            callback_may_null(result, data);
+
         is_succ = WO_TRUE;
     }
     wo_close_vm(_vm);
