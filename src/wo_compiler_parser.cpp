@@ -222,29 +222,25 @@ namespace wo
                     static_cast<size_t>(rs_index) * LR1_R_S_CACHE_SZ + static_cast<size_t>(b);
 
                 const int state = LR1_R_S_CACHE[cache_index];
-                switch (state)
+                if (state > 0)
                 {
-                case 0:
+                    // Shift action
+                    write_act->act = action::act_type::push_stack;
+                    write_act->state = static_cast<size_t>(state) - 1;
+                }
+                else if (state < 0)
+                {
+                    // Reduce action
+                    write_act->act = action::act_type::reduction;
+                    write_act->state = static_cast<size_t>(-state) - 1;
+                }
+                else
+                {
                     // No action for this state & terminal
                     write_act->act = action::act_type::error;
                     write_act->state = SIZE_MAX;
-                    return;
-                default:
-                    if (state > 0)
-                    {
-                        // Shift action
-                        write_act->act = action::act_type::push_stack;
-                        write_act->state = static_cast<size_t>(state) - 1;
-                        return;
-                    }
-                    else
-                    {
-                        // Reduce action
-                        write_act->act = action::act_type::reduction;
-                        write_act->state = static_cast<size_t>(-state) - 1;
-                        return;
-                    }
                 }
+                return;
             }
             else
             {
@@ -778,6 +774,12 @@ namespace wo
         bool has_error_node = false;
 
         const lexer::peeked_token_t* peeked_token_instance = tkr.peek(true);
+
+        // Reused temporary containers to avoid repeated allocations in error recovery path.
+        std::vector<te_nt_index_t> reduceables;
+        reduceables.reserve(16);
+        std::string out_str;
+
         do
         {
             if (lex_type::l_error == peeked_token_instance->m_lex_type)
@@ -788,6 +790,7 @@ namespace wo
                 continue;
             }
 
+            // compute top symbol once per iteration
             auto top_symbo =
                 (state_stack.size() == sym_stack.size()
                     ? TERM_MAP_FAST_LOOKUP[
@@ -846,13 +849,13 @@ namespace wo
                         last_error_colno = peeked_token_instance->m_token_end[1];
                     }
 
-                    // tokens_queue.front();// CURRENT TOKEN ERROR HAPPEND
-                    //  FIND USABLE STATE A TO REDUCE.
+                    // FIND USABLE STATE A TO REDUCE.
                     while (!state_stack.empty())
                     {
                         size_t stateid = state_stack.back();
 
-                        std::unordered_set<te_nt_index_t> reduceables;
+                        // Collect reduceables efficiently using LR1_TABLE iterator to avoid double lookup.
+                        reduceables.clear();
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
                         if (lr1_fast_cache_enabled())
                         {
@@ -860,43 +863,80 @@ namespace wo
                             {
                                 int state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[stateid][1] * LR1_R_S_CACHE_SZ + i];
                                 if (state < 0)
-                                    reduceables.insert(RT_PRODUCTION_P[(-state) - 1].production_aim);
+                                {
+                                    te_nt_index_t cand = RT_PRODUCTION_P[(-state) - 1].production_aim;
+                                    if (std::find(reduceables.begin(), reduceables.end(), cand) == reduceables.end())
+                                        reduceables.push_back(cand);
+                                }
                             }
                         }
                         else
 #endif
                         {
-                            if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
-                                for (auto act : LR1_TABLE.at(stateid))
-                                    if (act.second.size() && act.second.begin()->act == action::act_type::reduction)
-                                        reduceables.insert(RT_PRODUCTION_P[act.second.begin()->state].production_aim);
+                            auto it = LR1_TABLE.find(stateid);
+                            if (it != LR1_TABLE.end())
+                            {
+                                // iterate once and collect reduction targets
+                                for (auto& act : it->second)
+                                {
+                                    if (!act.second.empty())
+                                    {
+                                        const auto& first_act = act.second.begin()->act;
+                                        if (first_act == action::act_type::reduction)
+                                        {
+                                            te_nt_index_t cand = RT_PRODUCTION_P[act.second.begin()->state].production_aim;
+                                            if (std::find(reduceables.begin(), reduceables.end(), cand) == reduceables.end())
+                                                reduceables.push_back(cand);
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         if (!reduceables.empty())
                         {
+                            // Cache the peeked token locally to minimize calls into lexer peek().
                             wo::lex_type out_lex = lex_type::l_empty;
-                            std::string out_str;
-                            while ((out_lex = tkr.peek(true)->m_lex_type) != lex_type::l_eof)
+                            const lexer::peeked_token_t* local_peek = tkr.peek(true);
+                            while ((out_lex = local_peek->m_lex_type) != lex_type::l_eof)
                             {
+                                bool matched = false;
+                                // Cache token text once per lookahead iteration to avoid repeated copies.
+                                out_str = local_peek->m_token_text;
                                 for (te_nt_index_t fr : reduceables)
                                 {
                                     // FIND NON-TE AND IT'S FOLLOW
                                     auto& follow_set = FOLLOW_READ(fr);
 
-                                    auto place = std::find_if(
-                                        follow_set.begin(), follow_set.end(), [&](const te& t)
+                                    // linear scan; usually follow sets are small.
+                                    for (const auto& t : follow_set)
+                                    {
+                                        // first compare lex_type (cheap), only then compare string
+                                        if (t.t_type != out_lex)
+                                            continue;
+
+                                        if (t.t_name.empty() || t.t_name == out_str)
                                         {
-                                            return t.t_name.empty()
-                                                ? t.t_type == out_lex
-                                                : t.t_name == out_str && t.t_type == out_lex;
-                                        });
-                                    if (place != follow_set.end())
-                                        goto error_progress_end;
+                                            matched = true;
+                                            break;
+                                        }
+                                    }
+                                    if (matched)
+                                        break;
                                 }
+                                if (matched)
+                                    break;
+
                                 tkr.move_forward(true);
-                                peeked_token_instance = tkr.peek(true);
+                                local_peek = tkr.peek(true);
                             }
-                            goto error_handle_fail;
+                            // if we exhausted to EOF without match, cannot recover from this state
+                            if (local_peek->m_lex_type == lex_type::l_eof)
+                                goto error_handle_fail;
+
+                            // update the external peeked instance to current lexer state before continue outer loop
+                            peeked_token_instance = local_peek;
+                            goto error_progress_end;
                         }
 
                         if (node_stack.size())
@@ -924,24 +964,25 @@ namespace wo
                 state_stack.push_back(actions.state);
                 if (e_rule)
                 {
-                    node_stack.push_back(
-                        std::make_pair(
-                            source_info{
-                                peeked_token_instance->m_token_begin[0],
-                                peeked_token_instance->m_token_begin[1] },
-                                token{ grammar::ttype::l_empty }));
+                    node_stack.emplace_back(
+                        source_info{
+                            peeked_token_instance->m_token_begin[0],
+                            peeked_token_instance->m_token_begin[1]
+                        },
+                        token{ grammar::ttype::l_empty });
                     sym_stack.push_back(te_lempty_index);
                 }
                 else
                 {
-                    node_stack.push_back(
-                        std::make_pair(
-                            source_info{
-                                peeked_token_instance->m_token_begin[0],
-                                peeked_token_instance->m_token_begin[1] },
-                                token{ 
-                                    peeked_token_instance->m_lex_type, 
-                                    peeked_token_instance->m_token_text }));
+                    node_stack.emplace_back(
+                        source_info{
+                            peeked_token_instance->m_token_begin[0],
+                            peeked_token_instance->m_token_begin[1]
+                        },
+                        token{
+                            peeked_token_instance->m_lex_type,
+                            peeked_token_instance->m_token_text
+                        });
 
                     switch (peeked_token_instance->m_lex_type)
                     {
@@ -976,8 +1017,9 @@ namespace wo
             {
                 auto& red_rule = RT_PRODUCTION_P[actions.state];
 
-                // No need to resize `srcinfo_bnodes`, only `te_or_nt_bnodes`.
-                srcinfo_bnodes.resize(red_rule.rule_right_count);
+                // Only te_or_nt_bnodes needs special resizing; reuse srcinfo_bnodes buffer to avoid reallocations.
+                if (srcinfo_bnodes.size() < red_rule.rule_right_count)
+                    srcinfo_bnodes.resize(red_rule.rule_right_count);
                 te_or_nt_bnodes.resize(red_rule.rule_right_count);
 
                 for (size_t i = red_rule.rule_right_count; i > 0; i--)
@@ -992,13 +1034,12 @@ namespace wo
 
                 if (has_error_node)
                 {
-                    node_stack.push_back(
-                        std::make_pair(
-                            source_info{
-                                peeked_token_instance->m_token_end[0],
-                                peeked_token_instance->m_token_end[1],
-                            },
-                            token{ lex_type::l_error }));
+                    node_stack.emplace_back(
+                        source_info{
+                            peeked_token_instance->m_token_end[0],
+                            peeked_token_instance->m_token_end[1],
+                        },
+                        token{ lex_type::l_error });
                 }
                 else
                 {
@@ -1012,13 +1053,6 @@ namespace wo
                         {
                             wo_assert(red_rule.rule_right_count != 0);
 
-                            /*
-                                                        ---->peeked_token_instance->m_token_begin(<Peeked token> pre location)
-                                                        |
-                                <Pre token> |ast_node_| <Peeked token>
-                                            |
-                                            ---> srcinfo_bnodes.front().row_no
-                            */
                             ast_node_->source_location.begin_at =
                                 ast::AstBase::location_t{
                                     srcinfo_bnodes.front().row_no,
@@ -1034,7 +1068,7 @@ namespace wo
                     else if (astnode.read_token().type == lex_type::l_error)
                         has_error_node = true;
 
-                    node_stack.push_back(std::make_pair(srcinfo_bnodes.front(), astnode));
+                    node_stack.emplace_back(srcinfo_bnodes.front(), astnode);
                 }
             }
             else if (actions.act == grammar::action::act_type::accept)

@@ -41,6 +41,9 @@ namespace wo
             AstList* import_scopes = static_cast<AstList*>(
                 WO_NEED_AST_TYPE(is_export_import ? 2 : 1, AstBase::AST_LIST));
 
+            // Reserve some space to avoid repeated reallocations when concatenating path components.
+            path.reserve(import_scopes->m_list.size() * 8 + 16);
+
             bool first = true;
             for (auto* scope : import_scopes->m_list)
             {
@@ -56,12 +59,13 @@ namespace wo
                 path += filename;
             }
 
-            // path += ".wo";
+            // try canonical candidate paths without reconstructing strings multiple times
+            const std::string candidate1 = path + ".wo";
             std::string src_full_path;
-            if (!wo::check_virtual_file_path(path + ".wo", std::optional(&lex), &src_full_path))
+            if (!wo::check_virtual_file_path(candidate1, std::optional(&lex), &src_full_path))
             {
-                // import a::b; cannot open a/b.wo, trying a/b/b.wo
-                if (!wo::check_virtual_file_path(path + "/" + filename + ".wo", std::optional(&lex), &src_full_path))
+                const std::string candidate2 = path + "/" + filename + ".wo";
+                if (!wo::check_virtual_file_path(candidate2, std::optional(&lex), &src_full_path))
                     return token{ lex.record_parser_error(lexer::msglevel_t::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
