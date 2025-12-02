@@ -1342,62 +1342,64 @@ extern func macro_entry(lexer: std::lexer)=> string
                     {
                         auto& defined_macro_instance = defined_macro.value();
 
-                        if (defined_macro_instance->filename == this->m_source_path)
-                            // NOTE: This script has been imported in another macro, and
-                            //  the macro define has been inherted, just ignore and skip.
-                            goto label_consume_macro_body_for_repeat_macro_define;
+                        if (defined_macro_instance->filename != this->m_source_path)
+                        {
+                            produce_lexer_error(
+                                msglevel_t::error,
+                                WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE,
+                                defined_macro_instance->macro_name.c_str());
 
-                        produce_lexer_error(
-                            msglevel_t::error,
-                            WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE,
-                            defined_macro_instance->macro_name.c_str());
-
-                        char describe[256] = {};
-                        snprintf(describe, 256,
-                            WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                            defined_macro_instance->macro_name.c_str());
-                        (void)record_message(
-                            compiler_message_t{
-                                msglevel_t::infom,
-                                { defined_macro_instance->begin_row, defined_macro_instance->begin_col },
-                                { defined_macro_instance->end_row, defined_macro_instance->end_col },
-                                *defined_macro_instance->filename,
-                                describe,
-                            });
+                            char describe[256] = {};
+                            snprintf(describe, 256,
+                                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                                defined_macro_instance->macro_name.c_str());
+                            (void)record_message(
+                                compiler_message_t{
+                                    msglevel_t::infom,
+                                    { defined_macro_instance->begin_row, defined_macro_instance->begin_col },
+                                    { defined_macro_instance->end_row, defined_macro_instance->end_col },
+                                    *defined_macro_instance->filename,
+                                    describe,
+                                });
+                        }
+                        // else:
+                        // 
+                        // NOTE: This script has been imported in another macro, and
+                        //  the macro define has been inherted, just ignore and skip.
                     }
+                    // Recursive import macro define or failed macro, skip.
+
+                    // NOTE: This could also be another macro with the same name encountering the current unfinished macro;
+                    // we assume this situation is harmless.
+
+                    // Move & skip identifier
+                    consume_forward();
+
+                    if (peek(true)->m_lex_type != lex_type::l_left_curly_braces)
+                        produce_lexer_error(lexer::msglevel_t::error, WO_ERR_HERE_SHOULD_HAVE, "{");
                     else
                     {
-                        // Recursive import macro define or failed macro, skip.
-                    label_consume_macro_body_for_repeat_macro_define:
-                        // Move & skip identifier
                         consume_forward();
 
-                        if (peek(true)->m_lex_type != lex_type::l_left_curly_braces)
-                            produce_lexer_error(lexer::msglevel_t::error, WO_ERR_HERE_SHOULD_HAVE, "{");
-                        else
+                        size_t scope_count = 1;
+                        for (;;)
                         {
+                            auto peeked_token_type = peek(true)->m_lex_type;
                             consume_forward();
-
-                            size_t scope_count = 1;
-                            for (;;)
+                            if (peeked_token_type == lex_type::l_left_curly_braces)
+                                ++scope_count;
+                            else if (peeked_token_type == lex_type::l_right_curly_braces)
                             {
-                                auto peeked_token_type = peek(true)->m_lex_type;
-                                consume_forward();
-                                if (peeked_token_type == lex_type::l_left_curly_braces)
-                                    ++scope_count;
-                                else if (peeked_token_type == lex_type::l_right_curly_braces)
-                                {
-                                    if (--scope_count == 0)
-                                        break;
-                                }
-                                else if (peeked_token_type == lex_type::l_eof)
-                                {
-                                    produce_lexer_error(lexer::msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
+                                if (--scope_count == 0)
                                     break;
-                                }
                             }
-                            // Skip macro body.
+                            else if (peeked_token_type == lex_type::l_eof)
+                            {
+                                produce_lexer_error(lexer::msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
+                                break;
+                            }
                         }
+                        // Skip macro body.
                     }
                 }
                 return;

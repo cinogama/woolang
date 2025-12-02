@@ -56,7 +56,7 @@
 #define WO_ERR_REPEAT_ATTRIBUTE u8"属性重复定义"
 #define WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG u8"元组类型中不能使用可变参数 `...`"
 #define WO_ERR_INVALID_KEY_EXPR u8"映射键必须是有效的常量表达式"
-#define WO_ERR_UNKNOWN_MACRO_NAMED u8"未定义的宏 `%s`"
+#define WO_ERR_UNKNOWN_MACRO_NAMED u8"未定义或未完成的宏 `%s`"
 #define WO_ERR_UNKNOWN_EXTERN_ATTRIB u8"不支持的外部函数属性 `%s`"
 #define WO_ERR_COMPILER_DISABLED u8"当前编译器功能未启用"
 #define WO_ERR_CANNOT_START_NAMESPACE u8"当前位置不允许定义命名空间"

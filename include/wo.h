@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VERSION_WRAP(1, 14, 13, 2)
+#define WO_VERSION WO_VERSION_WRAP(1, 14, 13, 3)
 
 /*
             GC-Friendly External Function Development Rules
