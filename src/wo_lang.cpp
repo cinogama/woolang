@@ -1187,27 +1187,27 @@ namespace wo
             OriginTypeHolder::OriginNoTemplateSymbolAndInstance* out_sni,
             wo_pstring_t name,
             lang_TypeInstance::DeterminedType::base_type basic_type)
-        {
-            ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
-            built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+            {
+                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-            bool symbol_defined = define_symbol_in_current_scope(
-                &out_sni->m_symbol,
-                name,
-                built_type_public_attrib,
-                std::nullopt,
-                std::nullopt,
-                get_current_scope(),
-                lang_Symbol::kind::TYPE,
-                false);
+                bool symbol_defined = define_symbol_in_current_scope(
+                    &out_sni->m_symbol,
+                    name,
+                    built_type_public_attrib,
+                    std::nullopt,
+                    std::nullopt,
+                    get_current_scope(),
+                    lang_Symbol::kind::TYPE,
+                    false);
 
-            wo_assert(symbol_defined);
-            (void)symbol_defined;
+                wo_assert(symbol_defined);
+                (void)symbol_defined;
 
-            out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
-            out_sni->m_type_instance->determine_base_type_move(
-                lang_TypeInstance::DeterminedType(basic_type, {}));
-        };
+                out_sni->m_type_instance = out_sni->m_symbol->m_type_instance;
+                out_sni->m_type_instance->determine_base_type_move(
+                    lang_TypeInstance::DeterminedType(basic_type, {}));
+            };
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_void, WO_PSTR(void), lang_TypeInstance::DeterminedType::VOID);
         create_builtin_non_template_symbol_and_instance(
@@ -1235,25 +1235,25 @@ namespace wo
         auto create_builtin_complex_symbol_and_instance = [this](
             lang_Symbol** out_symbol,
             wo_pstring_t name)
-        {
-            ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
-            built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
+            {
+                ast::AstDeclareAttribue* built_type_public_attrib = new ast::AstDeclareAttribue();
+                built_type_public_attrib->m_access = ast::AstDeclareAttribue::PUBLIC;
 
-            bool symbol_defined = define_symbol_in_current_scope(
-                out_symbol,
-                name,
-                built_type_public_attrib,
-                std::nullopt,
-                std::nullopt,
-                get_current_scope(),
-                lang_Symbol::kind::TYPE,
-                false);
+                bool symbol_defined = define_symbol_in_current_scope(
+                    out_symbol,
+                    name,
+                    built_type_public_attrib,
+                    std::nullopt,
+                    std::nullopt,
+                    get_current_scope(),
+                    lang_Symbol::kind::TYPE,
+                    false);
 
-            wo_assert(symbol_defined);
-            (void)symbol_defined;
+                wo_assert(symbol_defined);
+                (void)symbol_defined;
 
-            (*out_symbol)->m_is_builtin = true;
-        };
+                (*out_symbol)->m_is_builtin = true;
+            };
 
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_dictionary, WO_PSTR(dict));
         create_builtin_complex_symbol_and_instance(&m_origin_types.m_mapping, WO_PSTR(map));
@@ -1445,7 +1445,8 @@ namespace wo
         for (auto& [_useless, macro_msg] : lex.get_declared_macro_list_for_debug())
         {
             (void)_useless;
-            m_macros.push_back(std::make_unique<lang_Macro>(*macro_msg));
+            if (macro_msg.has_value())
+                m_macros.push_back(std::make_unique<lang_Macro>(*macro_msg.value()));
         }
 
         pass_0_5_register_builtin_types();

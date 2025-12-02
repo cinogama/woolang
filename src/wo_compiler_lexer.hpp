@@ -141,28 +141,7 @@ namespace wo
     static_assert((int)lex_type::l_eof == WO_LSPV2_TOKEN_EOF);
     static_assert((int)lex_type::l_unknown_token == WO_LSPV2_TOKEN_UNKNOWN_TOKEN);
 
-    class lexer;
-
-    class macro
-    {
-    public:
-        std::string macro_name;
-        wo_vm _macro_action_vm;
-
-        size_t   begin_row;
-        size_t   begin_col;
-        size_t   end_row;
-        size_t   end_col;
-        wo_pstring_t filename;
-
-        macro(lexer& lex);
-
-        ~macro()
-        {
-            if (_macro_action_vm)
-                wo_close_vm(_macro_action_vm);
-        }
-    };
+    class macro;
 
     class lexer
     {
@@ -207,7 +186,7 @@ namespace wo
         };
     private:
         using declared_macro_map_t =
-            std::unordered_map<std::string, std::unique_ptr<macro>>;
+            std::unordered_map<std::string, std::optional<std::unique_ptr<macro>>>;
         using imported_source_path_set_t =
             std::unordered_set<wo_pstring_t>;
         using who_import_me_map_t =
@@ -493,6 +472,27 @@ namespace wo
 
         void get_now_location(size_t* out_row, size_t* out_col) const;
         void drop_source_stream_for_lspv2();
+    };
+
+    class macro
+    {
+    public:
+        std::string macro_name;
+        wo_vm _macro_action_vm;
+
+        size_t   begin_row;
+        size_t   begin_col;
+        size_t   end_row;
+        size_t   end_col;
+        wo_pstring_t filename;
+
+        macro(lexer& lex, lexer::peeked_token_t* peeked_token);
+
+        ~macro()
+        {
+            if (_macro_action_vm)
+                wo_close_vm(_macro_action_vm);
+        }
     };
 }
 

@@ -29,6 +29,7 @@
 #define WO_ERR_NO_CHAR_IN_CHAR u8"字符常量至少要有一个字符"
 #define WO_ERR_TOO_MANY_CHAR_IN_CHAR u8"字符常量只能包含一个字符"
 #define WO_ERR_UNEXCEPTED_EOL_IN_STRING u8"字符串常量中不允许换行符"
+#define WO_ERR_MACRO_NAME_SHOULD_BE_IDENTIFIER u8"宏名称必须是有效的标识符"
 #define WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE u8"重复定义的宏: `%s`"
 #define WO_ERR_UNKNOWN_PRAGMA_COMMAND u8"未知的预处理指令: `%s`"
 #define WO_ERR_LINE_NEED_STRING_AS_PATH u8"此处需要提供字符串字面量作为文件路径"
