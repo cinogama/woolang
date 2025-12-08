@@ -5,38 +5,37 @@
 
 namespace wo
 {
+    bool is_file_exist_and_readable(const std::string& path)
+    {
+        auto cpath = path;
+#if WO_BUILD_WITH_MINGW
+        FILE* f = fopen(cpath.c_str(), "r");
+        if (f == nullptr)
+            return false;
+
+        fclose(f);
+        return true;
+#else
+        struct stat file_stat;
+        if (0 == stat(cpath.c_str(), &file_stat))
+        {
+            // Check if readable?
+            return 0 == (file_stat.st_mode & S_IFDIR);
+        }
+        return false;
+#endif
+    };
+
     bool check_virtual_file_path_impl(
         const std::string& filepath,
         const std::optional<const lexer*>& lex,
-        std::string * out_real_read_path)
+        std::string* out_real_read_path)
     {
         if (is_virtual_uri(filepath))
         {
             *out_real_read_path = filepath;
             return true;
         }
-
-        auto is_file_exist_and_readable =
-            [](const std::string& path)
-        {
-            auto cpath = path;
-#if WO_BUILD_WITH_MINGW
-            FILE* f = fopen(cpath.c_str(), "r");
-            if (f == nullptr)
-                return false;
-
-            fclose(f);
-            return true;
-#else
-            struct stat file_stat;
-            if (0 == stat(cpath.c_str(), &file_stat))
-            {
-                // Check if readable?
-                return 0 == (file_stat.st_mode & S_IFDIR);
-            }
-            return false;
-#endif
-        };
 
         // 1. Try exists file
         // 1) Read file from script loc

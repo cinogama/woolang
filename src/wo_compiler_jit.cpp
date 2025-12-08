@@ -21,19 +21,22 @@ namespace wo
 #define WO_SAFE_READ_OFFSET_PER_BYTE(OFFSET, TYPE) (((TYPE)(*(rt_ip-OFFSET)))<<((sizeof(TYPE)-OFFSET)*8))
 #define WO_IS_ODD_IRPTR(ALLIGN) 1 // NOTE: Always odd for safe reading.
 
-#define WO_SAFE_READ_MOVE_2 ((rt_ip+=2),WO_IS_ODD_IRPTR(2)?\
-                                    (WO_SAFE_READ_OFFSET_PER_BYTE(2,uint16_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint16_t)):\
-                                    WO_SAFE_READ_OFFSET_GET_WORD)
-#define WO_SAFE_READ_MOVE_4 ((rt_ip+=4),WO_IS_ODD_IRPTR(4)?\
-                                    (WO_SAFE_READ_OFFSET_PER_BYTE(4,uint32_t)|WO_SAFE_READ_OFFSET_PER_BYTE(3,uint32_t)\
-                                    |WO_SAFE_READ_OFFSET_PER_BYTE(2,uint32_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint32_t)):\
-                                    WO_SAFE_READ_OFFSET_GET_DWORD)
-#define WO_SAFE_READ_MOVE_8 ((rt_ip+=8),WO_IS_ODD_IRPTR(8)?\
-                                    (WO_SAFE_READ_OFFSET_PER_BYTE(8,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(7,uint64_t)|\
-                                    WO_SAFE_READ_OFFSET_PER_BYTE(6,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(5,uint64_t)|\
-                                    WO_SAFE_READ_OFFSET_PER_BYTE(4,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(3,uint64_t)|\
-                                    WO_SAFE_READ_OFFSET_PER_BYTE(2,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint64_t)):\
-                                    WO_SAFE_READ_OFFSET_GET_QWORD)
+#define WO_SAFE_READ_MOVE_2 \
+    ((rt_ip+=2),WO_IS_ODD_IRPTR(2)?\
+        (WO_SAFE_READ_OFFSET_PER_BYTE(2,uint16_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint16_t)):\
+        WO_SAFE_READ_OFFSET_GET_WORD)
+#define WO_SAFE_READ_MOVE_4 \
+    ((rt_ip+=4),WO_IS_ODD_IRPTR(4)?\
+        (WO_SAFE_READ_OFFSET_PER_BYTE(4,uint32_t)|WO_SAFE_READ_OFFSET_PER_BYTE(3,uint32_t)\
+        |WO_SAFE_READ_OFFSET_PER_BYTE(2,uint32_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint32_t)):\
+        WO_SAFE_READ_OFFSET_GET_DWORD)
+#define WO_SAFE_READ_MOVE_8 \
+    ((rt_ip+=8),WO_IS_ODD_IRPTR(8)?\
+        (WO_SAFE_READ_OFFSET_PER_BYTE(8,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(7,uint64_t)|\
+        WO_SAFE_READ_OFFSET_PER_BYTE(6,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(5,uint64_t)|\
+        WO_SAFE_READ_OFFSET_PER_BYTE(4,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(3,uint64_t)|\
+        WO_SAFE_READ_OFFSET_PER_BYTE(2,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint64_t)):\
+        WO_SAFE_READ_OFFSET_GET_QWORD)
 #define WO_IPVAL (*(rt_ip))
 #define WO_IPVAL_MOVE_1 (*(rt_ip++))
 
@@ -1103,7 +1106,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             wo_assure(!ctx->c.mov(depth_count, asmjit::x86::byte_ptr(ctx->_vmbase, offsetof(vmbase, extern_state_jit_call_depth))));
             wo_assure(!ctx->c.cmp(depth_count, asmjit::Imm(wo::vmbase::VM_MAX_JIT_FUNCTION_DEPTH)));
             wo_assure(!ctx->c.jb(check_ok_label));
-            
+
             auto rollback_ip_addr = ctx->c.newUInt64();
             wo_assure(!ctx->c.mov(rollback_ip_addr, asmjit::Imm((intptr_t)rollback_ip)));
             wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, ip)), rollback_ip_addr));
@@ -1153,8 +1156,8 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
         {
             wo_assure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, m_type)), (uint8_t)instance.m_type));
 
-            
-            if (instance.m_type == wo::value::valuetype::integer_type 
+
+            if (instance.m_type == wo::value::valuetype::integer_type
                 ? instance.m_integer >= INT32_MIN && instance.m_integer <= INT32_MAX
                 // NOTE:
                // Using INT32_MAX as the judgment condition here is intentional.
@@ -2002,10 +2005,10 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                 auto int_of_op1 = ctx->c.newInt64();
 
                 wo_assure(!ctx->c.mov(
-                    int_of_op1, 
+                    int_of_op1,
                     asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
                 wo_assure(!ctx->c.cmp(
-                    int_of_op1, 
+                    int_of_op1,
                     asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
                 wo_assure(!ctx->c.setl(result_reg.r8()));
             }

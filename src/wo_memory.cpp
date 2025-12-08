@@ -15,8 +15,8 @@
 #   include <Windows.h>
 #   undef min
 #else
-#include <sys/mman.h>
-#include <unistd.h>
+#   include <sys/mman.h>
+#   include <unistd.h>
 #endif
 
 size_t _womem_page_size()
