@@ -1729,6 +1729,7 @@ namespace wo
                 // 2) The function needs to perform some additional operations for context recovery, etc.
                 //    During code generation, such functions will jump to this location via a unified label
                 //    and then exit together (e.g., variadic functions).
+
                 if (eval_function->m_is_variadic
                     || !eval_function->m_LANG_function_body_end_with_return_flag_for_IR)
                 {

@@ -1616,13 +1616,13 @@ wo_result_t wo_ret_void(wo_vm vm)
 wo_result_t wo_ret_bool(wo_vm vm, wo_bool_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    WO_VM(vm)->cr->set_bool(result != WO_FALSE);
+    wo_set_bool(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_int(wo_vm vm, wo_integer_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    WO_VM(vm)->cr->set_integer(result);
+    wo_set_int(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_char(wo_vm vm, wo_wchar_t result)
@@ -1632,19 +1632,19 @@ wo_result_t wo_ret_char(wo_vm vm, wo_wchar_t result)
 wo_result_t wo_ret_real(wo_vm vm, wo_real_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    WO_VM(vm)->cr->set_real(result);
+    wo_set_real(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_float(wo_vm vm, float result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    WO_VM(vm)->cr->set_real((wo_real_t)result);
+    wo_set_float(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_handle(wo_vm vm, wo_handle_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    WO_VM(vm)->cr->set_handle(result);
+    wo_set_handle(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_pointer(wo_vm vm, wo_ptr_t result)
@@ -1653,7 +1653,7 @@ wo_result_t wo_ret_pointer(wo_vm vm, wo_ptr_t result)
 
     if (result)
     {
-        WO_VM(vm)->cr->set_handle((wo_handle_t)result);
+        wo_set_handle(CS_VAL(vmbase->cr), (wo_handle_t)result);
         return WO_API_STATE_OF_VM(vmbase);
     }
     return wo_ret_panic(vm, "Cannot return a nullptr");
@@ -1661,8 +1661,7 @@ wo_result_t wo_ret_pointer(wo_vm vm, wo_ptr_t result)
 wo_result_t wo_ret_string(wo_vm vm, wo_string_t result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-
-    WO_VM(vm)->cr->set_string(result);
+    wo_set_string(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 
@@ -1671,7 +1670,6 @@ wo_result_t wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...)
     va_list v;
     va_start(v, fmt);
     auto ret = wo_ret_string(vm, _wo_vformat(fmt, v).data());
-
     va_end(v);
 
     return ret;
@@ -1680,8 +1678,7 @@ wo_result_t wo_ret_string_fmt(wo_vm vm, wo_string_t fmt, ...)
 wo_result_t wo_ret_buffer(wo_vm vm, const void* result, wo_size_t len)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-
-    WO_VM(vm)->cr->set_buffer(result, len);
+    wo_set_buffer(CS_VAL(vmbase->cr), result, len);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_gchandle(
@@ -1691,7 +1688,7 @@ wo_result_t wo_ret_gchandle(
     wo_gchandle_close_func_t destruct_func)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_gchandle(CS_VAL(WO_VM(vm)->cr), vm, resource_ptr, holding_val, destruct_func);
+    wo_set_gchandle(CS_VAL(vmbase->cr), vm, resource_ptr, holding_val, destruct_func);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_gcstruct(
@@ -1701,26 +1698,21 @@ wo_result_t wo_ret_gcstruct(
     wo_gchandle_close_func_t destruct_func)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-    wo_set_gcstruct(CS_VAL(WO_VM(vm)->cr), vm, resource_ptr, mark_func, destruct_func);
+    wo_set_gcstruct(CS_VAL(vmbase->cr), vm, resource_ptr, mark_func, destruct_func);
     return WO_API_STATE_OF_VM(vmbase);
 }
 wo_result_t wo_ret_val(wo_vm vm, wo_value result)
 {
     wo_assert(result);
     wo::vmbase* vmbase = WO_VM(vm);
-
-    WO_VM(vm)->cr->set_val(WO_VAL(result));
+    wo_set_val(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 
 wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
 {
     wo::vmbase* vmbase = WO_VM(vm);
-
-    auto* val = WO_VAL(result);
-
-    WO_VM(vm)->cr->set_dup(val);
-
+    wo_set_dup(CS_VAL(vmbase->cr), result);
     return WO_API_STATE_OF_VM(vmbase);
 }
 
