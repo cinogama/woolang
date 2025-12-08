@@ -80,10 +80,20 @@ namespace wo
 
         struct memo_unit
         {
-            gcbase* gcunit;
-            unit_attrib* gcunit_attr;
+            gcbase*         gcunit;
+            unit_attrib*    gcunit_attr;
 
-            memo_unit* last;
+            memo_unit*      last;
+        private:
+            memo_unit(gcbase* unit_addr, unit_attrib* attr_addr);
+            memo_unit(const memo_unit&) = delete;
+            memo_unit(memo_unit&&) = delete;
+            memo_unit& operator=(const memo_unit&) = delete;
+            memo_unit& operator=(memo_unit&&) = delete;
+        public:
+            static atomic_list<memo_unit> _allocated_memo_units;
+            static memo_unit* acquire_memo_unit(gcbase* unit_addr, unit_attrib* attr_addr);
+            static void release_memo_unit(memo_unit* unit);
         };
         using _wo_memory_atomic_list_t = atomic_list<memo_unit>;
 

@@ -239,7 +239,7 @@ namespace wo
             if (auto* unit = val->get_gcunit_and_attrib_ref(&attr))
             {
                 if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
-                    gc::m_memo_mark_gray_list.add_one(new gc::memo_unit{ unit, attr });
+                    gc::m_memo_mark_gray_list.add_one(gc::memo_unit::acquire_memo_unit(unit, attr));
             }
         }
 

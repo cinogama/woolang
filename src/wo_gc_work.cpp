@@ -197,6 +197,29 @@ namespace wo
         bool                        _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
         bool                        _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
 
+        atomic_list<memo_unit> memo_unit::_allocated_memo_units;
+        memo_unit::memo_unit(gcbase* unit_addr, unit_attrib* attr_addr)
+            : gcunit(unit_addr)
+            , gcunit_attr(attr_addr)
+            , last(nullptr)
+        {
+        }
+        memo_unit* memo_unit::acquire_memo_unit(gcbase* unit_addr, unit_attrib* attr_addr)
+        {
+            auto* unit = _allocated_memo_units.pick_one();
+            if (unit == nullptr)
+                return new memo_unit(unit_addr, attr_addr);
+
+            unit->gcunit = unit_addr;
+            unit->gcunit_attr = attr_addr;
+
+            return unit;
+        }
+        void memo_unit::release_memo_unit(memo_unit* unit)
+        {
+            _allocated_memo_units.add_one(unit);
+        }
+
         vmbase* _get_next_mark_vm(vmbase::vm_type* out_vm_type)
         {
             // NOTE: _gc_scan_vm_index MUST read before `_gc_scan_vm_count` & `_gc_vm_list`
@@ -353,7 +376,7 @@ namespace wo
                         auto* cur_unit = old_mem_units;
                         old_mem_units = old_mem_units->last;
 
-                        delete cur_unit;
+                        memo_unit::release_memo_unit(cur_unit);
                     }
 
                     // New round of marking begin.
@@ -684,7 +707,7 @@ namespace wo
                         memo_units = memo_units->last;
 
                         gc_mark_unit_as_gray(&mem_gray_list, cur_unit->gcunit, cur_unit->gcunit_attr);
-                        delete cur_unit;
+                        memo_unit::release_memo_unit(cur_unit);
                     }
                 }
                 gc_mark_all_gray_unit(&mem_gray_list);
