@@ -21,23 +21,45 @@ namespace wo
     template<typename NodeT>
     struct atomic_list
     {
-        std::atomic<NodeT*> last_node = nullptr;
+        // Lock-free LIFO container for NodeT with a trailing last pointer.
+        std::atomic<NodeT*> last_node{ nullptr };
 
-        void add_one(NodeT* node)
+        void add_one(NodeT* node) noexcept
         {
-            node->last = last_node.load();// .exchange(node);
-            while (!last_node.compare_exchange_weak(node->last, node));
+            NodeT* expected = last_node.load(std::memory_order_relaxed);
+            do
+            {
+                node->last = expected;
+            } while (!last_node.compare_exchange_weak(
+                expected,
+                node,
+                std::memory_order_release,
+                std::memory_order_relaxed));
         }
-        NodeT* pick_all()
+        NodeT* pick_one() noexcept
         {
-            NodeT* result = nullptr;
-            result = last_node.exchange(nullptr);
-
-            return result;
+            NodeT* head = last_node.load(std::memory_order_acquire);
+            while (head != nullptr)
+            {
+                NodeT* next = head->last;
+                if (last_node.compare_exchange_weak(
+                    head,
+                    next,
+                    std::memory_order_acq_rel,
+                    std::memory_order_acquire))
+                {
+                    return head;
+                }
+            }
+            return nullptr;
         }
-        NodeT* peek_list() const
+        NodeT* pick_all() noexcept
         {
-            return last_node.load();
+            return last_node.exchange(nullptr, std::memory_order_acq_rel);
+        }
+        NodeT* peek_list() const noexcept
+        {
+            return last_node.load(std::memory_order_acquire);
         }
     };
 
