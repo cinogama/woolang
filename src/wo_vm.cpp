@@ -526,429 +526,546 @@ namespace wo
     // Program Dump and Debug Functions
     //////////////////////////////////////////////////////////////////////////
 
+    // Bytecode disassembly helper class
+    class bytecode_disassembler
+    {
+    public:
+        bytecode_disassembler(
+            const byte_t* code_ptr,
+            const runtime_env* env,
+            const value* static_storage) noexcept
+            : m_code_ptr(code_ptr)
+            , m_env(env)
+            , m_static_storage(static_storage)
+            , m_main_command(0)
+        {
+        }
+
+        // Read main command byte
+        byte_t read_command() noexcept
+        {
+            m_main_command = *m_code_ptr++;
+            return m_main_command;
+        }
+
+        // Get current code pointer
+        const byte_t* current() const noexcept { return m_code_ptr; }
+
+        // Get main command
+        byte_t command() const noexcept { return m_main_command; }
+
+        // Get opcode (upper 6 bits)
+        byte_t opcode() const noexcept { return m_main_command & 0b11111100; }
+
+        // Get DR bits (lower 2 bits)
+        byte_t dr() const noexcept { return m_main_command & 0b00000011; }
+
+        // Read fixed-size data
+        template<typename T>
+        T read() noexcept
+        {
+            T value = *reinterpret_cast<const T*>(m_code_ptr);
+            m_code_ptr += sizeof(T);
+            return value;
+        }
+
+        // Format register or BP offset
+        std::string format_reg_or_bpoffset() noexcept
+        {
+            byte_t data = read<byte_t>();
+            if (data & (1 << 7))
+                return format_bp_offset(data);
+            return format_register(data);
+        }
+
+        // Format global/static value
+        std::string format_global_static() noexcept
+        {
+            uint32_t index = read<uint32_t>();
+            if (index < m_env->constant_value_count)
+                return format_constant_value(index);
+            return "g[" + std::to_string(index - m_env->constant_value_count) + "]";
+        }
+
+        // Format first operand based on DR bits
+        std::string format_opnum1() noexcept
+        {
+            return (m_main_command & 0b00000010)
+                ? format_reg_or_bpoffset()
+                : format_global_static();
+        }
+
+        // Format second operand based on DR bits
+        std::string format_opnum2() noexcept
+        {
+            return (m_main_command & 0b00000001)
+                ? format_reg_or_bpoffset()
+                : format_global_static();
+        }
+
+    private:
+        static constexpr int SIGNED_SHIFT(byte_t val) noexcept
+        {
+            return static_cast<signed char>(
+                static_cast<unsigned char>(
+                    static_cast<unsigned char>(val) << 1)) >> 1;
+        }
+
+        std::string format_bp_offset(byte_t data) const noexcept
+        {
+            int offset = SIGNED_SHIFT(data);
+            std::string result = "[bp";
+            if (offset < 0)
+                result += std::to_string(offset);
+            else if (offset == 0)
+                result += "-0";
+            else
+                result += "+" + std::to_string(offset);
+            return result + "]";
+        }
+
+        std::string format_register(byte_t reg) const noexcept
+        {
+            if (reg <= 15)
+                return "t" + std::to_string(reg);
+            if (reg <= 31)
+                return "r" + std::to_string(reg - 16);
+
+            switch (reg)
+            {
+            case 32: return "cr";
+            case 33: return "tc";
+            case 34: return "er";
+            case 35: return "nil";
+            case 36: return "pm";
+            case 37: return "tp";
+            default: return "reg(" + std::to_string(reg) + ")";
+            }
+        }
+
+        std::string format_constant_value(uint32_t index) const noexcept
+        {
+            const auto& val = m_static_storage[index];
+            std::string result;
+
+            if (val.m_type == value::valuetype::string_type)
+                result = u8enstring(val.m_string->data(), val.m_string->size(), false);
+            else
+                result = wo_cast_string(reinterpret_cast<wo_value>(const_cast<value*>(&val)));
+
+            result += ": ";
+            result += wo_type_name(static_cast<wo_type_t>(val.m_type));
+            return result;
+        }
+
+        const byte_t* m_code_ptr;
+        const runtime_env* m_env;
+        const value* m_static_storage;
+        byte_t m_main_command;
+    };
+
+    namespace
+    {
+        // Print hexadecimal representation of bytecode
+        void print_hex_bytes(
+            std::ostream& os,
+            const byte_t* begin,
+            const byte_t* end,
+            uint32_t offset) noexcept
+        {
+            constexpr int MAX_BYTE_COUNT = 12;
+
+            char buf[16];
+            snprintf(buf, sizeof(buf), "+%04u : ", offset);
+            os << buf;
+
+            int count = 0;
+            for (const byte_t* p = begin; p < end; ++p, ++count)
+            {
+                snprintf(buf, sizeof(buf), "%02X ", static_cast<uint32_t>(*p));
+                os << buf;
+            }
+
+            // Pad with spaces for alignment
+            for (int i = count; i < MAX_BYTE_COUNT; ++i)
+                os << "   ";
+        }
+    } // anonymous namespace
+
     void vmbase::dump_program_bin(
         size_t begin,
         size_t end,
         std::ostream& os) const noexcept
     {
-        auto* program = env->rt_codes;
+        const byte_t* const program = env->rt_codes;
+        const byte_t* code_ptr = program + begin;
+        const byte_t* const code_end = program + std::min(env->rt_code_len, end);
 
-        auto* program_ptr = program + begin;
-        while (program_ptr < program + std::min(env->rt_code_len, end))
+        while (code_ptr < code_end)
         {
-            auto* this_command_ptr = program_ptr;
-            auto main_command = *(this_command_ptr++);
-            std::stringstream tmpos;
+            const byte_t* const instr_begin = code_ptr;
+            bytecode_disassembler dis(code_ptr, env.get(), runtime_static_storage);
 
-            auto print_byte = [&]() {
+            std::string mnemonic = disassemble_instruction(dis);
+            code_ptr = dis.current();
 
-                const int MAX_BYTE_COUNT = 12;
-                printf("+%04d : ", (uint32_t)(program_ptr - program));
-                int displayed_count = 0;
-                for (auto idx = program_ptr; idx < this_command_ptr; idx++)
-                {
-                    printf("%02X ", (uint32_t)*idx);
-                    displayed_count++;
-                }
-                for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
-                    printf("   ");
-                };
-#define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
-            auto print_reg_bpoffset = [&]() {
-                byte_t data_1b = *(this_command_ptr++);
-                if (data_1b & 1 << 7)
-                {
-                    // bp offset
-                    auto offset = WO_SIGNED_SHIFT(data_1b);
-                    tmpos << "[bp";
-                    if (offset < 0)
-                        tmpos << offset << "]";
-                    else if (offset == 0)
-                        tmpos << "-" << offset << "]";
-                    else
-                        tmpos << "+" << offset << "]";
-                }
-                else
-                {
-                    // is reg
-                    if (data_1b >= 0 && data_1b <= 15)
-                        tmpos << "t" << (uint32_t)data_1b;
-                    else if (data_1b >= 16 && data_1b <= 31)
-                        tmpos << "r" << (uint32_t)data_1b - 16;
-                    else if (data_1b == 32)
-                        tmpos << "cr";
-                    else if (data_1b == 33)
-                        tmpos << "tc";
-                    else if (data_1b == 34)
-                        tmpos << "er";
-                    else if (data_1b == 35)
-                        tmpos << "nil";
-                    else if (data_1b == 36)
-                        tmpos << "pm";
-                    else if (data_1b == 37)
-                        tmpos << "tp";
-                    else
-                        tmpos << "reg(" << (uint32_t)data_1b << ")";
-
-                }
-                };
-            auto print_global_static = [&]() {
-                //const global 4byte
-                uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
-                if (data_4b < env->constant_value_count)
-                {
-                    auto& constant_value = runtime_static_storage[data_4b];
-                    switch (constant_value.m_type)
-                    {
-                    case value::valuetype::string_type:
-                        tmpos << u8enstring(
-                            constant_value.m_string->data(),
-                            constant_value.m_string->size(),
-                            false);
-                        break;
-                    default:
-                        tmpos << wo_cast_string(reinterpret_cast<wo_value>(&constant_value));
-                        break;
-                    }
-                    tmpos
-                        << ": "
-                        << wo_type_name((wo_type_t)constant_value.m_type);
-                }
-                else
-                    tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                };
-            auto print_opnum1 = [&]() {
-                if (main_command & (byte_t)0b00000010)
-                    print_reg_bpoffset();
-                else
-                    print_global_static();
-                };
-            auto print_opnum2 = [&]() {
-                if (main_command & (byte_t)0b00000001)
-                    print_reg_bpoffset();
-                else
-                    print_global_static();
-                };
-
-#undef WO_SIGNED_SHIFT
-            switch (main_command & (byte_t)0b11111100)
-            {
-            case instruct::nop:
-                tmpos << "nop\t";
-
-                this_command_ptr += main_command & (byte_t)0b00000011;
-
-                break;
-            case instruct::mov:
-                tmpos << "mov\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-            case instruct::addi:
-                tmpos << "addi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::subi:
-                tmpos << "subi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::muli:
-                tmpos << "muli\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::divi:
-                tmpos << "divi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::modi:
-                tmpos << "modi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-            case instruct::addr:
-                tmpos << "addr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::subr:
-                tmpos << "subr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::mulr:
-                tmpos << "mulr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::divr:
-                tmpos << "divr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::modr:
-                tmpos << "modr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-            case instruct::addh:
-                tmpos << "addh\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::subh:
-                tmpos << "subh\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-            case instruct::adds:
-                tmpos << "adds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-            case instruct::psh:
-                if (main_command & 0b01)
-                {
-                    tmpos << "psh\t"; print_opnum1(); break;
-                }
-                else
-                {
-                    tmpos << "pshn repeat\t" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
-                }
-            case instruct::pop:
-                if (main_command & 0b01)
-                {
-                    tmpos << "pop\t"; print_opnum1(); break;
-                }
-                else
-                {
-                    tmpos << "pop repeat\t" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
-                }
-            case instruct::lds:
-                tmpos << "lds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::sts:
-                tmpos << "sts\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::lti:
-                tmpos << "lti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::gti:
-                tmpos << "gti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::elti:
-                tmpos << "elti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::egti:
-                tmpos << "egti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-            case instruct::land:
-                tmpos << "land\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::lor:
-                tmpos << "lor\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::ltx:
-                tmpos << "ltx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::gtx:
-                tmpos << "gtx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::eltx:
-                tmpos << "eltx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::egtx:
-                tmpos << "egtx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::ltr:
-                tmpos << "ltr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::gtr:
-                tmpos << "gtr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::eltr:
-                tmpos << "eltr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::egtr:
-                tmpos << "egtr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::movicas:
-                tmpos << "movicas\t";
-                print_opnum1();
-                tmpos << ",\t";
-                print_opnum2();
-                tmpos << ",\t";
-                print_reg_bpoffset();
-                break;
-            case instruct::call:
-                tmpos << "call\t";
-                print_opnum1();
-                break;
-            case instruct::calln:
-                if (main_command & 0b10)
-                    tmpos << "callnfast\t";
-                else
-                    tmpos << "calln\t";
-
-                if (main_command & 0b01 || main_command & 0b10)
-                    //neg
-                    tmpos << *(void**)((this_command_ptr += 8) - 8);
-                else
-                {
-                    tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                    this_command_ptr += 4;
-                }
-                break;
-            case instruct::setip:
-            case instruct::setipgc:
-                switch (main_command & 0b11)
-                {
-                case 0b00: tmpos << "jmp\t"; break;
-                case 0b10: tmpos << "jmpf\t"; break;
-                case 0b11: tmpos << "jmpt\t"; break;
-                default: tmpos << "??\t"; break;
-                }
-                tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                break;
-            case instruct::movcast:
-                tmpos << "movcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
-                tmpos << " : ";
-                tmpos << wo_type_name((wo_type_t) * (this_command_ptr++));
-
-                break;
-            case instruct::mkunion:
-                tmpos << "mkunion\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t id=" << *(uint16_t*)((this_command_ptr += 2) - 2);
-                break;
-            case instruct::mkclos:
-                tmpos << "mkclos\t";
-                tmpos << *(uint16_t*)((this_command_ptr += 2) - 2);
-                tmpos << ",\t";
-                if (main_command & 0b10)
-                    tmpos << *(void**)((this_command_ptr += 8) - 8);
-                else
-                {
-                    tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                    this_command_ptr += 4;
-                }
-
-                break;
-            case instruct::typeas:
-                if (main_command & 0b01)
-                    tmpos << "typeis\t";
-                else
-                    tmpos << "typeas\t";
-                print_opnum1();
-                tmpos << " : ";
-                tmpos << wo_type_name((wo_type_t) * (this_command_ptr++));
-
-                break;
-            case instruct::endproc:
-                switch (main_command & 0b11)
-                {
-                case 0b00:
-                    tmpos << "abrt\t"; break;
-                case 0b10:
-                    tmpos << "end\t"; break;
-                case 0b01:
-                    tmpos << "ret\t"; break;
-                case 0b11:
-                    tmpos << "ret pop\t" << *(uint16_t*)((this_command_ptr += 2) - 2);
-                    break;
-                default:
-                    tmpos << "??"; break;
-                }
-                break;
-            case instruct::equb:
-                tmpos << "equb\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::nequb:
-                tmpos << "nequb\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::mkstruct:
-                tmpos << "mkstruct\t"; print_opnum1(); tmpos << " size=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
-            case instruct::idstruct:
-                tmpos << "idstruct\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << " offset=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
-            case instruct::jnequb:
-            {
-                tmpos << "jnequb\t"; print_opnum1();
-                tmpos << "\t+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                break;
-            }
-            case instruct::mkcontain:
-            {
-                if ((main_command & 0b01) == 0)
-                    tmpos << "mkarr\t";
-                else
-                    tmpos << "mkmap\t";
-                print_opnum1(); tmpos << ",\t size=" << *(uint16_t*)((this_command_ptr += 2) - 2);
-                break;
-            }
-            case instruct::idarr:
-                tmpos << "idarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::iddict:
-                tmpos << "iddict\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::siddict:
-                tmpos << "siddict\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
-            case instruct::sidmap:
-                tmpos << "sidmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
-            case instruct::sidarr:
-                tmpos << "sidarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
-            case instruct::sidstruct:
-                tmpos << "sidstruct\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << " offset=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
-            case instruct::idstr:
-                tmpos << "idstr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::equr:
-                tmpos << "equr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::nequr:
-                tmpos << "nequr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::equs:
-                tmpos << "equs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-            case instruct::nequs:
-                tmpos << "nequs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break; \
-            case instruct::unpack:
-                {
-                    tmpos << "unpack\t"; print_opnum1();
-                    int32_t unpack_argc = *(int32_t*)((this_command_ptr += 4) - 4);
-                    if (unpack_argc >= 0)
-                        tmpos << "\tcount = " << unpack_argc;
-                    else
-                        tmpos << "\tleast = " << -unpack_argc;
-                    break;
-                }
-            case instruct::ext:
-            {
-                tmpos << "ext ";
-                int pagecode = main_command & 0b00000011;
-                main_command = *(this_command_ptr++);
-                switch (pagecode)
-                {
-                case 0:
-                    switch (main_command & 0b11111100)
-                    {
-                    case instruct::extern_opcode_page_0::pack:
-                    {
-                        tmpos << "pack\t"; print_opnum1(); tmpos << ",\t";
-
-                        auto this_func_argc = *(uint16_t*)((this_command_ptr += 2) - 2);
-                        auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
-
-                        tmpos << ": skip " << this_func_argc << "/" << skip_closure;
-                        break;
-                    }
-                    case instruct::extern_opcode_page_0::panic:
-                        tmpos << "panic\t"; print_opnum1();
-                        break;
-                    case instruct::extern_opcode_page_0::cdivilr:
-                        tmpos << "cdivilr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
-                        break;
-                    case instruct::extern_opcode_page_0::cdivil:
-                        tmpos << "cdivil\t"; print_opnum1();
-                        break;
-                    case instruct::extern_opcode_page_0::cdivirz:
-                        tmpos << "cdivirz\t"; print_opnum1();
-                        break;
-                    case instruct::extern_opcode_page_0::cdivir:
-                        tmpos << "cdivir\t"; print_opnum1();
-                        break;
-                    case instruct::extern_opcode_page_0::popn:
-                        tmpos << "popn\t";  print_opnum1();
-                        break;
-                    default:
-                        tmpos << "??\t";
-                        break;
-                    }
-                    break;
-                case 3:
-                    tmpos << "flag ";
-                    switch (main_command & 0b11111100)
-                    {
-                    case instruct::extern_opcode_page_3::funcbegin:
-                        tmpos << "funcbegin\t";
-                        break;
-                    case instruct::extern_opcode_page_3::funcend:
-                        tmpos << "funcend\t";
-                        break;
-                    default:
-                        tmpos << "??\t";
-                        break;
-                    }
-                    break;
-                case 1:
-                case 2:
-                default:
-                    tmpos << "??\t";
-                    break;
-                }
-                break;
-            }
-            default:
-                tmpos << "??\t";
-                break;
-            }
-
-            if (ip >= program_ptr && ip < this_command_ptr)
+            // Highlight current instruction pointer position
+            const bool is_current_ip = (ip >= instr_begin && ip < code_ptr);
+            if (is_current_ip)
                 os << ANSI_INV;
 
-            print_byte();
+            print_hex_bytes(os, instr_begin, code_ptr,
+                static_cast<uint32_t>(instr_begin - program));
 
-            if (ip >= program_ptr && ip < this_command_ptr)
+            if (is_current_ip)
                 os << ANSI_RST;
 
-            os << "| " << tmpos.str() << std::endl;
-
-            program_ptr = this_command_ptr;
+            os << "| " << mnemonic << std::endl;
         }
 
         os << std::endl;
+    }
+
+    std::string vmbase::disassemble_instruction(bytecode_disassembler& dis) const noexcept
+    {
+        dis.read_command();
+        std::string result;
+
+        // Helper macros to simplify binary operation instructions
+#define BINARY_OP(name) \
+            result = name "\t"; \
+            result += dis.format_opnum1(); \
+            result += ",\t"; \
+            result += dis.format_opnum2(); \
+            break
+
+#define UNARY_OP(name) \
+            result = name "\t"; \
+            result += dis.format_opnum1(); \
+            break
+
+#define TERNARY_OP(name) \
+            result = name "\t"; \
+            result += dis.format_opnum1(); \
+            result += ",\t"; \
+            result += dis.format_opnum2(); \
+            result += ",\t"; \
+            result += dis.format_reg_or_bpoffset(); \
+            break
+
+        switch (dis.opcode())
+        {
+        case instruct::nop:
+            result = "nop\t";
+            // Skip NOP padding bytes
+            for (int i = 0; i < dis.dr(); ++i)
+                dis.read<byte_t>();
+            break;
+
+        case instruct::mov:   BINARY_OP("mov");
+        case instruct::addi:  BINARY_OP("addi");
+        case instruct::subi:  BINARY_OP("subi");
+        case instruct::muli:  BINARY_OP("muli");
+        case instruct::divi:  BINARY_OP("divi");
+        case instruct::modi:  BINARY_OP("modi");
+        case instruct::addr:  BINARY_OP("addr");
+        case instruct::subr:  BINARY_OP("subr");
+        case instruct::mulr:  BINARY_OP("mulr");
+        case instruct::divr:  BINARY_OP("divr");
+        case instruct::modr:  BINARY_OP("modr");
+        case instruct::addh:  BINARY_OP("addh");
+        case instruct::subh:  BINARY_OP("subh");
+        case instruct::adds:  BINARY_OP("adds");
+        case instruct::lds:   BINARY_OP("lds");
+        case instruct::sts:   BINARY_OP("sts");
+        case instruct::lti:   BINARY_OP("lti");
+        case instruct::gti:   BINARY_OP("gti");
+        case instruct::elti:  BINARY_OP("elti");
+        case instruct::egti:  BINARY_OP("egti");
+        case instruct::land:  BINARY_OP("land");
+        case instruct::lor:   BINARY_OP("lor");
+        case instruct::ltx:   BINARY_OP("ltx");
+        case instruct::gtx:   BINARY_OP("gtx");
+        case instruct::eltx:  BINARY_OP("eltx");
+        case instruct::egtx:  BINARY_OP("egtx");
+        case instruct::ltr:   BINARY_OP("ltr");
+        case instruct::gtr:   BINARY_OP("gtr");
+        case instruct::eltr:  BINARY_OP("eltr");
+        case instruct::egtr:  BINARY_OP("egtr");
+        case instruct::equb:  BINARY_OP("equb");
+        case instruct::nequb: BINARY_OP("nequb");
+        case instruct::idarr: BINARY_OP("idarr");
+        case instruct::iddict: BINARY_OP("iddict");
+        case instruct::idstr: BINARY_OP("idstr");
+        case instruct::equr:  BINARY_OP("equr");
+        case instruct::nequr: BINARY_OP("nequr");
+        case instruct::equs:  BINARY_OP("equs");
+        case instruct::nequs: BINARY_OP("nequs");
+
+        case instruct::siddict: TERNARY_OP("siddict");
+        case instruct::sidmap:  TERNARY_OP("sidmap");
+        case instruct::sidarr:  TERNARY_OP("sidarr");
+
+        case instruct::psh:
+            if (dis.dr() & 0b01)
+            {
+                UNARY_OP("psh");
+            }
+            else
+            {
+                result = "pshn repeat\t";
+                result += std::to_string(dis.read<uint16_t>());
+            }
+            break;
+
+        case instruct::pop:
+            if (dis.dr() & 0b01)
+            {
+                UNARY_OP("pop");
+            }
+            else
+            {
+                result = "pop repeat\t";
+                result += std::to_string(dis.read<uint16_t>());
+            }
+            break;
+
+        case instruct::call:
+            UNARY_OP("call");
+
+        case instruct::calln:
+            result = (dis.dr() & 0b10) ? "callnfast\t" : "calln\t";
+            if (dis.dr() & 0b01 || dis.dr() & 0b10)
+            {
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%p", dis.read<void*>());
+                result += buf;
+            }
+            else
+            {
+                result += "+" + std::to_string(dis.read<uint32_t>());
+                dis.read<uint32_t>(); // Skip padding
+            }
+            break;
+
+        case instruct::setip:
+        case instruct::setipgc:
+        {
+            static const char* jmp_names[] = { "jmp", "??", "jmpf", "jmpt" };
+            result = jmp_names[dis.dr()];
+            result += "\t+";
+            result += std::to_string(dis.read<uint32_t>());
+            break;
+        }
+
+        case instruct::movcast:
+            result = "movcast\t";
+            result += dis.format_opnum1();
+            result += ",\t";
+            result += dis.format_opnum2();
+            result += " : ";
+            result += wo_type_name(static_cast<wo_type_t>(dis.read<byte_t>()));
+            break;
+
+        case instruct::movicas:
+            result = "movicas\t";
+            result += dis.format_opnum1();
+            result += ",\t";
+            result += dis.format_opnum2();
+            result += " if match ";
+            result += dis.format_reg_or_bpoffset();
+            break;
+
+        case instruct::mkunion:
+            result = "mkunion\t";
+            result += dis.format_opnum1();
+            result += ",\t";
+            result += dis.format_opnum2();
+            result += ",\t id=";
+            result += std::to_string(dis.read<uint16_t>());
+            break;
+
+        case instruct::mkclos:
+        {
+            result = "mkclos\t";
+            result += std::to_string(dis.read<uint16_t>());
+            result += ",\t";
+            if (dis.dr() & 0b10)
+            {
+                char buf[32];
+                snprintf(buf, sizeof(buf), "%p", dis.read<void*>());
+                result += buf;
+            }
+            else
+            {
+                result += "+" + std::to_string(dis.read<uint32_t>());
+                dis.read<uint32_t>(); // Skip padding
+            }
+            break;
+        }
+
+        case instruct::typeas:
+            result = (dis.dr() & 0b01) ? "typeis\t" : "typeas\t";
+            result += dis.format_opnum1();
+            result += " : ";
+            result += wo_type_name(static_cast<wo_type_t>(dis.read<byte_t>()));
+            break;
+
+        case instruct::endproc:
+            switch (dis.dr())
+            {
+            case 0b00: result = "abrt\t"; break;
+            case 0b10: result = "end\t"; break;
+            case 0b01: result = "ret\t"; break;
+            case 0b11:
+                result = "ret pop\t";
+                result += std::to_string(dis.read<uint16_t>());
+                break;
+            }
+            break;
+
+        case instruct::mkstruct:
+            result = "mkstruct\t";
+            result += dis.format_opnum1();
+            result += " size=";
+            result += std::to_string(dis.read<uint16_t>());
+            break;
+
+        case instruct::idstruct:
+            result = "idstruct\t";
+            result += dis.format_opnum1();
+            result += ",\t";
+            result += dis.format_opnum2();
+            result += " offset=";
+            result += std::to_string(dis.read<uint16_t>());
+            break;
+
+        case instruct::sidstruct:
+            result = "sidstruct\t";
+            result += dis.format_opnum1();
+            result += ",\t";
+            result += dis.format_opnum2();
+            result += " offset=";
+            result += std::to_string(dis.read<uint16_t>());
+            break;
+
+        case instruct::jnequb:
+            result = "jnequb\t";
+            result += dis.format_opnum1();
+            result += "\t+";
+            result += std::to_string(dis.read<uint32_t>());
+            break;
+
+        case instruct::mkcontain:
+            result = (dis.dr() & 0b01) ? "mkmap\t" : "mkarr\t";
+            result += dis.format_opnum1();
+            result += ",\t size=";
+            result += std::to_string(dis.read<uint16_t>());
+            break;
+
+        case instruct::unpack:
+        {
+            result = "unpack\t";
+            result += dis.format_opnum1();
+            int32_t argc = dis.read<int32_t>();
+            if (argc >= 0)
+                result += "\tcount = " + std::to_string(argc);
+            else
+                result += "\tleast = " + std::to_string(-argc);
+            break;
+        }
+
+        case instruct::ext:
+            result = disassemble_ext_instruction(dis);
+            break;
+
+        default:
+            result = "??\t";
+            break;
+        }
+
+#undef BINARY_OP
+#undef UNARY_OP
+#undef TERNARY_OP
+
+        return result;
+    }
+
+    std::string vmbase::disassemble_ext_instruction(bytecode_disassembler& dis) const noexcept
+    {
+        std::string result = "ext ";
+        int page = dis.dr();
+        dis.read_command(); // Read extended opcode
+
+        switch (page)
+        {
+        case 0:
+            switch (dis.opcode())
+            {
+            case instruct::extern_opcode_page_0::pack:
+            {
+                result += "pack\t";
+                result += dis.format_opnum1();
+                result += ",\t";
+                uint16_t argc = dis.read<uint16_t>();
+                uint16_t skip = dis.read<uint16_t>();
+                result += ": skip " + std::to_string(argc) + "/" + std::to_string(skip);
+                break;
+            }
+            case instruct::extern_opcode_page_0::panic:
+                result += "panic\t";
+                result += dis.format_opnum1();
+                break;
+            case instruct::extern_opcode_page_0::cdivilr:
+                result += "cdivilr\t";
+                result += dis.format_opnum1();
+                result += ",\t";
+                result += dis.format_opnum2();
+                break;
+            case instruct::extern_opcode_page_0::cdivil:
+                result += "cdivil\t";
+                result += dis.format_opnum1();
+                break;
+            case instruct::extern_opcode_page_0::cdivirz:
+                result += "cdivirz\t";
+                result += dis.format_opnum1();
+                break;
+            case instruct::extern_opcode_page_0::cdivir:
+                result += "cdivir\t";
+                result += dis.format_opnum1();
+                break;
+            case instruct::extern_opcode_page_0::popn:
+                result += "popn\t";
+                result += dis.format_opnum1();
+                break;
+            default:
+                result += "??\t";
+                break;
+            }
+            break;
+
+        case 3:
+            result += "flag ";
+            switch (dis.opcode())
+            {
+            case instruct::extern_opcode_page_3::funcbegin:
+                result += "funcbegin\t";
+                break;
+            case instruct::extern_opcode_page_3::funcend:
+                result += "funcend\t";
+                break;
+            default:
+                result += "??\t";
+                break;
+            }
+            break;
+
+        default:
+            result += "??\t";
+            break;
+        }
+
+        return result;
     }
 
     void vmbase::dump_call_stack(
@@ -2725,7 +2842,9 @@ namespace wo
                         }
                     }
 
-                    if (opnum1->m_type == value::valuetype::native_func_type)
+                    switch (opnum1->m_type)
+                    {
+                    case value::valuetype::native_func_type:
                     {
                         /* Might be far call jit code. */
                         sp->m_type = value::valuetype::far_callstack;
@@ -2769,8 +2888,10 @@ namespace wo
 #endif
                             break;
                         }
+                    
+                        break;
                     }
-                    else if (opnum1->m_type == value::valuetype::script_func_type)
+                    case value::valuetype::script_func_type:
                     {
                         const auto* aim_function_addr = opnum1->m_script_func;
                         if (aim_function_addr < near_rtcode_begin || aim_function_addr >= near_rtcode_end)
@@ -2791,12 +2912,11 @@ namespace wo
 
                         rt_ip = aim_function_addr;
                         WO_VM_INTERRUPT_CHECKPOINT;
-                    }
-                    else
-                    {
-                        WO_VM_ASSERT(opnum1->m_type == value::valuetype::closure_type,
-                            "Unexpected invoke target type in 'call'.");
 
+                        break;
+                    }
+                    case value::valuetype::closure_type:
+                    {
                         auto* closure = opnum1->m_closure;
 
                         if (closure->m_native_call)
@@ -2864,6 +2984,11 @@ namespace wo
                             rt_ip = aim_function_addr;
                             WO_VM_INTERRUPT_CHECKPOINT;
                         }
+
+                        break;
+                    }
+                    default:
+                        WO_VM_FAIL(WO_FAIL_CALL_FAIL, "Unexpected invoke target type in 'call'.");
                     }
                 } while (0);
                 break;

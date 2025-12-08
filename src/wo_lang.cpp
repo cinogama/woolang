@@ -1387,12 +1387,14 @@ namespace wo
                         lctx->update_allocate_global_instance_storage_passir(
                             template_instance->m_value_instance.get());
                     else
+                    {
                         next_assign_offset =
-                        _assign_storage_for_instance(
-                            lctx,
-                            funcname,
-                            template_instance->m_value_instance.get(),
-                            next_assign_offset);
+                            _assign_storage_for_instance(
+                                lctx,
+                                funcname,
+                                template_instance->m_value_instance.get(),
+                                next_assign_offset);
+                    }
                 }
             }
             else
@@ -1458,6 +1460,31 @@ namespace wo
             return compile_result::PROCESS_FAILED;
 
         // Final process, generate bytecode.
+        wo_assert(m_ircontext.c().get_now_ip() == 0);
+        /*
+            mov         tp,     0
+            movicas     g(0),   1 if match tp;
+            jt          _0_checked;
+            ext panic   "..."
+        _0_checked:
+            ...
+        */
+        m_ircontext.c().mov(
+            *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::cr),
+            *(opnum::opnumbase*)m_ircontext.opnum_imm_int(0));
+        m_ircontext.c().movicas(
+            *(opnum::opnumbase*)m_ircontext.opnum_global(0),
+            *(opnum::opnumbase*)m_ircontext.opnum_imm_int(1),
+            opnum::reg(opnum::reg::cr));
+        m_ircontext.c().jt(opnum::tag(WO_PSTR(_0_checked)));
+        m_ircontext.c().ext_panic(opnum::imm_string(
+            "Address 0 is reserved for initialization check. "
+            "This may indicate: "
+            "1) Attempt to call invalid function, "
+            "2) Double initialization attempt, or "
+            "3) Memory corruption"));
+
+        m_ircontext.c().tag(WO_PSTR(_0_checked));
 
         // Do something for prepare.
         // final.1 Finalize global codes.
@@ -1698,7 +1725,7 @@ namespace wo
                 }
 
                 // This function end with return, donot need to generate extra return.
-                if (! eval_function->m_LANG_function_body_end_with_return_flag_for_IR)
+                if (!eval_function->m_LANG_function_body_end_with_return_flag_for_IR)
                 {
                     if (eval_function->m_LANG_captured_context.m_captured_variables.empty())
                         m_ircontext.c().ret();
@@ -3116,7 +3143,7 @@ namespace wo
     BytecodeGenerateContext::BytecodeGenerateContext() noexcept
         : m_opnum_cache_imm_true(std::make_unique<opnum::imm_bool>(true))
         , m_opnum_cache_imm_false(std::make_unique<opnum::imm_bool>(false))
-        , m_global_storage_allocating(0)
+        , m_global_storage_allocating(1 /* 0 reserved for _0_ check in  */)
     {
     }
     opnum::temporary* BytecodeGenerateContext::borrow_opnum_temporary_register(

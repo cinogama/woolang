@@ -30,6 +30,7 @@
 namespace wo
 {
     class vmbase;
+    class bytecode_disassembler; // 前向声明，用于反汇编器
 
     class vm_debuggee_bridge_base
     {
@@ -417,6 +418,13 @@ namespace wo
         void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream &os = std::cout) const noexcept;
         std::vector<callstack_info> dump_call_stack_func_info(size_t max_count, bool need_offset, bool *out_finished) const noexcept;
         size_t callstack_layer() const noexcept;
+
+    private:
+        // 反汇编辅助方法
+        std::string disassemble_instruction(bytecode_disassembler& dis) const noexcept;
+        std::string disassemble_ext_instruction(bytecode_disassembler& dis) const noexcept;
+
+    public:
         void gc_checkpoint_self_mark() noexcept;
         bool assure_stack_size(wo_size_t assure_stack_size) noexcept;
         void co_pre_invoke_script(const byte_t *wo_func_addr, wo_int_t argc) noexcept;

@@ -1963,7 +1963,9 @@ namespace wo
 
         wo_assert(preserved_memory, "Alloc memory fail.");
 
+        // Set 0 for global & constant value memory.
         memset(preserved_memory, 0, preserve_memory_size * sizeof(wo::value));
+
         //  // Fill constant
         uint32_t constant_index = 0;
         for (auto* constant_value : ordered_constant_record_list)
