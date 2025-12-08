@@ -74,7 +74,8 @@ namespace wo
             auto& context = env_context[env];
             for (size_t bip : ips)
                 context.break_ips.insert(bip);
-            context.break_point_traps.emplace_back(_env_context::breakpoint_info{ src_file, rowno, ips });
+            context.break_point_traps.emplace_back(
+                _env_context::breakpoint_info{ src_file, rowno, ips });
         }
         bool set_breakpoint(
             const shared_pointer<runtime_env>& env,
@@ -82,7 +83,7 @@ namespace wo
             const std::string& src_file,
             size_t rowno)
         {
-            auto breakip = pdi->get_ip_by_src_location(src_file, rowno, true, false);
+            auto breakip = pdi->get_ip_by_src_location(src_file, rowno, true, true);
 
             if (!breakip.empty())
             {

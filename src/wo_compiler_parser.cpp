@@ -975,7 +975,8 @@ namespace wo
             {
                 auto& red_rule = RT_PRODUCTION_P[actions.state];
 
-                // Only te_or_nt_bnodes needs special resizing; reuse srcinfo_bnodes buffer to avoid reallocations.
+                // Only te_or_nt_bnodes needs special resizing; reuse srcinfo_bnodes buffer 
+                // to avoid reallocations.
                 if (srcinfo_bnodes.size() < red_rule.rule_right_count)
                     srcinfo_bnodes.resize(red_rule.rule_right_count);
                 te_or_nt_bnodes.resize(red_rule.rule_right_count);

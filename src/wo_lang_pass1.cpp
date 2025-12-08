@@ -1695,14 +1695,14 @@ namespace wo
                 if (node->m_LANG_determined_template_arguments.has_value())
                     end_last_scope();
 
-                const bool is_not_extern_func_and_NOT_all_paths_return_explicitly =
-                    !node->m_IR_extern_information.has_value()
-                    && check_node_type_and_get_end_state(node->m_body) != ast::AstScope::LANG_end_state::END_WITH_RETURN;
+                node->m_LANG_function_body_end_with_return_flag_for_IR =
+                    node->m_IR_extern_information.has_value()
+                    || check_node_type_and_get_end_state(node->m_body) == ast::AstScope::LANG_end_state::END_WITH_RETURN;
 
                 if (node->m_LANG_determined_return_type.has_value() == false)
                 {
                     // Donot have return sentence? mark function return type as void / nothing.
-                    if (is_not_extern_func_and_NOT_all_paths_return_explicitly)
+                    if (! node->m_LANG_function_body_end_with_return_flag_for_IR)
                         node->m_LANG_determined_return_type = m_origin_types.m_void.m_type_instance;
                     else
                         // Function have no `return`, but end with return check passed, it means function
@@ -1712,7 +1712,7 @@ namespace wo
                 else if (node->m_LANG_determined_return_type.value() != m_origin_types.m_void.m_type_instance)
                 {
                     // Have return sentence, and function not return explicitly, error!
-                    if (is_not_extern_func_and_NOT_all_paths_return_explicitly)
+                    if (! node->m_LANG_function_body_end_with_return_flag_for_IR)
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, node,
                             WO_ERR_FUNCTION_MAY_NO_RETURN_VALUE);

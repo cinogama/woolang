@@ -478,18 +478,18 @@ namespace wo
         std::vector<size_t> result = {};
         for (auto& locinfo : fnd->second)
         {
-            if (ignore_unbreakable || locinfo.unbreakable == false)
+            if (locinfo.unbreakable && ignore_unbreakable)
+                // Skip unbreakable.
+                continue;
+
+            if (strict)
             {
-                if (strict)
-                {
-                    if (locinfo.begin_row_no == rowno)
-                        result.push_back(locinfo.ip);
-                }
-                else if (locinfo.begin_row_no <= rowno && locinfo.end_row_no >= rowno)
-                {
+                if (locinfo.begin_row_no == rowno)
                     result.push_back(locinfo.ip);
-                }
             }
+            else if (locinfo.begin_row_no <= rowno
+                && locinfo.end_row_no >= rowno)
+                result.push_back(locinfo.ip);
         }
         return result;
     }

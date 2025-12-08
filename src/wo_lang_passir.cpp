@@ -3613,7 +3613,9 @@ namespace wo
         wo_assert(node_state.m_ast_node->node_type == AstBase::AST_EMPTY
             || m_passir_A_processers->check_has_processer(node_state.m_ast_node->node_type));
 
-        m_ircontext.c().pdb_info->generate_debug_info_at_astnode(node_state.m_ast_node, &m_ircontext.c());
+        if (node_state.m_state == UNPROCESSED)
+            m_ircontext.c().pdb_info->generate_debug_info_at_astnode(node_state.m_ast_node, &m_ircontext.c());
+
         return m_passir_A_processers->process_node(this, lex, node_state, out_stack);
     }
     LangContext::pass_behavior LangContext::pass_final_B_process_bytecode_generation(
@@ -3649,8 +3651,9 @@ namespace wo
             return OKAY;
         }
 
-        m_ircontext.c().pdb_info->generate_debug_info_at_astnode(
-            node_state.m_ast_node, &m_ircontext.c());
+        if (node_state.m_state == UNPROCESSED)
+            m_ircontext.c().pdb_info->generate_debug_info_at_astnode(
+                node_state.m_ast_node, &m_ircontext.c());
 
         auto compile_result =
             m_passir_B_processers->process_node(this, lex, node_state, out_stack);

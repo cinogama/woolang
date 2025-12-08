@@ -1697,11 +1697,15 @@ namespace wo
                         *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp));
                 }
 
-                if (eval_function->m_LANG_captured_context.m_captured_variables.empty())
-                    m_ircontext.c().ret();
-                else
-                    m_ircontext.c().ret(
-                        (uint16_t)eval_function->m_LANG_captured_context.m_captured_variables.size());
+                // This function end with return, donot need to generate extra return.
+                if (! eval_function->m_LANG_function_body_end_with_return_flag_for_IR)
+                {
+                    if (eval_function->m_LANG_captured_context.m_captured_variables.empty())
+                        m_ircontext.c().ret();
+                    else
+                        m_ircontext.c().ret(
+                            (uint16_t)eval_function->m_LANG_captured_context.m_captured_variables.size());
+                }
 
                 auto this_function_used_tmp_regs =
                     m_ircontext.c().update_all_temp_regist_to_stack(

@@ -612,9 +612,7 @@ namespace wo
         using TagOffsetLocatedInConstantTableOffsetRecordT =
             std::map<wo_pstring_t, TagOffsetInConstantOffset>;
 
-        ///////////////////////////////////////////////////////////////////////
         // Member variables
-        ///////////////////////////////////////////////////////////////////////
     private:
         mutable unsigned int                        _unique_id;
 
@@ -634,9 +632,7 @@ namespace wo
         rslib_extern_symbols::extern_lib_set        loaded_libraries;
         shared_pointer<program_debug_data_info>     pdb_info;
 
-        ///////////////////////////////////////////////////////////////////////
         // Private methods
-        ///////////////////////////////////////////////////////////////////////
     private:
         template<typename T>
         T* _created_opnum_item(const T& _opn) noexcept
@@ -657,9 +653,7 @@ namespace wo
 
         opnum::opnumbase* _check_and_add_const(opnum::opnumbase* _opnum) noexcept;
 
-        ///////////////////////////////////////////////////////////////////////
         // Public methods
-        ///////////////////////////////////////////////////////////////////////
     public:
         ir_compiler()
             : _unique_id(0)

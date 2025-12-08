@@ -804,6 +804,11 @@ namespace wo
             std::optional<std::vector<AstIdentifier::TemplateArgumentInstance>>
                 m_LANG_determined_template_arguments;
 
+            // NOTE: This flag is set during PASS1 type checking and used in code generation
+            //      phase. If a function is obtained from external or is determined to end with
+            //      return, IR generation does not need to generate additional ret instruction.
+            bool m_LANG_function_body_end_with_return_flag_for_IR;
+
             LANG_capture_context m_LANG_captured_context;
             std::optional<lang_Scope*> m_LANG_function_scope;
             std::optional<AstExternInformation*> m_IR_extern_information;
