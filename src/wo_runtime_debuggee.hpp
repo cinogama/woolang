@@ -13,6 +13,26 @@ namespace wo
 {
     class default_cli_debuggee_bridge : public wo::vm_debuggee_bridge_base
     {
+        // Command execution result enumeration
+        enum class command_result
+        {
+            need_next_command,  // Need to wait for the next command
+            continue_running,   // Continue program execution
+        };
+
+        // Command handler function type
+        using command_handler = command_result(default_cli_debuggee_bridge::*)(vmbase*, std::vector<std::string>&);
+
+        // Command entry structure
+        struct command_entry
+        {
+            const char* primary_name;
+            const char* alias;          // Can be nullptr
+            const char* second_alias;   // Can be nullptr (used for commands with 3 aliases like callstack)
+            command_handler handler;
+        };
+
+        // Environment context: stores breakpoint information for each runtime environment
         struct _env_context
         {
             struct breakpoint_info
@@ -45,24 +65,31 @@ namespace wo
     public:
         default_cli_debuggee_bridge() = default;
 
-        void set_breakpoint_with_ips(wo::vmbase* vmm, const std::string& src_file, size_t rowno, std::vector<size_t> ips)
+        void set_breakpoint_with_ips(
+            const shared_pointer<runtime_env>& env,
+            const std::string& src_file,
+            size_t rowno, 
+            std::vector<size_t> ips)
         {
-            auto& context = env_context[vmm->env];
+            auto& context = env_context[env];
             for (size_t bip : ips)
                 context.break_ips.insert(bip);
             context.break_point_traps.emplace_back(_env_context::breakpoint_info{ src_file, rowno, ips });
         }
-        bool set_breakpoint(wo::vmbase* vmm, const std::string& src_file, size_t rowno)
+        bool set_breakpoint(
+            const shared_pointer<runtime_env>& env,
+            const shared_pointer<program_debug_data_info>& pdi, 
+            const std::string& src_file,
+            size_t rowno)
         {
-            auto breakip = vmm->env->program_debug_info->get_ip_by_src_location(
-                src_file, rowno, true, false);
+            auto breakip = pdi->get_ip_by_src_location(src_file, rowno, true, false);
 
             if (!breakip.empty())
             {
                 std::vector<size_t> breakips;
                 for (auto bip : breakip)
                     breakips.push_back(bip);
-                set_breakpoint_with_ips(vmm, src_file, rowno, breakips);
+                set_breakpoint_with_ips(env, src_file, rowno, breakips);
                 return true;
             }
             return false;
@@ -223,16 +250,27 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             size_t rt_ip_begin;
             size_t rt_ip_end;
         };
-        std::vector<function_code_info> search_function_begin_rtip_scope_with_name(wo::vmbase* vmm, const std::string& funcname, bool fullmatch)
+        std::vector<function_code_info> search_function_begin_rtip_scope_with_name(
+            const shared_pointer<program_debug_data_info>& pdi,
+            const std::string& funcname, 
+            bool fullmatch)
         {
             std::vector<function_code_info> result;
-            for (auto& [funcsign_name, pos] : vmm->env->program_debug_info->_function_ip_data_buf)
+            for (auto& [funcsign_name, pos] : pdi->_function_ip_data_buf)
             {
                 if (fullmatch ? (funcsign_name == funcname) : (funcsign_name.rfind(funcname) != std::string::npos))
                 {
-                    auto begin_rt_ip = vmm->env->program_debug_info->get_runtime_ip_by_ip(pos.ir_begin);
-                    auto end_rt_ip = vmm->env->program_debug_info->get_runtime_ip_by_ip(pos.ir_end);
-                    result.push_back({ funcsign_name,pos.ir_begin,pos.ir_end, begin_rt_ip , end_rt_ip });
+                    auto begin_rt_ip = pdi->get_runtime_ip_by_ip(pos.ir_begin);
+                    auto end_rt_ip = pdi->get_runtime_ip_by_ip(pos.ir_end);
+                    result.push_back(
+                        function_code_info
+                        {
+                            funcsign_name,
+                            pos.ir_begin,
+                            pos.ir_end, 
+                            begin_rt_ip , 
+                            end_rt_ip, 
+                        });
                 }
             }
             return result;
@@ -359,7 +397,866 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             else
                 wo_stdout << "<out of range>" << wo_endl;
         }
-        bool debug_command(vmbase* vmm)
+
+        // Helper function to clear input buffer
+        void clear_stdin_buffer()
+        {
+            printf(ANSI_RST);
+            std::cin.clear();
+            char _useless_for_clear = 0;
+            while (std::cin.readsome(&_useless_for_clear, 1));
+        }
+
+        //=====================================================================
+        // Command handler methods
+        //=====================================================================
+
+        // help/? - Display help information
+        command_result cmd_help(vmbase* /*vmm*/, std::vector<std::string>& /*args*/)
+        {
+            command_help();
+            return command_result::need_next_command;
+        }
+
+        // continue/c - Continue execution
+        command_result cmd_continue(vmbase* /*vmm*/, std::vector<std::string>& /*args*/)
+        {
+            printf(ANSI_HIG "Continue running...\n" ANSI_RST);
+            clear_stdin_buffer();
+            return command_result::continue_running;
+        }
+
+        // quit - Stop all VMs and exit
+        command_result cmd_quit(vmbase* /*vmm*/, std::vector<std::string>& /*args*/)
+        {
+            stop_attach_debuggee_for_exit_flag = true;
+            clear_stdin_buffer();
+            return command_result::continue_running;
+        }
+
+        // exit - Force exit
+        command_result cmd_exit(vmbase* /*vmm*/, std::vector<std::string>& /*args*/)
+        {
+            _Exit(-1);
+            clear_stdin_buffer();
+            return command_result::continue_running;
+        }
+
+        // stepir/si - Execute next IR instruction
+        command_result cmd_stepir(vmbase* /*vmm*/, std::vector<std::string>& /*args*/)
+        {
+            breakdown_temp_for_stepir = true;
+            clear_stdin_buffer();
+            return command_result::continue_running;
+        }
+
+        // clear/cls - Clear the screen
+        command_result cmd_clear(vmbase* /*vmm*/, std::vector<std::string>& /*args*/)
+        {
+#ifdef _WIN32
+            auto ignore = system("cls");
+#else
+            auto ignore = system("clear");
+#endif
+            (void)ignore;
+            return command_result::need_next_command;
+        }
+
+        // return/r - Execute until function return
+        command_result cmd_return(vmbase* vmm, std::vector<std::string>& /*args*/)
+        {
+            breakdown_temp_for_return = true;
+            breakdown_temp_for_return_callstackdepth = vmm->callstack_layer();
+            clear_stdin_buffer();
+            return command_result::continue_running;
+        }
+
+        // callstack/cs/bt - Display call stack
+        command_result cmd_callstack(vmbase* vmm, std::vector<std::string>& args)
+        {
+            size_t max_layer;
+            if (!need_possiable_input(args, max_layer))
+                max_layer = 8;
+            vmm->dump_call_stack(max_layer, false);
+            return command_result::need_next_command;
+        }
+
+        // stackframe/sf - Display current stack frame
+        command_result cmd_stackframe(vmbase* /*vmm*/, std::vector<std::string>& /*args*/)
+        {
+            auto* currentsp = current_frame_sp;
+            while ((++currentsp) <= current_frame_bp)
+            {
+                wo_stdout
+                    << "[bp-" << current_frame_bp - currentsp << "]: "
+                    << currentsp << " " << _safe_cast_value_to_string(currentsp)
+                    << wo_endl;
+            }
+            return command_result::need_next_command;
+        }
+
+        // detach - Detach debugger
+        command_result cmd_detach(vmbase* /*vmm*/, std::vector<std::string>& /*args*/)
+        {
+            printf(ANSI_HIG "Detach debuggee, continue run.\n" ANSI_RST);
+            stop_for_detach_debuggee = true;
+            wo::vmbase::attach_debuggee(nullptr)->_abandon();
+            clear_stdin_buffer();
+            return command_result::continue_running;
+        }
+
+        // global/g - Display global variable
+        command_result cmd_global(vmbase* vmm, std::vector<std::string>& args)
+        {
+            size_t offset;
+            if (!need_possiable_input(args, offset))
+                printf(ANSI_HIR "Need to specify offset for command 'global'.\n" ANSI_RST);
+            else
+                display_variable(vmm, offset);
+            return command_result::need_next_command;
+        }
+
+        // deletebreak/delbreak - Delete breakpoint
+        command_result cmd_deletebreak(vmbase* vmm, std::vector<std::string>& args)
+        {
+            size_t breakno;
+            if (need_possiable_input(args, breakno))
+            {
+                if (clear_breakpoint(vmm, breakno))
+                    wo_stdout << "OK!" << wo_endl;
+                else
+                    printf(ANSI_HIR "Unknown breakpoint id.\n" ANSI_RST);
+            }
+            else
+                printf(ANSI_HIR "You must input the breakpoint id.\n" ANSI_RST);
+            return command_result::need_next_command;
+        }
+
+        // step/s - Step into (enter functions)
+        command_result cmd_step(vmbase* vmm, std::vector<std::string>& /*args*/)
+        {
+            if (!vmm->env->program_debug_info.has_value())
+            {
+                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            auto& pdi = vmm->env->program_debug_info.value();
+            auto& loc = pdi->get_src_location_by_runtime_ip(vmm->ip);
+
+            breakdown_temp_for_step = true;
+            breakdown_temp_for_step_row_begin = loc.begin_row_no;
+            breakdown_temp_for_step_row_end = loc.end_row_no;
+            breakdown_temp_for_step_col_begin = loc.begin_col_no;
+            breakdown_temp_for_step_col_end = loc.end_col_no;
+            breakdown_temp_for_step_srcfile = loc.source_file;
+
+            clear_stdin_buffer();
+            return command_result::continue_running;
+        }
+
+        // next/n - Step over (skip functions)
+        command_result cmd_next(vmbase* vmm, std::vector<std::string>& /*args*/)
+        {
+            if (!vmm->env->program_debug_info.has_value())
+            {
+                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            auto& pdi = vmm->env->program_debug_info.value();
+            auto& loc = pdi->get_src_location_by_runtime_ip(vmm->ip);
+
+            breakdown_temp_for_next = true;
+            breakdown_temp_for_next_callstackdepth = vmm->callstack_layer();
+            breakdown_temp_for_step_row_begin = loc.begin_row_no;
+            breakdown_temp_for_step_row_end = loc.end_row_no;
+            breakdown_temp_for_step_col_begin = loc.begin_col_no;
+            breakdown_temp_for_step_col_end = loc.end_col_no;
+            breakdown_temp_for_step_srcfile = loc.source_file;
+
+            clear_stdin_buffer();
+            return command_result::continue_running;
+        }
+
+        // whereis - Find the function containing the IP
+        command_result cmd_whereis(vmbase* vmm, std::vector<std::string>& args)
+        {
+            size_t offset;
+            if (!need_possiable_input(args, offset))
+            {
+                printf(ANSI_HIR "Need to specify ipoffset for command 'whereis'.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            if (!vmm->env->program_debug_info.has_value())
+            {
+                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            auto& pdi = vmm->env->program_debug_info.value();
+            std::string func_name = pdi->get_current_func_signature_by_runtime_ip(
+                vmm->env->rt_codes + offset);
+
+            printf("The ip offset %zu is in function: `" ANSI_HIG "%s" ANSI_RST "`\n",
+                offset, func_name.c_str());
+            return command_result::need_next_command;
+        }
+
+        // halt - Stop specified VM
+        command_result cmd_halt(vmbase* vmm, std::vector<std::string>& args)
+        {
+            wo::assure_leave_this_thread_vm_shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
+
+            wo::vmbase* target_vm = nullptr;
+
+            size_t vmid = 0;
+            if (need_possiable_input(args, vmid))
+            {
+                if (vmid < wo::vmbase::_alive_vm_list.size())
+                {
+                    auto vmidx = wo::vmbase::_alive_vm_list.begin();
+                    for (size_t i = 0; i < vmid; ++i)
+                        ++vmidx;
+                    target_vm = *vmidx;
+                }
+                else
+                    printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
+            }
+            else
+                target_vm = vmm;
+
+            if (target_vm != nullptr)
+                target_vm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+
+            return command_result::need_next_command;
+        }
+
+        // frame/f - Switch stack frame
+        command_result cmd_frame(vmbase* vmm, std::vector<std::string>& args)
+        {
+            size_t framelayer = 0;
+            if (!need_possiable_input(args, framelayer))
+            {
+                printf(ANSI_HIR "You must input frame number.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            current_runtime_ip = vmm->ip;
+            current_frame_sp = vmm->sp;
+            current_frame_bp = vmm->bp;
+
+            size_t current_frame = 0;
+            while (framelayer--)
+            {
+                auto tmp_sp = current_frame_bp + 1;
+                switch (tmp_sp->m_type)
+                {
+                case value::valuetype::callstack:
+                {
+                    current_frame++;
+                    current_frame_sp = tmp_sp;
+                    current_frame_bp = vmm->sb - tmp_sp->m_vmcallstack.bp;
+                    current_runtime_ip = vmm->env->rt_codes + tmp_sp->m_vmcallstack.ret_ip;
+                    break;
+                }
+                case value::valuetype::far_callstack:
+                {
+                    current_frame++;
+                    current_frame_sp = tmp_sp;
+                    current_frame_bp = vmm->sb - tmp_sp->m_ext_farcallstack_bp;
+                    current_runtime_ip = tmp_sp->m_farcallstack;
+                    break;
+                }
+                default:
+                    goto _label_break_trace_frame;
+                }
+            }
+        _label_break_trace_frame:
+            printf("Now at: frame " ANSI_HIY "%zu\n" ANSI_RST, current_frame);
+            return command_result::need_next_command;
+        }
+
+        // print/p - Print variable
+        command_result cmd_print(vmbase* vmm, std::vector<std::string>& args)
+        {
+            if (!vmm->env->program_debug_info.has_value())
+            {
+                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            auto& pdi = vmm->env->program_debug_info.value();
+
+            std::string varname;
+            if (!need_possiable_input(args, varname))
+            {
+                printf(ANSI_HIR "You must input the variable name.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            if (vmm->env)
+            {
+                auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                auto fnd = pdi->_function_ip_data_buf.find(funcname);
+                if (fnd != pdi->_function_ip_data_buf.end())
+                {
+                    if (auto vfnd = fnd->second.variables.find(varname);
+                        vfnd != fnd->second.variables.end())
+                    {
+                        for (auto& varinfo : vfnd->second)
+                            display_variable(vmm, varinfo);
+                    }
+                    else
+                        printf(ANSI_HIR "Cannot find '%s' in function '%s'.\n" ANSI_RST,
+                            varname.c_str(), funcname.c_str());
+                }
+                else
+                    printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
+            }
+            return command_result::need_next_command;
+        }
+
+        // vm/thread - Switch to specified VM and break
+        command_result cmd_thread(vmbase* /*vmm*/, std::vector<std::string>& args)
+        {
+            size_t vmid = 0;
+            if (!need_possiable_input(args, vmid))
+            {
+                printf(ANSI_HIR "You must input vm id to break.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            wo::assure_leave_this_thread_vm_shared_mutex::leave_context ctx;
+            if (!wo::vmbase::_alive_vm_list_mx.try_lock_shared(&ctx))
+                return command_result::need_next_command;
+
+            if (vmid < wo::vmbase::_alive_vm_list.size())
+            {
+                auto vmidx = wo::vmbase::_alive_vm_list.begin();
+                for (size_t i = 0; i < vmid; ++i)
+                    ++vmidx;
+
+                focus_on_vm = *vmidx;
+                breakdown_temp_for_stepir = true;
+
+                printf(ANSI_HIG "Continue running and break at vm (%zu:%p)...\n" ANSI_RST, vmid, focus_on_vm);
+                wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
+                clear_stdin_buffer();
+                return command_result::continue_running;
+            }
+            else
+            {
+                printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
+                wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
+                return command_result::need_next_command;
+            }
+        }
+
+        // state/st - Display VM register state
+        command_result cmd_state(vmbase* vmm, std::vector<std::string>& args)
+        {
+            wo::assure_leave_this_thread_vm_shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
+
+            wo::vmbase* target_vm = nullptr;
+
+            size_t vmid = 0;
+            if (need_possiable_input(args, vmid))
+            {
+                if (vmid < wo::vmbase::_alive_vm_list.size())
+                {
+                    auto vmidx = wo::vmbase::_alive_vm_list.begin();
+                    for (size_t i = 0; i < vmid; ++i)
+                        ++vmidx;
+                    target_vm = *vmidx;
+                }
+                else
+                    printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
+            }
+            else
+                target_vm = vmm;
+
+            if (target_vm != nullptr)
+            {
+                wo_stdout
+                    << ANSI_HIG
+                    << target_vm->env->real_register_count
+                    << ANSI_HIY " register(s) in total:" ANSI_RST
+                    << wo_endl;
+                printf("%-15s%-20s%-20s\n", "RegisterID", "Name", "Value");
+                for (size_t reg_idx = 0; reg_idx < target_vm->env->real_register_count; ++reg_idx)
+                {
+                    printf("%-15zu", reg_idx);
+                    switch (reg_idx)
+                    {
+                    case wo::opnum::reg::spreg::r0:
+                    case wo::opnum::reg::spreg::r1:
+                    case wo::opnum::reg::spreg::r2:
+                    case wo::opnum::reg::spreg::r3:
+                    case wo::opnum::reg::spreg::r4:
+                    case wo::opnum::reg::spreg::r5:
+                    case wo::opnum::reg::spreg::r6:
+                    case wo::opnum::reg::spreg::r7:
+                    case wo::opnum::reg::spreg::r8:
+                    case wo::opnum::reg::spreg::r9:
+                    case wo::opnum::reg::spreg::r10:
+                    case wo::opnum::reg::spreg::r11:
+                    case wo::opnum::reg::spreg::r12:
+                    case wo::opnum::reg::spreg::r13:
+                    case wo::opnum::reg::spreg::r14:
+                    case wo::opnum::reg::spreg::r15:
+                        printf("%-20s", ("R" + std::to_string(reg_idx - wo::opnum::reg::spreg::r0)).c_str()); break;
+                    case wo::opnum::reg::spreg::t0:
+                    case wo::opnum::reg::spreg::t1:
+                    case wo::opnum::reg::spreg::t2:
+                    case wo::opnum::reg::spreg::t3:
+                    case wo::opnum::reg::spreg::t4:
+                    case wo::opnum::reg::spreg::t5:
+                    case wo::opnum::reg::spreg::t6:
+                    case wo::opnum::reg::spreg::t7:
+                    case wo::opnum::reg::spreg::t8:
+                    case wo::opnum::reg::spreg::t9:
+                    case wo::opnum::reg::spreg::t10:
+                    case wo::opnum::reg::spreg::t11:
+                    case wo::opnum::reg::spreg::t12:
+                    case wo::opnum::reg::spreg::t13:
+                    case wo::opnum::reg::spreg::t14:
+                    case wo::opnum::reg::spreg::t15:
+                        printf("%-20s", ("T" + std::to_string(reg_idx - wo::opnum::reg::spreg::t0)).c_str()); break;
+                    case wo::opnum::reg::spreg::cr:
+                        printf("%-20s", "OpTraceResult(CR)"); break;
+                    case wo::opnum::reg::spreg::tc:
+                        printf("%-20s", "ArgumentCount(TC)"); break;
+                    case wo::opnum::reg::spreg::er:
+                        printf("%-20s", "ExceptionInfo(ER)"); break;
+                    case wo::opnum::reg::spreg::ni:
+                        printf("%-20s", "NilConstant(NI)"); break;
+                    case wo::opnum::reg::spreg::pm:
+                        printf("%-20s", "PatternMatch(PM)"); break;
+                    case wo::opnum::reg::spreg::tp:
+                        printf("%-20s", "Temporary(TP)"); break;
+                    default:
+                        printf("%-20s", "---"); break;
+                    }
+
+                    printf("%-20s\n", _safe_cast_value_to_string(
+                        &target_vm->register_storage[reg_idx]).c_str());
+                }
+            }
+            return command_result::need_next_command;
+        }
+
+        // disassemble/dis - Display disassembly
+        command_result cmd_disassemble(vmbase* vmm, std::vector<std::string>& args)
+        {
+            std::string function_name_or_ip_offset;
+            if (need_possiable_input(args, function_name_or_ip_offset))
+            {
+                bool is_number = !function_name_or_ip_offset.empty();
+                for (char ch : function_name_or_ip_offset)
+                {
+                    if (!isdigit(ch))
+                    {
+                        is_number = false;
+                        break;
+                    }
+                }
+
+                if (is_number)
+                {
+                    size_t begin_offset = (size_t)atoll(function_name_or_ip_offset.c_str());
+                    if (need_possiable_input(args, function_name_or_ip_offset))
+                    {
+                        size_t length = (size_t)atoll(function_name_or_ip_offset.c_str());
+                        printf("Display +%04zu to +%04zu.\n", begin_offset, begin_offset + length);
+                        vmm->dump_program_bin(
+                            std::min(begin_offset, vmm->env->rt_code_len),
+                            std::min(begin_offset + length, vmm->env->rt_code_len));
+                    }
+                    else
+                        printf(ANSI_HIR "Missing length, command failed.\n" ANSI_RST);
+                }
+                else
+                {
+                    if (function_name_or_ip_offset == "--all")
+                    {
+                        vmm->dump_program_bin();
+                    }
+                    else
+                    {
+                        if (!vmm->env->program_debug_info.has_value())
+                            printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                        else
+                        {
+                            auto&& fndresult = search_function_begin_rtip_scope_with_name(
+                                vmm->env->program_debug_info.value(),
+                                function_name_or_ip_offset,
+                                false);
+
+                            wo_stdout << "Find " << fndresult.size() << " symbol(s):" << wo_endl;
+                            for (auto& funcinfo : fndresult)
+                            {
+                                wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
+                                vmm->dump_program_bin(funcinfo.rt_ip_begin, funcinfo.rt_ip_end);
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                if (!vmm->env->program_debug_info.has_value())
+                    printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                else
+                {
+                    auto& pdi = vmm->env->program_debug_info.value();
+
+                    auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                    auto fnd = pdi->_function_ip_data_buf.find(funcname);
+                    if (fnd != pdi->_function_ip_data_buf.end())
+                    {
+                        wo_stdout << "In function: " << funcname << wo_endl;
+                        vmm->dump_program_bin(
+                            pdi->get_runtime_ip_by_ip(fnd->second.ir_begin),
+                            pdi->get_runtime_ip_by_ip(fnd->second.ir_end));
+                    }
+                    else
+                    {
+                        wo_stdout << "Unable to located function, display following 100 bytes." << wo_endl;
+                        auto begin_offset = (size_t)(current_runtime_ip - vmm->env->rt_codes);
+                        vmm->dump_program_bin(
+                            std::min(begin_offset, vmm->env->rt_code_len),
+                            std::min(begin_offset + 100, vmm->env->rt_code_len));
+                    }
+                }
+            }
+            return command_result::need_next_command;
+        }
+
+        // profiler - CPU performance profiling
+        command_result cmd_profiler(vmbase* vmm, std::vector<std::string>& args)
+        {
+            if (!vmm->env->program_debug_info.has_value())
+            {
+                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            auto& pdi = vmm->env->program_debug_info.value();
+
+            std::string command;
+            if (!need_possiable_input(args, command))
+            {
+                printf(ANSI_HIR "You should input sub command for profiler, should be 'start' or 'review'.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            if (command == "start")
+            {
+                double record_time;
+                if (!need_possiable_input(args, record_time))
+                    record_time = 1.0;
+
+                profiler_records.clear();
+                profiler_enabled = true;
+                profiler_last_sampling_times.clear();
+                profiler_until = _wo_inside_time_sec() + record_time;
+                profiler_total_count = 0;
+
+                clear_stdin_buffer();
+                return command_result::continue_running;
+            }
+            else if (command == "review")
+            {
+                std::string specify_funcname;
+                if (!need_possiable_input(args, specify_funcname))
+                {
+                    printf(ANSI_HIR "You should input the function's name to review.\n" ANSI_RST);
+                    return command_result::need_next_command;
+                }
+
+                if (profiler_records.empty())
+                {
+                    printf(ANSI_HIR "No record, you should start profiler first.\n" ANSI_RST);
+                    return command_result::need_next_command;
+                }
+
+                for (auto& [funcname, record] : profiler_records)
+                {
+                    if (funcname.find(specify_funcname) < funcname.size())
+                    {
+                        auto&& fndresult = search_function_begin_rtip_scope_with_name(pdi, funcname, true);
+
+                        if (fndresult.empty())
+                            continue;
+
+                        wo_assert(fndresult.size() == 1);
+                        auto& func_info = fndresult.front();
+
+                        auto& src_begin = pdi->get_src_location_by_runtime_ip(
+                            vmm->env->rt_codes + func_info.rt_ip_begin);
+
+                        auto& src_end = pdi->get_src_location_by_runtime_ip(
+                            vmm->env->rt_codes + func_info.rt_ip_end);
+
+                        print_src_file(vmm, src_begin.source_file, 0, 0, 0, 0,
+                            src_begin.begin_row_no, src_end.end_row_no, &record);
+                    }
+                }
+            }
+            else
+                printf(ANSI_HIR "Unknown command for profiler, should be 'start' or 'review'.\n" ANSI_RST);
+
+            return command_result::need_next_command;
+        }
+
+        // break/b - Set breakpoint
+        command_result cmd_break(vmbase* vmm, std::vector<std::string>& args)
+        {
+            if (!vmm->env->program_debug_info.has_value())
+            {
+                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            auto& pdi = vmm->env->program_debug_info.value();
+
+            std::string filename_or_funcname;
+            if (!need_possiable_input(args, filename_or_funcname))
+            {
+                printf(ANSI_HIR "You must input the file or function's name.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            size_t lineno;
+            bool result = false;
+            bool breakpoint_set_by_funcname = false;
+
+            if (need_possiable_input(args, lineno))
+                result = set_breakpoint(vmm->env, pdi, filename_or_funcname, lineno - 1);
+            else
+            {
+                for (auto ch : filename_or_funcname)
+                {
+                    if (ch < '0' || ch > '9')
+                    {
+                        auto&& fndresult = search_function_begin_rtip_scope_with_name(pdi, filename_or_funcname, false);
+                        wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
+                        for (auto& funcinfo : fndresult)
+                        {
+                            wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
+
+                            auto frtip = vmm->env->rt_codes + pdi->get_runtime_ip_by_ip(funcinfo.command_ip_begin);
+                            auto fip = pdi->get_ip_by_runtime_ip(frtip);
+                            auto& srcinfo = pdi->get_src_location_by_runtime_ip(frtip);
+                            set_breakpoint_with_ips(vmm->env, srcinfo.source_file, srcinfo.begin_row_no, { fip });
+                        }
+                        breakpoint_set_by_funcname = true;
+                        break;
+                    }
+                }
+                if (!breakpoint_set_by_funcname)
+                {
+                    result = set_breakpoint(
+                        vmm->env,
+                        pdi,
+                        pdi->get_src_location_by_runtime_ip(current_runtime_ip).source_file,
+                        (size_t)std::stoull(filename_or_funcname) - 1);
+                }
+            }
+
+            if (!breakpoint_set_by_funcname)
+            {
+                if (result)
+                    wo_stdout << "OK!" << wo_endl;
+                else
+                    wo_stdout << "FAIL!" << wo_endl;
+            }
+            return command_result::need_next_command;
+        }
+
+        // source/src - Display source code
+        command_result cmd_source(vmbase* vmm, std::vector<std::string>& args)
+        {
+            if (!vmm->env->program_debug_info.has_value())
+            {
+                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            auto& pdi = vmm->env->program_debug_info.value();
+
+            std::string filename;
+            size_t display_range = 5;
+            auto& loc = pdi->get_src_location_by_runtime_ip(current_runtime_ip);
+            bool handled_by_filename = false;
+
+            if (need_possiable_input(args, filename))
+            {
+                for (auto ch : filename)
+                {
+                    if (ch < '0' || ch > '9')
+                    {
+                        if (filename == loc.source_file)
+                            print_src_file(vmm, filename, loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no);
+                        else
+                            print_src_file(vmm, filename, 0, 0, 0, 0);
+                        handled_by_filename = true;
+                        break;
+                    }
+                }
+                if (!handled_by_filename)
+                    display_range = (size_t)std::stoull(filename);
+            }
+
+            if (!handled_by_filename)
+            {
+                print_src_file(vmm, loc.source_file, loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no,
+                    (loc.begin_row_no < display_range / 2 ? 0 : loc.begin_row_no - display_range / 2), loc.end_row_no + display_range / 2);
+            }
+            return command_result::need_next_command;
+        }
+
+        // list/l - List various information
+        command_result cmd_list(vmbase* vmm, std::vector<std::string>& args)
+        {
+            auto& context = env_context[vmm->env];
+
+            std::string list_what;
+            if (!need_possiable_input(args, list_what))
+            {
+                printf(ANSI_HIR "You must input something to list.\n" ANSI_RST);
+                return command_result::need_next_command;
+            }
+
+            if (list_what == "break")
+            {
+                if (!vmm->env->program_debug_info.has_value())
+                    printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                else
+                {
+                    size_t id = 0;
+                    for (auto& break_info : context.break_point_traps)
+                    {
+                        wo_stdout << (id++) << " :\t" << break_info.m_filepath << " (" << break_info.m_row_no << ")" << wo_endl;
+                    }
+                }
+            }
+            else if (list_what == "var")
+            {
+                if (!vmm->env->program_debug_info.has_value())
+                    printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                else
+                {
+                    auto& pdi = vmm->env->program_debug_info.value();
+
+                    auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                    auto fnd = pdi->_function_ip_data_buf.find(funcname);
+                    if (fnd != pdi->_function_ip_data_buf.end())
+                    {
+                        for (auto& [varname, varinfos] : fnd->second.variables)
+                        {
+                            for (auto& varinfo : varinfos)
+                                display_variable(vmm, varinfo);
+                        }
+                    }
+                    else
+                        printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
+                }
+            }
+            else if (list_what == "vm" || list_what == "thread")
+            {
+                wo::assure_leave_this_thread_vm_shared_mutex::leave_context ctx;
+                if (wo::vmbase::_alive_vm_list_mx.try_lock_shared(&ctx))
+                {
+                    size_t vmcount = 0;
+                    for (auto vms : wo::vmbase::_alive_vm_list)
+                    {
+                        wo_stdout << ANSI_HIY "thread(vm) #" ANSI_HIG << vmcount << ANSI_RST " " << vms << " " << wo_endl;
+
+                        auto usage = ((double)(vms->sb - vms->sp)) / (double)vms->stack_size;
+                        wo_stdout << "stack usage: " << usage * 100. << "%" << wo_endl;
+
+                        if (vms->env->rt_codes == vms->ip
+                            || vms->ip == vms->env->rt_codes + vms->env->rt_code_len
+                            || vms->vm_interrupt.load(std::memory_order_relaxed) & vmbase::PENDING_INTERRUPT)
+                            wo_stdout << "(pending)" << wo_endl;
+                        else if (vms->ip < vms->env->rt_codes
+                            || vms->ip > vms->env->rt_codes + vms->env->rt_code_len)
+                        {
+                            wo_stdout << "(leaving)" << wo_endl;
+                            vms->dump_call_stack(5, false);
+                        }
+                        else
+                        {
+                            wo_stdout << "(running)" << wo_endl;
+                            vms->dump_call_stack(5, false);
+                        }
+
+                        vmcount++;
+                    }
+
+                    wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
+                }
+                else
+                    printf(ANSI_HIR "Failed to get thread(virtual machine) list, may busy.\n" ANSI_RST);
+            }
+            else
+                printf(ANSI_HIR "Unknown type to list.\n" ANSI_RST);
+
+            return command_result::need_next_command;
+        }
+
+        // Get command dispatch table
+        static const std::vector<command_entry>& get_command_table()
+        {
+            static const std::vector<command_entry> command_table = {
+                {"help",        "?",        nullptr,    &default_cli_debuggee_bridge::cmd_help},
+                {"continue",    "c",        nullptr,    &default_cli_debuggee_bridge::cmd_continue},
+                {"thread",      "vm",       nullptr,    &default_cli_debuggee_bridge::cmd_thread},
+                {"state",       "st",       nullptr,    &default_cli_debuggee_bridge::cmd_state},
+                {"return",      "r",        nullptr,    &default_cli_debuggee_bridge::cmd_return},
+                {"frame",       "f",        nullptr,    &default_cli_debuggee_bridge::cmd_frame},
+                {"disassemble", "dis",      nullptr,    &default_cli_debuggee_bridge::cmd_disassemble},
+                {"callstack",   "cs",       "bt",       &default_cli_debuggee_bridge::cmd_callstack},
+                {"profiler",    nullptr,    nullptr,    &default_cli_debuggee_bridge::cmd_profiler},
+                {"break",       "b",        nullptr,    &default_cli_debuggee_bridge::cmd_break},
+                {"halt",        nullptr,    nullptr,    &default_cli_debuggee_bridge::cmd_halt},
+                {"quit",        nullptr,    nullptr,    &default_cli_debuggee_bridge::cmd_quit},
+                {"exit",        nullptr,    nullptr,    &default_cli_debuggee_bridge::cmd_exit},
+                {"deletebreak", "delbreak", nullptr,    &default_cli_debuggee_bridge::cmd_deletebreak},
+                {"stepir",      "si",       nullptr,    &default_cli_debuggee_bridge::cmd_stepir},
+                {"clear",       "cls",      nullptr,    &default_cli_debuggee_bridge::cmd_clear},
+                {"step",        "s",        nullptr,    &default_cli_debuggee_bridge::cmd_step},
+                {"next",        "n",        nullptr,    &default_cli_debuggee_bridge::cmd_next},
+                {"stackframe",  "sf",       nullptr,    &default_cli_debuggee_bridge::cmd_stackframe},
+                {"print",       "p",        nullptr,    &default_cli_debuggee_bridge::cmd_print},
+                {"source",      "src",      nullptr,    &default_cli_debuggee_bridge::cmd_source},
+                {"global",      "g",        nullptr,    &default_cli_debuggee_bridge::cmd_global},
+                {"whereis",     nullptr,    nullptr,    &default_cli_debuggee_bridge::cmd_whereis},
+                {"list",        "l",        nullptr,    &default_cli_debuggee_bridge::cmd_list},
+                {"detach",      nullptr,    nullptr,    &default_cli_debuggee_bridge::cmd_detach},
+            };
+            return command_table;
+        }
+
+        // Find command handler function
+        command_handler find_command_handler(const std::string& cmd) const
+        {
+            for (const auto& entry : get_command_table())
+            {
+                if (cmd == entry.primary_name)
+                    return entry.handler;
+                if (entry.alias != nullptr && cmd == entry.alias)
+                    return entry.handler;
+                if (entry.second_alias != nullptr && cmd == entry.second_alias)
+                    return entry.handler;
+            }
+            return nullptr;
+        }
+
+        command_result debug_command(vmbase* vmm)
         {
             // Clear stdout
             printf(ANSI_HIG "> " ANSI_HIY); fflush(stdout);
@@ -381,725 +1278,17 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             if (!main_command.empty())
             {
-                auto& context = env_context[vmm->env];
-
                 printf(ANSI_RST);
-                if (main_command == "?" || main_command == "help")
-                    command_help();
-                else if (main_command == "c" || main_command == "continue")
-                {
-                    printf(ANSI_HIG "Continue running...\n" ANSI_RST);
-                    return false;
-                }
-                else if (main_command == "vm" || main_command == "thread")
-                {
-                    size_t vmid = 0;
-                    bool continue_run = false;
-                    if (need_possiable_input(inputbuf, vmid))
-                    {
-                        wo::assure_leave_this_thread_vm_shared_mutex::leave_context ctx;
-                        if (wo::vmbase::_alive_vm_list_mx.try_lock_shared(&ctx))
-                        {
-                            if (vmid < wo::vmbase::_alive_vm_list.size())
-                            {
-                                auto vmidx = wo::vmbase::_alive_vm_list.begin();
-                                for (size_t i = 0; i < vmid; ++i)
-                                    ++vmidx;
-
-                                focus_on_vm = *vmidx;
-                                breakdown_temp_for_stepir = true;
-
-                                printf(ANSI_HIG "Continue running and break at vm (%zu:%p)...\n" ANSI_RST, vmid, focus_on_vm);
-                                continue_run = true;
-                            }
-                            else
-                                printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
-
-                            wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
-                        }
-                    }
-                    else
-                        printf(ANSI_HIR "You must input vm id to break.\n" ANSI_RST);
-
-                    if (continue_run)
-                        return false;
-                    goto continue_run_command;
-
-                }
-                else if (main_command == "st" || main_command == "state")
-                {
-                    wo::assure_leave_this_thread_vm_shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
-
-                    wo::vmbase* target_vm = nullptr;
-
-                    size_t vmid = 0;
-                    if (need_possiable_input(inputbuf, vmid))
-                    {
-                        if (vmid < wo::vmbase::_alive_vm_list.size())
-                        {
-                            auto vmidx = wo::vmbase::_alive_vm_list.begin();
-                            for (size_t i = 0; i < vmid; ++i)
-                                ++vmidx;
-
-                            target_vm = *vmidx;
-                        }
-                        else
-                            printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
-                    }
-                    else
-                        target_vm = vmm;
-
-                    if (target_vm != nullptr)
-                    {
-                        wo_stdout
-                            << ANSI_HIG
-                            << target_vm->env->real_register_count
-                            << ANSI_HIY " register(s) in total:" ANSI_RST
-                            << wo_endl;
-                        printf("%-15s%-20s%-20s\n", "RegisterID", "Name", "Value");
-                        for (size_t reg_idx = 0; reg_idx < target_vm->env->real_register_count; ++reg_idx)
-                        {
-                            printf("%-15zu", reg_idx);
-                            switch (reg_idx)
-                            {
-                            case wo::opnum::reg::spreg::r0:
-                            case wo::opnum::reg::spreg::r1:
-                            case wo::opnum::reg::spreg::r2:
-                            case wo::opnum::reg::spreg::r3:
-                            case wo::opnum::reg::spreg::r4:
-                            case wo::opnum::reg::spreg::r5:
-                            case wo::opnum::reg::spreg::r6:
-                            case wo::opnum::reg::spreg::r7:
-                            case wo::opnum::reg::spreg::r8:
-                            case wo::opnum::reg::spreg::r9:
-                            case wo::opnum::reg::spreg::r10:
-                            case wo::opnum::reg::spreg::r11:
-                            case wo::opnum::reg::spreg::r12:
-                            case wo::opnum::reg::spreg::r13:
-                            case wo::opnum::reg::spreg::r14:
-                            case wo::opnum::reg::spreg::r15:
-                                printf("%-20s", ("R" + std::to_string(reg_idx - wo::opnum::reg::spreg::r0)).c_str()); break;
-                            case wo::opnum::reg::spreg::t0:
-                            case wo::opnum::reg::spreg::t1:
-                            case wo::opnum::reg::spreg::t2:
-                            case wo::opnum::reg::spreg::t3:
-                            case wo::opnum::reg::spreg::t4:
-                            case wo::opnum::reg::spreg::t5:
-                            case wo::opnum::reg::spreg::t6:
-                            case wo::opnum::reg::spreg::t7:
-                            case wo::opnum::reg::spreg::t8:
-                            case wo::opnum::reg::spreg::t9:
-                            case wo::opnum::reg::spreg::t10:
-                            case wo::opnum::reg::spreg::t11:
-                            case wo::opnum::reg::spreg::t12:
-                            case wo::opnum::reg::spreg::t13:
-                            case wo::opnum::reg::spreg::t14:
-                            case wo::opnum::reg::spreg::t15:
-                                printf("%-20s", ("T" + std::to_string(reg_idx - wo::opnum::reg::spreg::t0)).c_str()); break;
-                            case wo::opnum::reg::spreg::cr:
-                                printf("%-20s", "OpTraceResult(CR)"); break;
-                            case wo::opnum::reg::spreg::tc:
-                                printf("%-20s", "ArgumentCount(TC)"); break;
-                            case wo::opnum::reg::spreg::er:
-                                printf("%-20s", "ExceptionInfo(ER)"); break;
-                            case wo::opnum::reg::spreg::ni:
-                                printf("%-20s", "NilConstant(NI)"); break;
-                            case wo::opnum::reg::spreg::pm:
-                                printf("%-20s", "PatternMatch(PM)"); break;
-                            case wo::opnum::reg::spreg::tp:
-                                printf("%-20s", "Temporary(TP)"); break;
-                            default:
-                                printf("%-20s", "---"); break;
-                            }
-
-                            printf("%-20s\n", _safe_cast_value_to_string(
-                                &target_vm->register_storage[reg_idx]).c_str());
-                        }
-
-                    }
-                }
-                else if (main_command == "r" || main_command == "return")
-                {
-                    breakdown_temp_for_return = true;
-                    breakdown_temp_for_return_callstackdepth = vmm->callstack_layer();
-                    goto continue_run_command;
-                }
-                else if (main_command == "f" || main_command == "frame")
-                {
-                    size_t framelayer = 0;
-                    if (need_possiable_input(inputbuf, framelayer))
-                    {
-                        current_runtime_ip = vmm->ip;
-                        current_frame_sp = vmm->sp;
-                        current_frame_bp = vmm->bp;
-
-                        size_t current_frame = 0;
-                        while (framelayer--)
-                        {
-                            auto tmp_sp = current_frame_bp + 1;
-                            switch (tmp_sp->m_type)
-                            {
-                            case value::valuetype::callstack:
-                            {
-                                current_frame++;
-                                current_frame_sp = tmp_sp;
-                                current_frame_bp = vmm->sb - tmp_sp->m_vmcallstack.bp;
-                                current_runtime_ip = vmm->env->rt_codes + tmp_sp->m_vmcallstack.ret_ip;
-                                break;
-                            }
-                            case value::valuetype::far_callstack:
-                            {
-                                current_frame++;
-                                current_frame_sp = tmp_sp;
-                                current_frame_bp = vmm->sb - tmp_sp->m_ext_farcallstack_bp;
-                                current_runtime_ip = tmp_sp->m_farcallstack;
-                                break;
-                            }
-                            default:
-                                goto _label_break_trace_frame;
-                            }
-                        }
-                    _label_break_trace_frame:
-                        printf("Now at: frame " ANSI_HIY "%zu\n" ANSI_RST, current_frame);
-                    }
-                    else
-                        printf(ANSI_HIR "You must input frame number.\n" ANSI_RST);
-                }
-                else if (main_command == "dis" || main_command == "disassemble")
-                {
-                    std::string function_name_or_ip_offset;
-                    if (need_possiable_input(inputbuf, function_name_or_ip_offset))
-                    {
-                        bool is_number = !function_name_or_ip_offset.empty();
-                        for (char ch : function_name_or_ip_offset)
-                        {
-                            if (!isdigit(ch))
-                            {
-                                is_number = false;
-                                break;
-                            }
-                        }
-
-                        if (is_number)
-                        {
-                            size_t begin_offset = (size_t)atoll(function_name_or_ip_offset.c_str());
-                            if (need_possiable_input(inputbuf, function_name_or_ip_offset))
-                            {
-                                size_t length = (size_t)atoll(function_name_or_ip_offset.c_str());
-                                printf("Display +%04zu to +%04zu.\n",
-                                    begin_offset,
-                                    begin_offset + length);
-
-                                vmm->dump_program_bin(
-                                    std::min(begin_offset, vmm->env->rt_code_len),
-                                    std::min(begin_offset + length, vmm->env->rt_code_len));
-                            }
-                            else
-                                printf(ANSI_HIR "Missing length, command failed.\n" ANSI_RST);
-
-                        }
-                        else
-                        {
-                            if (function_name_or_ip_offset == "--all")
-                            {
-                                vmm->dump_program_bin();
-                            }
-                            else
-                            {
-                                if (vmm->env->program_debug_info == nullptr)
-                                    printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                                else
-                                {
-                                    auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, function_name_or_ip_offset, false);
-                                    wo_stdout << "Find " << fndresult.size() << " symbol(s):" << wo_endl;
-                                    for (auto& funcinfo : fndresult)
-                                    {
-                                        wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
-                                        vmm->dump_program_bin(funcinfo.rt_ip_begin, funcinfo.rt_ip_end);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (vmm->env->program_debug_info == nullptr)
-                            printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                        else
-                        {
-                            auto&& funcname = vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                            auto fnd = vmm->env->program_debug_info->_function_ip_data_buf.find(funcname);
-                            if (fnd != vmm->env->program_debug_info->_function_ip_data_buf.end())
-                            {
-                                wo_stdout << "In function: " << funcname << wo_endl;
-                                vmm->dump_program_bin(
-                                    vmm->env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_begin),
-                                    vmm->env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_end));
-                            }
-                            else
-                            {
-                                wo_stdout << "Unable to located function, display following 100 bytes." << wo_endl;
-                                auto begin_offset = (size_t)(current_runtime_ip - vmm->env->rt_codes);
-                                vmm->dump_program_bin(
-                                    std::min(begin_offset, vmm->env->rt_code_len),
-                                    std::min(begin_offset + 100, vmm->env->rt_code_len));
-                            }
-                        }
-                    }
-                }
-                else if (main_command == "cs" || main_command == "bt" || main_command == "callstack")
-                {
-                    size_t max_layer;
-                    if (!need_possiable_input(inputbuf, max_layer))
-                        max_layer = 8;
-                    vmm->dump_call_stack(max_layer, false);
-                }
-                else if (main_command == "profiler")
-                {
-                    if (vmm->env->program_debug_info == nullptr)
-                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                    else
-                    {
-                        std::string command;
-                        if (need_possiable_input(inputbuf, command))
-                        {
-                            if (command == "start")
-                            {
-                                double record_time;
-                                if (!need_possiable_input(inputbuf, record_time))
-                                    record_time = 1.0;
-
-                                profiler_records.clear();
-                                profiler_enabled = true;
-                                profiler_last_sampling_times.clear();
-                                profiler_until = _wo_inside_time_sec() + record_time;
-                                profiler_total_count = 0;
-
-                                return false;
-                            }
-                            else if (command == "review")
-                            {
-                                std::string specify_funcname;
-                                if (!need_possiable_input(inputbuf, specify_funcname))
-                                {
-                                    printf(ANSI_HIR "You should input the function's name to review.\n" ANSI_RST);
-                                }
-                                else
-                                {
-                                    if (!profiler_records.empty())
-                                    {
-                                        for (auto& [funcname, record] : profiler_records)
-                                        {
-                                            if (funcname.find(specify_funcname) < funcname.size())
-                                            {
-                                                auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, funcname, true);
-
-                                                if (fndresult.empty())
-                                                    continue;
-
-                                                wo_assert(fndresult.size() == 1);
-                                                auto& func_info = fndresult.front();
-
-                                                auto& src_begin = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
-                                                    vmm->env->rt_codes + func_info.rt_ip_begin);
-
-                                                auto& src_end = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
-                                                    vmm->env->rt_codes + func_info.rt_ip_end);
-
-                                                print_src_file(vmm, src_begin.source_file, 0, 0, 0, 0,
-                                                    src_begin.begin_row_no, src_end.end_row_no, &record);
-                                            }
-                                        }
-                                    }
-                                    else
-                                        printf(ANSI_HIR "No record, you should start profiler first.\n" ANSI_RST);
-                                }
-                            }
-                            else
-                                printf(ANSI_HIR "Unknown command for profiler, should be 'start' or 'review'.\n" ANSI_RST);
-                        }
-                        else
-                            printf(ANSI_HIR "You should input sub command for profiler, should be 'start' or 'review'.\n" ANSI_RST);
-                    }
-
-                }
-                else if (main_command == "break" || main_command == "b")
-                {
-                    if (vmm->env->program_debug_info == nullptr)
-                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                    else
-                    {
-                        std::string filename_or_funcname;
-                        if (need_possiable_input(inputbuf, filename_or_funcname))
-                        {
-                            size_t lineno;
-
-                            bool result = false;
-
-                            if (need_possiable_input(inputbuf, lineno))
-                                result = set_breakpoint(vmm, filename_or_funcname, lineno - 1);
-                            else
-                            {
-                                for (auto ch : filename_or_funcname)
-                                {
-                                    if (ch < '0' || ch > '9')
-                                    {
-                                        auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, filename_or_funcname, false);
-                                        wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
-                                        for (auto& funcinfo : fndresult)
-                                        {
-                                            wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
-
-                                            auto frtip = vmm->env->rt_codes + vmm->env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin);
-                                            auto fip = vmm->env->program_debug_info->get_ip_by_runtime_ip(frtip);
-                                            auto& srcinfo = vmm->env->program_debug_info->get_src_location_by_runtime_ip(frtip);
-                                            set_breakpoint_with_ips(vmm, srcinfo.source_file, srcinfo.begin_row_no, { fip });
-                                            //NOTE: some function's reserved stack op may be removed, so get real ir is needed..
-                                        }
-                                        goto need_next_command;
-                                    }
-                                }
-                                ;
-                                result = set_breakpoint(vmm,
-                                    vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip).source_file
-                                    , (size_t)std::stoull(filename_or_funcname) - 1);
-
-                            }
-
-                            if (result)
-                                wo_stdout << "OK!" << wo_endl;
-                            else
-                                wo_stdout << "FAIL!" << wo_endl;
-                        }
-                        else
-                            printf(ANSI_HIR "You must input the file or function's name.\n" ANSI_RST);
-                    }
-                }
-                else if (main_command == "halt")
-                {
-                    wo::assure_leave_this_thread_vm_shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
-
-                    wo::vmbase* target_vm = nullptr;
-
-                    size_t vmid = 0;
-                    if (need_possiable_input(inputbuf, vmid))
-                    {
-                        if (vmid < wo::vmbase::_alive_vm_list.size())
-                        {
-                            auto vmidx = wo::vmbase::_alive_vm_list.begin();
-                            for (size_t i = 0; i < vmid; ++i)
-                                ++vmidx;
-
-                            target_vm = *vmidx;
-                        }
-                        else
-                            printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
-                    }
-                    else
-                        target_vm = vmm;
-
-                    if (target_vm != nullptr)
-                        target_vm->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
-                }
-                else if (main_command == "quit")
-                {
-                    stop_attach_debuggee_for_exit_flag = true;
-                    return false;
-                }
-                else if (main_command == "exit")
-                {
-                    _Exit(-1);
-                    return false;
-                }
-                else if (main_command == "delbreak" || main_command == "deletebreak")
-                {
-                    size_t breakno;
-                    if (need_possiable_input(inputbuf, breakno))
-                    {
-                        if (clear_breakpoint(vmm, breakno))
-                            wo_stdout << "OK!" << wo_endl;
-                        else
-                            printf(ANSI_HIR "Unknown breakpoint id.\n" ANSI_RST);
-                    }
-                    else
-                        printf(ANSI_HIR "You must input the breakpoint id.\n" ANSI_RST);
-                }
-                else if (main_command == "si" || main_command == "stepir")
-                {
-                    breakdown_temp_for_stepir = true;
-                    goto continue_run_command;
-                }
-                else if (main_command == "cls" || main_command == "clear")
-                {
-#ifdef _WIN32
-                    auto ignore = system("cls");
-#else
-                    auto ignore = system("clear");
-#endif
-                    (void)ignore;
-                }
-                else if (main_command == "s" || main_command == "step")
-                {
-                    if (vmm->env->program_debug_info == nullptr)
-                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                    else
-                    {
-                        // Get current lineno
-
-                        auto& loc = vmm->env->program_debug_info
-                            ->get_src_location_by_runtime_ip(vmm->ip);
-
-                        breakdown_temp_for_step = true;
-                        breakdown_temp_for_step_row_begin = loc.begin_row_no;
-                        breakdown_temp_for_step_row_end = loc.end_row_no;
-                        breakdown_temp_for_step_col_begin = loc.begin_col_no;
-                        breakdown_temp_for_step_col_end = loc.end_col_no;
-                        breakdown_temp_for_step_srcfile = loc.source_file;
-
-                        goto continue_run_command;
-                    }
-                }
-                else if (main_command == "n" || main_command == "next")
-                {
-                    if (vmm->env->program_debug_info == nullptr)
-                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                    else
-                    {
-                        // Get current lineno
-                        auto& loc = vmm->env->program_debug_info
-                            ->get_src_location_by_runtime_ip(vmm->ip);
-
-                        breakdown_temp_for_next = true;
-                        breakdown_temp_for_next_callstackdepth = vmm->callstack_layer();
-                        breakdown_temp_for_step_row_begin = loc.begin_row_no;
-                        breakdown_temp_for_step_row_end = loc.end_row_no;
-                        breakdown_temp_for_step_col_begin = loc.begin_col_no;
-                        breakdown_temp_for_step_col_end = loc.end_col_no;
-                        breakdown_temp_for_step_srcfile = loc.source_file;
-
-                        goto continue_run_command;
-                    }
-                }
-                else if (main_command == "sf" || main_command == "stackframe")
-                {
-                    auto* currentsp = current_frame_sp;
-                    while ((++currentsp) <= current_frame_bp)
-                    {
-                        wo_stdout
-                            << "[bp-" << current_frame_bp - currentsp << "]: "
-                            << currentsp << " " << _safe_cast_value_to_string(currentsp)
-                            << wo_endl;
-                    }
-
-                }
-                else if (main_command == "p" || main_command == "print")
-                {
-                    if (vmm->env->program_debug_info == nullptr)
-                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                    else
-                    {
-                        std::string varname;
-                        if (need_possiable_input(inputbuf, varname))
-                        {
-                            if (vmm->env)
-                            {
-                                auto&& funcname =
-                                    vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(
-                                        current_runtime_ip);
-
-                                auto fnd = vmm->env->program_debug_info->_function_ip_data_buf.find(funcname);
-                                if (fnd != vmm->env->program_debug_info->_function_ip_data_buf.end())
-                                {
-                                    if (auto vfnd = fnd->second.variables.find(varname);
-                                        vfnd != fnd->second.variables.end())
-                                    {
-                                        for (auto& varinfo : vfnd->second)
-                                        {
-                                            display_variable(vmm, varinfo);
-                                        }
-                                    }
-                                    else
-                                        printf(ANSI_HIR "Cannot find '%s' in function '%s'.\n" ANSI_RST,
-                                            varname.c_str(), funcname.c_str());
-                                }
-                                else
-                                    printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
-                            }
-                        }
-                        else
-                            printf(ANSI_HIR "You must input the variable name.\n" ANSI_RST);
-                    }
-                }
-                else if (main_command == "src" || main_command == "source")
-                {
-                    if (vmm->env->program_debug_info == nullptr)
-                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                    else
-                    {
-                        std::string filename;
-                        size_t display_range = 5;
-                        auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
-                        if (need_possiable_input(inputbuf, filename))
-                        {
-                            for (auto ch : filename)
-                            {
-                                if (ch < '0' || ch > '9')
-                                {
-                                    if (filename == loc.source_file)
-                                        print_src_file(vmm, filename, loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no);
-                                    else
-                                        print_src_file(vmm, filename, 0, 0, 0, 0);
-                                    goto need_next_command;
-                                }
-                            }
-                            display_range = (size_t)std::stoull(filename);
-                        }
-
-                        print_src_file(vmm, loc.source_file, loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no,
-                            (loc.begin_row_no < display_range / 2 ? 0 : loc.begin_row_no - display_range / 2), loc.end_row_no + display_range / 2);
-
-                    }
-                }
-                else if (main_command == "global" || main_command == "g")
-                {
-                    size_t offset;
-                    if (!need_possiable_input(inputbuf, offset))
-                        printf(ANSI_HIR "Need to specify offset for command 'global'.\n" ANSI_RST);
-                    else
-                    {
-                        display_variable(vmm, offset);
-                    }
-                }
-                else if (main_command == "whereis")
-                {
-                    size_t offset;
-                    if (!need_possiable_input(inputbuf, offset))
-                        printf(ANSI_HIR "Need to specify ipoffset for command 'whereis'.\n" ANSI_RST);
-                    else
-                    {
-                        if (vmm->env->program_debug_info == nullptr)
-                            printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                        else
-                        {
-                            std::string func_name = vmm->env->program_debug_info
-                                ->get_current_func_signature_by_runtime_ip(vmm->env->rt_codes + offset);
-
-                            printf("The ip offset %zu is in function: `" ANSI_HIG "%s" ANSI_RST "`\n",
-                                offset, func_name.c_str());
-                        }
-                    }
-                }
-                else if (main_command == "l" || main_command == "list")
-                {
-                    std::string list_what;
-                    if (need_possiable_input(inputbuf, list_what))
-                    {
-                        if (list_what == "break")
-                        {
-                            if (vmm->env->program_debug_info == nullptr)
-                                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                            else
-                            {
-                                size_t id = 0;
-                                for (auto& break_info : context.break_point_traps)
-                                {
-                                    wo_stdout << (id++) << " :\t" << break_info.m_filepath << " (" << break_info.m_row_no << ")" << wo_endl;;
-                                }
-                            }
-                        }
-                        else if (list_what == "var")
-                        {
-                            if (vmm->env->program_debug_info == nullptr)
-                                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
-                            else
-                            {
-                                auto&& funcname = vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                                auto fnd = vmm->env->program_debug_info->_function_ip_data_buf.find(funcname);
-                                if (fnd != vmm->env->program_debug_info->_function_ip_data_buf.end())
-                                {
-                                    for (auto& [varname, varinfos] : fnd->second.variables)
-                                    {
-                                        for (auto& varinfo : varinfos)
-                                        {
-                                            display_variable(vmm, varinfo);
-                                        }
-                                    }
-                                }
-                                else
-                                    printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
-                            }
-                        }
-                        else if (list_what == "vm" || list_what == "thread")
-                        {
-                            wo::assure_leave_this_thread_vm_shared_mutex::leave_context ctx;
-                            if (wo::vmbase::_alive_vm_list_mx.try_lock_shared(&ctx))
-                            {
-                                size_t vmcount = 0;
-                                for (auto vms : wo::vmbase::_alive_vm_list)
-                                {
-                                    wo_stdout << ANSI_HIY "thread(vm) #" ANSI_HIG << vmcount << ANSI_RST " " << vms << " " << wo_endl;
-
-                                    auto usage = ((double)(vms->sb - vms->sp)) / (double)vms->stack_size;
-                                    wo_stdout << "stack usage: " << usage * 100. << "%" << wo_endl;
-
-                                    if (vms->env->rt_codes == vms->ip
-                                        || vms->ip == vms->env->rt_codes + vms->env->rt_code_len
-                                        || vms->vm_interrupt.load(std::memory_order_relaxed) & vmbase::PENDING_INTERRUPT)
-                                        wo_stdout << "(pending)" << wo_endl;
-                                    else if (vms->ip < vms->env->rt_codes
-                                        || vms->ip > vms->env->rt_codes + vms->env->rt_code_len)
-                                    {
-                                        wo_stdout << "(leaving)" << wo_endl;
-                                        vms->dump_call_stack(5, false);
-                                    }
-                                    else
-                                    {
-                                        wo_stdout << "(running)" << wo_endl;
-                                        vms->dump_call_stack(5, false);
-                                    }
-
-                                    vmcount++;
-                                }
-
-                                wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
-                            }
-                            else
-                                printf(ANSI_HIR "Failed to get thread(virtual machine) list, may busy.\n" ANSI_RST);
-                        }
-                        else
-                            printf(ANSI_HIR "Unknown type to list.\n" ANSI_RST);
-                    }
-                    else
-                        printf(ANSI_HIR "You must input something to list.\n" ANSI_RST);
-                }
-                else if (main_command == "detach")
-                {
-                    printf(ANSI_HIG "Detach debuggee, continue run.\n" ANSI_RST);
-                    stop_for_detach_debuggee = true;
-
-                    wo::vmbase::attach_debuggee(nullptr)->_abandon();
-
-                    return false;
-                }
+                
+                // Use command table to find and execute command handler function
+                if (auto handler = find_command_handler(main_command))
+                    return (this->*handler)(vmm, inputbuf);
                 else
                     printf(ANSI_HIR "Unknown debug command, please input 'help' for more informations.\n" ANSI_RST);
             }
 
-        need_next_command:
-
-            printf(ANSI_RST);
-            std::cin.clear();
-            while (std::cin.readsome(&_useless_for_clear, 1));
-
-            return true;
-
-        continue_run_command:
-
-            printf(ANSI_RST);
-            std::cin.clear();
-            while (std::cin.readsome(&_useless_for_clear, 1));
-
-            return false;
+            clear_stdin_buffer();
+            return command_result::need_next_command;
         }
         std::optional<size_t> print_src_file_print_lineno(
             wo::vmbase* vmm,
@@ -1309,10 +1498,12 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
                 size_t command_ip = 0;
                 const program_debug_data_info::location* loc = nullptr;
-                if (vmm->env->program_debug_info != nullptr)
+                if (vmm->env->program_debug_info.has_value())
                 {
-                    command_ip = vmm->env->program_debug_info->get_ip_by_runtime_ip(next_execute_ip);
-                    loc = &vmm->env->program_debug_info->get_src_location_by_runtime_ip(next_execute_ip);
+                    auto& pdi = vmm->env->program_debug_info.value();
+
+                    command_ip = pdi->get_ip_by_runtime_ip(next_execute_ip);
+                    loc = &pdi->get_src_location_by_runtime_ip(next_execute_ip);
                 }
                 else
                     loc = &wo::program_debug_data_info::FAIL_LOC;
@@ -1364,15 +1555,17 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         loc->source_file.c_str(),
                         loc->begin_row_no + 1,
                         loc->begin_col_no + 1,
-                        vmm->env->program_debug_info == nullptr
-                        ? "__unknown_func_without_pdb_"
-                        : vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str(),
+                        vmm->env->program_debug_info.has_value()
+                        ? vmm->env->program_debug_info.value()->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()
+                        : "[unknown function]",
                         vmm
                     );
-                    if (vmm->env->program_debug_info != nullptr)
+                    if (vmm->env->program_debug_info.has_value())
                     {
+                        auto& pdi = vmm->env->program_debug_info.value();
+
                         printf("-------------------------------------------\n");
-                        auto& current_loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
+                        auto& current_loc = pdi->get_src_location_by_runtime_ip(current_runtime_ip);
                         print_src_file(
                             vmm,
                             current_loc.source_file,
@@ -1395,9 +1588,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     std::cin.clear();
                     while (std::cin.readsome(&_useless_for_clear, 1));
 
-                    while (debug_command(vmm))
+                    while (debug_command(vmm) == command_result::need_next_command)
                     {
-                        // ...?
+                        // Continue waiting for the next command
                     }
                 }
 

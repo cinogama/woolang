@@ -1019,12 +1019,14 @@ namespace wo
                 // Update call env for near & far call.
                 *out_env = callenv;
 
-                if (callenv->program_debug_info != nullptr)
+                if (callenv->program_debug_info.has_value())
                 {
-                    src_location_info = &callenv->program_debug_info
-                        ->get_src_location_by_runtime_ip(rip - (need_offset ? 1 : 0));
-                    function_signature = callenv->program_debug_info
-                        ->get_current_func_signature_by_runtime_ip(rip - (need_offset ? 1 : 0));
+                    auto& pdi = callenv->program_debug_info.value();
+
+                    src_location_info = &pdi->get_src_location_by_runtime_ip(
+                        rip - (need_offset ? 1 : 0));
+                    function_signature = pdi->get_current_func_signature_by_runtime_ip(
+                        rip - (need_offset ? 1 : 0));
 
                     file_path = src_location_info->source_file;
                     row_number = src_location_info->begin_row_no;

@@ -483,9 +483,7 @@ namespace wo
                 if (strict)
                 {
                     if (locinfo.begin_row_no == rowno)
-                    {
                         result.push_back(locinfo.ip);
-                    }
                 }
                 else if (locinfo.begin_row_no <= rowno && locinfo.end_row_no >= rowno)
                 {
@@ -840,15 +838,17 @@ namespace wo
         write_buffer_to_buffer("_padding", padding_length_for_constant_string_buf, 1);
 
         // 7.1 Debug information
-        if (!savepdi || this->program_debug_info == nullptr)
+        if (!savepdi || !this->program_debug_info.has_value())
             write_buffer_to_buffer("nopdisup", 8, 1);
         else
         {
+            auto& pdi = this->program_debug_info.value();
+
             write_buffer_to_buffer("pdisuped", 8, 1);
             // 7.1.1 Saving pdi's A data(_general_src_data_buf_a), it stores srcs' location informations.
             // And used for getting ip(not runtime ip) by src location informs.
-            write_binary_to_buffer((uint32_t)this->program_debug_info->_general_src_data_buf_a.size(), 4);
-            for (auto& [src_file_path, locations] : this->program_debug_info->_general_src_data_buf_a)
+            write_binary_to_buffer((uint32_t)pdi->_general_src_data_buf_a.size(), 4);
+            for (auto& [src_file_path, locations] : pdi->_general_src_data_buf_a)
             {
                 write_binary_to_buffer((uint32_t)src_file_path.size(), 4);
                 write_buffer_to_buffer(src_file_path.c_str(), src_file_path.size(), 1);
@@ -869,8 +869,8 @@ namespace wo
 
             // 7.1.2 Saving pdi's B data(_general_src_data_buf_b), it stores srcs' location informations.
             // It used for getting src location informs by ip(not runtime ip).
-            write_binary_to_buffer((uint32_t)this->program_debug_info->_general_src_data_buf_b.size(), 4);
-            for (auto& [ip, loc] : this->program_debug_info->_general_src_data_buf_b)
+            write_binary_to_buffer((uint32_t)pdi->_general_src_data_buf_b.size(), 4);
+            for (auto& [ip, loc] : pdi->_general_src_data_buf_b)
             {
                 write_binary_to_buffer((uint32_t)ip, 4);
 
@@ -887,8 +887,8 @@ namespace wo
             }
 
             // 7.1.3 Saving pdi's C data(_function_ip_data_buf), it stores functions' location and variables informs.
-            write_binary_to_buffer((uint32_t)this->program_debug_info->_function_ip_data_buf.size(), 4);
-            for (auto& [function_name, func_symb_info] : this->program_debug_info->_function_ip_data_buf)
+            write_binary_to_buffer((uint32_t)pdi->_function_ip_data_buf.size(), 4);
+            for (auto& [function_name, func_symb_info] : pdi->_function_ip_data_buf)
             {
                 write_binary_to_buffer((uint32_t)function_name.size(), 4);
                 write_buffer_to_buffer(function_name.c_str(), function_name.size(), 1);
@@ -916,8 +916,8 @@ namespace wo
 
             // 7.1.4 Saving pdi's D data(pdd_rt_code_byte_offset_to_ir), it stores the relationship between
             // ip and runtime ip.
-            write_binary_to_buffer((uint32_t)this->program_debug_info->pdd_rt_code_byte_offset_to_ir.size(), 4);
-            for (auto& [rtir, ir] : this->program_debug_info->pdd_rt_code_byte_offset_to_ir)
+            write_binary_to_buffer((uint32_t)pdi->pdd_rt_code_byte_offset_to_ir.size(), 4);
+            for (auto& [rtir, ir] : pdi->pdd_rt_code_byte_offset_to_ir)
             {
                 write_binary_to_buffer((uint32_t)rtir, 4);
                 write_binary_to_buffer((uint32_t)ir, 4);
@@ -1705,7 +1705,7 @@ namespace wo
             pdb->runtime_codes_base = created_env->rt_codes;
             pdb->runtime_codes_length = created_env->rt_code_len;
 
-            created_env->program_debug_info = pdb;
+            created_env->program_debug_info.emplace(pdb);
         }
         else if (memcmp(magic_head_of_pdi, "nopdisup", 8) != 0)
             WO_LOAD_BIN_FAILED("Bad head of program debug informations.");

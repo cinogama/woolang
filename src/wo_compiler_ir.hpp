@@ -497,7 +497,7 @@ namespace wo
 
         jit_meta meta_data_for_jit;
         std::optional<jit_code_holder_map_t> jit_code_holder;
-        shared_pointer<program_debug_data_info> program_debug_info;
+        std::optional<shared_pointer<program_debug_data_info>> program_debug_info;
         rslib_extern_symbols::extern_lib_set loaded_libraries;
         extern_native_functions_t extern_native_functions;
         extern_function_map_t extern_script_functions;
@@ -508,6 +508,9 @@ namespace wo
     {
         friend class vmbase;
 
+        ///////////////////////////////////////////////////////////////////////
+        // Nested types
+        ///////////////////////////////////////////////////////////////////////
     private:
         struct ir_param
         {
@@ -601,31 +604,6 @@ namespace wo
 #undef WO_IS_REG
         };
 
-        // TODO: Use ir_param_buffer instead of ir_command_buffer
-        std::vector<ir_command> ir_command_buffer;
-
-        std::map<size_t, std::vector<wo_pstring_t>> tag_irbuffer_offset;
-
-        runtime_env::extern_native_functions_t extern_native_functions;
-        runtime_env::extern_function_map_t extern_script_functions;
-
-        std::map<ast::ConstantValue, uint32_t>
-            constant_record_to_index_mapping;
-        std::vector<const ast::ConstantValue*>
-            ordered_constant_record_list;
-        std::vector<opnum::global*>
-            global_record_list;
-        std::vector<opnum::opnumbase*>
-            created_opnum_buffer;
-
-        template<typename T>
-        T* _created_opnum_item(const T& _opn) noexcept
-        {
-            auto result = new T(_opn);
-            created_opnum_buffer.push_back(result);
-            return result;
-        }
-
         struct TagOffsetInConstantOffset
         {
             uint32_t m_offset_in_constant;
@@ -633,6 +611,40 @@ namespace wo
         };
         using TagOffsetLocatedInConstantTableOffsetRecordT =
             std::map<wo_pstring_t, TagOffsetInConstantOffset>;
+
+        ///////////////////////////////////////////////////////////////////////
+        // Member variables
+        ///////////////////////////////////////////////////////////////////////
+    private:
+        mutable unsigned int                        _unique_id;
+
+        // TODO: Use ir_param_buffer instead of ir_command_buffer
+        std::vector<ir_command>                     ir_command_buffer;
+        std::map<size_t, std::vector<wo_pstring_t>> tag_irbuffer_offset;
+
+        runtime_env::extern_native_functions_t      extern_native_functions;
+        runtime_env::extern_function_map_t          extern_script_functions;
+
+        std::map<ast::ConstantValue, uint32_t>      constant_record_to_index_mapping;
+        std::vector<const ast::ConstantValue*>      ordered_constant_record_list;
+        std::vector<opnum::global*>                 global_record_list;
+        std::vector<opnum::opnumbase*>              created_opnum_buffer;
+
+    public:
+        rslib_extern_symbols::extern_lib_set        loaded_libraries;
+        shared_pointer<program_debug_data_info>     pdb_info;
+
+        ///////////////////////////////////////////////////////////////////////
+        // Private methods
+        ///////////////////////////////////////////////////////////////////////
+    private:
+        template<typename T>
+        T* _created_opnum_item(const T& _opn) noexcept
+        {
+            auto result = new T(_opn);
+            created_opnum_buffer.push_back(result);
+            return result;
+        }
 
         uint32_t _check_constant_and_give_storage_idx(
             const ast::ConstantValue& constant) noexcept;
@@ -644,10 +656,16 @@ namespace wo
             TagOffsetLocatedInConstantTableOffsetRecordT& out_record) noexcept;
 
         opnum::opnumbase* _check_and_add_const(opnum::opnumbase* _opnum) noexcept;
+
+        ///////////////////////////////////////////////////////////////////////
+        // Public methods
+        ///////////////////////////////////////////////////////////////////////
     public:
-        rslib_extern_symbols::extern_lib_set loaded_libraries;
-        shared_pointer<program_debug_data_info> pdb_info = new program_debug_data_info();
-        mutable unsigned int _unique_id = 0;
+        ir_compiler()
+            : _unique_id(0)
+            , pdb_info(new program_debug_data_info())
+        {
+        }
 
         ~ir_compiler()
         {
