@@ -547,11 +547,12 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     if (do_after_shutdown != nullptr)
         do_after_shutdown(custom_data);
 
-    wo::wstring_pool::shutdown_global_str_pool();
-
-    womem_shutdown();
+    // Close all abandoned debuggee bridge.
     wo::vm_debuggee_bridge_base::_free_abandons_in_shutdown();
 
+    wo::wstring_pool::shutdown_global_str_pool();
+    wo::gc::memo_unit::drop_all_cached_memo_unit_in_shutdown();
+ 
     wo::rslib_extern_symbols::free_wo_lib();
     wo::shutdown_virtual_binary();
     wo::wo_shutdown_locale_and_args();
@@ -577,6 +578,9 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
     // Reset vmpool instance.
     wo::vmpool::global_vmpool_instance.reset();
+
+    // Shutdown memory manager.
+    womem_shutdown();
 }
 
 void wo_init(int argc, char** argv)

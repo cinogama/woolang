@@ -219,7 +219,16 @@ namespace wo
         {
             _allocated_memo_units.add_one(unit);
         }
-
+        void memo_unit::drop_all_cached_memo_unit_in_shutdown()
+        {
+            memo_unit* unit = _allocated_memo_units.pick_all();
+            while (unit != nullptr)
+            {
+                memo_unit* next = unit->last;
+                delete unit;
+                unit = next;
+            }
+        }
         vmbase* _get_next_mark_vm(vmbase::vm_type* out_vm_type)
         {
             // NOTE: _gc_scan_vm_index MUST read before `_gc_scan_vm_count` & `_gc_vm_list`

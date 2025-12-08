@@ -94,6 +94,7 @@ namespace wo
             static atomic_list<memo_unit> _allocated_memo_units;
             static memo_unit* acquire_memo_unit(gcbase* unit_addr, unit_attrib* attr_addr);
             static void release_memo_unit(memo_unit* unit);
+            static void drop_all_cached_memo_unit_in_shutdown();
         };
         using _wo_memory_atomic_list_t = atomic_list<memo_unit>;
 
