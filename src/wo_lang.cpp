@@ -1724,8 +1724,13 @@ namespace wo
                         *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp));
                 }
 
-                // This function end with return, donot need to generate extra return.
-                if (!eval_function->m_LANG_function_body_end_with_return_flag_for_IR)
+                // 1) The function does not end with a return statement but ends naturally
+                //    (in this case, the function's return value should be void).
+                // 2) The function needs to perform some additional operations for context recovery, etc.
+                //    During code generation, such functions will jump to this location via a unified label
+                //    and then exit together (e.g., variadic functions).
+                if (eval_function->m_is_variadic
+                    || !eval_function->m_LANG_function_body_end_with_return_flag_for_IR)
                 {
                     if (eval_function->m_LANG_captured_context.m_captured_variables.empty())
                         m_ircontext.c().ret();
