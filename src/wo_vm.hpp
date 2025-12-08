@@ -419,12 +419,12 @@ namespace wo
         size_t callstack_layer() const noexcept;
         void gc_checkpoint_self_mark() noexcept;
         bool assure_stack_size(wo_size_t assure_stack_size) noexcept;
-        void co_pre_invoke(const byte_t *wo_func_addr, wo_int_t argc) noexcept;
-        void co_pre_invoke(wo_native_func_t ex_func_addr, wo_int_t argc) noexcept;
-        void co_pre_invoke(closure_t *wo_func_addr, wo_int_t argc) noexcept;
-        value *invoke(const byte_t *wo_func_addr, wo_int_t argc) noexcept;
-        value *invoke(wo_native_func_t wo_func_addr, wo_int_t argc) noexcept;
-        value *invoke(closure_t *wo_func_closure, wo_int_t argc) noexcept;
+        void co_pre_invoke_script(const byte_t *wo_func_addr, wo_int_t argc) noexcept;
+        void co_pre_invoke_native(wo_native_func_t ex_func_addr, wo_int_t argc) noexcept;
+        void co_pre_invoke_closure(closure_t *wo_func_addr, wo_int_t argc) noexcept;
+        value *invoke_script(const byte_t *wo_func_addr, wo_int_t argc) noexcept;
+        value *invoke_native(wo_native_func_t wo_func_addr, wo_int_t argc) noexcept;
+        value *invoke_closure(closure_t *wo_func_closure, wo_int_t argc) noexcept;
         void switch_vm_kind(vm_type new_type) noexcept;
     public:
         // Operate support:

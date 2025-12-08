@@ -2,96 +2,145 @@
 
 namespace wo
 {
+    //////////////////////////////////////////////////////////////////////////
+    // Static Constants
+    //////////////////////////////////////////////////////////////////////////
+
     const value value::TAKEPLACE = *value().set_takeplace();
 
-    void assure_leave_this_thread_vm_shared_mutex::leave(leave_context* out_context) noexcept
+    //////////////////////////////////////////////////////////////////////////
+    // Thread-Safe Mutex Implementation
+    // 
+    // These classes provide thread-safe locking mechanisms that properly
+    // handle GC guard state transitions during lock/unlock operations.
+    //////////////////////////////////////////////////////////////////////////
+
+    void assure_leave_this_thread_vm_shared_mutex::leave(
+        leave_context* out_context) noexcept
     {
         out_context->m_vm = wo_swap_gcguard(nullptr);
     }
-    void assure_leave_this_thread_vm_shared_mutex::enter(const leave_context& in_context) noexcept
+
+    void assure_leave_this_thread_vm_shared_mutex::enter(
+        const leave_context& in_context) noexcept
     {
         wo_swap_gcguard(in_context.m_vm);
     }
-    void assure_leave_this_thread_vm_shared_mutex::lock(leave_context* out_context) noexcept
+
+    void assure_leave_this_thread_vm_shared_mutex::lock(
+        leave_context* out_context) noexcept
     {
         leave(out_context);
         std::shared_mutex::lock();
     }
-    void assure_leave_this_thread_vm_shared_mutex::unlock(const leave_context& in_context) noexcept
+
+    void assure_leave_this_thread_vm_shared_mutex::unlock(
+        const leave_context& in_context) noexcept
     {
         std::shared_mutex::unlock();
         enter(in_context);
     }
-    void assure_leave_this_thread_vm_shared_mutex::lock_shared(leave_context* out_context) noexcept
+
+    void assure_leave_this_thread_vm_shared_mutex::lock_shared(
+        leave_context* out_context) noexcept
     {
         leave(out_context);
         std::shared_mutex::lock_shared();
     }
-    void assure_leave_this_thread_vm_shared_mutex::unlock_shared(const leave_context& in_context) noexcept
+
+    void assure_leave_this_thread_vm_shared_mutex::unlock_shared(
+        const leave_context& in_context) noexcept
     {
         std::shared_mutex::unlock_shared();
         enter(in_context);
     }
-    bool assure_leave_this_thread_vm_shared_mutex::try_lock(leave_context* out_context) noexcept
+
+    bool assure_leave_this_thread_vm_shared_mutex::try_lock(
+        leave_context* out_context) noexcept
     {
         leave(out_context);
         if (std::shared_mutex::try_lock())
             return true;
+
         enter(*out_context);
         return false;
     }
-    bool assure_leave_this_thread_vm_shared_mutex::try_lock_shared(leave_context* out_context) noexcept
+
+    bool assure_leave_this_thread_vm_shared_mutex::try_lock_shared(
+        leave_context* out_context) noexcept
     {
         leave(out_context);
         if (std::shared_mutex::try_lock_shared())
             return true;
+
         enter(*out_context);
         return false;
     }
-    assure_leave_this_thread_vm_lock_guard::assure_leave_this_thread_vm_lock_guard(assure_leave_this_thread_vm_shared_mutex& mx)
+
+    //////////////////////////////////////////////////////////////////////////
+    // Lock Guard Implementations
+    //////////////////////////////////////////////////////////////////////////
+
+    assure_leave_this_thread_vm_lock_guard::assure_leave_this_thread_vm_lock_guard(
+        assure_leave_this_thread_vm_shared_mutex& mx)
         : m_mx(&mx)
     {
         m_mx->lock(&m_context);
     }
+
     assure_leave_this_thread_vm_lock_guard::~assure_leave_this_thread_vm_lock_guard()
     {
         m_mx->unlock(m_context);
     }
-    assure_leave_this_thread_vm_shared_lock::assure_leave_this_thread_vm_shared_lock(assure_leave_this_thread_vm_shared_mutex& mx)
+
+    assure_leave_this_thread_vm_shared_lock::assure_leave_this_thread_vm_shared_lock(
+        assure_leave_this_thread_vm_shared_mutex& mx)
         : m_mx(&mx)
     {
         m_mx->lock_shared(&m_context);
     }
+
     assure_leave_this_thread_vm_shared_lock::~assure_leave_this_thread_vm_shared_lock()
     {
         m_mx->unlock_shared(m_context);
     }
-    vmbase::hangup_lock::hangup_lock()
-        :flag(0)
-    {
 
-    }
-    void vmbase::hangup_lock::hangup()noexcept
+    //////////////////////////////////////////////////////////////////////////
+    // Hangup Lock Implementation
+    // 
+    // Provides a mechanism to temporarily suspend VM execution with
+    // condition variable-based waiting.
+    //////////////////////////////////////////////////////////////////////////
+
+    vmbase::hangup_lock::hangup_lock()
+        : flag(0)
     {
-        do
+    }
+
+    void vmbase::hangup_lock::hangup() noexcept
+    {
         {
             std::lock_guard g1(mx);
             flag.fetch_sub(1);
-        } while (0);
+        }
 
         std::unique_lock ug1(mx);
-        cv.wait(ug1, [this]() {return flag >= 0; });
+        cv.wait(ug1, [this]() { return flag >= 0; });
     }
-    void vmbase::hangup_lock::wakeup()noexcept
+
+    void vmbase::hangup_lock::wakeup() noexcept
     {
-        do
         {
             std::lock_guard g1(mx);
             flag.fetch_add(1);
-        } while (0);
+        }
 
         cv.notify_one();
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    // Debugger Bridge Implementation
+    //////////////////////////////////////////////////////////////////////////
 
     void vm_debuggee_bridge_base::_vm_invoke_debuggee(vmbase* _vm)
     {
@@ -102,6 +151,10 @@ namespace wo
         debug_interrupt(_vm);
     }
 
+    //////////////////////////////////////////////////////////////////////////
+    // VM Instance Management
+    //////////////////////////////////////////////////////////////////////////
+
     std::atomic_size_t* vmbase::inc_destructable_instance_count() noexcept
     {
         wo_assert(env != nullptr);
@@ -110,27 +163,36 @@ namespace wo
 #if WO_ENABLE_RUNTIME_CHECK
         size_t old_count =
 #endif
-            dec_destructable_instance_countp->fetch_add(1, std::memory_order::memory_order_relaxed);
+            dec_destructable_instance_countp->fetch_add(
+                1, std::memory_order::memory_order_relaxed);
         wo_assert(old_count >= 0);
 
         return dec_destructable_instance_countp;
     }
 
-    vm_debuggee_bridge_base* vmbase::attach_debuggee(vm_debuggee_bridge_base* dbg) noexcept
+    vm_debuggee_bridge_base* vmbase::attach_debuggee(
+        vm_debuggee_bridge_base* dbg) noexcept
     {
         wo::assure_leave_this_thread_vm_shared_lock g1(_alive_vm_list_mx);
 
-        // Remove old debuggee
+        // Remove old debuggee - send interrupt to all VMs
         for (auto* vm_instance : _alive_vm_list)
+        {
             if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
                 vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
+        }
+
+        // Wait for all VMs to handle the interrupt
         for (auto* vm_instance : _alive_vm_list)
+        {
             if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
                 vm_instance->wait_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT, false);
+        }
 
         wo::vm_debuggee_bridge_base* old_debuggee = attaching_debuggee;
         attaching_debuggee = dbg;
 
+        // Setup new debuggee for all VMs
         for (auto* vm_instance : _alive_vm_list)
         {
             if (vm_instance->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR)
@@ -144,44 +206,61 @@ namespace wo
                     // Failed to clear DETACH_DEBUGGEE_INTERRUPT? it has been handled!
                     // Re-set DEBUG_INTERRUPT
                     has_handled))
+            {
                 vm_instance->interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
+            }
             else
+            {
                 vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
+            }
         }
 
         return old_debuggee;
     }
-    vm_debuggee_bridge_base* vmbase::current_debuggee()noexcept
+
+    vm_debuggee_bridge_base* vmbase::current_debuggee() noexcept
     {
         return attaching_debuggee;
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    // Interrupt Management
+    //////////////////////////////////////////////////////////////////////////
+
     bool vmbase::is_aborted() const noexcept
     {
         return vm_interrupt.load(std::memory_order::memory_order_acquire)
             & vm_interrupt_type::ABORT_INTERRUPT;
     }
-    bool vmbase::interrupt(vm_interrupt_type type)noexcept
+
+    bool vmbase::interrupt(vm_interrupt_type type) noexcept
     {
-        return !(type & vm_interrupt.fetch_or(type, std::memory_order::memory_order_acq_rel));
+        return !(type & vm_interrupt.fetch_or(
+            type, std::memory_order::memory_order_acq_rel));
     }
-    bool vmbase::clear_interrupt(vm_interrupt_type type)noexcept
+
+    bool vmbase::clear_interrupt(vm_interrupt_type type) noexcept
     {
         return type & vm_interrupt.fetch_and(
             ~type, std::memory_order::memory_order_acq_rel);
     }
-    bool vmbase::check_interrupt(vm_interrupt_type type)noexcept
+
+    bool vmbase::check_interrupt(vm_interrupt_type type) noexcept
     {
         return 0 != (vm_interrupt.load(std::memory_order_acquire) & type);
     }
-    vmbase::interrupt_wait_result vmbase::wait_interrupt(vm_interrupt_type type, bool force_wait)noexcept
+
+    vmbase::interrupt_wait_result vmbase::wait_interrupt(
+        vm_interrupt_type type,
+        bool force_wait) noexcept
     {
         using namespace std;
+
         size_t retry_count = 0;
-
         bool warning_raised = false;
-
         constexpr int MAX_TRY_COUNT = 0;
         int i = 0;
+
         do
         {
             uint32_t vm_interrupt_mask = vm_interrupt.load(std::memory_order_relaxed);
@@ -195,15 +274,20 @@ namespace wo
                     return interrupt_wait_result::LEAVED;
             }
             else
+            {
                 i = 0;
+            }
 
             if (force_wait)
             {
                 std::this_thread::sleep_for(10ms);
-                if (!warning_raised && ++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
+
+                if (!warning_raised &&
+                    ++retry_count == config::INTERRUPT_CHECK_TIME_LIMIT)
                 {
-                    // Wait for too much time.
-                    std::string warning_info = "Wait for too much time for waiting interrupt.\n";
+                    // Wait for too much time - generate warning
+                    std::string warning_info =
+                        "Wait for too much time for waiting interrupt.\n";
                     std::stringstream dump_callstack_info;
 
                     dump_call_stack(32, false, dump_callstack_info);
@@ -214,12 +298,15 @@ namespace wo
                 }
             }
             else
+            {
                 return interrupt_wait_result::TIMEOUT;
+            }
         } while (true);
 
         return interrupt_wait_result::ACCEPT;
     }
-    void vmbase::block_interrupt(vm_interrupt_type type)noexcept
+
+    void vmbase::block_interrupt(vm_interrupt_type type) noexcept
     {
         using namespace std;
 
@@ -227,14 +314,23 @@ namespace wo
             std::this_thread::sleep_for(10ms);
     }
 
-    void vmbase::hangup()noexcept
+    //////////////////////////////////////////////////////////////////////////
+    // VM State Control (Hangup/Wakeup)
+    //////////////////////////////////////////////////////////////////////////
+
+    void vmbase::hangup() noexcept
     {
         hangup_state.hangup();
     }
-    void vmbase::wakeup()noexcept
+
+    void vmbase::wakeup() noexcept
     {
         hangup_state.wakeup();
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    // VM Constructor and Destructor
+    //////////////////////////////////////////////////////////////////////////
 
     vmbase::vmbase(vm_type type) noexcept
         : cr(nullptr)
@@ -258,16 +354,17 @@ namespace wo
         , extern_state_jit_call_depth(0)
         , virtual_machine_type(type)
 #if WO_ENABLE_RUNTIME_CHECK
-        // runtime information
         , attaching_thread_id(std::thread::id{})
 #endif        
     {
         ++_alive_vm_count_for_gc_vm_destruct;
 
         vm_interrupt.store(vm_interrupt_type::LEAVE_INTERRUPT, std::memory_order_release);
+
         wo::assure_leave_this_thread_vm_lock_guard g1(_alive_vm_list_mx);
 
-        wo_assert(_alive_vm_list.find(this) == _alive_vm_list.end(),
+        wo_assert(
+            _alive_vm_list.find(this) == _alive_vm_list.end(),
             "This vm is already exists in _alive_vm_list, that is illegal.");
 
         if (current_debuggee() != nullptr)
@@ -275,26 +372,27 @@ namespace wo
 
         _alive_vm_list.insert(this);
     }
+
     vmbase::~vmbase()
     {
-        do
         {
             wo::assure_leave_this_thread_vm_lock_guard g1(_alive_vm_list_mx);
 
-            wo_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
+            wo_assert(
+                _alive_vm_list.find(this) != _alive_vm_list.end(),
                 "This vm not exists in _alive_vm_list, that is illegal.");
 
             _alive_vm_list.erase(this);
 
-            wo_assert(_gc_ready_vm_list.find(this) != _gc_ready_vm_list.end() || env == nullptr,
+            wo_assert(
+                _gc_ready_vm_list.find(this) != _gc_ready_vm_list.end() || env == nullptr,
                 "This vm not exists in _gc_ready_vm_list, that is illegal.");
 
             _gc_ready_vm_list.erase(this);
 
             free(register_storage);
             free(stack_storage);
-
-        } while (0);
+        }
 
         if (env)
             --env->_running_on_vm_count;
@@ -302,47 +400,59 @@ namespace wo
         --_alive_vm_count_for_gc_vm_destruct;
     }
 
+    //////////////////////////////////////////////////////////////////////////
+    // Stack Management
+    //////////////////////////////////////////////////////////////////////////
+
     bool vmbase::advise_shrink_stack() noexcept
     {
         return ++shrink_stack_advise >= shrink_stack_edge;
     }
+
     void vmbase::reset_shrink_stack_count() noexcept
     {
         shrink_stack_advise = 0;
     }
+
     void vmbase::_allocate_register_space(size_t regcount) noexcept
     {
-        register_storage = std::launder(reinterpret_cast<value*>(calloc(regcount, sizeof(wo::value))));
+        register_storage = std::launder(
+            reinterpret_cast<value*>(calloc(regcount, sizeof(wo::value))));
+
         cr = register_storage + opnum::reg::spreg::cr;
         tc = register_storage + opnum::reg::spreg::tc;
         tp = register_storage + opnum::reg::spreg::tp;
     }
-    void vmbase::_allocate_stack_space(size_t stacksz)noexcept
+
+    void vmbase::_allocate_stack_space(size_t stacksz) noexcept
     {
         stack_size = stacksz;
 
-        stack_storage = std::launder(reinterpret_cast<value*>(calloc(stacksz, sizeof(wo::value))));
+        stack_storage = std::launder(
+            reinterpret_cast<value*>(calloc(stacksz, sizeof(wo::value))));
         sb = stack_storage + stacksz - 1;
         sp = bp = sb;
     }
+
     bool vmbase::_reallocate_stack_space(size_t stacksz) noexcept
     {
         wo_assert(stacksz != 0);
 
         const size_t used_stack_size = sb - sp;
+
+        // New stack size is smaller than current stack size
         if (used_stack_size * 2 > stacksz)
-            // New stack size is smaller than current stack size
             return false;
 
+        // Out of limit.
         if (stacksz > VM_MAX_STACK_SIZE)
-            // Out of limit.
             return false;
 
         value* new_stack_buf = reinterpret_cast<value*>(
             calloc(stacksz, sizeof(wo::value)));
 
+        // Failed to allocate new stack space
         if (new_stack_buf == nullptr)
-            // Failed to allocate new stack space
             return false;
 
         value* new_stack_mem_begin = new_stack_buf + stacksz - 1;
@@ -351,9 +461,9 @@ namespace wo
 
         memcpy(new_sp + 1, sp + 1, used_stack_size * sizeof(wo::value));
 
-        // NOTE: stack reallocate must happend in gc-guard range.
+        // NOTE: stack reallocate must happen in gc-guard range.
         wo_assert(!check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-        do
+
         {
             _wo_vm_stack_occupying_lock_guard g(this);
 
@@ -364,11 +474,15 @@ namespace wo
             sb = new_stack_mem_begin;
             sp = new_sp;
             bp = sp + bp_sp_offset;
-
-        } while (0);
+        }
 
         return true;
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    // Runtime Environment Setup
+    //////////////////////////////////////////////////////////////////////////
+
     void vmbase::init_main_vm(shared_pointer<runtime_env> runtime_environment) noexcept
     {
         set_runtime(runtime_environment);
@@ -376,7 +490,8 @@ namespace wo
         // Create a new VM using for GC destruct
         (void)make_machine(vm_type::GC_DESTRUCTOR);
     }
-    void vmbase::set_runtime(shared_pointer<runtime_env> runtime_environment)noexcept
+
+    void vmbase::set_runtime(shared_pointer<runtime_env> runtime_environment) noexcept
     {
         // NOTE: There is no need to wo_enter_gcguard here, because when `set_runtime`
         //  is called, there is no value need to be marked in the vm, the vm has not 
@@ -391,24 +506,30 @@ namespace wo
         _allocate_stack_space(VM_DEFAULT_STACK_SIZE);
         _allocate_register_space(env->real_register_count);
 
-        do
         {
             wo::assure_leave_this_thread_vm_lock_guard g1(_alive_vm_list_mx);
-
             _gc_ready_vm_list.insert(this);
-        } while (false);
+        }
     }
+
     vmbase* vmbase::make_machine(vm_type type) const noexcept
     {
         wo_assert(env != nullptr);
 
         vmbase* new_vm = create_machine(type);
-
         new_vm->set_runtime(env);
 
         return new_vm;
     }
-    void vmbase::dump_program_bin(size_t begin, size_t end, std::ostream& os) const noexcept
+
+    //////////////////////////////////////////////////////////////////////////
+    // Program Dump and Debug Functions
+    //////////////////////////////////////////////////////////////////////////
+
+    void vmbase::dump_program_bin(
+        size_t begin,
+        size_t end,
+        std::ostream& os) const noexcept
     {
         auto* program = env->rt_codes;
 
@@ -431,7 +552,7 @@ namespace wo
                 }
                 for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
                     printf("   ");
-            };
+                };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
             auto print_reg_bpoffset = [&]() {
                 byte_t data_1b = *(this_command_ptr++);
@@ -470,7 +591,7 @@ namespace wo
                         tmpos << "reg(" << (uint32_t)data_1b << ")";
 
                 }
-            };
+                };
             auto print_global_static = [&]() {
                 //const global 4byte
                 uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
@@ -495,19 +616,19 @@ namespace wo
                 }
                 else
                     tmpos << "g[" << data_4b - env->constant_value_count << "]";
-            };
+                };
             auto print_opnum1 = [&]() {
                 if (main_command & (byte_t)0b00000010)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-            };
+                };
             auto print_opnum2 = [&]() {
                 if (main_command & (byte_t)0b00000001)
                     print_reg_bpoffset();
                 else
                     print_global_static();
-            };
+                };
 
 #undef WO_SIGNED_SHIFT
             switch (main_command & (byte_t)0b11111100)
@@ -830,7 +951,10 @@ namespace wo
         os << std::endl;
     }
 
-    void vmbase::dump_call_stack(size_t max_count, bool need_offset, std::ostream& os)const noexcept
+    void vmbase::dump_call_stack(
+        size_t max_count,
+        bool need_offset,
+        std::ostream& os) const noexcept
     {
         bool trace_finished;
         auto callstacks = dump_call_stack_func_info(max_count, need_offset, &trace_finished);
@@ -840,6 +964,7 @@ namespace wo
             os << (idx - callstacks.cbegin()) << ": " << idx->m_func_name << std::endl;
 
             os << "\t\t-- at " << idx->m_file_path;
+
             switch (idx->m_call_way)
             {
             case call_way::NEAR:
@@ -853,17 +978,21 @@ namespace wo
             }
             os << std::endl;
         }
+
         if (!trace_finished)
             os << callstacks.size() << ": ..." << std::endl;
     }
+
     std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(
-        size_t max_count, bool need_offset, bool* out_finished)const noexcept
+        size_t max_count,
+        bool need_offset,
+        bool* out_finished) const noexcept
     {
         // NOTE: When vm running, rt_ip may point to:
         // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
         //                                     ^1                     ^2                     ^3
-        // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get next command's debuginfo.
-        // So we do a move of 1BYTE here, for getting correct debuginfo.
+        // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get 
+        // next command's debuginfo. So we do a move of 1BYTE here, for getting correct debuginfo.
 
         if (out_finished != nullptr)
             *out_finished = true;
@@ -873,6 +1002,7 @@ namespace wo
 
         runtime_env* const near_env_pointer = env.get();
 
+        // Internal structure for tracking callstack IP states
         struct callstack_ip_state
         {
             enum class ipaddr_kind
@@ -881,7 +1011,9 @@ namespace wo
                 OFFSET,
                 BAD,
             };
+
             ipaddr_kind m_type;
+
             union
             {
                 const byte_t* m_abs_addr;
@@ -991,97 +1123,97 @@ namespace wo
         std::vector<callstack_info> result(std::min(callstack_layer_count, max_count));
         auto generate_callstack_info_with_ip =
             [this, near_env_pointer, need_offset](const wo::byte_t* rip, runtime_env** out_env)
-        {
-            const program_debug_data_info::location* src_location_info = nullptr;
-            std::string function_signature;
-            std::string file_path;
-            size_t row_number = 0;
-            size_t col_number = 0;
-
-            runtime_env* callenv = near_env_pointer;
-            call_way callway;
-
-            if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
-                callway = call_way::NEAR;
-            else
             {
-                if (runtime_env::fetch_far_runtime_env(rip, &callenv))
-                    callway = call_way::FAR;
-                else
-                    callway = call_way::NATIVE;
-            }
+                const program_debug_data_info::location* src_location_info = nullptr;
+                std::string function_signature;
+                std::string file_path;
+                size_t row_number = 0;
+                size_t col_number = 0;
 
-            switch (callway)
-            {
-            case call_way::NEAR:
-            case call_way::FAR:
-            {
-                // Update call env for near & far call.
-                *out_env = callenv;
+                runtime_env* callenv = near_env_pointer;
+                call_way callway;
 
-                if (callenv->program_debug_info.has_value())
-                {
-                    auto& pdi = callenv->program_debug_info.value();
-
-                    src_location_info = &pdi->get_src_location_by_runtime_ip(
-                        rip - (need_offset ? 1 : 0));
-                    function_signature = pdi->get_current_func_signature_by_runtime_ip(
-                        rip - (need_offset ? 1 : 0));
-
-                    file_path = src_location_info->source_file;
-                    row_number = src_location_info->begin_row_no;
-                    col_number = src_location_info->begin_col_no;
-                }
+                if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
+                    callway = call_way::NEAR;
                 else
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
-
-                    (void)result;
-                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
-
-                    function_signature = std::string("<unknown function ") + rip_str;
-                    file_path = "<unknown file>";
+                    if (runtime_env::fetch_far_runtime_env(rip, &callenv))
+                        callway = call_way::FAR;
+                    else
+                        callway = call_way::NATIVE;
                 }
-                break;
-            }
-            case call_way::NATIVE:
-            {
-                // Is extern native function address.
-                auto fnd = env->extern_native_functions.find(
-                    reinterpret_cast<wo_native_func_t>(
-                        reinterpret_cast<intptr_t>(rip)));
 
-                if (fnd != env->extern_native_functions.end())
+                switch (callway)
                 {
-                    function_signature = fnd->second.function_name;
-                    file_path = fnd->second.library_name.value_or("<builtin>");
-                }
-                else
+                case call_way::NEAR:
+                case call_way::FAR:
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+                    // Update call env for near & far call.
+                    *out_env = callenv;
 
-                    (void)result;
-                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+                    if (callenv->program_debug_info.has_value())
+                    {
+                        auto& pdi = callenv->program_debug_info.value();
 
-                    function_signature = std::string("<unknown extern function ") + rip_str;
-                    file_path = "<unknown library>";
+                        src_location_info = &pdi->get_src_location_by_runtime_ip(
+                            rip - (need_offset ? 1 : 0));
+                        function_signature = pdi->get_current_func_signature_by_runtime_ip(
+                            rip - (need_offset ? 1 : 0));
+
+                        file_path = src_location_info->source_file;
+                        row_number = src_location_info->begin_row_no;
+                        col_number = src_location_info->begin_col_no;
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+
+                        (void)result;
+                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                        function_signature = std::string("<unknown function ") + rip_str;
+                        file_path = "<unknown file>";
+                    }
+                    break;
                 }
-                break;
-            }
-            default:
-                wo_error("Cannot be here.");
-            }
+                case call_way::NATIVE:
+                {
+                    // Is extern native function address.
+                    auto fnd = env->extern_native_functions.find(
+                        reinterpret_cast<wo_native_func_t>(
+                            reinterpret_cast<intptr_t>(rip)));
 
-            return callstack_info{
-                function_signature,
-                file_path,
-                row_number,
-                col_number,
-                callway,
+                    if (fnd != env->extern_native_functions.end())
+                    {
+                        function_signature = fnd->second.function_name;
+                        file_path = fnd->second.library_name.value_or("<builtin>");
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+
+                        (void)result;
+                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                        function_signature = std::string("<unknown extern function ") + rip_str;
+                        file_path = "<unknown library>";
+                    }
+                    break;
+                }
+                default:
+                    wo_error("Cannot be here.");
+                }
+
+                return callstack_info{
+                    function_signature,
+                    file_path,
+                    row_number,
+                    col_number,
+                    callway,
+                };
             };
-        };
 
         runtime_env* current_env_pointer = near_env_pointer;
         for (auto& callstack_state : callstack_ips)
@@ -1115,20 +1247,26 @@ namespace wo
             {
                 auto& this_callstack_info = result.at(callstack_layer_count);
                 if (bad)
-                    this_callstack_info =
-                    callstack_info{
-                       "??",
-                       "<bad callstack>",
-                       0,
-                       0,
-                       call_way::BAD, };
+                {
+                    this_callstack_info = callstack_info{
+                        "??",
+                        "<bad callstack>",
+                        0,
+                        0,
+                        call_way::BAD,
+                    };
+                }
                 else
+                {
                     this_callstack_info = generate_callstack_info_with_ip(
                         callstack_ip, &current_env_pointer);
+                }
             }
         }
+
         return result;
     }
+
     size_t vmbase::callstack_layer() const noexcept
     {
         _wo_vm_stack_occupying_lock_guard vsg(this);
@@ -1136,8 +1274,8 @@ namespace wo
         // NOTE: When vm running, rt_ip may point to:
         // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
         //                                     ^1                     ^2                     ^3
-        // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get next command's debuginfo.
-        // So we do a move of 1BYTE here, for getting correct debuginfo.
+        // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get 
+        // next command's debuginfo. So we do a move of 1BYTE here, for getting correct debuginfo.
 
         size_t call_trace_count = 0;
 
@@ -1145,6 +1283,7 @@ namespace wo
         while (base_callstackinfo_ptr <= this->sb)
         {
             ++call_trace_count;
+
             switch (base_callstackinfo_ptr->m_type)
             {
             case value::valuetype::callstack:
@@ -1159,9 +1298,15 @@ namespace wo
                 goto _label_break_trace;
             }
         }
+
     _label_break_trace:
         return call_trace_count;
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    // GC Checkpoint and VM Type Switching
+    //////////////////////////////////////////////////////////////////////////
+
     void vmbase::gc_checkpoint_self_mark() noexcept
     {
         if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
@@ -1171,31 +1316,37 @@ namespace wo
             // In this case, we still need to clear GC_HANGUP_INTERRUPT.
             //
             // In very small probability that another round of stw GC start in here. 
-            // We will make sure GC_HANGUP_INTERRUPT marked repeatly until successful in gc-work.
+            // We will make sure GC_HANGUP_INTERRUPT marked repeatedly until successful in gc-work.
             if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
                 gc::mark_vm(this, nullptr);
 
             if (!clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
+            {
                 // `gc_checkpoint_self_mark` might be invoked in gc-work thread, if vm is WEAK_NORMAL.
                 wakeup();
+            }
         }
         else if (clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+        {
             hangup();
+        }
     }
+
     void vmbase::switch_vm_kind(vm_type new_type) noexcept
     {
-        // Must in gc guard.
+        // Must be in gc guard.
         wo_vm switch_back = wo_swap_gcguard(reinterpret_cast<wo_vm>(this));
-        {
-            // Cannot switch to GC_DESTRUCTOR, and cannot switch from GC_DESTRUCTOR.
-            wo_assert(
-                virtual_machine_type != vm_type::GC_DESTRUCTOR
-                && (new_type == vm_type::NORMAL || new_type == vm_type::WEAK_NORMAL));
 
-            virtual_machine_type = new_type;
-        }
+        // Cannot switch to GC_DESTRUCTOR, and cannot switch from GC_DESTRUCTOR.
+        wo_assert(
+            virtual_machine_type != vm_type::GC_DESTRUCTOR
+            && (new_type == vm_type::NORMAL || new_type == vm_type::WEAK_NORMAL));
+
+        virtual_machine_type = new_type;
+
         wo_swap_gcguard(switch_back);
     }
+
     bool vmbase::assure_stack_size(wo_size_t assure_stack_size) noexcept
     {
         wo_assert(!check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
@@ -1209,171 +1360,260 @@ namespace wo
 
             if (!_reallocate_stack_space(current_stack_size << 1))
                 wo_fail(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
+
             return true;
         }
+
         return false;
     }
-    void vmbase::co_pre_invoke(const byte_t* wo_func_addr, wo_int_t argc) noexcept
+
+    //////////////////////////////////////////////////////////////////////////
+    // Coroutine Pre-Invoke Functions
+    //////////////////////////////////////////////////////////////////////////
+
+    void vmbase::co_pre_invoke_script(const byte_t* wo_func_addr, wo_int_t argc) noexcept
     {
-        if (!wo_func_addr)
-            wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-        else
-        {
-            assure_stack_size(1);
-            auto* return_sp = sp;
-            auto return_tc = tc->m_integer;
+        wo_assert(nullptr != wo_func_addr);
 
-            sp->m_type = value::valuetype::native_callstack;
-            sp->m_nativecallstack = ip;
-            --sp;
+        assure_stack_size(1);
 
-            ip = wo_func_addr;
-            tc->set_integer(argc);
+        auto* return_sp = sp;
+        auto return_tc = tc->m_integer;
 
-            bp = sp;
+        sp->m_type = value::valuetype::native_callstack;
+        sp->m_nativecallstack = ip;
+        --sp;
 
-            // Push return place.
-            sp->m_type = value::valuetype::yield_checkpoint;
-            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - return_sp);
-            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - bp);
-            --sp;
+        ip = wo_func_addr;
+        tc->set_integer(argc);
 
-            // Push origin tc.
-            (sp--)->set_integer(return_tc);
-        }
+        bp = sp;
+
+        // Push return place.
+        sp->m_type = value::valuetype::yield_checkpoint;
+        sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - return_sp);
+        sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - bp);
+        --sp;
+
+        // Push origin tc.
+        (sp--)->set_integer(return_tc);
     }
-    void vmbase::co_pre_invoke(wo_native_func_t ex_func_addr, wo_int_t argc)noexcept
+
+    void vmbase::co_pre_invoke_native(wo_native_func_t ex_func_addr, wo_int_t argc) noexcept
     {
-        if (!ex_func_addr)
-            wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-        else
-        {
-            assure_stack_size(1);
-            auto* return_sp = sp;
-            auto return_tc = tc->m_integer;
+        wo_assert(nullptr != ex_func_addr);
 
-            sp->m_type = value::valuetype::native_callstack;
-            sp->m_nativecallstack = ip;
-            --sp;
+        assure_stack_size(1);
 
-            ip = reinterpret_cast<const byte_t*>(ex_func_addr);
-            tc->set_integer(argc);
+        auto* return_sp = sp;
+        auto return_tc = tc->m_integer;
 
-            bp = sp;
+        sp->m_type = value::valuetype::native_callstack;
+        sp->m_nativecallstack = ip;
+        --sp;
 
-            // Push return place.
-            sp->m_type = value::valuetype::yield_checkpoint;
-            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - return_sp);
-            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - bp);
-            --sp;
+        ip = reinterpret_cast<const byte_t*>(ex_func_addr);
+        tc->set_integer(argc);
 
-            // Push origin tc.
-            (sp--)->set_integer(return_tc);
-        }
+        bp = sp;
+
+        // Push return place.
+        sp->m_type = value::valuetype::yield_checkpoint;
+        sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - return_sp);
+        sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - bp);
+        --sp;
+
+        // Push origin tc.
+        (sp--)->set_integer(return_tc);
     }
-    void vmbase::co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)noexcept
+
+    void vmbase::co_pre_invoke_closure(closure_t* wo_func_addr, wo_int_t argc) noexcept
     {
-        if (!wo_func_addr)
-            wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-        else
-        {
-            wo::gcbase::gc_read_guard rg1(wo_func_addr);
-            assure_stack_size((size_t)wo_func_addr->m_closure_args_count + 1);
+        wo_assert(nullptr != wo_func_addr);
 
-            auto* return_sp = sp;
-            auto return_tc = tc->m_integer;
+        wo::gcbase::gc_read_guard rg1(wo_func_addr);
+        assure_stack_size((size_t)wo_func_addr->m_closure_args_count + 1);
 
-            for (uint16_t idx = 0; idx < wo_func_addr->m_closure_args_count; ++idx)
-                (sp--)->set_val(&wo_func_addr->m_closure_args[idx]);
+        auto* return_sp = sp;
+        auto return_tc = tc->m_integer;
 
-            sp->m_type = value::valuetype::native_callstack;
-            sp->m_nativecallstack = ip;
-            --sp;
+        for (uint16_t idx = 0; idx < wo_func_addr->m_closure_args_count; ++idx)
+            (sp--)->set_val(&wo_func_addr->m_closure_args[idx]);
 
-            ip = wo_func_addr->m_native_call
-                ? (const byte_t*)wo_func_addr->m_native_func
-                : wo_func_addr->m_vm_func;
-            tc->set_integer(argc);
+        sp->m_type = value::valuetype::native_callstack;
+        sp->m_nativecallstack = ip;
+        --sp;
 
-            bp = sp;
+        ip = wo_func_addr->m_native_call
+            ? (const byte_t*)wo_func_addr->m_native_func
+            : wo_func_addr->m_vm_func;
+        tc->set_integer(argc);
 
-            // Push return place.
-            sp->m_type = value::valuetype::yield_checkpoint;
-            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - return_sp);
-            sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - bp);
-            --sp;
+        bp = sp;
 
-            // Push origin tc.
-            (sp--)->set_integer(return_tc);
-        }
+        // Push return place.
+        sp->m_type = value::valuetype::yield_checkpoint;
+        sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - return_sp);
+        sp->m_yield_checkpoint.sp = static_cast<uint32_t>(sb - bp);
+        --sp;
+
+        // Push origin tc.
+        (sp--)->set_integer(return_tc);
     }
-    value* vmbase::invoke(const byte_t* wo_func_addr, wo_int_t argc)noexcept
+
+    //////////////////////////////////////////////////////////////////////////
+    // Invoke Functions
+    //////////////////////////////////////////////////////////////////////////
+
+    value* vmbase::invoke_script(const byte_t* wo_func_addr, wo_int_t argc) noexcept
     {
-        if (!wo_func_addr)
-            wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-        else
+        wo_assert(nullptr != wo_func_addr);
+
+        assure_stack_size(1);
+
+        auto* return_ip = ip;
+        auto return_sp_place = sb - sp;
+        auto return_bp_place = sb - bp;
+        auto return_tc = tc->m_integer;
+
+        sp->m_type = value::valuetype::native_callstack;
+        sp->m_nativecallstack = ip;
+        --sp;
+
+        tc->set_integer(argc);
+        ip = wo_func_addr;
+        bp = sp;
+
+        auto vm_exec_result = run();
+
+        ip = return_ip;
+        sp = sb - return_sp_place;
+        bp = sb - return_bp_place;
+        tc->set_integer(return_tc);
+
+        switch (vm_exec_result)
         {
-            assure_stack_size(1);
-            auto* return_ip = ip;
-            auto return_sp_place = sb - sp;
-            auto return_bp_place = sb - bp;
-            auto return_tc = tc->m_integer;
-
-            sp->m_type = value::valuetype::native_callstack;
-            sp->m_nativecallstack = ip;
-            --sp;
-
-            tc->set_integer(argc);
-            ip = wo_func_addr;
-            bp = sp;
-
-            auto vm_exec_result = run();
-
-            ip = return_ip;
-            sp = sb - return_sp_place;
-            bp = sb - return_bp_place;
-            tc->set_integer(return_tc);
-
-            switch (vm_exec_result)
-            {
-            case wo_result_t::WO_API_NORMAL:
-                return cr;
-            case wo_result_t::WO_API_SIM_ABORT:
-                break;
-            case wo_result_t::WO_API_SIM_YIELD:
-                wo_fail(WO_FAIL_CALL_FAIL, "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
-                break;
-            default:
-                wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
-                break;
-            }
+        case wo_result_t::WO_API_NORMAL:
+            return cr;
+        case wo_result_t::WO_API_SIM_ABORT:
+            break;
+        case wo_result_t::WO_API_SIM_YIELD:
+            wo_fail(WO_FAIL_CALL_FAIL,
+                "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
+            break;
+        default:
+            wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
+            break;
         }
+
         return nullptr;
     }
-    value* vmbase::invoke(wo_native_func_t wo_func_addr, wo_int_t argc)noexcept
+
+    value* vmbase::invoke_native(wo_native_func_t wo_func_addr, wo_int_t argc) noexcept
     {
-        if (!wo_func_addr)
-            wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-        else
+        wo_assert(nullptr != wo_func_addr);
+
+        if (is_aborted())
+            return nullptr;
+
+        assure_stack_size(1);
+
+        auto* return_ip = ip;
+        auto return_sp_place = sb - sp;
+        auto return_bp_place = sb - bp;
+        auto return_tc = tc->m_integer;
+
+        sp->m_type = value::valuetype::native_callstack;
+        sp->m_nativecallstack = ip;
+        --sp;
+
+        tc->set_integer(argc);
+        ip = reinterpret_cast<const wo::byte_t*>(wo_func_addr);
+        bp = sp;
+
+        auto vm_exec_result = ((wo_native_func_t)wo_func_addr)(
+            std::launder(reinterpret_cast<wo_vm>(this)),
+            std::launder(reinterpret_cast<wo_value>(sp + 2)));
+
+        switch (vm_exec_result)
         {
-            if (is_aborted())
-                return nullptr;
+        case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
+            // NOTE: WO_API_RESYNC_JIT_STATE_TO_VM_STATE returned by `wo_func_addr`(and it's a extern function)
+            //  Only following cases happened:
+            //  1) Stack reallocated.
+            //  2) Aborted
+            //  3) Yield
+            //  For case 1) & 2), return immediately; in case 3), just like invoke std::yield,
+            //  let interrupt stay at VM, let it handled outside.
+            vm_exec_result = wo_result_t::WO_API_NORMAL;
+            [[fallthrough]];
+        case wo_result_t::WO_API_NORMAL:
+            break;
+        case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
+            vm_exec_result = run();
+            break;
+        default:
+#if WO_ENABLE_RUNTIME_CHECK
+            wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
+#endif
+            break;
+        }
 
-            assure_stack_size(1);
-            auto* return_ip = ip;
-            auto return_sp_place = sb - sp;
-            auto return_bp_place = sb - bp;
-            auto return_tc = tc->m_integer;
+        ip = return_ip;
+        sp = sb - return_sp_place;
+        bp = sb - return_bp_place;
+        tc->set_integer(return_tc);
 
-            sp->m_type = value::valuetype::native_callstack;
-            sp->m_nativecallstack = ip;
-            --sp;
+        switch (vm_exec_result)
+        {
+        case wo_result_t::WO_API_NORMAL:
+            return cr;
+        case wo_result_t::WO_API_SIM_ABORT:
+            break;
+        case wo_result_t::WO_API_SIM_YIELD:
+            wo_fail(WO_FAIL_CALL_FAIL,
+                "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
+            break;
+        default:
+            wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
+            break;
+        }
 
-            tc->set_integer(argc);
-            ip = reinterpret_cast<const wo::byte_t*>(wo_func_addr);
-            bp = sp;
+        return nullptr;
+    }
 
-            auto vm_exec_result = ((wo_native_func_t)wo_func_addr)(
+    value* vmbase::invoke_closure(closure_t* wo_func_closure, wo_int_t argc) noexcept
+    {
+        wo_assert(nullptr != wo_func_closure && nullptr != wo_func_closure->m_vm_func);
+        wo::gcbase::gc_read_guard rg1(wo_func_closure);
+
+        if (wo_func_closure->m_native_call && is_aborted())
+            return nullptr;
+
+        assure_stack_size((size_t)wo_func_closure->m_closure_args_count + 1);
+
+        auto* return_ip = ip;
+
+        // NOTE: No need to reduce expand arg count.
+        auto return_sp_place = sb - sp;
+        auto return_bp_place = sb - bp;
+        auto return_tc = tc->m_integer;
+
+        for (uint16_t idx = 0; idx < wo_func_closure->m_closure_args_count; ++idx)
+            (sp--)->set_val(&wo_func_closure->m_closure_args[idx]);
+
+        sp->m_type = value::valuetype::native_callstack;
+        sp->m_nativecallstack = ip;
+        --sp;
+
+        tc->set_integer(argc);
+        bp = sp;
+
+        wo_result_t vm_exec_result;
+
+        if (wo_func_closure->m_native_call)
+        {
+            vm_exec_result = wo_func_closure->m_native_func(
                 std::launder(reinterpret_cast<wo_vm>(this)),
                 std::launder(reinterpret_cast<wo_value>(sp + 2)));
 
@@ -1381,7 +1621,7 @@ namespace wo
             {
             case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
                 // NOTE: WO_API_RESYNC_JIT_STATE_TO_VM_STATE returned by `wo_func_addr`(and it's a extern function)
-                //  Only following cases happend:
+                //  Only following cases happened:
                 //  1) Stack reallocated.
                 //  2) Aborted
                 //  3) Yield
@@ -1400,120 +1640,39 @@ namespace wo
 #endif
                 break;
             }
-
-            ip = return_ip;
-            sp = sb - return_sp_place;
-            bp = sb - return_bp_place;
-            tc->set_integer(return_tc);
-
-            switch (vm_exec_result)
-            {
-            case wo_result_t::WO_API_NORMAL:
-                return cr;
-            case wo_result_t::WO_API_SIM_ABORT:
-                break;
-            case wo_result_t::WO_API_SIM_YIELD:
-                wo_fail(WO_FAIL_CALL_FAIL, "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
-                break;
-            default:
-                wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
-                break;
-            }
         }
-        return nullptr;
-    }
-    value* vmbase::invoke(closure_t* wo_func_closure, wo_int_t argc)noexcept
-    {
-        if (!wo_func_closure)
-            wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
         else
         {
-            wo::gcbase::gc_read_guard rg1(wo_func_closure);
-            if (!wo_func_closure->m_vm_func)
-                wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-            else
-            {
-                if (wo_func_closure->m_native_call && is_aborted())
-                    return nullptr;
-
-                assure_stack_size((size_t)wo_func_closure->m_closure_args_count + 1);
-                auto* return_ip = ip;
-
-                // NOTE: No need to reduce expand arg count.
-                auto return_sp_place = sb - sp;
-                auto return_bp_place = sb - bp;
-                auto return_tc = tc->m_integer;
-
-                for (uint16_t idx = 0; idx < wo_func_closure->m_closure_args_count; ++idx)
-                    (sp--)->set_val(&wo_func_closure->m_closure_args[idx]);
-
-                sp->m_type = value::valuetype::native_callstack;
-                sp->m_nativecallstack = ip;
-                --sp;
-
-                tc->set_integer(argc);
-                bp = sp;
-
-                wo_result_t vm_exec_result;
-
-                if (wo_func_closure->m_native_call)
-                {
-                    vm_exec_result = wo_func_closure->m_native_func(
-                        std::launder(reinterpret_cast<wo_vm>(this)),
-                        std::launder(reinterpret_cast<wo_value>(sp + 2)));
-
-                    switch (vm_exec_result)
-                    {
-                    case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
-                        // NOTE: WO_API_RESYNC_JIT_STATE_TO_VM_STATE returned by `wo_func_addr`(and it's a extern function)
-                        //  Only following cases happend:
-                        //  1) Stack reallocated.
-                        //  2) Aborted
-                        //  3) Yield
-                        //  For case 1) & 2), return immediately; in case 3), just like invoke std::yield,
-                        //  let interrupt stay at VM, let it handled outside.
-                        vm_exec_result = wo_result_t::WO_API_NORMAL;
-                        [[fallthrough]];
-                    case wo_result_t::WO_API_NORMAL:
-                        break;
-                    case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
-                        vm_exec_result = run();
-                        break;
-                    default:
-#if WO_ENABLE_RUNTIME_CHECK
-                        wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
-#endif
-                        break;
-                    }
-                }
-                else
-                {
-                    ip = wo_func_closure->m_vm_func;
-                    vm_exec_result = run();
-                }
-
-                ip = return_ip;
-                sp = sb - return_sp_place;
-                bp = sb - return_bp_place;
-                tc->set_integer(return_tc);
-
-                switch (vm_exec_result)
-                {
-                case wo_result_t::WO_API_NORMAL:
-                    return cr;
-                case wo_result_t::WO_API_SIM_ABORT:
-                    break;
-                case wo_result_t::WO_API_SIM_YIELD:
-                    wo_fail(WO_FAIL_CALL_FAIL, "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
-                    break;
-                default:
-                    wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
-                    break;
-                }
-            }
+            ip = wo_func_closure->m_vm_func;
+            vm_exec_result = run();
         }
+
+        ip = return_ip;
+        sp = sb - return_sp_place;
+        bp = sb - return_bp_place;
+        tc->set_integer(return_tc);
+
+        switch (vm_exec_result)
+        {
+        case wo_result_t::WO_API_NORMAL:
+            return cr;
+        case wo_result_t::WO_API_SIM_ABORT:
+            break;
+        case wo_result_t::WO_API_SIM_YIELD:
+            wo_fail(WO_FAIL_CALL_FAIL,
+                "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
+            break;
+        default:
+            wo_fail(WO_FAIL_CALL_FAIL, "Unexpected execution status: %d.", (int)vm_exec_result);
+            break;
+        }
+
         return nullptr;
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    // VM Instruction Implementation Helpers
+    //////////////////////////////////////////////////////////////////////////
 
 #define WO_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
 #define WO_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t*)(rt_ip-4))
@@ -1537,7 +1696,7 @@ namespace wo
                                     WO_SAFE_READ_OFFSET_PER_BYTE(2,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint64_t)):\
                                     WO_SAFE_READ_OFFSET_GET_QWORD)
 
-// X86 support non-alligned addressing, so just do it!
+    // X86 support non-aligned addressing, so just do it!
 #define WO_FAST_READ_MOVE_2 (*(uint16_t*)((rt_ip += 2) - 2))
 #define WO_FAST_READ_MOVE_4 (*(uint32_t*)((rt_ip += 4) - 4))
 #define WO_FAST_READ_MOVE_8 (*(uint64_t*)((rt_ip += 8) - 8))
@@ -1555,7 +1714,7 @@ namespace wo
 #   define WO_IPVAL_MOVE_8 WO_SAFE_READ_MOVE_8
 #endif
 
-// VM Operate
+    // VM Operate
 #define WO_VM_RETURN(V) do{ ip = rt_ip; return (V); }while(0)
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
@@ -1575,138 +1734,172 @@ namespace wo
 #define WO_ADDRESSING_RS3 \
         opnum3 = WO_ADDRESSING_RS
 
+    //////////////////////////////////////////////////////////////////////////
+    // Comparison Operation Implementations
+    //////////////////////////////////////////////////////////////////////////
+
     void vmbase::ltx_impl(value* result, value* opnum1, value* opnum2) noexcept
     {
         switch (opnum1->m_type)
         {
         case value::valuetype::integer_type:
-            result->set_bool(opnum1->m_integer < opnum2->m_integer); break;
+            result->set_bool(opnum1->m_integer < opnum2->m_integer);
+            break;
         case value::valuetype::handle_type:
-            result->set_bool(opnum1->m_handle < opnum2->m_handle); break;
+            result->set_bool(opnum1->m_handle < opnum2->m_handle);
+            break;
         case value::valuetype::real_type:
-            result->set_bool(opnum1->m_real < opnum2->m_real); break;
+            result->set_bool(opnum1->m_real < opnum2->m_real);
+            break;
         case value::valuetype::string_type:
-            result->set_bool(*opnum1->m_string < *opnum2->m_string); break;
+            result->set_bool(*opnum1->m_string < *opnum2->m_string);
+            break;
         default:
             result->set_bool(false);
             wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
             break;
         }
     }
+
     void vmbase::eltx_impl(value* result, value* opnum1, value* opnum2) noexcept
     {
         switch (opnum1->m_type)
         {
         case value::valuetype::integer_type:
-            result->set_bool(opnum1->m_integer <= opnum2->m_integer); break;
+            result->set_bool(opnum1->m_integer <= opnum2->m_integer);
+            break;
         case value::valuetype::handle_type:
-            result->set_bool(opnum1->m_handle <= opnum2->m_handle); break;
+            result->set_bool(opnum1->m_handle <= opnum2->m_handle);
+            break;
         case value::valuetype::real_type:
-            result->set_bool(opnum1->m_real <= opnum2->m_real); break;
+            result->set_bool(opnum1->m_real <= opnum2->m_real);
+            break;
         case value::valuetype::string_type:
-            result->set_bool(*opnum1->m_string <= *opnum2->m_string); break;
+            result->set_bool(*opnum1->m_string <= *opnum2->m_string);
+            break;
         default:
             result->set_bool(false);
             wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
             break;
         }
     }
+
     void vmbase::gtx_impl(value* result, value* opnum1, value* opnum2) noexcept
     {
         switch (opnum1->m_type)
         {
         case value::valuetype::integer_type:
-            result->set_bool(opnum1->m_integer > opnum2->m_integer); break;
+            result->set_bool(opnum1->m_integer > opnum2->m_integer);
+            break;
         case value::valuetype::handle_type:
-            result->set_bool(opnum1->m_handle > opnum2->m_handle); break;
+            result->set_bool(opnum1->m_handle > opnum2->m_handle);
+            break;
         case value::valuetype::real_type:
-            result->set_bool(opnum1->m_real > opnum2->m_real); break;
+            result->set_bool(opnum1->m_real > opnum2->m_real);
+            break;
         case value::valuetype::string_type:
-            result->set_bool(*opnum1->m_string > *opnum2->m_string); break;
+            result->set_bool(*opnum1->m_string > *opnum2->m_string);
+            break;
         default:
             result->set_bool(false);
             wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
             break;
         }
     }
+
     void vmbase::egtx_impl(value* result, value* opnum1, value* opnum2) noexcept
     {
         switch (opnum1->m_type)
         {
         case value::valuetype::integer_type:
-            result->set_bool(opnum1->m_integer >= opnum2->m_integer); break;
+            result->set_bool(opnum1->m_integer >= opnum2->m_integer);
+            break;
         case value::valuetype::handle_type:
-            result->set_bool(opnum1->m_handle >= opnum2->m_handle); break;
+            result->set_bool(opnum1->m_handle >= opnum2->m_handle);
+            break;
         case value::valuetype::real_type:
-            result->set_bool(opnum1->m_real >= opnum2->m_real); break;
+            result->set_bool(opnum1->m_real >= opnum2->m_real);
+            break;
         case value::valuetype::string_type:
-            result->set_bool(*opnum1->m_string >= *opnum2->m_string); break;
+            result->set_bool(*opnum1->m_string >= *opnum2->m_string);
+            break;
         default:
             result->set_bool(false);
             wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
             break;
         }
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    // Value Construction Implementations
+    //////////////////////////////////////////////////////////////////////////
+
     value* vmbase::make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept
     {
-        auto* union_struct =
-            structure_t::gc_new<gcbase::gctype::young>(
-                static_cast<uint16_t>(2));
+        auto* union_struct = structure_t::gc_new<gcbase::gctype::young>(
+            static_cast<uint16_t>(2));
 
         union_struct->m_values[0].set_integer((wo_integer_t)id);
         union_struct->m_values[1].set_val(opnum2);
 
-        opnum1->set_gcunit<value::valuetype::struct_type>(
-            union_struct);
+        opnum1->set_gcunit<value::valuetype::struct_type>(union_struct);
 
         return opnum1;
     }
+
     value* vmbase::make_closure_wo_impl(
-        value* opnum1, uint16_t argc, const wo::byte_t* addr, value* rt_sp)noexcept
+        value* opnum1,
+        uint16_t argc,
+        const wo::byte_t* addr,
+        value* rt_sp) noexcept
     {
-        auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(
-            addr, argc);
+        auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(addr, argc);
 
         for (uint16_t i = 0; i < argc; i++)
         {
             auto* arg_val = ++rt_sp;
             created_closure->m_closure_args[i].set_val(arg_val);
         }
+
         opnum1->set_gcunit<wo::value::valuetype::closure_type>(created_closure);
         return rt_sp;
     }
+
     value* vmbase::make_closure_fp_impl(
-        value* opnum1, uint16_t argc, wo_native_func_t addr, value* rt_sp)noexcept
+        value* opnum1,
+        uint16_t argc,
+        wo_native_func_t addr,
+        value* rt_sp) noexcept
     {
-        auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(
-            addr, argc);
+        auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(addr, argc);
 
         for (uint16_t i = 0; i < argc; i++)
         {
             auto* arg_val = ++rt_sp;
             created_closure->m_closure_args[i].set_val(arg_val);
         }
+
         opnum1->set_gcunit<wo::value::valuetype::closure_type>(created_closure);
         return rt_sp;
     }
 
     value* vmbase::make_array_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
-        auto* maked_array =
-            array_t::gc_new<gcbase::gctype::young>((size_t)size);
+        auto* maked_array = array_t::gc_new<gcbase::gctype::young>((size_t)size);
 
         for (size_t i = 0; i < (size_t)size; i++)
         {
             auto* arr_val = ++rt_sp;
             maked_array->at(size - i - 1).set_val(arr_val);
         }
+
         opnum1->set_gcunit<value::valuetype::array_type>(maked_array);
         return rt_sp;
     }
+
     value* vmbase::make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
-        auto* maked_dict =
-            dictionary_t::gc_new<gcbase::gctype::young>((size_t)size);
+        auto* maked_dict = dictionary_t::gc_new<gcbase::gctype::young>((size_t)size);
 
         for (size_t i = 0; i < (size_t)size; i++)
         {
@@ -1714,21 +1907,26 @@ namespace wo
             value* key = ++rt_sp;
             maked_dict->insert(std::make_pair(*key, *val));
         }
+
         opnum1->set_gcunit<value::valuetype::dict_type>(maked_dict);
         return rt_sp;
     }
+
     value* vmbase::make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
     {
-        auto* maked_struct =
-            structure_t::gc_new<gcbase::gctype::young>(size);
+        auto* maked_struct = structure_t::gc_new<gcbase::gctype::young>(size);
 
         for (size_t i = 0; i < size; i++)
             maked_struct->m_values[size - i - 1].set_val(++rt_sp);
 
-        opnum1->set_gcunit<value::valuetype::struct_type>(
-            maked_struct);
+        opnum1->set_gcunit<value::valuetype::struct_type>(maked_struct);
         return rt_sp;
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    // Argument Packing/Unpacking Implementations
+    //////////////////////////////////////////////////////////////////////////
+
     void vmbase::packargs_impl(
         value* opnum1,
         uint16_t argcount,
@@ -1738,14 +1936,18 @@ namespace wo
     {
         auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
         packed_array->resize((size_t)tp->m_integer - (size_t)argcount);
-        for (auto argindex = 0 + (size_t)argcount; argindex < (size_t)tp->m_integer; argindex++)
+
+        for (auto argindex = 0 + (size_t)argcount;
+            argindex < (size_t)tp->m_integer;
+            argindex++)
         {
-            (*packed_array)[
-                (size_t)argindex - (size_t)argcount].set_val(
-                    rt_bp + 2 + argindex + skip_closure_arg_count);
+            (*packed_array)[(size_t)argindex - (size_t)argcount].set_val(
+                rt_bp + 2 + argindex + skip_closure_arg_count);
         }
+
         opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
     }
+
     value* vmbase::unpackargs_impl(
         vmbase* vm,
         value* opnum1,
@@ -1759,6 +1961,7 @@ namespace wo
         {
             auto* arg_tuple = opnum1->m_structure;
             gcbase::gc_read_guard gwg1(arg_tuple);
+
             if (unpack_argc > 0)
             {
                 if ((size_t)unpack_argc > (size_t)arg_tuple->m_count)
@@ -1768,7 +1971,8 @@ namespace wo
                     vm->bp = rt_bp;
 
                     wo_fail(WO_FAIL_INDEX_FAIL,
-                        "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                        "The number of arguments required for unpack exceeds the number "
+                        "of arguments in the given arguments-package.");
                 }
                 else
                 {
@@ -1855,6 +2059,7 @@ namespace wo
                 else
                 {
                     size_t arg_array_len = arg_array->size();
+
                     if (rt_sp - arg_array_len < vm->stack_storage)
                         goto _wo_unpackargs_stack_overflow;
 
@@ -1871,69 +2076,100 @@ namespace wo
             vm->ip = rt_ip;
             vm->sp = rt_sp;
             vm->bp = rt_bp;
-            wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
+            wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can be used in unpack.");
         }
 
         return rt_sp;
-    _wo_unpackargs_stack_overflow:
 
+    _wo_unpackargs_stack_overflow:
         vm->interrupt(vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
         return nullptr;
     }
-    const char* vmbase::movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept
+
+    //////////////////////////////////////////////////////////////////////////
+    // Type Casting Implementation
+    //////////////////////////////////////////////////////////////////////////
+
+    const char* vmbase::movcast_impl(
+        value* opnum1,
+        value* opnum2,
+        value::valuetype aim_type) noexcept
     {
         if (aim_type == opnum2->m_type)
+        {
             opnum1->set_val(opnum2);
+        }
         else
+        {
             switch (aim_type)
             {
             case value::valuetype::integer_type:
-                opnum1->set_integer(wo_cast_int(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
+                opnum1->set_integer(
+                    wo_cast_int(std::launder(reinterpret_cast<wo_value>(opnum2))));
+                break;
             case value::valuetype::real_type:
-                opnum1->set_real(wo_cast_real(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
+                opnum1->set_real(
+                    wo_cast_real(std::launder(reinterpret_cast<wo_value>(opnum2))));
+                break;
             case value::valuetype::handle_type:
-                opnum1->set_handle(wo_cast_handle(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
+                opnum1->set_handle(
+                    wo_cast_handle(std::launder(reinterpret_cast<wo_value>(opnum2))));
+                break;
             case value::valuetype::string_type:
-                opnum1->set_string(wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
+                opnum1->set_string(
+                    wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum2))));
+                break;
             case value::valuetype::bool_type:
-                opnum1->set_bool(wo_cast_bool(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
+                opnum1->set_bool(
+                    wo_cast_bool(std::launder(reinterpret_cast<wo_value>(opnum2))));
+                break;
             case value::valuetype::array_type:
                 return "Cannot cast this value to 'array'.";
-                break;
             case value::valuetype::dict_type:
                 return "Cannot cast this value to 'dict'.";
-                break;
             case value::valuetype::gchandle_type:
                 return "Cannot cast this value to 'gchandle'.";
-                break;
             case value::valuetype::invalid:
                 return "Cannot cast this value to 'nil'.";
-                break;
             default:
                 return "Unknown type.";
             }
+        }
+
         return nullptr;
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    // VM Creation and Execution Entry Points
+    //////////////////////////////////////////////////////////////////////////
+
     vmbase* vmbase::create_machine(vm_type type) const noexcept
     {
         return new vmbase(type);
     }
+
     wo_result_t vmbase::run() noexcept
     {
         if (ip >= runtime_codes_begin && ip < runtime_codes_end + env->rt_code_len)
             return run_sim();
-        else if (runtime_env::fetch_is_far_addr(ip))
+
+        if (runtime_env::fetch_is_far_addr(ip))
         {
             interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT);
             return run_sim();
         }
-        else
-        {
-            return ((wo_extern_native_func_t)ip)(
-                std::launder(reinterpret_cast<wo_vm>(this)),
-                std::launder(reinterpret_cast<wo_value>(sp + 2)));
-        }
+
+        return ((wo_extern_native_func_t)ip)(
+            std::launder(reinterpret_cast<wo_vm>(this)),
+            std::launder(reinterpret_cast<wo_value>(sp + 2)));
     }
+
+    //////////////////////////////////////////////////////////////////////////
+    // VM Simulation Loop
+    // 
+    // NOTE: The run_sim function should NOT be modified as per user request.
+    //////////////////////////////////////////////////////////////////////////
+
     wo_result_t vmbase::run_sim() noexcept
     {
         // Must not leave when run.

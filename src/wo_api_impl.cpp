@@ -3158,18 +3158,19 @@ wo_value wo_invoke_value(
     _wo_reserved_stack_args_update_guard g2(vm, inout_args_maynull, inout_s_maynull);
 
     wo::value* valfunc = WO_VAL(vmfunc);
-    wo_value result = nullptr;
-    if (!vmfunc)
-        wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-    else if (valfunc->m_type == wo::value::valuetype::script_func_type)
-        result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_script_func, argc));
-    else if (valfunc->m_type == wo::value::valuetype::native_func_type)
-        result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_native_func, argc));
-    else if (valfunc->m_type == wo::value::valuetype::closure_type)
-        result = CS_VAL(WO_VM(vm)->invoke(valfunc->m_closure, argc));
-    else
+
+    switch (valfunc->m_type)
+    {
+    case wo::value::valuetype::script_func_type:
+        return CS_VAL(WO_VM(vm)->invoke_script(valfunc->m_script_func, argc));
+    case wo::value::valuetype::native_func_type:
+        return CS_VAL(WO_VM(vm)->invoke_native(valfunc->m_native_func, argc));
+    case wo::value::valuetype::closure_type:
+        return CS_VAL(WO_VM(vm)->invoke_closure(valfunc->m_closure, argc));
+    default:
         wo_fail(WO_FAIL_CALL_FAIL, "Not callable type.");
-    return result;
+        return nullptr;
+    }
 }
 
 void wo_dispatch_value(
@@ -3180,14 +3181,14 @@ void wo_dispatch_value(
 
     switch (WO_VAL(vmfunc)->m_type)
     {
-    case wo::value::valuetype::closure_type:
-        WO_VM(vm)->co_pre_invoke(WO_VAL(vmfunc)->m_closure, argc);
-        break;
     case wo::value::valuetype::script_func_type:
-        WO_VM(vm)->co_pre_invoke(WO_VAL(vmfunc)->m_script_func, argc);
+        WO_VM(vm)->co_pre_invoke_script(WO_VAL(vmfunc)->m_script_func, argc);
         break;
     case wo::value::valuetype::native_func_type:
-        WO_VM(vm)->co_pre_invoke(WO_VAL(vmfunc)->m_native_func, argc);
+        WO_VM(vm)->co_pre_invoke_native(WO_VAL(vmfunc)->m_native_func, argc);
+        break;
+    case wo::value::valuetype::closure_type:
+        WO_VM(vm)->co_pre_invoke_closure(WO_VAL(vmfunc)->m_closure, argc);
         break;
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "Cannot dispatch non-function value by 'wo_dispatch_closure'.");
