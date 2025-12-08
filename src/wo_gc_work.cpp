@@ -177,8 +177,8 @@ namespace wo
 
         std::atomic_flag            _gc_immediately = {};
 
-        uint32_t                    _gc_immediately_edge = 500000;
-        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 200;
+        constexpr uint32_t          _gc_immediately_edge = 800000;
+        constexpr uint32_t          _gc_stop_the_world_edge = _gc_immediately_edge * 16;
 
         std::atomic_size_t          _gc_scan_vm_index;
         size_t                      _gc_scan_vm_count;
@@ -831,15 +831,20 @@ namespace wo
                             using namespace std;
                             bool breakout = false;
 
-                            if (gcbase::gc_new_releax_count > _gc_immediately_edge)
+                            const auto gc_alloc_count = gcbase::gc_new_releax_count.load(std::memory_order_relaxed);
+                            if (gc_alloc_count > _gc_immediately_edge)
                             {
-                                if (gcbase::gc_new_releax_count > _gc_stop_the_world_edge)
+                                if (gc_alloc_count > _gc_stop_the_world_edge)
                                 {
                                     _gc_stopping_world_gc = true;
-                                    gcbase::gc_new_releax_count -= _gc_stop_the_world_edge;
+                                    (void)gcbase::gc_new_releax_count.fetch_sub(
+                                        _gc_stop_the_world_edge, 
+                                        std::memory_order_relaxed);
                                 }
                                 else
-                                    gcbase::gc_new_releax_count -= _gc_immediately_edge;
+                                    (void)gcbase::gc_new_releax_count.fetch_sub(
+                                        _gc_immediately_edge,
+                                        std::memory_order_relaxed);
                                 break;
                             }
                             _gc_work_cv.wait_for(ug1, 0.1s,
