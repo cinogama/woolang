@@ -1162,9 +1162,17 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args)
     wo_value elem = s + 1;
     wo_set_struct(result_tuple, 2);
 
-    wo_set_val(elem, reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first))); // key
+    wo_set_val(
+        elem, 
+        std::launder(
+            reinterpret_cast<wo_value>(
+                const_cast<wo::value*>(&iter.iter->first)))); // key
     wo_struct_set(result_tuple, 0, elem);
-    wo_set_val(elem, reinterpret_cast<wo_value>(&iter.iter->second)); // val
+    wo_set_val(
+        elem, 
+        std::launder(
+            reinterpret_cast<wo_value>(
+                &iter.iter->second))); // val
     wo_struct_set(result_tuple, 1, elem);
     iter.iter++;
 
@@ -1673,7 +1681,7 @@ WO_API wo_api rslib_std_env_pin_create(wo_vm vm, wo_value args)
                 cgr_index++)
             {
                 auto* global_val = global_and_const_values + cgr_index;
-                wo_gc_mark(ctx, reinterpret_cast<wo_value>(global_val));
+                wo_gc_mark(ctx, std::launder(reinterpret_cast<wo_value>(global_val)));
             }
         },
         [](wo_ptr_t p)
@@ -3046,7 +3054,7 @@ WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args
 WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args)
 {
     wo_value s = wo_reserve_stack(vm, 3, &args);
-    wo::vmbase* vmbase = std::launder(reinterpret_cast<wo::vmbase*>(vm));
+    wo::vmbase* vmbase = reinterpret_cast<wo::vmbase*>(vm);
 
     bool finished;
     auto traces = vmbase->dump_call_stack_func_info((size_t)wo_int(args + 0), true, &finished);

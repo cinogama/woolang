@@ -89,11 +89,7 @@ typedef size_t wo_size_t;
 
 #define WO_STRUCT_TAKE_PLACE(BYTECOUNT) uint8_t _take_palce_[BYTECOUNT]
 
-typedef struct _wo_vm
-{
-    WO_STRUCT_TAKE_PLACE(1);
-}
-* wo_vm;
+typedef struct _wo_vm* wo_vm;
 typedef struct _wo_value
 { /* reserved, and prevent from type casting. */
     WO_DECLARE_ALIGNAS(8)

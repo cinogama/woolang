@@ -651,7 +651,10 @@ namespace wo
             if (val.m_type == value::valuetype::string_type)
                 result = u8enstring(val.m_string->data(), val.m_string->size(), false);
             else
-                result = wo_cast_string(reinterpret_cast<wo_value>(const_cast<value*>(&val)));
+                result = wo_cast_string(
+                    std::launder(
+                        reinterpret_cast<wo_value>(
+                            const_cast<value*>(&val))));
 
             result += ": ";
             result += wo_type_name(static_cast<wo_type_t>(val.m_type));
@@ -1240,97 +1243,97 @@ namespace wo
         std::vector<callstack_info> result(std::min(callstack_layer_count, max_count));
         auto generate_callstack_info_with_ip =
             [this, near_env_pointer, need_offset](const wo::byte_t* rip, runtime_env** out_env)
+        {
+            const program_debug_data_info::location* src_location_info = nullptr;
+            std::string function_signature;
+            std::string file_path;
+            size_t row_number = 0;
+            size_t col_number = 0;
+
+            runtime_env* callenv = near_env_pointer;
+            call_way callway;
+
+            if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
+                callway = call_way::NEAR;
+            else
             {
-                const program_debug_data_info::location* src_location_info = nullptr;
-                std::string function_signature;
-                std::string file_path;
-                size_t row_number = 0;
-                size_t col_number = 0;
+                if (runtime_env::fetch_far_runtime_env(rip, &callenv))
+                    callway = call_way::FAR;
+                else
+                    callway = call_way::NATIVE;
+            }
 
-                runtime_env* callenv = near_env_pointer;
-                call_way callway;
+            switch (callway)
+            {
+            case call_way::NEAR:
+            case call_way::FAR:
+            {
+                // Update call env for near & far call.
+                *out_env = callenv;
 
-                if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
-                    callway = call_way::NEAR;
+                if (callenv->program_debug_info.has_value())
+                {
+                    auto& pdi = callenv->program_debug_info.value();
+
+                    src_location_info = &pdi->get_src_location_by_runtime_ip(
+                        rip - (need_offset ? 1 : 0));
+                    function_signature = pdi->get_current_func_signature_by_runtime_ip(
+                        rip - (need_offset ? 1 : 0));
+
+                    file_path = src_location_info->source_file;
+                    row_number = src_location_info->begin_row_no;
+                    col_number = src_location_info->begin_col_no;
+                }
                 else
                 {
-                    if (runtime_env::fetch_far_runtime_env(rip, &callenv))
-                        callway = call_way::FAR;
-                    else
-                        callway = call_way::NATIVE;
-                }
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
 
-                switch (callway)
+                    (void)result;
+                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                    function_signature = std::string("<unknown function ") + rip_str;
+                    file_path = "<unknown file>";
+                }
+                break;
+            }
+            case call_way::NATIVE:
+            {
+                // Is extern native function address.
+                auto fnd = env->extern_native_functions.find(
+                    reinterpret_cast<wo_native_func_t>(
+                        reinterpret_cast<intptr_t>(rip)));
+
+                if (fnd != env->extern_native_functions.end())
                 {
-                case call_way::NEAR:
-                case call_way::FAR:
+                    function_signature = fnd->second.function_name;
+                    file_path = fnd->second.library_name.value_or("<builtin>");
+                }
+                else
                 {
-                    // Update call env for near & far call.
-                    *out_env = callenv;
+                    char rip_str[sizeof(rip) * 2 + 4];
+                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
 
-                    if (callenv->program_debug_info.has_value())
-                    {
-                        auto& pdi = callenv->program_debug_info.value();
+                    (void)result;
+                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
 
-                        src_location_info = &pdi->get_src_location_by_runtime_ip(
-                            rip - (need_offset ? 1 : 0));
-                        function_signature = pdi->get_current_func_signature_by_runtime_ip(
-                            rip - (need_offset ? 1 : 0));
-
-                        file_path = src_location_info->source_file;
-                        row_number = src_location_info->begin_row_no;
-                        col_number = src_location_info->begin_col_no;
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
-
-                        (void)result;
-                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
-
-                        function_signature = std::string("<unknown function ") + rip_str;
-                        file_path = "<unknown file>";
-                    }
-                    break;
+                    function_signature = std::string("<unknown extern function ") + rip_str;
+                    file_path = "<unknown library>";
                 }
-                case call_way::NATIVE:
-                {
-                    // Is extern native function address.
-                    auto fnd = env->extern_native_functions.find(
-                        reinterpret_cast<wo_native_func_t>(
-                            reinterpret_cast<intptr_t>(rip)));
+                break;
+            }
+            default:
+                wo_error("Cannot be here.");
+            }
 
-                    if (fnd != env->extern_native_functions.end())
-                    {
-                        function_signature = fnd->second.function_name;
-                        file_path = fnd->second.library_name.value_or("<builtin>");
-                    }
-                    else
-                    {
-                        char rip_str[sizeof(rip) * 2 + 4];
-                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
-
-                        (void)result;
-                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
-
-                        function_signature = std::string("<unknown extern function ") + rip_str;
-                        file_path = "<unknown library>";
-                    }
-                    break;
-                }
-                default:
-                    wo_error("Cannot be here.");
-                }
-
-                return callstack_info{
-                    function_signature,
-                    file_path,
-                    row_number,
-                    col_number,
-                    callway,
-                };
+            return callstack_info{
+                function_signature,
+                file_path,
+                row_number,
+                col_number,
+                callway,
             };
+        };
 
         runtime_env* current_env_pointer = near_env_pointer;
         for (auto& callstack_state : callstack_ips)
@@ -2761,7 +2764,7 @@ namespace wo
                 }
                 sp += pop_count;
                 break;
-            }
+                }
             case instruct::opcode::ret:
             {
                 switch ((++bp)->m_type)
@@ -2804,7 +2807,7 @@ namespace wo
                     break;
                 }
                 break;
-            }
+                }
             case instruct::opcode::callg:
                 ip_for_rollback = rt_ip - 1;
                 WO_ADDRESSING_G1;
@@ -2891,7 +2894,7 @@ namespace wo
 #endif
                             break;
                         }
-                    
+
                         break;
                     }
                     case value::valuetype::script_func_type:
@@ -2965,7 +2968,7 @@ namespace wo
 #endif
                                 break;
                             }
-                        }
+                            }
                         else
                         {
                             const auto* aim_function_addr = closure->m_vm_func;
@@ -2989,12 +2992,12 @@ namespace wo
                         }
 
                         break;
-                    }
+                        }
                     default:
                         WO_VM_FAIL(WO_FAIL_CALL_FAIL, "Unexpected invoke target type in 'call'.");
                     }
-                } while (0);
-                break;
+                    } while (0);
+                    break;
             case instruct::opcode::callnwo:
                 if (sp <= stack_storage)
                 {
@@ -3641,8 +3644,8 @@ namespace wo
 
                 WO_VM_INTERRUPT_CHECKPOINT;
             }
-            }
-        }// vm loop end.
+                }
+            }// vm loop end.
 
         WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
 
@@ -3652,7 +3655,7 @@ namespace wo
 #undef WO_RSG_ADDRESSING_WRITE_OP1_CASE
 #undef WO_WRITE_CHECK_FOR_GLOBAL
 #undef WO_RSG_ADDRESSING_CASE
-    }
+            }
 
 #undef WO_VM_RETURN
 #undef WO_VM_FAIL
@@ -3681,4 +3684,4 @@ namespace wo
 #undef WO_FAST_READ_MOVE_2
 #undef WO_FAST_READ_MOVE_4
 #undef WO_FAST_READ_MOVE_8
-}
+            }

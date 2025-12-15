@@ -257,8 +257,10 @@ wo_bool_t _default_fail_handler(
 
     if (vm_may_null != nullptr)
     {
-        std::launder(reinterpret_cast<wo::vmbase*>(vm_may_null))
-            ->dump_call_stack(32, true, std::cerr);
+        reinterpret_cast<wo::vmbase*>(vm_may_null)->dump_call_stack(
+            32, 
+            true, 
+            std::cerr);
     }
     else
         wo::wo_stderr << ANSI_HIM "No woolang vm found on this thread." ANSI_RST << wo::wo_endl;
@@ -377,7 +379,7 @@ void wo_execute_fail_handler(
         if (vm_may_null != nullptr)
         {
             // Abort if handler not handle this error.
-            std::launder(reinterpret_cast<wo::vmbase*>(vm_may_null))->interrupt(
+            reinterpret_cast<wo::vmbase*>(vm_may_null)->interrupt(
                 wo::vmbase::ABORT_INTERRUPT);
         }
     }
@@ -664,10 +666,12 @@ void wo_init(int argc, char** argv)
 #endif
 }
 
-#define WO_VAL(v) (std::launder(reinterpret_cast<wo::value*>(v)))
-#define WO_VM(v) (std::launder(reinterpret_cast<wo::vmbase*>(v)))
-#define CS_VAL(v) (reinterpret_cast<wo_value>(v))
-#define CS_VM(v) (reinterpret_cast<wo_vm>(v))
+#define WO_VAL(v) std::launder(reinterpret_cast<wo::value*>(v))
+#define CS_VAL(v) std::launder(reinterpret_cast<wo_value>(v))
+
+#define WO_VM(v) reinterpret_cast<wo::vmbase*>(v)
+#define CS_VM(v) reinterpret_cast<wo_vm>(v)
+
 #define WO_API_STATE_OF_VM(v) (                                 \
     v->extern_state_stack_update                                \
         ? (v->extern_state_stack_update = false, WO_API_RESYNC_JIT_STATE_TO_VM_STATE) \
@@ -1070,7 +1074,7 @@ wo_real_t wo_cast_real(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
 
-    switch (reinterpret_cast<wo::value*>(value)->m_type)
+    switch (_rsvalue->m_type)
     {
     case wo::value::valuetype::bool_type:
         return _rsvalue->m_integer == 0 ? 0. : 1.;
@@ -1098,7 +1102,7 @@ wo_handle_t wo_cast_handle(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
 
-    switch (reinterpret_cast<wo::value*>(value)->m_type)
+    switch (_rsvalue->m_type)
     {
     case wo::value::valuetype::bool_type:
         return _rsvalue->m_integer == 0 ? 0 : 1;
@@ -2567,9 +2571,8 @@ void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter)
 
 wo_vm wo_create_vm()
 {
-    return std::launder(
-        reinterpret_cast<wo_vm>(
-            new wo::vmbase(wo::vmbase::vm_type::NORMAL)));
+    return reinterpret_cast<wo_vm>(
+            new wo::vmbase(wo::vmbase::vm_type::NORMAL));
 }
 
 wo_vm wo_sub_vm(wo_vm vm)

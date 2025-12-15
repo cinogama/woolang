@@ -689,7 +689,8 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
             const wo_result_t func_call_result = call_aim_native_func(
-                reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
+                reinterpret_cast<wo_vm>(vm), 
+                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)));
             if (func_call_result == WO_API_RESYNC_JIT_STATE_TO_VM_STATE)
             {
                 vm->sp = vm->sb - sp_offset;
@@ -716,7 +717,8 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
             const wo_result_t func_call_result = call_aim_native_func(
-                reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
+                reinterpret_cast<wo_vm>(vm), 
+                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)));
             if (func_call_result == WO_API_RESYNC_JIT_STATE_TO_VM_STATE)
             {
                 vm->sp = vm->sb - sp_offset;
@@ -779,7 +781,8 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             vm->sp = rt_sp;
             vm->bp = rt_bp;
 
-            wo_fail(WO_FAIL_UNEXPECTED, "%s", wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
+            wo_fail(WO_FAIL_UNEXPECTED, "%s", wo_cast_string(
+                std::launder(reinterpret_cast<wo_value>(opnum1))));
         }
         static void _vmjitcall_adds(wo::value* opnum1, wo::string_t* opnum2)
         {
