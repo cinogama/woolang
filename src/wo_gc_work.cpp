@@ -1216,7 +1216,7 @@ namespace wo
             if (current_vm_instance != nullptr)
             {
                 if (need_re_entry_gc_guard)
-                    wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(current_vm_instance)));
+                    wo_enter_gcguard(reinterpret_cast<wo_vm>(current_vm_instance));
                 current_vm_instance->sp = current_vm_stack_top;
             }
         }

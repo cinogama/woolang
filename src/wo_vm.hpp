@@ -85,7 +85,7 @@ namespace wo
         }
         virtual void debug_interrupt(vmbase *vm) override
         {
-            m_callback(std::launder(reinterpret_cast<wo_vm>(vm)), m_userdata);
+            m_callback(reinterpret_cast<wo_vm>(vm), m_userdata);
         }
     };
 
@@ -416,7 +416,7 @@ namespace wo
         vmbase *make_machine(vm_type type) const noexcept;
         void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream &os = std::cout) const noexcept;
         void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream &os = std::cout) const noexcept;
-        std::vector<callstack_info> dump_call_stack_func_info(size_t max_count, bool need_offset, bool *out_finished) const noexcept;
+        std::vector<callstack_info> dump_call_stack_func_info(size_t max_count, bool need_offset, bool *out_finished_may_null) const noexcept;
         size_t callstack_layer() const noexcept;
 
     private:

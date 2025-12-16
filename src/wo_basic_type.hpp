@@ -64,9 +64,24 @@ namespace wo
             script_func_type = WO_SCRIPT_FUNC_TYPE,
             native_func_type = WO_NATIVE_FUNC_TYPE,
 
+            // When VM invoke a `NEAR` function, use `callstack_t` to store bp and ret_ip.
             callstack = WO_CALLSTACK_TYPE,
+            // When VM invoke a function that is from another ENV, it's a `FAR` callstack.
+            // Use `const byte_t* m_farcallstack` & `uint32_t m_ext_farcallstack_bp` to 
+            // store far callstack info. 
             far_callstack = WO_FAR_CALLSTACK_TYPE,
+            // When VM is invoked from native, use `const byte_t* m_nativecallstack` to store 
+            // native callstack info, if:
+            //  1) The native function is called by VM function directly. In this case, `ip` in 
+            //    VM stores the address of native function. `m_nativecallstack` will store
+            //    this address.
+            //  2) Other case, `ip` in VM stores `nullptr`. `m_nativecallstack` will store 
+            //    `nullptr` too.
+            //
+            // Whatever which case, vm's `sp` & `bp` should be keep and restore by invoker.
             native_callstack = WO_NATIVE_CALLSTACK_TYPE,
+            // When a yieldable function called, store sp & bp here to make sure `sp` & `bp` 
+            // can be restored correctly after job completed.
             yield_checkpoint = WO_YIELD_CHECK_POINT_TYPE,
 
             string_type = WO_STRING_TYPE,

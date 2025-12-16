@@ -12,12 +12,6 @@
 #define WO_VERSION_STR(DEV,MAIN,SUB,CORRECT) \
     #DEV "." #MAIN "." #SUB "." #CORRECT
 
-#ifdef NDEBUG
-#   define WO_DEBUG_SFX ""
-#else
-#   define WO_DEBUG_SFX "-debug"
-#endif
-
 #define WO_VERSION_WRAP WO_VERSION_INT
 constexpr wo_integer_t version = WO_VERSION;
 #undef WO_VERSION_WRAP
@@ -27,7 +21,6 @@ constexpr char version_str[] = WO_VERSION;
 #undef WO_VERSION_WRAP
 
 #undef WO_VERSION
-#undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
 #undef WO_VERSION_INT
 

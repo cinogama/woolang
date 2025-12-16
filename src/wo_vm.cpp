@@ -1106,7 +1106,7 @@ namespace wo
     std::vector<vmbase::callstack_info> vmbase::dump_call_stack_func_info(
         size_t max_count,
         bool need_offset,
-        bool* out_finished) const noexcept
+        bool* out_finished_may_null) const noexcept
     {
         // NOTE: When vm running, rt_ip may point to:
         // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
@@ -1114,13 +1114,11 @@ namespace wo
         // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get 
         // next command's debuginfo. So we do a move of 1BYTE here, for getting correct debuginfo.
 
-        if (out_finished != nullptr)
-            *out_finished = true;
+        if (out_finished_may_null != nullptr)
+            *out_finished_may_null = true;
 
         if (env == nullptr)
             return {};
-
-        runtime_env* const near_env_pointer = env.get();
 
         // Internal structure for tracking callstack IP states
         struct callstack_ip_state
@@ -1159,10 +1157,10 @@ namespace wo
             callstack_ip_state& operator = (const callstack_ip_state&) = default;
             callstack_ip_state& operator = (callstack_ip_state&&) = default;
         };
-        std::forward_list<callstack_ip_state> callstack_ips;
+        std::list<callstack_ip_state> callstack_ips;
 
         size_t callstack_layer_count = 1;
-        callstack_ips.push_front(callstack_ip_state(ip));
+        callstack_ips.push_back(callstack_ip_state(ip));
 
         do
         {
@@ -1175,14 +1173,14 @@ namespace wo
                 {
                 case value::valuetype::callstack:
                 {
-                    // NOTE: Tracing call stack might changed in other thread.
-                    //  Check it to make sure donot reach bad place.
                     auto callstack = base_callstackinfo_ptr->m_vmcallstack;
                     auto* next_trace_place = this->sb - callstack.bp;
 
                     ++callstack_layer_count;
-                    callstack_ips.push_front(callstack_ip_state(callstack.ret_ip));
+                    callstack_ips.push_back(callstack_ip_state(callstack.ret_ip));
 
+                    // NOTE: Tracing call stack might changed in other thread.
+                    //  Check it to make sure donot reach bad place.
                     if (next_trace_place < base_callstackinfo_ptr || next_trace_place > sb)
                         goto _label_bad_callstack;
 
@@ -1191,13 +1189,13 @@ namespace wo
                 }
                 case value::valuetype::far_callstack:
                 {
-                    // NOTE: Tracing call stack might changed in other thread.
-                    //  Check it to make sure donot reach bad place.
                     auto* next_trace_place = this->sb - base_callstackinfo_ptr->m_ext_farcallstack_bp;
 
                     ++callstack_layer_count;
-                    callstack_ips.push_front(callstack_ip_state(base_callstackinfo_ptr->m_farcallstack));
+                    callstack_ips.push_back(callstack_ip_state(base_callstackinfo_ptr->m_farcallstack));
 
+                    // NOTE: Tracing call stack might changed in other thread.
+                    //  Check it to make sure donot reach bad place.
                     if (next_trace_place < base_callstackinfo_ptr || next_trace_place > sb)
                         goto _label_bad_callstack;
 
@@ -1207,15 +1205,17 @@ namespace wo
                 case value::valuetype::native_callstack:
                 {
                     ++callstack_layer_count;
-                    callstack_ips.push_front(callstack_ip_state(base_callstackinfo_ptr->m_nativecallstack));
+                    callstack_ips.push_back(callstack_ip_state(base_callstackinfo_ptr->m_nativecallstack));
 
+                    // Native callstack didn't store bp, we cannot restore next callstack info directly.
+                    // _label_refind_next_callstack will try to find next callstack info.
                     goto _label_refind_next_callstack;
                 }
                 default:
                 {
                 _label_bad_callstack:
                     ++callstack_layer_count;
-                    callstack_ips.push_front(callstack_ip_state());
+                    callstack_ips.push_back(callstack_ip_state());
 
                 _label_refind_next_callstack:
                     for (;;)
@@ -1242,102 +1242,133 @@ namespace wo
 
         std::vector<callstack_info> result(std::min(callstack_layer_count, max_count));
         auto generate_callstack_info_with_ip =
-            [this, near_env_pointer, need_offset](const wo::byte_t* rip, runtime_env** out_env)
-        {
-            const program_debug_data_info::location* src_location_info = nullptr;
-            std::string function_signature;
-            std::string file_path;
-            size_t row_number = 0;
-            size_t col_number = 0;
-
-            runtime_env* callenv = near_env_pointer;
-            call_way callway;
-
-            if (rip >= this->runtime_codes_begin && rip < this->runtime_codes_end)
-                callway = call_way::NEAR;
-            else
+            [this, need_offset](const wo::byte_t* rip, runtime_env** inout_env)
             {
-                if (runtime_env::fetch_far_runtime_env(rip, &callenv))
-                    callway = call_way::FAR;
-                else
-                    callway = call_way::NATIVE;
-            }
+                const program_debug_data_info::location* src_location_info = nullptr;
+                std::string function_signature;
+                std::string file_path;
+                size_t row_number = 0;
+                size_t col_number = 0;
 
-            switch (callway)
-            {
-            case call_way::NEAR:
-            case call_way::FAR:
-            {
-                // Update call env for near & far call.
-                *out_env = callenv;
+                runtime_env* callenv = *inout_env;
+                call_way callway;
 
-                if (callenv->program_debug_info.has_value())
-                {
-                    auto& pdi = callenv->program_debug_info.value();
-
-                    src_location_info = &pdi->get_src_location_by_runtime_ip(
-                        rip - (need_offset ? 1 : 0));
-                    function_signature = pdi->get_current_func_signature_by_runtime_ip(
-                        rip - (need_offset ? 1 : 0));
-
-                    file_path = src_location_info->source_file;
-                    row_number = src_location_info->begin_row_no;
-                    col_number = src_location_info->begin_col_no;
-                }
+                if (rip >= callenv->rt_codes && rip < callenv->rt_codes + callenv->rt_code_len)
+                    callway = call_way::NEAR;
                 else
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
-
-                    (void)result;
-                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
-
-                    function_signature = std::string("<unknown function ") + rip_str;
-                    file_path = "<unknown file>";
+                    // Try update call env for near & far call.
+                    if (runtime_env::fetch_far_runtime_env(rip, &callenv))
+                        callway = call_way::FAR;
+                    else
+                        callway = call_way::NATIVE;
                 }
-                break;
-            }
-            case call_way::NATIVE:
-            {
-                // Is extern native function address.
-                auto fnd = env->extern_native_functions.find(
-                    reinterpret_cast<wo_native_func_t>(
-                        reinterpret_cast<intptr_t>(rip)));
 
-                if (fnd != env->extern_native_functions.end())
+                switch (callway)
                 {
-                    function_signature = fnd->second.function_name;
-                    file_path = fnd->second.library_name.value_or("<builtin>");
-                }
-                else
+                case call_way::NEAR:
+                case call_way::FAR:
                 {
-                    char rip_str[sizeof(rip) * 2 + 4];
-                    int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+                    if (callenv->program_debug_info.has_value())
+                    {
+                        auto& pdi = callenv->program_debug_info.value();
 
-                    (void)result;
-                    wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+                        src_location_info = &pdi->get_src_location_by_runtime_ip(
+                            rip - (need_offset ? 1 : 0));
+                        function_signature = pdi->get_current_func_signature_by_runtime_ip(
+                            rip - (need_offset ? 1 : 0));
 
-                    function_signature = std::string("<unknown extern function ") + rip_str;
-                    file_path = "<unknown library>";
+                        file_path = src_location_info->source_file;
+                        row_number = src_location_info->begin_row_no;
+                        col_number = src_location_info->begin_col_no;
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+
+                        (void)result;
+                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                        function_signature = std::string("<unknown function ") + rip_str;
+                        file_path = "<unknown file>";
+                    }
+                    break;
                 }
-                break;
-            }
-            default:
-                wo_error("Cannot be here.");
-            }
+                case call_way::NATIVE:
+                {
+                    // Is extern native function address.
+                    auto fnd = env->extern_native_functions.find(
+                        reinterpret_cast<wo_native_func_t>(
+                            reinterpret_cast<intptr_t>(rip)));
 
-            return callstack_info{
-                function_signature,
-                file_path,
-                row_number,
-                col_number,
-                callway,
+                    if (fnd != env->extern_native_functions.end())
+                    {
+                        function_signature = fnd->second.function_name;
+                        file_path = fnd->second.library_name.value_or("<builtin>");
+                    }
+                    else
+                    {
+                        char rip_str[sizeof(rip) * 2 + 4];
+                        int result = snprintf(rip_str, sizeof(rip_str), "0x%p>", rip);
+
+                        (void)result;
+                        wo_assert(result > 0 && result < sizeof(rip_str), "snprintf failed or buffer too small");
+
+                        function_signature = std::string("<unknown extern function ") + rip_str;
+                        file_path = "<unknown library>";
+                    }
+                    break;
+                }
+                default:
+                    wo_error("Cannot be here.");
+                }
+
+                return callstack_info{
+                    function_signature,
+                    file_path,
+                    row_number,
+                    col_number,
+                    callway,
+                };
             };
-        };
 
-        runtime_env* current_env_pointer = near_env_pointer;
+        runtime_env* current_env_pointer = nullptr;
+
+        // Find start up env;
+        uint32_t first_offset = 0; // 
         for (auto& callstack_state : callstack_ips)
         {
+            if (callstack_state.m_type == callstack_ip_state::ipaddr_kind::OFFSET)
+            {
+                if (first_offset == 0)
+                    first_offset = callstack_state.m_diff_offset;
+            }
+            else if (callstack_state.m_type == callstack_ip_state::ipaddr_kind::ABS)
+            {
+                if (runtime_env::fetch_far_runtime_env(
+                    callstack_state.m_abs_addr + first_offset, &current_env_pointer))
+                {
+                    // Found first env.
+                    break;
+                }
+            }
+        }
+        if (current_env_pointer == nullptr)
+            // Cannot find env from call stack, use default.
+            current_env_pointer = env.get();
+
+        // Walk from callstack top to buttom
+        size_t callstack_layer_index = 0;
+        for (auto& callstack_state : callstack_ips)
+        {
+            if (callstack_layer_index >= result.size())
+            {
+                if (out_finished_may_null != nullptr)
+                    *out_finished_may_null = false;
+                break;
+            }
+
             bool bad = false;
             const byte_t* callstack_ip;
             switch (callstack_state.m_type)
@@ -1356,31 +1387,21 @@ namespace wo
                 wo_error("Cannot be here.");
             }
 
-            --callstack_layer_count;
-            if (callstack_layer_count >= max_count)
+            auto& this_callstack_info = result.at(callstack_layer_index++);
+            if (bad)
             {
-                if (!bad)
-                    generate_callstack_info_with_ip(
-                        callstack_ip, &current_env_pointer);
+                this_callstack_info = callstack_info{
+                    "??",
+                    "<bad callstack>",
+                    0,
+                    0,
+                    call_way::BAD,
+                };
             }
             else
             {
-                auto& this_callstack_info = result.at(callstack_layer_count);
-                if (bad)
-                {
-                    this_callstack_info = callstack_info{
-                        "??",
-                        "<bad callstack>",
-                        0,
-                        0,
-                        call_way::BAD,
-                    };
-                }
-                else
-                {
-                    this_callstack_info = generate_callstack_info_with_ip(
-                        callstack_ip, &current_env_pointer);
-                }
+                this_callstack_info = generate_callstack_info_with_ip(
+                    callstack_ip, &current_env_pointer);
             }
         }
 
@@ -1652,7 +1673,7 @@ namespace wo
         bp = sp;
 
         auto vm_exec_result = ((wo_native_func_t)wo_func_addr)(
-            std::launder(reinterpret_cast<wo_vm>(this)),
+            reinterpret_cast<wo_vm>(this),
             std::launder(reinterpret_cast<wo_value>(sp + 2)));
 
         switch (vm_exec_result)
@@ -1734,7 +1755,7 @@ namespace wo
         if (wo_func_closure->m_native_call)
         {
             vm_exec_result = wo_func_closure->m_native_func(
-                std::launder(reinterpret_cast<wo_vm>(this)),
+                reinterpret_cast<wo_vm>(this),
                 std::launder(reinterpret_cast<wo_value>(sp + 2)));
 
             switch (vm_exec_result)
@@ -2283,7 +2304,7 @@ namespace wo
         }
 
         return ((wo_extern_native_func_t)ip)(
-            std::launder(reinterpret_cast<wo_vm>(this)),
+            reinterpret_cast<wo_vm>(this),
             std::launder(reinterpret_cast<wo_value>(sp + 2)));
     }
 
@@ -2764,7 +2785,7 @@ namespace wo
                 }
                 sp += pop_count;
                 break;
-                }
+            }
             case instruct::opcode::ret:
             {
                 switch ((++bp)->m_type)
@@ -2807,7 +2828,7 @@ namespace wo
                     break;
                 }
                 break;
-                }
+            }
             case instruct::opcode::callg:
                 ip_for_rollback = rt_ip - 1;
                 WO_ADDRESSING_G1;
@@ -2861,10 +2882,10 @@ namespace wo
 
                         // Call native
                         const wo_extern_native_func_t call_aim_native_func = opnum1->m_native_func;
-                        ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
+                        ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
                         switch (call_aim_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)),
+                            reinterpret_cast<wo_vm>(this),
                             std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
                         case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
@@ -2934,7 +2955,7 @@ namespace wo
                             auto rt_bp = sb - bp;
 
                             switch (closure->m_native_func(
-                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                reinterpret_cast<wo_vm>(this),
                                 std::launder((reinterpret_cast<wo_value>(sp + 2)))))
                             {
                             case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
@@ -2968,7 +2989,7 @@ namespace wo
 #endif
                                 break;
                             }
-                            }
+                        }
                         else
                         {
                             const auto* aim_function_addr = closure->m_vm_func;
@@ -2992,12 +3013,12 @@ namespace wo
                         }
 
                         break;
-                        }
+                    }
                     default:
                         WO_VM_FAIL(WO_FAIL_CALL_FAIL, "Unexpected invoke target type in 'call'.");
                     }
-                    } while (0);
-                    break;
+                } while (0);
+                break;
             case instruct::opcode::callnwo:
                 if (sp <= stack_storage)
                 {
@@ -3036,10 +3057,10 @@ namespace wo
                     bp = --sp;
 
                     auto rt_bp = sb - bp;
-                    ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
+                    ip = reinterpret_cast<const byte_t*>(call_aim_native_func);
 
                     switch (call_aim_native_func(
-                        std::launder(reinterpret_cast<wo_vm>(this)),
+                        reinterpret_cast<wo_vm>(this),
                         std::launder(reinterpret_cast<wo_value>(sp + 2))))
                     {
                     case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
@@ -3644,8 +3665,8 @@ namespace wo
 
                 WO_VM_INTERRUPT_CHECKPOINT;
             }
-                }
-            }// vm loop end.
+            }
+        }// vm loop end.
 
         WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
 
@@ -3655,7 +3676,7 @@ namespace wo
 #undef WO_RSG_ADDRESSING_WRITE_OP1_CASE
 #undef WO_WRITE_CHECK_FOR_GLOBAL
 #undef WO_RSG_ADDRESSING_CASE
-            }
+    }
 
 #undef WO_VM_RETURN
 #undef WO_VM_FAIL
@@ -3684,4 +3705,4 @@ namespace wo
 #undef WO_FAST_READ_MOVE_2
 #undef WO_FAST_READ_MOVE_4
 #undef WO_FAST_READ_MOVE_8
-            }
+}
