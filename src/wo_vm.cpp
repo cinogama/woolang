@@ -1361,7 +1361,7 @@ namespace wo
         }
         if (current_env_pointer == nullptr)
             // Cannot find env from call stack, use default.
-            current_env_pointer = ;
+            current_env_pointer = env.get();
 
         // Walk from callstack top to buttom
         size_t callstack_layer_index = 0;
@@ -3059,24 +3059,23 @@ namespace wo
                     sp->m_type = value::valuetype::callstack;
                     sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
                     sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
-                    bp = --sp;
-
-                    auto rt_bp = sb - bp;
-                    ip = reinterpret_cast<const byte_t*>(call_aim_native_func);
+   
+                    // Donot store or update ip/sp/bp. jit function will not use them.
+                    auto* const rt_sp = sp;
 
                     switch (call_aim_native_func(
                         reinterpret_cast<wo_vm>(this),
-                        std::launder(reinterpret_cast<wo_value>(sp + 2))))
+                        std::launder(reinterpret_cast<wo_value>(sp + 1))))
                     {
                     case wo_result_t::WO_API_NORMAL:
                     {
-                        bp = sb - rt_bp;
+                        WO_VM_ASSERT(rt_sp > stack_storage&& rt_sp <= sb,
+                            "Unexpected stack changed in 'callnjit'.");
+                        sp = rt_sp;
 
-                        WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::callstack,
+                        WO_VM_ASSERT(sp->m_type == value::valuetype::callstack,
                             "Found broken stack in 'callnjit'.");
-                        value* stored_bp = sb - (++bp)->m_vmcallstack.bp;
-                        sp = bp;
-                        bp = stored_bp;
+                        bp = sb - sp->m_vmcallstack.bp;
                         break;
                     }
                     case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:

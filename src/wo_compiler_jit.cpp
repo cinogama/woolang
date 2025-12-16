@@ -4,6 +4,15 @@
 
 #undef FAILED
 
+/*
+ATTENTION: Under no circumstances should you read ip/sp/bp from 
+        the VM instance; these are write-only for JIT.
+
+Since version 1.14.14, all immediate JIT calls are executed via 
+callnjit. These calls do not require updating sp/bp/ip, so reading 
+these values from the VM often yields incorrect results.
+*/
+
 #if WO_JIT_SUPPORT_ASMJIT
 
 #ifndef ASMJIT_STATIC
@@ -1089,7 +1098,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             static_assert(sizeof(wo::vmbase::vm_interrupt) == 4);
             static_assert(sizeof(wo::vmbase::vm_interrupt) == sizeof(std::atomic<uint32_t>));
 
-            wo_assure(!ctx->c.cmp(asmjit::x86::dword_ptr(ctx->_vmbase, offsetof(wo::vmbase, vm_interrupt)), 0));
+            wo_assure(!ctx->c.cmp(asmjit::x86::dword_ptr(ctx->_vmbase, offsetof(vmbase, vm_interrupt)), 0));
             wo_assure(!ctx->c.je(no_interrupt_label));
 
             ir_make_checkpoint_normalcheck(ctx, rt_ip, no_interrupt_label);
@@ -1255,19 +1264,24 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             wo_assure(!x86compiler.lea(
                 callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * (int32_t)sizeof(wo::value))));
 
-            // Sync vm's sp/bp
-            // vm->bp = vm->sp = --rt_sp;
-            // vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
-            auto new_sp_bp = x86compiler.newUIntPtr();
-            wo_assure(!x86compiler.lea(
-                new_sp_bp, asmjit::x86::qword_ptr(rt_sp, -1 * (int32_t)sizeof(wo::value))));
-            wo_assure(!x86compiler.mov(
-                asmjit::x86::qword_ptr(vm, offsetof(vmbase, sp)), new_sp_bp));
-            wo_assure(!x86compiler.mov(
-                asmjit::x86::qword_ptr(vm, offsetof(vmbase, bp)), new_sp_bp));
-            wo_assure(!x86compiler.mov(new_sp_bp, asmjit::Imm(call_aim_native_func)));
-            wo_assure(!x86compiler.mov(
-                asmjit::x86::qword_ptr(vm, offsetof(vmbase, ip)), new_sp_bp));
+            // Only store sp/bp/ip for native call, jit call does not need it.
+            if (is_native_call)
+            {
+                // Sync vm's sp/bp
+                // vm->bp = vm->sp = --rt_sp;
+                // vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+                auto new_sp_bp = x86compiler.newUIntPtr();
+                wo_assure(!x86compiler.lea(
+                    new_sp_bp, asmjit::x86::qword_ptr(rt_sp, -1 * (int32_t)sizeof(wo::value))));
+                wo_assure(!x86compiler.mov(
+                    asmjit::x86::qword_ptr(vm, offsetof(vmbase, sp)), new_sp_bp));
+                wo_assure(!x86compiler.mov(
+                    asmjit::x86::qword_ptr(vm, offsetof(vmbase, bp)), new_sp_bp));
+
+                wo_assure(!x86compiler.mov(new_sp_bp, asmjit::Imm(call_aim_native_func)));
+                wo_assure(!x86compiler.mov(
+                    asmjit::x86::qword_ptr(vm, offsetof(vmbase, ip)), new_sp_bp));
+            }
 
             auto result = x86compiler.newInt32();
 
