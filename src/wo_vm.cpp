@@ -1156,7 +1156,7 @@ namespace wo
             callstack_ip_state(callstack_ip_state&&) = default;
             callstack_ip_state& operator = (const callstack_ip_state&) = default;
             callstack_ip_state& operator = (callstack_ip_state&&) = default;
-        };
+        };        
         std::list<callstack_ip_state> callstack_ips;
 
         size_t callstack_layer_count = 1;
@@ -1335,28 +1335,33 @@ namespace wo
 
         runtime_env* current_env_pointer = nullptr;
 
-        // Find start up env;
-        uint32_t first_offset = 0; // 
+        // Find current env.
         for (auto& callstack_state : callstack_ips)
         {
-            if (callstack_state.m_type == callstack_ip_state::ipaddr_kind::OFFSET)
+            /*
+            Why can we find the first-level env in this way?
+
+            ip stores the current call location. If it's a Woolang script function call,
+            then ip must point to the code segment of some env (even for JIT function calls).
+            In this case, we can use fetch_far_runtime_env to locate the corresponding env.
+
+            If it's a native function call, since Woolang VM version 1.14.14, the calling
+            convention requires using far callstack to save the call location for native functions.
+
+            Therefore, regardless of the situation, the first valid ABS address encountered
+            in callstack_ips points to the currently running env.
+            */
+            if (callstack_state.m_type == callstack_ip_state::ipaddr_kind::ABS
+                && runtime_env::fetch_far_runtime_env(
+                    callstack_state.m_abs_addr, &current_env_pointer))
             {
-                if (first_offset == 0)
-                    first_offset = callstack_state.m_diff_offset;
-            }
-            else if (callstack_state.m_type == callstack_ip_state::ipaddr_kind::ABS)
-            {
-                if (runtime_env::fetch_far_runtime_env(
-                    callstack_state.m_abs_addr + first_offset, &current_env_pointer))
-                {
-                    // Found first env.
-                    break;
-                }
+                // Found.
+                break;
             }
         }
         if (current_env_pointer == nullptr)
             // Cannot find env from call stack, use default.
-            current_env_pointer = env.get();
+            current_env_pointer = ;
 
         // Walk from callstack top to buttom
         size_t callstack_layer_index = 0;
