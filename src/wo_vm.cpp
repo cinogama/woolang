@@ -837,7 +837,7 @@ namespace wo
             UNARY_OP("call");
 
         case instruct::calln:
-            result = (dis.dr() & 0b10) ? "callnfast\t" : "calln\t";
+            result = (dis.dr() & 0b10) ? "callnfp\t" : "callnjit\t";
             if (dis.dr() & 0b01 || dis.dr() & 0b10)
             {
                 char buf[32];
@@ -3039,7 +3039,7 @@ namespace wo
                     WO_VM_INTERRUPT_CHECKPOINT;
                 }
                 break;
-            case instruct::opcode::callnfp:
+            case instruct::opcode::callnjit:
                 if (sp <= stack_storage)
                 {
                     --rt_ip;
@@ -3063,16 +3063,12 @@ namespace wo
                         reinterpret_cast<wo_vm>(this),
                         std::launder(reinterpret_cast<wo_value>(sp + 2))))
                     {
-                    case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
-                        WO_VM_INTERRUPT_CHECKPOINT;
-                        /* FALLTHROUGH */
-                        [[fallthrough]];
                     case wo_result_t::WO_API_NORMAL:
                     {
                         bp = sb - rt_bp;
 
                         WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::callstack,
-                            "Found broken stack in 'calln'.");
+                            "Found broken stack in 'callnjit'.");
                         value* stored_bp = sb - (++bp)->m_vmcallstack.bp;
                         sp = bp;
                         bp = stored_bp;
@@ -3082,6 +3078,57 @@ namespace wo
                         rt_ip = this->ip;
                         WO_VM_INTERRUPT_CHECKPOINT;
                         break;
+                    default:
+#if WO_ENABLE_RUNTIME_CHECK
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
+                        break;
+                    }
+                }
+                break;
+            case instruct::opcode::callnfp:
+                if (sp <= stack_storage)
+                {
+                    --rt_ip;
+                    wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                    WO_VM_INTERRUPT_CHECKPOINT;
+                }
+                else
+                {
+                    wo_extern_native_func_t call_aim_native_func =
+                        reinterpret_cast<wo_extern_native_func_t>(WO_IPVAL_MOVE_8);
+
+                    // For debugging purposes, native calls use far callstack to preserve 
+                    // the complete return address.
+                    // Since native calls do not use the `ret` instruction to return, there 
+                    // is no performance penalty
+                    sp->m_type = value::valuetype::far_callstack;
+                    sp->m_farcallstack = rt_ip;
+                    sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
+                    bp = --sp;
+
+                    auto rt_bp = sb - bp;
+                    ip = reinterpret_cast<const byte_t*>(call_aim_native_func);
+
+                    switch (call_aim_native_func(
+                        reinterpret_cast<wo_vm>(this),
+                        std::launder(reinterpret_cast<wo_value>(sp + 2))))
+                    {
+                    case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
+                        WO_VM_INTERRUPT_CHECKPOINT;
+                        /* FALLTHROUGH */
+                        [[fallthrough]];
+                    case wo_result_t::WO_API_NORMAL:
+                    {
+                        bp = sb - rt_bp;
+
+                        WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
+                            "Found broken stack in 'callnfp'.");
+                        value* stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
+                        sp = bp;
+                        bp = stored_bp;
+                        break;
+                    }
                     default:
 #if WO_ENABLE_RUNTIME_CHECK
                         WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");

@@ -453,7 +453,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                 {
                     wo_assert(func_state->m_func != nullptr);
 
-                    *calln = wo::instruct::opcode::callnfp;
+                    *calln = wo::instruct::opcode::callnjit;
                     const byte_t* jitfunc = reinterpret_cast<const byte_t*>(&func_state->m_func);
                     byte_t* ipbuf = codebuf + calln_offset + 1;
 
@@ -1200,7 +1200,8 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             const byte_t* codes,
             const byte_t* rt_ip,
             asmjit::x86::Gp rt_sp,
-            asmjit::x86::Gp rt_bp)
+            asmjit::x86::Gp rt_bp,
+            bool is_native_call)
         {
             auto sp_offset = x86compiler.newInt64();
             auto bp_offset = x86compiler.newInt64();
@@ -1211,21 +1212,44 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             wo_assure(!x86compiler.sub(bp_offset, rt_bp));
 
             wo::value callstack;
-            callstack.m_type = wo::value::valuetype::callstack;
-            callstack.m_vmcallstack.bp = 0;
-            callstack.m_vmcallstack.ret_ip = (uint32_t)(rt_ip - codes);
 
+            if (is_native_call)
+            {
+                // For debugging purposes, native calls use far callstack to preserve 
+                // the complete return address.
+                // Since native calls do not use the `ret` instruction to return, there 
+                // is no performance penalty
+                callstack.m_type = wo::value::valuetype::far_callstack;
+                callstack.m_farcallstack = rt_ip;
+            }
+            else
+            {
+                callstack.m_type = wo::value::valuetype::callstack;
+                callstack.m_vmcallstack.bp = 0;
+                callstack.m_vmcallstack.ret_ip = (uint32_t)(rt_ip - codes);
+            }
             x86_set_imm(x86compiler, rt_sp, callstack);
 
             auto shift_bpoffset = x86compiler.newInt64();
             wo_assure(!x86compiler.mov(shift_bpoffset, bp_offset));
             wo_assure(!x86compiler.shr(shift_bpoffset, asmjit::Imm(4)));
 
-            wo_assure(!x86compiler.mov(
-                asmjit::x86::dword_ptr(
-                    rt_sp,
-                    offsetof(value, m_vmcallstack) + offsetof(value::callstack_t, bp)),
-                shift_bpoffset.r32()));
+            if (is_native_call)
+            {
+                wo_assure(!x86compiler.mov(
+                    asmjit::x86::dword_ptr(
+                        rt_sp,
+                        offsetof(value, m_ext_farcallstack_bp)),
+                    shift_bpoffset.r32()));
+            }
+            else
+            {
+                wo_assure(!x86compiler.mov(
+                    asmjit::x86::dword_ptr(
+                        rt_sp,
+                        offsetof(value, m_vmcallstack) + offsetof(value::callstack_t, bp)),
+                    shift_bpoffset.r32()));
+            }
 
             auto callargptr = x86compiler.newUIntPtr();
             wo_assure(!x86compiler.lea(
@@ -2528,7 +2552,6 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             {
                 // Call native
                 jit_packed_func_t call_aim_native_func = (jit_packed_func_t)(WO_IPVAL_MOVE_8);
-
                 x86_do_calln_native_func(
                     ctx->c,
                     ctx->_vmbase,
@@ -2536,7 +2559,8 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                     ctx->env->rt_codes,
                     rt_ip,
                     ctx->_vmssp,
-                    ctx->_vmsbp);
+                    ctx->_vmsbp,
+                    0 != (dr & 0b10));
             }
             else
             {

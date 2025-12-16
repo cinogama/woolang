@@ -2512,7 +2512,7 @@ namespace wo
                             addr).caller_offset_in_ir.push_back(
                                 static_cast<uint32_t>(generated_runtime_code_buf.size()));
 
-                        generated_runtime_code_buf.push_back(WO_OPCODE(calln, 01));
+                        generated_runtime_code_buf.push_back(WO_OPCODE(calln, 11));
 
                         const byte_t* readptr = reinterpret_cast<const byte_t*>(&addr);
                         generated_runtime_code_buf.push_back(readptr[0]);
