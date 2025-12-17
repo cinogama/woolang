@@ -42,7 +42,7 @@ namespace wo
         }
 
         shared_pointer() noexcept = default;
-        shared_pointer(T* v, release_func_t f = nullptr) noexcept :
+        explicit shared_pointer(T* v, release_func_t f = nullptr) noexcept :
             ptr(v),
             ref_count(nullptr),
             release_func(f ? f : __default_release_func)

@@ -105,7 +105,7 @@ namespace wo
                     fnd != srcloadedlibs.end())
                     return fnd->second->load_func(funcname);
 
-                extern_lib elib = new extern_lib_guard(libpath, srcpath);
+                extern_lib elib(new extern_lib_guard(libpath, srcpath));
                 srcloadedlibs[libpath] = elib;
 
                 return elib->load_func(funcname);

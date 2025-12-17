@@ -982,7 +982,7 @@ namespace wo
         if (!stream->read_elem(&constant_value_count))
             WO_LOAD_BIN_FAILED("Failed to restore constant count.");
 
-        shared_pointer<runtime_env> created_env = new runtime_env;
+        shared_pointer<runtime_env> created_env(new runtime_env);
 
         created_env->rt_codes = code_buf;
         created_env->rt_code_len = (size_t)rt_code_with_padding_length * sizeof(byte_t);
@@ -1489,7 +1489,7 @@ namespace wo
 
         if (memcmp(magic_head_of_pdi, "pdisuped", 8) == 0)
         {
-            shared_pointer<program_debug_data_info> pdb = new program_debug_data_info;
+            shared_pointer<program_debug_data_info> pdb(new program_debug_data_info);
 
             // 7.1.1 Restoring pdi's A data(_general_src_data_buf_a), it stores srcs' location informations.
             // And used for getting ip(not runtime ip) by src location informs.
@@ -1983,7 +1983,7 @@ namespace wo
         }
 
         // 2. Generate code
-        shared_pointer<runtime_env> env = new runtime_env();
+        shared_pointer<runtime_env> env(new runtime_env());
 
         for (size_t ip = 0; ip < ir_command_buffer.size(); ++ip)
         {

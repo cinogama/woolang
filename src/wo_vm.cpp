@@ -532,11 +532,10 @@ namespace wo
     public:
         bytecode_disassembler(
             const byte_t* code_ptr,
-            const runtime_env* env,
-            const value* static_storage) noexcept
+            const runtime_env* env) noexcept
             : m_code_ptr(code_ptr)
             , m_env(env)
-            , m_static_storage(static_storage)
+            , m_static_storage(env->constant_and_global_storage)
             , m_main_command(0)
         {
         }
@@ -696,24 +695,28 @@ namespace wo
     } // anonymous namespace
 
     void vmbase::dump_program_bin(
+        const runtime_env* codeholder,
         size_t begin,
         size_t end,
-        std::ostream& os) const noexcept
+        const wo::byte_t* focus_runtime_ip,
+        std::ostream& os) noexcept
     {
-        const byte_t* const program = env->rt_codes;
+        const byte_t* const program = codeholder->rt_codes;
         const byte_t* code_ptr = program + begin;
-        const byte_t* const code_end = program + std::min(env->rt_code_len, end);
+        const byte_t* const code_end = program + std::min(codeholder->rt_code_len, end);
 
         while (code_ptr < code_end)
         {
             const byte_t* const instr_begin = code_ptr;
-            bytecode_disassembler dis(code_ptr, env.get(), runtime_static_storage);
+            bytecode_disassembler dis(code_ptr, codeholder);
 
             std::string mnemonic = disassemble_instruction(dis);
             code_ptr = dis.current();
 
             // Highlight current instruction pointer position
-            const bool is_current_ip = (ip >= instr_begin && ip < code_ptr);
+            const bool is_current_ip =
+                (focus_runtime_ip >= instr_begin && focus_runtime_ip < code_ptr);
+
             if (is_current_ip)
                 os << ANSI_INV;
 
@@ -729,7 +732,7 @@ namespace wo
         os << std::endl;
     }
 
-    std::string vmbase::disassemble_instruction(bytecode_disassembler& dis) const noexcept
+    std::string vmbase::disassemble_instruction(bytecode_disassembler& dis) noexcept
     {
         dis.read_command();
         std::string result;
@@ -994,7 +997,7 @@ namespace wo
         return result;
     }
 
-    std::string vmbase::disassemble_ext_instruction(bytecode_disassembler& dis) const noexcept
+    std::string vmbase::disassemble_ext_instruction(bytecode_disassembler& dis) noexcept
     {
         std::string result = "ext ";
         int page = dis.dr();
@@ -1137,30 +1140,35 @@ namespace wo
                 const byte_t* m_abs_addr;
                 uint32_t m_diff_offset;
             };
+            value* m_bp;
 
             callstack_ip_state()
                 : m_type(ipaddr_kind::BAD)
+                , m_abs_addr(nullptr)
+                , m_bp(nullptr)
             {
             }
-            callstack_ip_state(const byte_t* abs)
+            callstack_ip_state(const byte_t* abs, value* bp)
                 : m_type(ipaddr_kind::ABS)
                 , m_abs_addr(abs)
+                , m_bp(bp)
             {
             }
-            callstack_ip_state(uint32_t diff)
+            callstack_ip_state(uint32_t diff, value* bp)
                 : m_type(ipaddr_kind::OFFSET)
                 , m_diff_offset(diff)
+                , m_bp(bp)
             {
             }
             callstack_ip_state(const callstack_ip_state&) = default;
             callstack_ip_state(callstack_ip_state&&) = default;
             callstack_ip_state& operator = (const callstack_ip_state&) = default;
             callstack_ip_state& operator = (callstack_ip_state&&) = default;
-        };        
+        };
         std::list<callstack_ip_state> callstack_ips;
 
         size_t callstack_layer_count = 1;
-        callstack_ips.push_back(callstack_ip_state(ip));
+        callstack_ips.push_back(callstack_ip_state(ip, bp));
 
         do
         {
@@ -1177,7 +1185,9 @@ namespace wo
                     auto* next_trace_place = this->sb - callstack.bp;
 
                     ++callstack_layer_count;
-                    callstack_ips.push_back(callstack_ip_state(callstack.ret_ip));
+                    callstack_ips.push_back(
+                        callstack_ip_state(
+                            callstack.ret_ip, next_trace_place));
 
                     // NOTE: Tracing call stack might changed in other thread.
                     //  Check it to make sure donot reach bad place.
@@ -1192,7 +1202,9 @@ namespace wo
                     auto* next_trace_place = this->sb - base_callstackinfo_ptr->m_ext_farcallstack_bp;
 
                     ++callstack_layer_count;
-                    callstack_ips.push_back(callstack_ip_state(base_callstackinfo_ptr->m_farcallstack));
+                    callstack_ips.push_back(
+                        callstack_ip_state(
+                            base_callstackinfo_ptr->m_farcallstack, next_trace_place));
 
                     // NOTE: Tracing call stack might changed in other thread.
                     //  Check it to make sure donot reach bad place.
@@ -1205,7 +1217,9 @@ namespace wo
                 case value::valuetype::native_callstack:
                 {
                     ++callstack_layer_count;
-                    callstack_ips.push_back(callstack_ip_state(base_callstackinfo_ptr->m_nativecallstack));
+                    callstack_ips.push_back(
+                        callstack_ip_state(
+                            base_callstackinfo_ptr->m_nativecallstack, nullptr));
 
                     // Native callstack didn't store bp, we cannot restore next callstack info directly.
                     // _label_refind_next_callstack will try to find next callstack info.
@@ -1233,6 +1247,8 @@ namespace wo
                         else
                             break;
                     }
+                    wo_assert(!callstack_ips.empty());
+                    callstack_ips.back().m_bp = base_callstackinfo_ptr - 1;
                     break;
                 }
                 }
@@ -1250,19 +1266,21 @@ namespace wo
                 size_t row_number = 0;
                 size_t col_number = 0;
 
-                runtime_env* callenv = *inout_env;
+                runtime_env*& callenv = *inout_env;
                 call_way callway;
 
-                if (rip >= callenv->rt_codes && rip < callenv->rt_codes + callenv->rt_code_len)
-                    callway = call_way::NEAR;
-                else
+                if (
+                    (rip >= callenv->rt_codes
+                        && rip < callenv->rt_codes + callenv->rt_code_len)
+                    || runtime_env::fetch_far_runtime_env(rip, &callenv))
                 {
-                    // Try update call env for near & far call.
-                    if (runtime_env::fetch_far_runtime_env(rip, &callenv))
-                        callway = call_way::FAR;
+                    if (callenv == env)
+                        callway = call_way::NEAR;
                     else
-                        callway = call_way::NATIVE;
+                        callway = call_way::FAR;
                 }
+                else
+                    callway = call_way::NATIVE;
 
                 switch (callway)
                 {
@@ -1330,6 +1348,8 @@ namespace wo
                     row_number,
                     col_number,
                     callway,
+                    rip,
+                    nullptr, // Will be set outside.
                 };
             };
 
@@ -1401,13 +1421,17 @@ namespace wo
                     0,
                     0,
                     call_way::BAD,
+                    nullptr,
+                    nullptr,
                 };
             }
             else
             {
                 this_callstack_info = generate_callstack_info_with_ip(
-                    callstack_ip, &current_env_pointer);
+                    callstack_ip,
+                    &current_env_pointer);
             }
+            this_callstack_info.m_bp = callstack_state.m_bp;
         }
 
         return result;
@@ -3059,7 +3083,7 @@ namespace wo
                     sp->m_type = value::valuetype::callstack;
                     sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
                     sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
-   
+
                     // Donot store or update ip/sp/bp. jit function will not use them.
                     auto* const rt_sp = sp;
 
@@ -3069,7 +3093,7 @@ namespace wo
                     {
                     case wo_result_t::WO_API_NORMAL:
                     {
-                        WO_VM_ASSERT(rt_sp > stack_storage&& rt_sp <= sb,
+                        WO_VM_ASSERT(rt_sp > stack_storage && rt_sp <= sb,
                             "Unexpected stack changed in 'callnjit'.");
                         sp = rt_sp;
 
@@ -3693,7 +3717,6 @@ namespace wo
                 else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
                 {
                     static_assert(sizeof(instruct::opcode) == 1);
-                    rtopcode = rtopcode & 0xFFu;
 
                     ip = rt_ip;
                     if (attaching_debuggee)
@@ -3703,7 +3726,11 @@ namespace wo
                         attaching_debuggee->_vm_invoke_debuggee(this);
                         wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
                     }
-                    ++rt_ip;
+
+                    // Refetch ip from vm, it may modified by debugger.
+                    rt_ip = ip;
+                    rtopcode = *(rt_ip++);
+
                     goto re_entry_for_interrupt;
                 }
                 else

@@ -30,7 +30,7 @@
 namespace wo
 {
     class vmbase;
-    class bytecode_disassembler; // 前向声明，用于反汇编器
+    class bytecode_disassembler;
 
     class vm_debuggee_bridge_base
     {
@@ -274,9 +274,13 @@ namespace wo
         {
             std::string m_func_name;
             std::string m_file_path;
+
             size_t m_row;
             size_t m_col;
             call_way m_call_way;
+
+            const wo::byte_t* m_address;
+            wo::value* m_bp;
         };
         struct hangup_lock
         {
@@ -414,15 +418,26 @@ namespace wo
     public:
         void init_main_vm(shared_pointer<runtime_env> runtime_environment) noexcept;
         vmbase *make_machine(vm_type type) const noexcept;
-        void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream &os = std::cout) const noexcept;
-        void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream &os = std::cout) const noexcept;
-        std::vector<callstack_info> dump_call_stack_func_info(size_t max_count, bool need_offset, bool *out_finished_may_null) const noexcept;
+        static void dump_program_bin(
+            const runtime_env* codeholder,
+            size_t begin, 
+            size_t end, 
+            const wo::byte_t* focus_runtime_ip,
+            std::ostream &os) noexcept;
+        void dump_call_stack(
+            size_t max_count,
+            bool need_offset,
+            std::ostream &os) const noexcept;
+        std::vector<callstack_info> dump_call_stack_func_info(
+            size_t max_count,
+            bool need_offset, 
+            bool *out_finished_may_null) const noexcept;
         size_t callstack_layer() const noexcept;
 
     private:
-        // 反汇编辅助方法
-        std::string disassemble_instruction(bytecode_disassembler& dis) const noexcept;
-        std::string disassemble_ext_instruction(bytecode_disassembler& dis) const noexcept;
+        // Disassemble helper
+        static std::string disassemble_instruction(bytecode_disassembler& dis) noexcept;
+        static std::string disassemble_ext_instruction(bytecode_disassembler& dis) noexcept;
 
     public:
         void gc_checkpoint_self_mark() noexcept;

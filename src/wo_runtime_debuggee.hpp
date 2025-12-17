@@ -33,18 +33,20 @@ namespace wo
         };
 
         // Environment context: stores breakpoint information for each runtime environment
-        struct _env_context
+        struct breakpoint_collection
         {
             struct breakpoint_info
             {
                 std::string         m_filepath;
                 size_t              m_row_no;
-                std::vector<size_t> m_break_ips;
+                std::vector<const wo::byte_t*>
+                    m_break_runtime_ips;
             };
-            std::vector<breakpoint_info> break_point_traps;
-            std::unordered_multiset<size_t> break_ips;
+            std::vector<breakpoint_info> m_breakpoint_traps;
+            std::unordered_multiset<const wo::byte_t*> m_break_runtime_ips;
         };
-        std::map<runtime_env*, _env_context> env_context;
+
+        breakpoint_collection breakpoints;
 
         bool stop_attach_debuggee_for_exit_flag = false;
         bool stop_for_detach_debuggee = false;
@@ -66,20 +68,19 @@ namespace wo
         default_cli_debuggee_bridge() = default;
 
         void set_breakpoint_with_ips(
-            const shared_pointer<runtime_env>& env,
+            const runtime_env* env,
             const std::string& src_file,
-            size_t rowno, 
-            std::vector<size_t> ips)
+            size_t rowno,
+            std::vector<const wo::byte_t*> ips)
         {
-            auto& context = env_context[env];
-            for (size_t bip : ips)
-                context.break_ips.insert(bip);
-            context.break_point_traps.emplace_back(
-                _env_context::breakpoint_info{ src_file, rowno, ips });
+            for (const wo::byte_t* bip : ips)
+                breakpoints.m_break_runtime_ips.insert(bip);
+            breakpoints.m_breakpoint_traps.emplace_back(
+                breakpoint_collection::breakpoint_info{ src_file, rowno, ips });
         }
         bool set_breakpoint(
-            const shared_pointer<runtime_env>& env,
-            const shared_pointer<program_debug_data_info>& pdi, 
+            const runtime_env* env,
+            const shared_pointer<program_debug_data_info>& pdi,
             const std::string& src_file,
             size_t rowno)
         {
@@ -87,9 +88,10 @@ namespace wo
 
             if (!breakip.empty())
             {
-                std::vector<size_t> breakips;
+                std::vector<const wo::byte_t*> breakips;
                 for (auto bip : breakip)
-                    breakips.push_back(bip);
+                    breakips.push_back(
+                        env->rt_codes + pdi->get_runtime_ip_by_ip(bip));
                 set_breakpoint_with_ips(env, src_file, rowno, breakips);
                 return true;
             }
@@ -97,19 +99,20 @@ namespace wo
         }
         bool clear_breakpoint(wo::vmbase* vmm, size_t breakid)
         {
-            auto& context = env_context[vmm->env];
-            if (context.break_point_traps.size() > breakid)
+            if (breakpoints.m_breakpoint_traps.size() > breakid)
             {
-                for (auto& bip : context.break_point_traps[breakid].m_break_ips)
-                    context.break_ips.erase(bip);
+                for (auto* bip : breakpoints.m_breakpoint_traps[breakid].m_break_runtime_ips)
+                    breakpoints.m_break_runtime_ips.erase(bip);
 
-                context.break_point_traps.erase(context.break_point_traps.begin() + breakid);
+                breakpoints.m_breakpoint_traps.erase(
+                    breakpoints.m_breakpoint_traps.begin() + breakid);
                 return true;
             }
             return false;
         }
         void breakdown_immediately()
         {
+            focus_on_vm = nullptr;
             breakdown_temp_immediately = true;
         }
         void breakdown_at_vm_immediately(wo::vmbase* vmm)
@@ -174,6 +177,8 @@ return          r                             Execute to the return of this fun
 
 source          src             [file name]   Get current source
                                 [range = 5]
+
+setip                           <ipoffset>    Set current VM's ip to specified address.
 
 stackframe      sf                            Get current function's stack frame.
 
@@ -253,7 +258,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         };
         std::vector<function_code_info> search_function_begin_rtip_scope_with_name(
             const shared_pointer<program_debug_data_info>& pdi,
-            const std::string& funcname, 
+            const std::string& funcname,
             bool fullmatch)
         {
             std::vector<function_code_info> result;
@@ -268,9 +273,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         {
                             funcsign_name,
                             pos.ir_begin,
-                            pos.ir_end, 
-                            begin_rt_ip , 
-                            end_rt_ip, 
+                            pos.ir_end,
+                            begin_rt_ip ,
+                            end_rt_ip,
                         });
                 }
             }
@@ -295,6 +300,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         std::string last_command = "";
 
         const wo::byte_t* current_runtime_ip;
+        const runtime_env* current_runtime_env;
         wo::value* current_frame_sp;
         wo::value* current_frame_bp;
 
@@ -370,7 +376,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             return result;
         }
 
-        void display_variable(wo::vmbase* vmm, wo::program_debug_data_info::function_symbol_infor::variable_symbol_infor& varinfo)
+        void display_variable(
+            wo::vmbase* vmm,
+            wo::program_debug_data_info::function_symbol_infor::variable_symbol_infor& varinfo)
         {
             (void)vmm;
 
@@ -478,7 +486,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             size_t max_layer;
             if (!need_possiable_input(args, max_layer))
                 max_layer = 8;
-            vmm->dump_call_stack(max_layer, false);
+            vmm->dump_call_stack(max_layer, false, std::cout);
             return command_result::need_next_command;
         }
 
@@ -517,6 +525,49 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             return command_result::need_next_command;
         }
 
+        // setip - Set current IP based on current env.
+        command_result cmd_setip(vmbase* vmm, std::vector<std::string>& args)
+        {
+            size_t ipoffset;
+            if (!need_possiable_input(args, ipoffset))
+                printf(ANSI_HIR "Need to specify address for command 'setip'.\n" ANSI_RST);
+            else
+            {
+                if (ipoffset < current_runtime_env->rt_code_len)
+                {
+                    if (current_runtime_env->program_debug_info.has_value())
+                    {
+                        // Check if the new IP is in a function
+                        auto& pdi = current_runtime_env->program_debug_info.value();
+                        auto current_function = pdi->get_current_func_signature_by_runtime_ip(
+                            current_runtime_ip);
+
+                        auto fnd = pdi->_function_ip_data_buf.find(current_function);
+                        if (fnd != pdi->_function_ip_data_buf.end())
+                        {
+                            auto& funcpos = fnd->second;
+                            auto new_ip = current_runtime_env->rt_codes + ipoffset;
+                            if (new_ip < current_runtime_env->rt_codes + funcpos.ir_begin ||
+                                new_ip >= current_runtime_env->rt_codes + funcpos.ir_end)
+                            {
+                                printf(ANSI_HIY "The new ip offset +%04zu is out of current function `%s` scope.\n" ANSI_RST,
+                                    ipoffset, current_function.c_str());
+                            }
+                        }
+                    }
+
+                    vmm->ip = current_runtime_ip = current_runtime_env->rt_codes + ipoffset;
+                    printf(ANSI_HIG "Set ip to offset +%04zu successfully.\n" ANSI_RST, ipoffset);
+                }
+                else
+                {
+                    printf(ANSI_HIR "Ip offset +%4zu out of range, should in range of [0, +%04zu).\n" ANSI_RST,
+                        ipoffset, current_runtime_env->rt_code_len);
+                }
+            }
+            return command_result::need_next_command;
+        }
+
         // deletebreak/delbreak - Delete breakpoint
         command_result cmd_deletebreak(vmbase* vmm, std::vector<std::string>& args)
         {
@@ -536,13 +587,13 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         // step/s - Step into (enter functions)
         command_result cmd_step(vmbase* vmm, std::vector<std::string>& /*args*/)
         {
-            if (!vmm->env->program_debug_info.has_value())
+            if (!current_runtime_env->program_debug_info.has_value())
             {
                 printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                 return command_result::need_next_command;
             }
 
-            auto& pdi = vmm->env->program_debug_info.value();
+            auto& pdi = current_runtime_env->program_debug_info.value();
             auto& loc = pdi->get_src_location_by_runtime_ip(vmm->ip);
 
             breakdown_temp_for_step = true;
@@ -559,13 +610,13 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         // next/n - Step over (skip functions)
         command_result cmd_next(vmbase* vmm, std::vector<std::string>& /*args*/)
         {
-            if (!vmm->env->program_debug_info.has_value())
+            if (!current_runtime_env->program_debug_info.has_value())
             {
                 printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                 return command_result::need_next_command;
             }
 
-            auto& pdi = vmm->env->program_debug_info.value();
+            auto& pdi = current_runtime_env->program_debug_info.value();
             auto& loc = pdi->get_src_location_by_runtime_ip(vmm->ip);
 
             breakdown_temp_for_next = true;
@@ -590,15 +641,15 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 return command_result::need_next_command;
             }
 
-            if (!vmm->env->program_debug_info.has_value())
+            if (!current_runtime_env->program_debug_info.has_value())
             {
                 printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                 return command_result::need_next_command;
             }
 
-            auto& pdi = vmm->env->program_debug_info.value();
+            auto& pdi = current_runtime_env->program_debug_info.value();
             std::string func_name = pdi->get_current_func_signature_by_runtime_ip(
-                vmm->env->rt_codes + offset);
+                current_runtime_env->rt_codes + offset);
 
             printf("The ip offset %zu is in function: `" ANSI_HIG "%s" ANSI_RST "`\n",
                 offset, func_name.c_str());
@@ -644,51 +695,53 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 return command_result::need_next_command;
             }
 
-            current_runtime_ip = vmm->ip;
-            current_frame_sp = vmm->sp;
-            current_frame_bp = vmm->bp;
+            auto trace_result =
+                vmm->dump_call_stack_func_info(
+                    framelayer + 1, false, nullptr);
 
-            size_t current_frame = 0;
-            while (framelayer--)
+            if (trace_result.empty())
             {
-                auto tmp_sp = current_frame_bp + 1;
-                switch (tmp_sp->m_type)
-                {
-                case value::valuetype::callstack:
-                {
-                    current_frame++;
-                    current_frame_sp = tmp_sp;
-                    current_frame_bp = vmm->sb - tmp_sp->m_vmcallstack.bp;
-                    current_runtime_ip = vmm->env->rt_codes + tmp_sp->m_vmcallstack.ret_ip;
-                    break;
-                }
-                case value::valuetype::far_callstack:
-                {
-                    current_frame++;
-                    current_frame_sp = tmp_sp;
-                    current_frame_bp = vmm->sb - tmp_sp->m_ext_farcallstack_bp;
-                    current_runtime_ip = tmp_sp->m_farcallstack;
-                    break;
-                }
-                default:
-                    goto _label_break_trace_frame;
-                }
+                // No frame?
+                printf(ANSI_HIR "No callstack.\n" ANSI_RST);
+                return command_result::need_next_command;
             }
-        _label_break_trace_frame:
-            printf("Now at: frame " ANSI_HIY "%zu\n" ANSI_RST, current_frame);
+
+            framelayer = std::min(framelayer + 1, trace_result.size()) - 1;
+            auto target_frame = trace_result.at(framelayer);
+
+            current_runtime_ip = target_frame.m_address;
+            current_frame_bp = target_frame.m_bp;
+            current_frame_sp = framelayer == 0
+                ? vmm->sp
+                : trace_result.at(framelayer - 1).m_bp;
+
+            do
+            {
+                runtime_env* fetching_env;
+                if (!runtime_env::fetch_far_runtime_env(
+                    current_runtime_ip,
+                    &fetching_env))
+                {
+                    // Might bad env or native call? use default.
+                    fetching_env = vmm->env.get();
+                }
+                current_runtime_env = fetching_env;
+            } while (0);
+
+            printf("Now at: frame " ANSI_HIY "%zu\n" ANSI_RST, framelayer);
             return command_result::need_next_command;
         }
 
         // print/p - Print variable
         command_result cmd_print(vmbase* vmm, std::vector<std::string>& args)
         {
-            if (!vmm->env->program_debug_info.has_value())
+            if (!current_runtime_env->program_debug_info.has_value())
             {
                 printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                 return command_result::need_next_command;
             }
 
-            auto& pdi = vmm->env->program_debug_info.value();
+            auto& pdi = current_runtime_env->program_debug_info.value();
 
             std::string varname;
             if (!need_possiable_input(args, varname))
@@ -697,25 +750,23 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 return command_result::need_next_command;
             }
 
-            if (vmm->env)
+            auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+            auto fnd = pdi->_function_ip_data_buf.find(funcname);
+            if (fnd != pdi->_function_ip_data_buf.end())
             {
-                auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                auto fnd = pdi->_function_ip_data_buf.find(funcname);
-                if (fnd != pdi->_function_ip_data_buf.end())
+                if (auto vfnd = fnd->second.variables.find(varname);
+                    vfnd != fnd->second.variables.end())
                 {
-                    if (auto vfnd = fnd->second.variables.find(varname);
-                        vfnd != fnd->second.variables.end())
-                    {
-                        for (auto& varinfo : vfnd->second)
-                            display_variable(vmm, varinfo);
-                    }
-                    else
-                        printf(ANSI_HIR "Cannot find '%s' in function '%s'.\n" ANSI_RST,
-                            varname.c_str(), funcname.c_str());
+                    for (auto& varinfo : vfnd->second)
+                        display_variable(vmm, varinfo);
                 }
                 else
-                    printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
+                    printf(ANSI_HIR "Cannot find '%s' in function '%s'.\n" ANSI_RST,
+                        varname.c_str(), funcname.c_str());
             }
+            else
+                printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
+
             return command_result::need_next_command;
         }
 
@@ -731,28 +782,37 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             wo::assure_leave_this_thread_vm_shared_mutex::leave_context ctx;
             if (!wo::vmbase::_alive_vm_list_mx.try_lock_shared(&ctx))
-                return command_result::need_next_command;
-
-            if (vmid < wo::vmbase::_alive_vm_list.size())
             {
-                auto vmidx = wo::vmbase::_alive_vm_list.begin();
-                for (size_t i = 0; i < vmid; ++i)
-                    ++vmidx;
-
-                focus_on_vm = *vmidx;
-                breakdown_temp_for_stepir = true;
-
-                printf(ANSI_HIG "Continue running and break at vm (%zu:%p)...\n" ANSI_RST, vmid, focus_on_vm);
-                wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
-                clear_stdin_buffer();
-                return command_result::continue_running;
-            }
-            else
-            {
-                printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
-                wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
+                // Failed to lock vm list mutex, give up to avoid deadlock.
+                printf(ANSI_HIY "Failed to lock vm list, try again later.\n" ANSI_RST);
                 return command_result::need_next_command;
             }
+
+            size_t current_vmid = 0;
+            for (auto* focus_vm : wo::vmbase::_alive_vm_list)
+            {
+                if (focus_vm->check_interrupt(vmbase::PENDING_INTERRUPT)
+                    || focus_vm->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR)
+                    // Skip in-pool and gc-guard vm.
+                    continue;
+
+                if (vmid == current_vmid)
+                {
+                    focus_on_vm = focus_vm;
+                    breakdown_temp_for_stepir = true;
+
+                    printf(ANSI_HIG "Continue running and break at vm (%zu:%p)...\n" ANSI_RST, vmid, focus_on_vm);
+                 
+                    wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
+                    clear_stdin_buffer();
+                    return command_result::continue_running;
+                }
+                ++current_vmid;
+            }
+            printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
+
+            wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
+            return command_result::need_next_command;
         }
 
         // state/st - Display VM register state
@@ -872,8 +932,11 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         size_t length = (size_t)atoll(function_name_or_ip_offset.c_str());
                         printf("Display +%04zu to +%04zu.\n", begin_offset, begin_offset + length);
                         vmm->dump_program_bin(
-                            std::min(begin_offset, vmm->env->rt_code_len),
-                            std::min(begin_offset + length, vmm->env->rt_code_len));
+                            current_runtime_env,
+                            std::min(begin_offset, current_runtime_env->rt_code_len),
+                            std::min(begin_offset + length, current_runtime_env->rt_code_len),
+                            current_runtime_ip,
+                            std::cout);
                     }
                     else
                         printf(ANSI_HIR "Missing length, command failed.\n" ANSI_RST);
@@ -882,16 +945,21 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 {
                     if (function_name_or_ip_offset == "--all")
                     {
-                        vmm->dump_program_bin();
+                        vmm->dump_program_bin(
+                            current_runtime_env,
+                            0,
+                            SIZE_MAX,
+                            current_runtime_ip,
+                            std::cout);
                     }
                     else
                     {
-                        if (!vmm->env->program_debug_info.has_value())
+                        if (!current_runtime_env->program_debug_info.has_value())
                             printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                         else
                         {
                             auto&& fndresult = search_function_begin_rtip_scope_with_name(
-                                vmm->env->program_debug_info.value(),
+                                current_runtime_env->program_debug_info.value(),
                                 function_name_or_ip_offset,
                                 false);
 
@@ -899,7 +967,12 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             for (auto& funcinfo : fndresult)
                             {
                                 wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
-                                vmm->dump_program_bin(funcinfo.rt_ip_begin, funcinfo.rt_ip_end);
+                                vmm->dump_program_bin(
+                                    current_runtime_env,
+                                    funcinfo.rt_ip_begin,
+                                    funcinfo.rt_ip_end,
+                                    current_runtime_ip,
+                                    std::cout);
                             }
                         }
                     }
@@ -907,11 +980,11 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             }
             else
             {
-                if (!vmm->env->program_debug_info.has_value())
+                if (!current_runtime_env->program_debug_info.has_value())
                     printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                 else
                 {
-                    auto& pdi = vmm->env->program_debug_info.value();
+                    auto& pdi = current_runtime_env->program_debug_info.value();
 
                     auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(current_runtime_ip);
                     auto fnd = pdi->_function_ip_data_buf.find(funcname);
@@ -919,16 +992,22 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     {
                         wo_stdout << "In function: " << funcname << wo_endl;
                         vmm->dump_program_bin(
+                            current_runtime_env,
                             pdi->get_runtime_ip_by_ip(fnd->second.ir_begin),
-                            pdi->get_runtime_ip_by_ip(fnd->second.ir_end));
+                            pdi->get_runtime_ip_by_ip(fnd->second.ir_end),
+                            current_runtime_ip,
+                            std::cout);
                     }
                     else
                     {
                         wo_stdout << "Unable to located function, display following 100 bytes." << wo_endl;
-                        auto begin_offset = (size_t)(current_runtime_ip - vmm->env->rt_codes);
+                        auto begin_offset = (size_t)(current_runtime_ip - current_runtime_env->rt_codes);
                         vmm->dump_program_bin(
-                            std::min(begin_offset, vmm->env->rt_code_len),
-                            std::min(begin_offset + 100, vmm->env->rt_code_len));
+                            current_runtime_env,
+                            std::min(begin_offset, current_runtime_env->rt_code_len),
+                            std::min(begin_offset + 100, current_runtime_env->rt_code_len),
+                            current_runtime_ip,
+                            std::cout);
                     }
                 }
             }
@@ -1015,13 +1094,13 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         // break/b - Set breakpoint
         command_result cmd_break(vmbase* vmm, std::vector<std::string>& args)
         {
-            if (!vmm->env->program_debug_info.has_value())
+            if (!current_runtime_env->program_debug_info.has_value())
             {
                 printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                 return command_result::need_next_command;
             }
 
-            auto& pdi = vmm->env->program_debug_info.value();
+            auto& pdi = current_runtime_env->program_debug_info.value();
 
             std::string filename_or_funcname;
             if (!need_possiable_input(args, filename_or_funcname))
@@ -1035,23 +1114,24 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             bool breakpoint_set_by_funcname = false;
 
             if (need_possiable_input(args, lineno))
-                result = set_breakpoint(vmm->env, pdi, filename_or_funcname, lineno - 1);
+                result = set_breakpoint(current_runtime_env, pdi, filename_or_funcname, lineno - 1);
             else
             {
                 for (auto ch : filename_or_funcname)
                 {
                     if (ch < '0' || ch > '9')
                     {
-                        auto&& fndresult = search_function_begin_rtip_scope_with_name(pdi, filename_or_funcname, false);
+                        auto&& fndresult = search_function_begin_rtip_scope_with_name(
+                            pdi, filename_or_funcname, false);
                         wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
                         for (auto& funcinfo : fndresult)
                         {
                             wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
 
-                            auto frtip = vmm->env->rt_codes + pdi->get_runtime_ip_by_ip(funcinfo.command_ip_begin);
-                            auto fip = pdi->get_ip_by_runtime_ip(frtip);
+                            auto frtip = current_runtime_env->rt_codes + pdi->get_runtime_ip_by_ip(
+                                funcinfo.command_ip_begin);
                             auto& srcinfo = pdi->get_src_location_by_runtime_ip(frtip);
-                            set_breakpoint_with_ips(vmm->env, srcinfo.source_file, srcinfo.begin_row_no, { fip });
+                            set_breakpoint_with_ips(current_runtime_env, srcinfo.source_file, srcinfo.begin_row_no, { frtip });
                         }
                         breakpoint_set_by_funcname = true;
                         break;
@@ -1060,7 +1140,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 if (!breakpoint_set_by_funcname)
                 {
                     result = set_breakpoint(
-                        vmm->env,
+                        current_runtime_env,
                         pdi,
                         pdi->get_src_location_by_runtime_ip(current_runtime_ip).source_file,
                         (size_t)std::stoull(filename_or_funcname) - 1);
@@ -1080,13 +1160,13 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         // source/src - Display source code
         command_result cmd_source(vmbase* vmm, std::vector<std::string>& args)
         {
-            if (!vmm->env->program_debug_info.has_value())
+            if (!current_runtime_env->program_debug_info.has_value())
             {
                 printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                 return command_result::need_next_command;
             }
 
-            auto& pdi = vmm->env->program_debug_info.value();
+            auto& pdi = current_runtime_env->program_debug_info.value();
 
             std::string filename;
             size_t display_range = 5;
@@ -1100,7 +1180,13 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     if (ch < '0' || ch > '9')
                     {
                         if (filename == loc.source_file)
-                            print_src_file(vmm, filename, loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no);
+                            print_src_file(
+                                vmm,
+                                filename,
+                                loc.begin_row_no,
+                                loc.end_row_no,
+                                loc.begin_col_no,
+                                loc.end_col_no);
                         else
                             print_src_file(vmm, filename, 0, 0, 0, 0);
                         handled_by_filename = true;
@@ -1113,8 +1199,17 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             if (!handled_by_filename)
             {
-                print_src_file(vmm, loc.source_file, loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no,
-                    (loc.begin_row_no < display_range / 2 ? 0 : loc.begin_row_no - display_range / 2), loc.end_row_no + display_range / 2);
+                print_src_file(
+                    vmm,
+                    loc.source_file,
+                    loc.begin_row_no,
+                    loc.end_row_no,
+                    loc.begin_col_no,
+                    loc.end_col_no,
+                    (loc.begin_row_no < display_range / 2
+                        ? 0
+                        : loc.begin_row_no - display_range / 2),
+                    loc.end_row_no + display_range / 2);
             }
             return command_result::need_next_command;
         }
@@ -1122,8 +1217,6 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         // list/l - List various information
         command_result cmd_list(vmbase* vmm, std::vector<std::string>& args)
         {
-            auto& context = env_context[vmm->env];
-
             std::string list_what;
             if (!need_possiable_input(args, list_what))
             {
@@ -1133,24 +1226,31 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             if (list_what == "break")
             {
-                if (!vmm->env->program_debug_info.has_value())
+                if (!current_runtime_env->program_debug_info.has_value())
                     printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                 else
                 {
                     size_t id = 0;
-                    for (auto& break_info : context.break_point_traps)
+                    for (auto& break_info : breakpoints.m_breakpoint_traps)
                     {
-                        wo_stdout << (id++) << " :\t" << break_info.m_filepath << " (" << break_info.m_row_no << ")" << wo_endl;
+                        wo_stdout
+                            << (id++)
+                            << " :\t"
+                            << break_info.m_filepath
+                            << " ("
+                            << break_info.m_row_no
+                            << ")"
+                            << wo_endl;
                     }
                 }
             }
             else if (list_what == "var")
             {
-                if (!vmm->env->program_debug_info.has_value())
+                if (!current_runtime_env->program_debug_info.has_value())
                     printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                 else
                 {
-                    auto& pdi = vmm->env->program_debug_info.value();
+                    auto& pdi = current_runtime_env->program_debug_info.value();
 
                     auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(current_runtime_ip);
                     auto fnd = pdi->_function_ip_data_buf.find(funcname);
@@ -1174,26 +1274,32 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     size_t vmcount = 0;
                     for (auto vms : wo::vmbase::_alive_vm_list)
                     {
-                        wo_stdout << ANSI_HIY "thread(vm) #" ANSI_HIG << vmcount << ANSI_RST " " << vms << " " << wo_endl;
+                        if (vms->check_interrupt(vmbase::PENDING_INTERRUPT)
+                            || vms->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR)
+                            // Skip in-pool and gc-guard vm.
+                            continue;
+
+                        wo_stdout
+                            << ANSI_HIY "thread(vm) #" ANSI_HIG
+                            << vmcount
+                            << ANSI_RST " "
+                            << vms
+                            << (vms->virtual_machine_type == vmbase::vm_type::WEAK_NORMAL
+                                ? "<Weak>"
+                                : "")
+                            << " " << wo_endl;
 
                         auto usage = ((double)(vms->sb - vms->sp)) / (double)vms->stack_size;
                         wo_stdout << "stack usage: " << usage * 100. << "%" << wo_endl;
 
-                        if (vms->env->rt_codes == vms->ip
-                            || vms->ip == vms->env->rt_codes + vms->env->rt_code_len
-                            || vms->vm_interrupt.load(std::memory_order_relaxed) & vmbase::PENDING_INTERRUPT)
-                            wo_stdout << "(pending)" << wo_endl;
-                        else if (vms->ip < vms->env->rt_codes
-                            || vms->ip > vms->env->rt_codes + vms->env->rt_code_len)
-                        {
-                            wo_stdout << "(leaving)" << wo_endl;
-                            vms->dump_call_stack(5, false);
-                        }
+                        if (vms == focus_on_vm)
+                            wo_stdout << ANSI_HIR "(current)" ANSI_RST << wo_endl;
+                        else if (vms->check_interrupt(vmbase::LEAVE_INTERRUPT))
+                            wo_stdout << ANSI_GRY "(leaving)" ANSI_RST << wo_endl;
                         else
-                        {
-                            wo_stdout << "(running)" << wo_endl;
-                            vms->dump_call_stack(5, false);
-                        }
+                            wo_stdout << ANSI_HIC "(running)" ANSI_RST << wo_endl;
+
+                        vms->dump_call_stack(5, false, std::cout);
 
                         vmcount++;
                     }
@@ -1238,6 +1344,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 {"whereis",     nullptr,    nullptr,    &default_cli_debuggee_bridge::cmd_whereis},
                 {"list",        "l",        nullptr,    &default_cli_debuggee_bridge::cmd_list},
                 {"detach",      nullptr,    nullptr,    &default_cli_debuggee_bridge::cmd_detach},
+                {"setip",       nullptr,    nullptr,    &default_cli_debuggee_bridge::cmd_setip},
             };
             return command_table;
         }
@@ -1280,12 +1387,15 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             if (!main_command.empty())
             {
                 printf(ANSI_RST);
-                
+
                 // Use command table to find and execute command handler function
                 if (auto handler = find_command_handler(main_command))
                     return (this->*handler)(vmm, inputbuf);
                 else
-                    printf(ANSI_HIR "Unknown debug command, please input 'help' for more informations.\n" ANSI_RST);
+                    printf(
+                        ANSI_HIR
+                        "Unknown debug command, please input 'help' for more informations.\n"
+                        ANSI_RST);
             }
 
             clear_stdin_buffer();
@@ -1297,11 +1407,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             size_t current_row_no,
             cpu_profiler_record_infornmation* info)
         {
-            auto& context = env_context[vmm->env];
-
             std::optional<size_t> breakpoint_found_id = std::nullopt;
             size_t finding_id = 0;
-            for (auto& breakinfo : context.break_point_traps)
+            for (auto& breakinfo : breakpoints.m_breakpoint_traps)
             {
                 if (breakinfo.m_row_no == current_row_no && breakinfo.m_filepath == filepath)
                 {
@@ -1373,7 +1481,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         current_col_no = 0;
                         ++current_row_no;
 
-                        // If next line in range, display the line number & breakpoint state & profiler result.
+                        // If next line in range, display the line number & breakpoint 
+                        //  state & profiler result.
                         if (from <= current_row_no && current_row_no <= to)
                         {
                             if (last_line_is_breakline.has_value())
@@ -1397,7 +1506,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     {
                         bool print_inv = false;
 
-                        if (current_row_no >= hightlight_range_begin_row && current_row_no <= hightlight_range_end_row)
+                        if (current_row_no >= hightlight_range_begin_row
+                            && current_row_no <= hightlight_range_end_row)
                         {
                             print_inv = true;
 
@@ -1487,7 +1597,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                 profiler_records[funcname].m_inclusive++;
 
                             profiler_records[calls.front().m_func_name].m_exclusive++;
-                            profiler_records[calls.front().m_func_name].m_exclusive_record[calls.front().m_row]++;
+                            profiler_records[
+                                calls.front().m_func_name].m_exclusive_record[
+                                    calls.front().m_row]++;
                         }
                     }
 
@@ -1495,47 +1607,73 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 }
 
                 const byte_t* next_execute_ip = vmm->ip;
-                auto next_execute_ip_diff = vmm->ip - vmm->env->rt_codes;
 
-                size_t command_ip = 0;
-                const program_debug_data_info::location* loc = nullptr;
-                if (vmm->env->program_debug_info.has_value())
-                {
-                    auto& pdi = vmm->env->program_debug_info.value();
+                runtime_env* fetching_current_env = nullptr;
+                auto try_fetching_current_env =
+                    [&]
+                    {
+                        if (fetching_current_env == nullptr)
+                        {
+                            if (!runtime_env::fetch_far_runtime_env(
+                                next_execute_ip,
+                                &fetching_current_env))
+                            {
+                                // Might bad env or native call? use default.
+                                fetching_current_env = vmm->env.get();
+                            }
+                        }
+                        return fetching_current_env;
+                    };
+                const program_debug_data_info::location* fetching_current_loc = nullptr;
+                auto try_fetching_src_location = [&]
+                    {
+                        if (fetching_current_loc == nullptr)
+                        {
+                            auto* this_env = try_fetching_current_env();
+                            if (this_env->program_debug_info.has_value())
+                            {
+                                auto& pdi = this_env->program_debug_info.value();
+                                fetching_current_loc = &pdi->get_src_location_by_runtime_ip(next_execute_ip);
+                            }
+                            else
+                                fetching_current_loc = &wo::program_debug_data_info::FAIL_LOC;
+                        }
+                        return fetching_current_loc;
+                    };
 
-                    command_ip = pdi->get_ip_by_runtime_ip(next_execute_ip);
-                    loc = &pdi->get_src_location_by_runtime_ip(next_execute_ip);
-                }
-                else
-                    loc = &wo::program_debug_data_info::FAIL_LOC;
 
                 // check breakpoint..
-                auto& context = env_context[vmm->env];
-
                 if (stop_attach_debuggee_for_exit_flag || stop_for_detach_debuggee)
                     return;
 
-                if ((
-                    (breakdown_temp_for_stepir
-                        || (breakdown_temp_for_step
-                            && (loc->begin_row_no != breakdown_temp_for_step_row_begin
-                                || loc->end_row_no != breakdown_temp_for_step_row_end
-                                || loc->begin_col_no != breakdown_temp_for_step_col_begin
-                                || loc->end_col_no != breakdown_temp_for_step_col_end
-                                || loc->source_file != breakdown_temp_for_step_srcfile))
-                        || (breakdown_temp_for_next
-                            && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth
-                            && (loc->begin_row_no != breakdown_temp_for_step_row_begin
-                                || loc->end_row_no != breakdown_temp_for_step_row_end
-                                || loc->begin_col_no != breakdown_temp_for_step_col_begin
-                                || loc->end_col_no != breakdown_temp_for_step_col_end
-                                || loc->source_file != breakdown_temp_for_step_srcfile))
+                if (focus_on_vm == nullptr)
+                    focus_on_vm = vmm;
+
+                bool break_down_in_this_ir =
+                    focus_on_vm == vmm
+                    && (breakdown_temp_for_stepir
                         || (breakdown_temp_for_return
                             && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
-                        ) && (focus_on_vm == vmm)
-                    )
-                    || context.break_ips.find(command_ip) != context.break_ips.end()
-                    || breakdown_temp_immediately)
+                        || breakpoints.m_break_runtime_ips.find(next_execute_ip) != breakpoints.m_break_runtime_ips.end()
+                        || breakdown_temp_immediately);
+
+                if (!break_down_in_this_ir
+                    && (breakdown_temp_for_step
+                        || (breakdown_temp_for_next
+                            && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth)))
+                {
+                    auto* location = try_fetching_src_location();
+                    if (location->begin_row_no != breakdown_temp_for_step_row_begin
+                        || location->end_row_no != breakdown_temp_for_step_row_end
+                        || location->begin_col_no != breakdown_temp_for_step_col_begin
+                        || location->end_col_no != breakdown_temp_for_step_col_end
+                        || location->source_file != breakdown_temp_for_step_srcfile)
+                    {
+                        break_down_in_this_ir = true;
+                    }
+                }
+
+                if (break_down_in_this_ir)
                 {
                     breakdown_temp_for_stepir = false;
                     breakdown_temp_for_step = false;
@@ -1546,24 +1684,29 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
                     current_frame_bp = vmm->bp;
                     current_frame_sp = vmm->sp;
-                    current_runtime_ip = vmm->ip;
+                    current_runtime_ip = next_execute_ip;
+                    current_runtime_env = try_fetching_current_env();
 
-                    printf(ANSI_HIY "Breakdown: " ANSI_RST "+%04d: at " ANSI_HIG "%s" ANSI_RST "(" ANSI_HIY "%zu" ANSI_RST ", " ANSI_HIY "%zu" ANSI_RST ")\n"
+                    auto* src_location = try_fetching_src_location();
+
+                    printf(ANSI_HIY "Breakdown: " ANSI_RST "+%04d: at " ANSI_HIG "%s" ANSI_RST
+                        "(" ANSI_HIY "%zu" ANSI_RST ", " ANSI_HIY "%zu" ANSI_RST ")\n"
                         "in function: " ANSI_HIG " %s\n" ANSI_RST
                         "in virtual-machine: " ANSI_HIG " %p\n" ANSI_RST,
 
-                        (int)next_execute_ip_diff,
-                        loc->source_file.c_str(),
-                        loc->begin_row_no + 1,
-                        loc->begin_col_no + 1,
-                        vmm->env->program_debug_info.has_value()
-                        ? vmm->env->program_debug_info.value()->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()
+                        (int)(current_runtime_ip - current_runtime_env->rt_codes),
+                        src_location->source_file.c_str(),
+                        src_location->begin_row_no + 1,
+                        src_location->begin_col_no + 1,
+                        current_runtime_env->program_debug_info.has_value()
+                        ? current_runtime_env->program_debug_info.value()->get_current_func_signature_by_runtime_ip(
+                            next_execute_ip).c_str()
                         : "[unknown function]",
                         vmm
                     );
-                    if (vmm->env->program_debug_info.has_value())
+                    if (current_runtime_env->program_debug_info.has_value())
                     {
-                        auto& pdi = vmm->env->program_debug_info.value();
+                        auto& pdi = current_runtime_env->program_debug_info.value();
 
                         printf("-------------------------------------------\n");
                         auto& current_loc = pdi->get_src_location_by_runtime_ip(current_runtime_ip);
@@ -1582,7 +1725,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     if (first_time_to_breakdown)
                     {
                         first_time_to_breakdown = false;
-                        printf(ANSI_HIY "Note" ANSI_RST ": You can input '" ANSI_HIR "?" ANSI_RST "' for more informations.\n");
+                        printf(ANSI_HIY "Note" ANSI_RST ": You can input '" ANSI_HIR "?" ANSI_RST
+                            "' for more informations.\n");
                     }
 
                     char _useless_for_clear = 0;
