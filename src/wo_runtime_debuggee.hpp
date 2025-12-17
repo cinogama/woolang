@@ -509,7 +509,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         {
             printf(ANSI_HIG "Detach debuggee, continue run.\n" ANSI_RST);
             stop_for_detach_debuggee = true;
-            wo::vmbase::attach_debuggee(nullptr)->_abandon();
+            wo::vmbase::attach_debuggee(std::nullopt);
             clear_stdin_buffer();
             return command_result::continue_running;
         }

@@ -258,8 +258,8 @@ wo_bool_t _default_fail_handler(
     if (vm_may_null != nullptr)
     {
         reinterpret_cast<wo::vmbase*>(vm_may_null)->dump_call_stack(
-            32, 
-            true, 
+            32,
+            true,
             std::cerr);
     }
     else
@@ -549,12 +549,9 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     if (do_after_shutdown != nullptr)
         do_after_shutdown(custom_data);
 
-    // Close all abandoned debuggee bridge.
-    wo::vm_debuggee_bridge_base::_free_abandons_in_shutdown();
-
     wo::wstring_pool::shutdown_global_str_pool();
     wo::gc::memo_unit::drop_all_cached_memo_unit_in_shutdown();
- 
+
     wo::rslib_extern_symbols::free_wo_lib();
     wo::shutdown_virtual_binary();
     wo::wo_shutdown_locale_and_args();
@@ -4118,51 +4115,64 @@ void wo_gcunit_unlock_shared(wo_value gc_reference_object)
 // DEBUGGEE TOOLS
 void wo_attach_default_debuggee()
 {
-    wo::default_cli_debuggee_bridge* dbg = new wo::default_cli_debuggee_bridge();
-    if (auto* old_debuggee = wo::vmbase::attach_debuggee(dbg))
-        old_debuggee->_abandon();
+    wo::vmbase::attach_debuggee(
+        wo::shared_pointer<wo::vm_debuggee_bridge_base>(
+            new wo::default_cli_debuggee_bridge()));
 }
 
 void wo_attach_user_debuggee(wo_debuggee_callback_func_t callback, void* userdata)
 {
-    wo::c_debuggee_bridge* dbg = new wo::c_debuggee_bridge(callback, userdata);
-    if (auto* old_debuggee = wo::vmbase::attach_debuggee(dbg))
-        old_debuggee->_abandon();
+    wo::vmbase::attach_debuggee(
+        wo::shared_pointer<wo::vm_debuggee_bridge_base>(
+            new wo::c_debuggee_bridge(callback, userdata)));
 }
 
 wo_bool_t wo_has_attached_debuggee()
 {
-    if (wo::vmbase::current_debuggee() != nullptr)
+    if (wo::vm_debuggee_bridge_base::has_current_global_debuggee_bridge())
         return WO_TRUE;
     return WO_FALSE;
 }
 
 void wo_detach_debuggee()
 {
-    if (auto* old_debuggee = wo::vmbase::attach_debuggee(nullptr))
-        old_debuggee->_abandon();
+    wo::vmbase::attach_debuggee(std::nullopt);
 }
 
 void wo_break_immediately()
 {
-    if (auto* debuggee =
-        dynamic_cast<wo::default_cli_debuggee_bridge*>(wo::vmbase::current_debuggee()))
-        debuggee->breakdown_immediately();
-    else
-        wo_fail(
-            WO_FAIL_DEBUGGEE_FAIL,
-            "'wo_break_immediately' can only break the vm attached default debuggee.");
+    auto debuggee = wo::vm_debuggee_bridge_base::current_global_debuggee_bridge();
+    if (debuggee.has_value())
+    {
+        if (auto* default_debuggee =
+            dynamic_cast<wo::default_cli_debuggee_bridge*>(debuggee->get()))
+        {
+            default_debuggee->breakdown_immediately();
+            return;
+        }
+    }
+
+    wo_fail(
+        WO_FAIL_DEBUGGEE_FAIL,
+        "'wo_break_immediately' can only break the vm attached default debuggee.");
 }
 
 void wo_break_specify_immediately(wo_vm vmm)
 {
-    if (auto* debuggee =
-        dynamic_cast<wo::default_cli_debuggee_bridge*>(wo::vmbase::current_debuggee()))
-        debuggee->breakdown_at_vm_immediately(WO_VM(vmm));
-    else
-        wo_fail(
-            WO_FAIL_DEBUGGEE_FAIL,
-            "'wo_break_specify_immediately' can only break the vm attached default debuggee.");
+    auto debuggee = wo::vm_debuggee_bridge_base::current_global_debuggee_bridge();
+    if (debuggee.has_value())
+    {
+        if (auto* default_debuggee =
+            dynamic_cast<wo::default_cli_debuggee_bridge*>(debuggee->get()))
+        {
+            default_debuggee->breakdown_at_vm_immediately(WO_VM(vmm));
+            return;
+        }
+    }
+
+    wo_fail(
+        WO_FAIL_DEBUGGEE_FAIL,
+        "'wo_break_specify_immediately' can only break the vm attached default debuggee.");
 }
 
 wo_bool_t wo_extern_symb(wo_value out_val, wo_vm vm, wo_string_t fullname)

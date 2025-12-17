@@ -577,11 +577,6 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                     while (vmm->check_interrupt(vmbase::vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
                         wo::gcbase::_shared_spin::spin_loop_hint();
                 }
-                else if (interrupt_state & wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
-                {
-                    if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
-                        vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
-                }
                 else if (interrupt_state & wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
                 {
                     vmm->ip = rt_ip;

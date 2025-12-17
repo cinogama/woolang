@@ -3,6 +3,14 @@
 namespace wo
 {
     //////////////////////////////////////////////////////////////////////////
+    // Static Member Definitions
+    //////////////////////////////////////////////////////////////////////////
+
+    std::shared_mutex vm_debuggee_bridge_base::_global_debuggee_bridge_mx;
+    shared_pointer<vm_debuggee_bridge_base>
+        vm_debuggee_bridge_base::_global_debuggee_bridge;
+
+    //////////////////////////////////////////////////////////////////////////
     // Static Constants
     //////////////////////////////////////////////////////////////////////////
 
@@ -151,6 +159,31 @@ namespace wo
         debug_interrupt(_vm);
     }
 
+    void vm_debuggee_bridge_base::attach_global_debuggee_bridge(
+        const std::optional<shared_pointer<vm_debuggee_bridge_base>>& bridge) noexcept
+    {
+        std::lock_guard g(_global_debuggee_bridge_mx);
+
+        if (bridge.has_value())
+            _global_debuggee_bridge = bridge.value();
+        else
+            _global_debuggee_bridge.clear();
+    }
+    std::optional<shared_pointer<vm_debuggee_bridge_base>>
+        vm_debuggee_bridge_base::current_global_debuggee_bridge() noexcept
+    {
+        std::shared_lock sg(_global_debuggee_bridge_mx);
+
+        if (_global_debuggee_bridge != nullptr)
+            return shared_pointer<vm_debuggee_bridge_base>(_global_debuggee_bridge);
+        return std::nullopt;
+    }
+    bool vm_debuggee_bridge_base::has_current_global_debuggee_bridge() noexcept
+    {
+        std::shared_lock sg(_global_debuggee_bridge_mx);
+        return _global_debuggee_bridge != nullptr;
+    }
+
     //////////////////////////////////////////////////////////////////////////
     // VM Instance Management
     //////////////////////////////////////////////////////////////////////////
@@ -170,27 +203,12 @@ namespace wo
         return dec_destructable_instance_countp;
     }
 
-    vm_debuggee_bridge_base* vmbase::attach_debuggee(
-        vm_debuggee_bridge_base* dbg) noexcept
+    void vmbase::attach_debuggee(
+        const std::optional<shared_pointer<vm_debuggee_bridge_base>>& dbg) noexcept
     {
         wo::assure_leave_this_thread_vm_shared_lock g1(_alive_vm_list_mx);
 
-        // Remove old debuggee - send interrupt to all VMs
-        for (auto* vm_instance : _alive_vm_list)
-        {
-            if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
-                vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
-        }
-
-        // Wait for all VMs to handle the interrupt
-        for (auto* vm_instance : _alive_vm_list)
-        {
-            if (vm_instance->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR)
-                vm_instance->wait_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT, false);
-        }
-
-        wo::vm_debuggee_bridge_base* old_debuggee = attaching_debuggee;
-        attaching_debuggee = dbg;
+        vm_debuggee_bridge_base::attach_global_debuggee_bridge(dbg);
 
         // Setup new debuggee for all VMs
         for (auto* vm_instance : _alive_vm_list)
@@ -198,29 +216,11 @@ namespace wo
             if (vm_instance->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR)
                 continue;
 
-            bool has_handled = !vm_instance->clear_interrupt(
-                vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
-
-            if (dbg != nullptr &&
-                (old_debuggee == nullptr ||
-                    // Failed to clear DETACH_DEBUGGEE_INTERRUPT? it has been handled!
-                    // Re-set DEBUG_INTERRUPT
-                    has_handled))
-            {
-                vm_instance->interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
-            }
+            if (dbg.has_value())
+                (void)vm_instance->interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
             else
-            {
-                vm_instance->interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT);
-            }
+                (void)vm_instance->clear_interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
         }
-
-        return old_debuggee;
-    }
-
-    vm_debuggee_bridge_base* vmbase::current_debuggee() noexcept
-    {
-        return attaching_debuggee;
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -367,14 +367,15 @@ namespace wo
             _alive_vm_list.find(this) == _alive_vm_list.end(),
             "This vm is already exists in _alive_vm_list, that is illegal.");
 
-        if (current_debuggee() != nullptr)
-            wo_assure(this->interrupt(vm_interrupt_type::DEBUG_INTERRUPT));
-
         _alive_vm_list.insert(this);
+
+        if (vm_debuggee_bridge_base::has_current_global_debuggee_bridge())
+            wo_assure(this->interrupt(vm_interrupt_type::DEBUG_INTERRUPT));
     }
 
     vmbase::~vmbase()
     {
+        do
         {
             wo::assure_leave_this_thread_vm_lock_guard g1(_alive_vm_list_mx);
 
@@ -392,7 +393,8 @@ namespace wo
 
             free(register_storage);
             free(stack_storage);
-        }
+
+        } while (0);
 
         if (env)
             --env->_running_on_vm_count;
@@ -3679,11 +3681,6 @@ namespace wo
                     while (check_interrupt(vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
                         wo::gcbase::_shared_spin::spin_loop_hint();
                 }
-                else if (interrupt_state & vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT)
-                {
-                    if (clear_interrupt(vm_interrupt_type::DETACH_DEBUGGEE_INTERRUPT))
-                        clear_interrupt(vm_interrupt_type::DEBUG_INTERRUPT);
-                }
                 else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
                 {
                     shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, (uint8_t)(shrink_stack_edge + 1));
@@ -3719,11 +3716,13 @@ namespace wo
                     static_assert(sizeof(instruct::opcode) == 1);
 
                     ip = rt_ip;
-                    if (attaching_debuggee)
+
+                    auto debug_bridge = vm_debuggee_bridge_base::current_global_debuggee_bridge();
+                    if (debug_bridge.has_value())
                     {
                         // check debuggee here
                         wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
-                        attaching_debuggee->_vm_invoke_debuggee(this);
+                        debug_bridge.value()->_vm_invoke_debuggee(this);
                         wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
                     }
 
