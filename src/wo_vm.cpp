@@ -837,7 +837,7 @@ namespace wo
             UNARY_OP("call");
 
         case instruct::calln:
-            result = (dis.dr() & 0b10) ? "callnfast\t" : "calln\t";
+            result = (dis.dr() & 0b10) ? "callnfp\t" : "callnjit\t";
             if (dis.dr() & 0b01 || dis.dr() & 0b10)
             {
                 char buf[32];
@@ -1156,7 +1156,7 @@ namespace wo
             callstack_ip_state(callstack_ip_state&&) = default;
             callstack_ip_state& operator = (const callstack_ip_state&) = default;
             callstack_ip_state& operator = (callstack_ip_state&&) = default;
-        };
+        };        
         std::list<callstack_ip_state> callstack_ips;
 
         size_t callstack_layer_count = 1;
@@ -1335,23 +1335,28 @@ namespace wo
 
         runtime_env* current_env_pointer = nullptr;
 
-        // Find start up env;
-        uint32_t first_offset = 0; // 
+        // Find current env.
         for (auto& callstack_state : callstack_ips)
         {
-            if (callstack_state.m_type == callstack_ip_state::ipaddr_kind::OFFSET)
+            /*
+            Why can we find the first-level env in this way?
+
+            ip stores the current call location. If it's a Woolang script function call,
+            then ip must point to the code segment of some env (even for JIT function calls).
+            In this case, we can use fetch_far_runtime_env to locate the corresponding env.
+
+            If it's a native function call, since Woolang VM version 1.14.14, the calling
+            convention requires using far callstack to save the call location for native functions.
+
+            Therefore, regardless of the situation, the first valid ABS address encountered
+            in callstack_ips points to the currently running env.
+            */
+            if (callstack_state.m_type == callstack_ip_state::ipaddr_kind::ABS
+                && runtime_env::fetch_far_runtime_env(
+                    callstack_state.m_abs_addr, &current_env_pointer))
             {
-                if (first_offset == 0)
-                    first_offset = callstack_state.m_diff_offset;
-            }
-            else if (callstack_state.m_type == callstack_ip_state::ipaddr_kind::ABS)
-            {
-                if (runtime_env::fetch_far_runtime_env(
-                    callstack_state.m_abs_addr + first_offset, &current_env_pointer))
-                {
-                    // Found first env.
-                    break;
-                }
+                // Found.
+                break;
             }
         }
         if (current_env_pointer == nullptr)
@@ -3039,7 +3044,7 @@ namespace wo
                     WO_VM_INTERRUPT_CHECKPOINT;
                 }
                 break;
-            case instruct::opcode::callnfp:
+            case instruct::opcode::callnjit:
                 if (sp <= stack_storage)
                 {
                     --rt_ip;
@@ -3054,6 +3059,56 @@ namespace wo
                     sp->m_type = value::valuetype::callstack;
                     sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
                     sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
+   
+                    // Donot store or update ip/sp/bp. jit function will not use them.
+                    auto* const rt_sp = sp;
+
+                    switch (call_aim_native_func(
+                        reinterpret_cast<wo_vm>(this),
+                        std::launder(reinterpret_cast<wo_value>(sp + 1))))
+                    {
+                    case wo_result_t::WO_API_NORMAL:
+                    {
+                        WO_VM_ASSERT(rt_sp > stack_storage&& rt_sp <= sb,
+                            "Unexpected stack changed in 'callnjit'.");
+                        sp = rt_sp;
+
+                        WO_VM_ASSERT(sp->m_type == value::valuetype::callstack,
+                            "Found broken stack in 'callnjit'.");
+                        bp = sb - sp->m_vmcallstack.bp;
+                        break;
+                    }
+                    case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
+                        rt_ip = this->ip;
+                        WO_VM_INTERRUPT_CHECKPOINT;
+                        break;
+                    default:
+#if WO_ENABLE_RUNTIME_CHECK
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
+                        break;
+                    }
+                }
+                break;
+            case instruct::opcode::callnfp:
+                if (sp <= stack_storage)
+                {
+                    --rt_ip;
+                    wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                    WO_VM_INTERRUPT_CHECKPOINT;
+                }
+                else
+                {
+                    wo_extern_native_func_t call_aim_native_func =
+                        reinterpret_cast<wo_extern_native_func_t>(WO_IPVAL_MOVE_8);
+
+                    // For debugging purposes, native calls use far callstack to preserve 
+                    // the complete return address.
+                    // Since native calls do not use the `ret` instruction to return, there 
+                    // is no performance penalty
+                    sp->m_type = value::valuetype::far_callstack;
+                    sp->m_farcallstack = rt_ip;
+                    sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
                     bp = --sp;
 
                     auto rt_bp = sb - bp;
@@ -3071,17 +3126,13 @@ namespace wo
                     {
                         bp = sb - rt_bp;
 
-                        WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::callstack,
-                            "Found broken stack in 'calln'.");
-                        value* stored_bp = sb - (++bp)->m_vmcallstack.bp;
+                        WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
+                            "Found broken stack in 'callnfp'.");
+                        value* stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
                         sp = bp;
                         bp = stored_bp;
                         break;
                     }
-                    case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
-                        rt_ip = this->ip;
-                        WO_VM_INTERRUPT_CHECKPOINT;
-                        break;
                     default:
 #if WO_ENABLE_RUNTIME_CHECK
                         WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
