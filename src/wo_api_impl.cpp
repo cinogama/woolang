@@ -4151,7 +4151,6 @@ void wo_break_immediately()
             return;
         }
     }
-
     wo_fail(
         WO_FAIL_DEBUGGEE_FAIL,
         "'wo_break_immediately' can only break the vm attached default debuggee.");
@@ -4169,7 +4168,6 @@ void wo_break_specify_immediately(wo_vm vmm)
             return;
         }
     }
-
     wo_fail(
         WO_FAIL_DEBUGGEE_FAIL,
         "'wo_break_specify_immediately' can only break the vm attached default debuggee.");
