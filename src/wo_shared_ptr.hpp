@@ -4,11 +4,9 @@
 
 namespace wo
 {
-    template<typename T, typename CountT = std::atomic_size_t>
+    template<typename T>
     class shared_pointer
     {
-        static_assert(sizeof(CountT) == sizeof(size_t));
-
         using release_func_t = void(*)(T*);
         static void __default_release_func(T* ptr)
         {
@@ -16,39 +14,44 @@ namespace wo
         }
 
         T* ptr = nullptr;
-        CountT* ref_count = nullptr;
+        std::atomic_size_t* ref_count = nullptr;
         release_func_t release_func = nullptr;
 
-    public:
-        void clear()
+        void _release()
         {
             if (ptr)
             {
-                if (!-- * ref_count)
+                if (!-- *ref_count)
                 {
                     // Recycle
                     release_func(ptr);
-
-                    ref_count->~CountT();
                     delete ref_count;
                 }
             }
             else
                 wo_assert(ref_count == nullptr);
         }
+
+    public:
+        void reset()
+        {
+            _release();
+            ptr = nullptr;
+            ref_count = nullptr;
+        }
         ~shared_pointer()
         {
-            clear();
+            _release();
         }
 
         shared_pointer() noexcept = default;
-        explicit shared_pointer(T* v, release_func_t f = nullptr) noexcept :
+        explicit shared_pointer(T* v, release_func_t f = &__default_release_func) noexcept :
             ptr(v),
             ref_count(nullptr),
-            release_func(f ? f : __default_release_func)
+            release_func(f)
         {
             if (ptr != nullptr)
-                ref_count = new CountT(1);
+                ref_count = new std::atomic_size_t(1);
         }
 
         shared_pointer(const shared_pointer& v) noexcept
@@ -70,7 +73,7 @@ namespace wo
 
         shared_pointer& operator =(const shared_pointer& v) noexcept
         {
-            clear();
+            _release();
 
             ptr = v.ptr;
             release_func = v.release_func;
@@ -82,7 +85,7 @@ namespace wo
 
         shared_pointer& operator =(shared_pointer&& v)noexcept
         {
-            clear();
+            _release();
 
             ptr = v.ptr;
             release_func = v.release_func;

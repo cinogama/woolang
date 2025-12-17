@@ -167,7 +167,7 @@ namespace wo
         if (bridge.has_value())
             _global_debuggee_bridge = bridge.value();
         else
-            _global_debuggee_bridge.clear();
+            _global_debuggee_bridge.reset();
     }
     std::optional<shared_pointer<vm_debuggee_bridge_base>>
         vm_debuggee_bridge_base::current_global_debuggee_bridge() noexcept
