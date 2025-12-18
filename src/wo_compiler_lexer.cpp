@@ -304,7 +304,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 lex.end_trying_block();
 
                 // Donot jit to make debug friendly.
-                if (nullptr == wo_run(_macro_action_vm))
+                if (nullptr == wo_bootup(_macro_action_vm, WO_FALSE))
                 {
                     lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
                         macro_name.c_str(),

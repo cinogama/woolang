@@ -2864,6 +2864,10 @@ namespace wo
 
         if (!eval_result_ignored())
         {
+            if (top_eval_state.m_pdi_node.has_value())
+                c().pdb_info->generate_debug_info_at_astnode(
+                    top_eval_state.m_pdi_node.value(), &c());
+
             bind_func(top_eval_state);
             switch (top_eval_state.m_request)
             {
@@ -2893,9 +2897,11 @@ namespace wo
 
     void BytecodeGenerateContext::eval_action()
     {
-        m_eval_result_storage_target.push(EvalResult{
-            EvalResult::Request::EVAL_PURE_ACTION,
-            std::nullopt,
+        m_eval_result_storage_target.push(
+            EvalResult{
+                EvalResult::Request::EVAL_PURE_ACTION,
+                std::nullopt,
+                std::nullopt,
             });
     }
     void BytecodeGenerateContext::eval_for_upper()
@@ -2911,43 +2917,55 @@ namespace wo
     }
     void BytecodeGenerateContext::eval_keep()
     {
-        m_eval_result_storage_target.push(EvalResult{
-            EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP,
-            std::nullopt,
+        m_eval_result_storage_target.push(
+            EvalResult{
+                EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP,
+                std::nullopt,
+                std::nullopt,
             });
     }
     void BytecodeGenerateContext::eval_push()
     {
-        m_eval_result_storage_target.push(EvalResult{
-            EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT,
-            std::nullopt,
+        m_eval_result_storage_target.push(
+            EvalResult{
+                EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT,
+                std::nullopt,
+                std::nullopt,
             });
     }
     void BytecodeGenerateContext::eval()
     {
-        m_eval_result_storage_target.push(EvalResult{
-            EvalResult::Request::GET_RESULT_OPNUM_ONLY,
-            std::nullopt,
+        m_eval_result_storage_target.push(
+            EvalResult{
+                EvalResult::Request::GET_RESULT_OPNUM_ONLY,
+                std::nullopt,
+                std::nullopt,
             });
     }
-    void BytecodeGenerateContext::eval_to(opnum::opnumbase* target)
+    void BytecodeGenerateContext::eval_to(
+        opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode)
     {
-        m_eval_result_storage_target.push(EvalResult{
-            EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM,
-            target,
+        m_eval_result_storage_target.push(
+            EvalResult{
+                EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM,
+                target,
+                pdinode,
             });
     }
     void BytecodeGenerateContext::eval_ignore()
     {
-        m_eval_result_storage_target.push(EvalResult{
-            EvalResult::Request::IGNORE_RESULT,
-            std::nullopt,
+        m_eval_result_storage_target.push(
+            EvalResult{
+                EvalResult::Request::IGNORE_RESULT,
+                std::nullopt,
+                std::nullopt,
             });
     }
-    void BytecodeGenerateContext::eval_to_if_not_ignore(opnum::opnumbase* target)
+    void BytecodeGenerateContext::eval_to_if_not_ignore(
+        opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode)
     {
         if (!eval_result_ignored())
-            eval_to(target);
+            eval_to(target, pdinode);
         else
             eval_ignore();
     }

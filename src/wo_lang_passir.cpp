@@ -8,6 +8,9 @@ namespace wo
     using namespace ast;
 
 #define WO_OPNUM(opnumptr) (*static_cast<opnum::opnumbase*>(opnumptr))
+#define WO_GENERATE_PDI_FOR(NODE) \
+    m_ircontext.c().pdb_info->generate_debug_info_at_astnode(NODE, &m_ircontext.c());
+
     wo_pstring_t _generate_label(const std::string& prefix, const void* p)
     {
         char result[128];
@@ -349,7 +352,6 @@ namespace wo
     WO_PASS_PROCESSER(AstUsingTypeDeclare)
     {
         wo_assert(state == UNPROCESSED);
-
         return OKAY;
     }
     WO_PASS_PROCESSER(AstAliasTypeDeclare)
@@ -399,7 +401,7 @@ namespace wo
             }
             else
             {
-                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
                 if (!pass_final_value(lex, node->m_condition))
                     return FAILED;
 
@@ -457,7 +459,7 @@ namespace wo
 
             if (!dead_loop)
             {
-                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
                 if (!pass_final_value(lex, node->m_condition))
                     return FAILED;
 
@@ -559,7 +561,7 @@ namespace wo
                 {
                     m_ircontext.c().tag(_generate_label("#for_cond_", node));
 
-                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
                     if (!pass_final_value(lex, node->m_condition.value()))
                         return FAILED;
 
@@ -611,6 +613,8 @@ namespace wo
         {
             auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
             // Loop has been checked in pass1.
+
+            WO_GENERATE_PDI_FOR(node);
             m_ircontext.c().jmp(loop.value()->m_break_label);
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -626,6 +630,8 @@ namespace wo
         {
             auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
             // Loop has been checked in pass1.
+
+            WO_GENERATE_PDI_FOR(node);
             m_ircontext.c().jmp(loop.value()->m_continue_label);
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -672,6 +678,8 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            WO_GENERATE_PDI_FOR(node);
+
             if (node->m_LANG_case_label_or_takeplace.has_value())
                 m_ircontext.c().jnequb(
                     WO_OPNUM(m_ircontext.opnum_imm_int(node->m_LANG_case_label_or_takeplace.value())),
@@ -919,12 +927,12 @@ namespace wo
                     else
                     {
                         // Need storage and initialize.
-                        bool fast_eval = template_value_instance->m_IR_storage.has_value()
+                        const bool fast_eval = template_value_instance->m_IR_storage.has_value()
                             && (_is_storage_can_addressing(template_value_instance->m_IR_storage.value()));
                         if (fast_eval)
                             m_ircontext.eval_to(
                                 m_ircontext.get_storage_place(
-                                    template_value_instance->m_IR_storage.value()));
+                                    template_value_instance->m_IR_storage.value()), node);
                         else
                             m_ircontext.eval();
                         if (!pass_final_value(lex, static_cast<AstValueBase*>(template_instance->m_ast)))
@@ -935,9 +943,14 @@ namespace wo
 
                         if (fast_eval)
                             (void)result_opnum;
-                        else if (!update_instance_storage_and_code_gen_passir(
-                            template_value_instance, result_opnum, std::nullopt))
-                            return FAILED;
+                        else
+                        {
+                            WO_GENERATE_PDI_FOR(node);
+
+                            if (!update_instance_storage_and_code_gen_passir(
+                                template_value_instance, result_opnum, std::nullopt))
+                                return FAILED;
+                        }
                     }
                 }
             }
@@ -958,13 +971,13 @@ namespace wo
             else
             {
                 // Not template, but need storage.
-                bool fast_eval = pattern_symbol->m_value_instance->m_IR_storage.has_value()
+                const bool fast_eval = pattern_symbol->m_value_instance->m_IR_storage.has_value()
                     && _is_storage_can_addressing(pattern_symbol->m_value_instance->m_IR_storage.value());
 
                 if (fast_eval)
                     m_ircontext.eval_to(
                         m_ircontext.get_storage_place(
-                            pattern_symbol->m_value_instance->m_IR_storage.value()));
+                            pattern_symbol->m_value_instance->m_IR_storage.value()), node);
                 else
                     m_ircontext.eval();
 
@@ -976,9 +989,14 @@ namespace wo
 
                 if (fast_eval)
                     (void)result_opnum;
-                else if (!update_instance_storage_and_code_gen_passir(
-                    pattern_symbol->m_value_instance, result_opnum, std::nullopt))
-                    return FAILED;
+                else
+                {
+                    WO_GENERATE_PDI_FOR(node);
+
+                    if (!update_instance_storage_and_code_gen_passir(
+                        pattern_symbol->m_value_instance, result_opnum, std::nullopt))
+                        return FAILED;
+                }
             }
             return OKAY;
         }
@@ -1023,7 +1041,7 @@ namespace wo
             if (node->m_value.has_value())
             {
                 if (node->m_LANG_defer_instances.empty())
-                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
                 else
                     m_ircontext.eval_push();
 
@@ -1039,6 +1057,8 @@ namespace wo
         }
         else if (state == HOLD)
         {
+            WO_GENERATE_PDI_FOR(node);
+
             if (node->m_value.has_value() && !node->m_LANG_defer_instances.empty())
                 m_ircontext.c().pop(opnum::reg(opnum::reg::cr));
 
@@ -1073,6 +1093,7 @@ namespace wo
     {
         wo_assert(state == UNPROCESSED);
 
+        WO_GENERATE_PDI_FOR(node);
         m_ircontext.c().nop();
 
         return OKAY;
@@ -1198,6 +1219,8 @@ namespace wo
         else if (state == HOLD)
         {
             // Field has been pushed into stack.
+            WO_GENERATE_PDI_FOR(node);
+
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
@@ -1262,6 +1285,8 @@ namespace wo
         else if (state == HOLD)
         {
             // Field has been pushed into stack.
+            WO_GENERATE_PDI_FOR(node);
+
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
@@ -1303,6 +1328,8 @@ namespace wo
         else if (state == HOLD)
         {
             // Field has been pushed into stack.
+            WO_GENERATE_PDI_FOR(node);
+
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
@@ -1412,6 +1439,8 @@ namespace wo
                 break;
             case AstValueFunctionCall::IR_HOLD_FOR_NORMAL_CALL:
             {
+                WO_GENERATE_PDI_FOR(node);
+
                 if (node->m_IR_invoking_function_near.has_value())
                 {
                     AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
@@ -1470,6 +1499,8 @@ namespace wo
     WO_PASS_PROCESSER(AstValueVariable)
     {
         wo_assert(state == UNPROCESSED);
+
+        WO_GENERATE_PDI_FOR(node);
         lang_ValueInstance* value_instance = node->m_LANG_variable_instance.value();
 
         if (value_instance->m_IR_normal_function.has_value())
@@ -1595,6 +1626,7 @@ namespace wo
         {
             if (node->m_IR_dynamic_need_runtime_check)
             {
+                WO_GENERATE_PDI_FOR(node);
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
@@ -1678,6 +1710,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
+            WO_GENERATE_PDI_FOR(node);
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
@@ -1798,6 +1831,7 @@ namespace wo
         {
             if (node->m_IR_need_eval)
             {
+                WO_GENERATE_PDI_FOR(node);
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
@@ -1981,6 +2015,8 @@ namespace wo
         }
         else if (state == HOLD)
         {
+            WO_GENERATE_PDI_FOR(node);
+
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult&)
                 {
@@ -2052,7 +2088,7 @@ namespace wo
                 || node->m_operator == AstValueBinaryOperator::LOGICAL_OR)
             {
                 // Need short cut, 
-                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
                 WO_CONTINUE_PROCESS(node->m_left);
 
                 node->m_LANG_hold_state = AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_LEFT_SHORT_CUT;
@@ -2093,7 +2129,7 @@ namespace wo
                 }
 
                 if (!m_ircontext.eval_result_ignored())
-                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr));
+                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
                 else
                     m_ircontext.eval_ignore();
 
@@ -2135,6 +2171,7 @@ namespace wo
             case AstValueBinaryOperator::IR_HOLD_FOR_NORMAL_LR_EVAL:
                 wo_assert(!node->m_LANG_overload_call.has_value());
 
+                WO_GENERATE_PDI_FOR(node);
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
@@ -2437,6 +2474,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
+            WO_GENERATE_PDI_FOR(node);
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
@@ -2537,7 +2575,7 @@ namespace wo
             }
             else
             {
-                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::spreg::cr), std::nullopt);
                 WO_CONTINUE_PROCESS(node->m_condition);
 
                 node->m_LANG_hold_state = AstValueTribleOperator::IR_HOLD_FOR_COND_EVAL;
@@ -2553,7 +2591,7 @@ namespace wo
                 m_ircontext.c().jf(opnum::tag(_generate_label("#cond_false_", node)));
 
                 m_ircontext.eval_to_if_not_ignore(
-                    m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                    m_ircontext.opnum_spreg(opnum::reg::spreg::cr), std::nullopt);
 
                 WO_CONTINUE_PROCESS(node->m_true_value);
 
@@ -2566,7 +2604,7 @@ namespace wo
                 m_ircontext.c().tag(_generate_label("#cond_false_", node));
 
                 m_ircontext.eval_to_if_not_ignore(
-                    m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                    m_ircontext.opnum_spreg(opnum::reg::spreg::cr), std::nullopt);
 
                 WO_CONTINUE_PROCESS(node->m_false_value);
 
@@ -2660,6 +2698,8 @@ namespace wo
                 break;
             case AstValueIndex::IR_HOLD_FOR_NORMAL_LR_EVAL:
                 wo_assert(!node->m_LANG_overload_call.has_value());
+
+                WO_GENERATE_PDI_FOR(node);
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
@@ -2806,6 +2846,8 @@ namespace wo
         }
         else if (state == HOLD)
         {
+            WO_GENERATE_PDI_FOR(node);
+
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
@@ -2845,6 +2887,8 @@ namespace wo
         }
         else
         {
+            WO_GENERATE_PDI_FOR(node);
+
             if (node->m_packed_value.has_value())
             {
                 m_ircontext.apply_eval_result(
@@ -2905,6 +2949,7 @@ namespace wo
     WO_PASS_PROCESSER(AstValueVariadicArgumentsPack)
     {
         wo_assert(state == UNPROCESSED);
+        WO_GENERATE_PDI_FOR(node);
         m_ircontext.apply_eval_result(
             [&](BytecodeGenerateContext::EvalResult& result)
             {
@@ -2992,7 +3037,7 @@ namespace wo
                 {
                 case AstValueAssign::ASSIGN:
                     if (_is_storage_can_addressing(storage))
-                        m_ircontext.eval_to(m_ircontext.get_storage_place(storage));
+                        m_ircontext.eval_to(m_ircontext.get_storage_place(storage), node);
                     else
                         m_ircontext.eval();
 
@@ -3006,7 +3051,7 @@ namespace wo
 
                         // We just eval it and assigned it to value.
                         if (_is_storage_can_addressing(storage))
-                            m_ircontext.eval_to(m_ircontext.get_storage_place(storage));
+                            m_ircontext.eval_to(m_ircontext.get_storage_place(storage), node);
                         else
                             m_ircontext.eval();
 
@@ -3108,6 +3153,10 @@ namespace wo
                     lang_ValueInstance* assign_value_instance = assign_var->m_variable->m_LANG_variable_instance.value();
 
                     auto& storage = assign_value_instance->m_IR_storage.value();
+                    const bool can_storage_addressing = _is_storage_can_addressing(storage);
+
+                    if (!can_storage_addressing)
+                        WO_GENERATE_PDI_FOR(node);
 
                     switch (node->m_assign_type)
                     {
@@ -3122,8 +3171,11 @@ namespace wo
                             auto* right_value_result = m_ircontext.get_eval_result();
 
                             // Do normal assign operate;
-                            if (_is_storage_can_addressing(storage))
+                            if (can_storage_addressing)
+                            {
+                                WO_GENERATE_PDI_FOR(node);
                                 assign_expr_result_opnum = m_ircontext.get_storage_place(storage);
+                            }
                             else
                             {
                                 assign_expr_result_opnum = m_ircontext.borrow_opnum_temporary_register(
@@ -3254,7 +3306,7 @@ namespace wo
                                 break;
                             }
 
-                            if (_is_storage_can_addressing(storage))
+                            if (can_storage_addressing)
                                 // Assign completed.
                                 ;
                             else
@@ -3266,19 +3318,19 @@ namespace wo
 
                     /////////////////////// EVAL FINISHED ///////////////////////
 
-                    if (_is_storage_can_addressing(storage))
+                    if (can_storage_addressing)
                         // Nothing todo, assign has been complete.
                         ;
                     else
-                    {
                         m_ircontext.c().sts(
                             WO_OPNUM(assign_expr_result_opnum),
                             WO_OPNUM(m_ircontext.opnum_imm_int(storage.m_index)));
-                    }
                 }
                 else
                 {
                     // ATTENTION: Here still 2(or 1) temporary reg stores in AstValueIROpnum need to be free manually.
+                    WO_GENERATE_PDI_FOR(node);
+
                     wo_assert(node->m_assign_place->node_type == AstBase::AST_PATTERN_INDEX);
                     AstPatternIndex* pattern_index = static_cast<AstPatternIndex*>(node->m_assign_place);
 
@@ -3613,9 +3665,6 @@ namespace wo
         wo_assert(node_state.m_ast_node->node_type == AstBase::AST_EMPTY
             || m_passir_A_processers->check_has_processer(node_state.m_ast_node->node_type));
 
-        if (node_state.m_state == UNPROCESSED)
-            m_ircontext.c().pdb_info->generate_debug_info_at_astnode(node_state.m_ast_node, &m_ircontext.c());
-
         return m_passir_A_processers->process_node(this, lex, node_state, out_stack);
     }
     LangContext::pass_behavior LangContext::pass_final_B_process_bytecode_generation(
@@ -3630,6 +3679,8 @@ namespace wo
         AstValueBase* ast_value = static_cast<AstValueBase*>(node_state.m_ast_node);
         if (ast_value->m_evaled_const_value.has_value())
         {
+            WO_GENERATE_PDI_FOR(ast_value);
+
             auto& constant_value = ast_value->m_evaled_const_value.value();
 
             // NOTE: We need to let compiler know this constant function.
@@ -3650,10 +3701,6 @@ namespace wo
                 });
             return OKAY;
         }
-
-        if (node_state.m_state == UNPROCESSED)
-            m_ircontext.c().pdb_info->generate_debug_info_at_astnode(
-                node_state.m_ast_node, &m_ircontext.c());
 
         auto compile_result =
             m_passir_B_processers->process_node(this, lex, node_state, out_stack);

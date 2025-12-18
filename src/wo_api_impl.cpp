@@ -3326,6 +3326,44 @@ wo_value wo_run(wo_vm vm)
     return nullptr;
 }
 
+wo_value wo_bootup(wo_vm vm, wo_bool_t jit)
+{
+    _wo_swap_gc_guard g(vm);
+
+    wo::vmbase* vminstance = WO_VM(vm);
+
+    wo::runtime_env* envp = vminstance->env.get();
+    if (envp != nullptr)
+    {
+        if (jit != WO_FALSE && wo::config::ENABLE_JUST_IN_TIME)
+            // NOTE: other operation for vm must happend after init(wo_run).
+            analyze_jit(const_cast<wo::byte_t*>(envp->rt_codes), envp);
+
+        vminstance->ip = envp->rt_codes;
+        auto vm_exec_result = vminstance->run();
+
+        switch (vm_exec_result)
+        {
+        case wo_result_t::WO_API_NORMAL:
+            return CS_VAL(vminstance->cr);
+        case wo_result_t::WO_API_SIM_ABORT:
+            break;
+        case wo_result_t::WO_API_SIM_YIELD:
+            wo_fail(
+                WO_FAIL_CALL_FAIL,
+                "The virtual machine is interrupted by `yield`, but the caller is not `dispatch`.");
+            break;
+        default:
+            wo_fail(
+                WO_FAIL_CALL_FAIL,
+                "Unexpected execution status: %d.",
+                (int)vm_exec_result);
+            break;
+        }
+    }
+    return nullptr;
+}
+
 wo_size_t wo_struct_len(wo_value value)
 {
     auto _struct = WO_VAL(value);
@@ -4353,8 +4391,7 @@ wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback_may_null, 
     wo_value result = nullptr;
     if (wo_load_source(_vm, vpath.c_str(), src))
     {
-        wo_jit(_vm);
-        result = wo_run(_vm);
+        result = wo_bootup(_vm, WO_TRUE);
         if (result == nullptr)
         {
             std::string err = "Failed to execute: ";

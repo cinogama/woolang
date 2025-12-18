@@ -647,22 +647,29 @@ machine is unreferenced).
 */
 WO_API void wo_make_vm_weak(wo_vm vm);
 
-WO_API wo_bool_t wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src);
-WO_API wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path);
+WO_API wo_bool_t wo_load_source(
+    wo_vm vm, wo_string_t virtual_src_path, wo_string_t src);
+WO_API wo_bool_t wo_load_file(
+    wo_vm vm, wo_string_t virtual_src_path);
 WO_API wo_bool_t wo_load_binary(
     wo_vm vm, wo_string_t virtual_src_path, const void* buffer, wo_size_t length);
 
-// NOTE: wo_dump_binary must invoke before `wo_jit` & `wo_run`.
-WO_API void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length);
+// ATTENTION: Deprecated, will be removed in 1.15.
+WO_API /* DEPRECATED */ wo_bool_t wo_jit(wo_vm vm);
+WO_API /* DEPRECATED */ wo_value wo_run(wo_vm vm);
+
+// NOTE: wo_dump_binary must invoke before `wo_bootup`.
+WO_API void* wo_dump_binary(
+    wo_vm vm, wo_bool_t saving_pdi, wo_size_t* out_length);
 WO_API void wo_free_binary(void* buffer);
 
-// NOTE: wo_jit must invoke before `wo_run`.
-WO_API wo_bool_t wo_jit(wo_vm vm);
+WO_API wo_value /* may null if abort */ wo_bootup(
+    wo_vm vm, wo_bool_t jit);
 
-// wo_run is used for init a vm.
-WO_API wo_value wo_run(wo_vm vm);
-
-WO_API wo_bool_t wo_execute(wo_string_t src, wo_execute_callback_ft callback_may_null, void* data);
+WO_API wo_bool_t wo_execute(
+    wo_string_t src, 
+    wo_execute_callback_ft callback_may_null, 
+    void* data);
 
 WO_API wo_bool_t wo_has_compile_error(wo_vm vm);
 WO_API wo_string_t wo_get_compile_error(wo_vm vm, wo_inform_style_t style);
@@ -695,7 +702,7 @@ WO_API void wo_pop_stack(wo_vm vm, wo_size_t sz);
 // Best practices:
 // 1) Use data from updated args & reserved stack, avoid using old pointers.
 // 2) Donot use inout_args_maynull & inout_s_maynull if invoke another vm (not current vm).
-WO_API wo_value wo_invoke_value(
+WO_API wo_value /* may null if abort */ wo_invoke_value(
     wo_vm vm, 
     wo_value vmfunc, 
     wo_int_t argc, 
@@ -711,7 +718,7 @@ WO_API void wo_dispatch_value(
 #define WO_ABORTED ((wo_value)NULL)
 #define WO_CONTINUE ((wo_value)(void *)-1)
 
-WO_API wo_value wo_dispatch(
+WO_API wo_value /* may null if abort */ wo_dispatch(
     wo_vm vm, 
     wo_value* inout_args_maynull, 
     wo_value* inout_s_maynull);
@@ -754,7 +761,7 @@ WO_API void wo_set_val_with_write_barrier(wo_value value, wo_value val);
 // cross different GC scopes, you should use wo_set_val_migratory for this operation.
 WO_API void wo_set_val_migratory(wo_value value, wo_value val);
 
-WO_API wo_vm /* MAY NULL */ wo_swap_gcguard(wo_vm vm_may_null);
+WO_API wo_vm /* may null */ wo_swap_gcguard(wo_vm vm_may_null);
 
 WO_API wo_bool_t wo_leave_gcguard(wo_vm vm);
 WO_API wo_bool_t wo_enter_gcguard(wo_vm vm);

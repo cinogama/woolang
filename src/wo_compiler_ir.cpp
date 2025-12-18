@@ -166,10 +166,6 @@ namespace wo
                 break;
             }
 
-            auto& location_list_of_file =
-                _general_src_data_buf_a[
-                    *ast_node->source_location.source_file];
-
             location loc = {
                 compiler->get_now_ip(),
                 ast_node->source_location.begin_at.row,
@@ -180,6 +176,9 @@ namespace wo
                 unbreakable
             };
 
+            auto& location_list_of_file =
+                _general_src_data_buf_a[*ast_node->source_location.source_file];
+            
             location_list_of_file.push_back(loc);
             _general_src_data_buf_b[compiler->get_now_ip()] = loc;
         }
