@@ -1819,19 +1819,19 @@ namespace std
     {
         public alias invoke_result_t<F, ArgTs> = typeof(declval:<F>()(declval:<ArgTs>()...));
         public alias iterator_result_t<T> = option::item_t<typeof(declval:<T>()->next)>;
-        public let is_array<AT> = typeid:<typeof(declval:<array::item_t<AT>>())> != 0;
-        public let is_vec<AT> = typeid:<typeof(declval:<vec::item_t<AT>>())> != 0;
-        public let is_dict<DT> = typeid:<typeof(declval:<dict::item_t<DT>>())> != 0;
-        public let is_map<DT> = typeid:<typeof(declval:<map::item_t<DT>>())> != 0;
+        public let is_array<AT> = typeid(declval:<array::item_t<AT>>()) != 0;
+        public let is_vec<AT> = typeid(declval:<vec::item_t<AT>>()) != 0;
+        public let is_dict<DT> = typeid(declval:<dict::item_t<DT>>()) != 0;
+        public let is_map<DT> = typeid(declval:<map::item_t<DT>>()) != 0;
         public let is_tuple<T> = 
-            typeid:<typeof((declval:<T>()...,))> != 0 && is_same:<T, typeof((declval:<T>()...,))>;
+            typeid((declval:<T>()...,)) != 0 && is_same:<T, typeof((declval:<T>()...,))>;
         public let is_same<A, B> = typeid:<A> == typeid:<B> && typeid:<A> != 0;
         public let is_mutable<A> = is_same:<A, mut A>;
-        public let is_invocable<F, ArgTs> = typeid:<typeof(declval:<F>()(declval:<ArgTs>()...))> != 0;
+        public let is_invocable<F, ArgTs> = typeid(declval:<F>()(declval:<ArgTs>()...)) != 0;
         public let is_function<F> = is_invocable:<F, array<nothing>>;
-        public let is_iterator<T> = typeid:<typeof(declval:<iterator_result_t<T>>())> != 0;
+        public let is_iterator<T> = typeid(declval:<iterator_result_t<T>>()) != 0;
         public let is_iterable<T> = 
-            typeid:<typeof(declval:<T>()->iter)> != 0 && is_iterator:<typeof(declval:<T>()->iter)>;
+            typeid(declval:<T>()->iter) != 0 && is_iterator:<typeof(declval:<T>()->iter)>;
         public let is_option<T> = typeid:<option::item_t<T>> != 0;
         public let is_result<T> = typeid:<result::ok_t<T>> != 0;
         public alias expected_t<T> = typeof(
@@ -1842,7 +1842,7 @@ namespace std
                     | bad:<{"T should be a option or result."}>());
     }
     public func use<T, R>(val: T, f: (T)=> R)
-        where typeid:<typeof(val->close)> != 0;
+        where typeid(val->close) != 0;
     {
         let v = f(val);
         do val->close;
@@ -1880,13 +1880,13 @@ namespace std
                 | std::declval:<typeof((std::declval:<nothing>(), decltuple:<{N - 1}>()...))>
                 ;
         let declargc_counter<FT, N: int> = 
-            typeid:<typeof(std::declval:<FT>()(decltuple:<{N}>()...))> != 0
+            typeid(std::declval:<FT>()(decltuple:<{N}>()...)) != 0
                 ? N
                 | declargc_counter:<FT, {N + 1}>
                 ;
         let declargc<FT> = declargc_counter:<FT, {0}>;
         let declisvariadic<FT> = 
-            typeid:<typeof(std::declval:<FT>()(decltuple:<{declargc:<FT> + 1}>()...))> != 0;
+            typeid(std::declval:<FT>()(decltuple:<{declargc:<FT> + 1}>()...)) != 0;
         public func wrap<FT>(f: FT)=> far<FT>
             where type_traits::is_function:<FT>;
         {
@@ -2179,7 +2179,7 @@ namespace result
         ok(v)? return v;
         err(e)? 
             return std::panic(
-                typeid:<typeof(e: string)> != 0
+                typeid(e: string) != 0
                     ? F"`unwrap` called on an `result::err`: {e}"
                     | "`unwrap` called on an `result::err`.");
         }
@@ -2190,7 +2190,7 @@ namespace result
         match(self)
         {
         ok(v)? return std::panic(
-            typeid:<typeof(v: string)> != 0
+            typeid(v: string) != 0
                 ? F"`unwrap_err` called on an `result::ok`: {v}"
                 | "`unwrap_err` called on an `result::ok`.");
         err(e)? return e;
@@ -3171,7 +3171,7 @@ namespace std
             public func traceback(layer: int)=> (bool, array<callstack>);
         extern("rslib_std_debug_invoke")
             public func invoke<Ft>(f: Ft, ...) => dynamic
-                where typeid:<typeof(f(......))> != 0;
+                where typeid(f(......)) != 0;
     }
 }
 )" };

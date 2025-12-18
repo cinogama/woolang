@@ -1647,18 +1647,18 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 if (stop_attach_debuggee_for_exit_flag || stop_for_detach_debuggee)
                     return;
 
-                if (focus_on_vm == nullptr)
-                    focus_on_vm = vmm;
-
                 bool break_down_in_this_ir =
-                    focus_on_vm == vmm
-                    && (breakdown_temp_for_stepir
-                        || (breakdown_temp_for_return
-                            && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
-                        || breakpoints.m_break_runtime_ips.find(next_execute_ip) != breakpoints.m_break_runtime_ips.end()
-                        || breakdown_temp_immediately);
+                    // Breakpoint, what ever is current vm or not, breakdown.
+                    breakpoints.m_break_runtime_ips.find(next_execute_ip) != breakpoints.m_break_runtime_ips.end()
+                    || ((focus_on_vm == vmm || focus_on_vm == nullptr)
+                        && (
+                            breakdown_temp_for_stepir
+                            || (breakdown_temp_for_return
+                                && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
+                            || breakdown_temp_immediately));
 
                 if (!break_down_in_this_ir
+                    && (focus_on_vm == vmm || focus_on_vm == nullptr)
                     && (breakdown_temp_for_step
                         || (breakdown_temp_for_next
                             && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth)))
@@ -1676,12 +1676,13 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
                 if (break_down_in_this_ir)
                 {
+                    focus_on_vm = vmm;
+
                     breakdown_temp_for_stepir = false;
                     breakdown_temp_for_step = false;
                     breakdown_temp_for_next = false;
                     breakdown_temp_for_return = false;
                     breakdown_temp_immediately = false;
-                    focus_on_vm = vmm;
 
                     current_frame_bp = vmm->bp;
                     current_frame_sp = vmm->sp;

@@ -4588,34 +4588,3 @@ void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler)
 
     WO_VM(vm)->init_main_vm(c->finalize());
 }
-
-void wo_set_label_for_current_gcguard_vm(wo_string_t label)
-{
-    if (wo::vmbase::_this_thread_gc_guard_vm == nullptr)
-    {
-        wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
-            "No GC guard VM in current thread to set label.");
-        return;
-    }
-
-    wo::vmbase::_this_thread_gc_guard_vm->set_vm_label_in_gcguard(label);
-}
-wo_bool_t wo_get_label_for_current_gcguard_vm(
-    wo_string_t* out_label)
-{
-    if (wo::vmbase::_this_thread_gc_guard_vm == nullptr)
-    {
-        wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
-            "No GC guard VM in current thread to get label.");
-        return WO_FALSE;
-    }
-
-    auto label = wo::vmbase::_this_thread_gc_guard_vm->try_get_vm_label_in_gcguard();
-
-    if (label.has_value())
-    {
-        *out_label = label.value().c_str();
-        return WO_TRUE;
-    }
-    return WO_FALSE;
-}

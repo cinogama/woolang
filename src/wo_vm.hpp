@@ -419,9 +419,6 @@ namespace wo
             bool* out_finished_may_null) const noexcept;
         size_t callstack_layer() const noexcept;
 
-        void set_vm_label_in_gcguard(const std::string& label) noexcept;
-        std::optional<std::string> try_get_vm_label_in_gcguard() noexcept;
-
     private:
         // Disassemble helper
         static std::string disassemble_instruction(bytecode_disassembler& dis) noexcept;

@@ -541,28 +541,6 @@ namespace wo
         return new_vm;
     }
 
-    void vmbase::set_vm_label_in_gcguard(const std::string& label) noexcept
-    {
-        wo_assert(_this_thread_gc_guard_vm == this
-            && !check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-
-        register_storage[opnum::reg::spreg::lb].set_string(label);
-    }
-    std::optional<std::string> vmbase::try_get_vm_label_in_gcguard() noexcept
-    {
-        wo_assert(_this_thread_gc_guard_vm == this
-            && !check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-
-        auto& vmlabel = register_storage[opnum::reg::spreg::lb];
-        if (vmlabel.m_type == wo::value::string_type)
-        {
-            auto* string_instance = dynamic_cast<string_t*>(vmlabel.m_gcunit);
-            if (string_instance != nullptr)
-                return std::optional<std::string>(*string_instance);
-        }
-        return std::nullopt;
-    }
-
     //////////////////////////////////////////////////////////////////////////
     // Program Dump and Debug Functions
     //////////////////////////////////////////////////////////////////////////

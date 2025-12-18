@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VERSION_WRAP(1, 14, 13, 4)
+#define WO_VERSION WO_VERSION_WRAP(1, 14, 14, 0)
 
 /*
             GC-Friendly External Function Development Rules
@@ -665,16 +665,6 @@ WO_API void wo_free_binary(void* buffer);
 
 WO_API wo_value /* may null if abort */ wo_bootup(
     wo_vm vm, wo_bool_t jit);
-
-/*
-You can use these two functions to label the current GC-Guarded VM,
-
-The result of `wo_get_label_for_current_gcguard_vm` is only valid in 
-the GC scope. DO NOT use it after leaving the GC scope.
-*/
-WO_API void wo_set_label_for_current_gcguard_vm(wo_string_t label);
-WO_API wo_bool_t wo_get_label_for_current_gcguard_vm(
-    wo_string_t* out_label);
 
 WO_API wo_bool_t wo_execute(
     wo_string_t src, 
