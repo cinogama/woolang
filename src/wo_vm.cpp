@@ -6,9 +6,22 @@ namespace wo
     // Static Member Definitions
     //////////////////////////////////////////////////////////////////////////
 
-    std::shared_mutex vm_debuggee_bridge_base::_global_debuggee_bridge_mx;
-    shared_pointer<vm_debuggee_bridge_base>
-        vm_debuggee_bridge_base::_global_debuggee_bridge;
+    std::shared_mutex vm_debuggee_bridge_base::
+        _global_debuggee_bridge_mx;
+    shared_pointer<vm_debuggee_bridge_base> vm_debuggee_bridge_base::
+        _global_debuggee_bridge;
+
+    assure_leave_this_thread_vm_shared_mutex vmbase::
+        _alive_vm_list_mx;
+    std::set<vmbase*> vmbase::
+        _alive_vm_list;
+    std::set<vmbase*> vmbase::
+        _gc_ready_vm_list;
+
+    thread_local vmbase* vmbase::
+        _this_thread_gc_guard_vm = nullptr;
+    std::atomic_uint32_t vmbase::
+        _alive_vm_count_for_gc_vm_destruct = {};
 
     //////////////////////////////////////////////////////////////////////////
     // Static Constants
@@ -348,18 +361,18 @@ namespace wo
         , runtime_static_storage(nullptr)
         , ip(nullptr)
         , env(nullptr)
-        , compile_failed_state(std::nullopt)
         , extern_state_stack_update(false)
         , extern_state_jit_call_depth(0)
         , virtual_machine_type(type)
+        , compile_failed_state(std::nullopt)
 #if WO_ENABLE_RUNTIME_CHECK
         , attaching_thread_id(std::thread::id{})
 #endif        
     {
-        ++_alive_vm_count_for_gc_vm_destruct;
+        (void)_alive_vm_count_for_gc_vm_destruct.fetch_add(
+            1, std::memory_order_relaxed);
 
         vm_interrupt.store(vm_interrupt_type::LEAVE_INTERRUPT, std::memory_order_release);
-
         wo::assure_leave_this_thread_vm_lock_guard g1(_alive_vm_list_mx);
 
         wo_assert(
@@ -398,7 +411,8 @@ namespace wo
         if (env)
             --env->_running_on_vm_count;
 
-        --_alive_vm_count_for_gc_vm_destruct;
+        (void)_alive_vm_count_for_gc_vm_destruct.fetch_sub(
+            1, std::memory_order_relaxed);
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -465,6 +479,7 @@ namespace wo
         // NOTE: stack reallocate must happen in gc-guard range.
         wo_assert(!check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
 
+        do
         {
             _wo_vm_stack_occupying_lock_guard g(this);
 
@@ -475,7 +490,8 @@ namespace wo
             sb = new_stack_mem_begin;
             sp = new_sp;
             bp = sp + bp_sp_offset;
-        }
+
+        } while (0);
 
         return true;
     }
@@ -507,10 +523,12 @@ namespace wo
         _allocate_stack_space(VM_DEFAULT_STACK_SIZE);
         _allocate_register_space(env->real_register_count);
 
+        do
         {
             wo::assure_leave_this_thread_vm_lock_guard g1(_alive_vm_list_mx);
             _gc_ready_vm_list.insert(this);
-        }
+
+        } while (0);
     }
 
     vmbase* vmbase::make_machine(vm_type type) const noexcept
@@ -521,6 +539,28 @@ namespace wo
         new_vm->set_runtime(env);
 
         return new_vm;
+    }
+
+    void vmbase::set_vm_label_in_gcguard(const std::string& label) noexcept
+    {
+        wo_assert(_this_thread_gc_guard_vm == this
+            && !check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+
+        register_storage[opnum::reg::spreg::lb].set_string(label);
+    }
+    std::optional<std::string> vmbase::try_get_vm_label_in_gcguard() noexcept
+    {
+        wo_assert(_this_thread_gc_guard_vm == this
+            && !check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+
+        auto& vmlabel = register_storage[opnum::reg::spreg::lb];
+        if (vmlabel.m_type == wo::value::string_type)
+        {
+            auto* string_instance = dynamic_cast<string_t*>(vmlabel.m_gcunit);
+            if (string_instance != nullptr)
+                return std::optional<std::string>(*string_instance);
+        }
+        return std::nullopt;
     }
 
     //////////////////////////////////////////////////////////////////////////

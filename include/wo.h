@@ -666,6 +666,16 @@ WO_API void wo_free_binary(void* buffer);
 WO_API wo_value /* may null if abort */ wo_bootup(
     wo_vm vm, wo_bool_t jit);
 
+/*
+You can use these two functions to label the current GC-Guarded VM,
+
+The result of `wo_get_label_for_current_gcguard_vm` is only valid in 
+the GC scope. DO NOT use it after leaving the GC scope.
+*/
+WO_API void wo_set_label_for_current_gcguard_vm(wo_string_t label);
+WO_API wo_bool_t wo_get_label_for_current_gcguard_vm(
+    wo_string_t* out_label);
+
 WO_API wo_bool_t wo_execute(
     wo_string_t src, 
     wo_execute_callback_ft callback_may_null, 
@@ -1227,7 +1237,7 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
 #   define WO_FAIL_DEBUGGEE_FAIL 0xD00A
 #   define WO_FAIL_EXECUTE_FAIL 0xD00B
 #   define WO_FAIL_BAD_FORMAT 0xD00C
-#   define WO_FAIL_CONFLICT_GC_GUARD 0xD00D
+#   define WO_FAIL_GC_GUARD_VIOLATION 0xD00D
 
 #endif
 

@@ -501,7 +501,12 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
                     if (not_close_vm_count < 32)
                     {
-                        not_closed_vm_call_stacks << std::endl << "<unclosed " << (void*)alive_vms << ">" << std::endl;
+                        not_closed_vm_call_stacks 
+                            << std::endl 
+                            << "<unclosed " 
+                            << (void*)alive_vms 
+                            << ">" 
+                            << std::endl;
                         alive_vms->dump_call_stack(32, true, not_closed_vm_call_stacks);
                     }
                     else if (not_close_vm_count == 32)
@@ -539,7 +544,8 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         wo_gc_immediately(WO_TRUE);
         std::this_thread::sleep_for(10ms);
 
-        if (wo::vmbase::_alive_vm_count_for_gc_vm_destruct.load() == 0)
+        if (wo::vmbase::_alive_vm_count_for_gc_vm_destruct.load(
+            std::memory_order_relaxed) == 0)
             break;
 
     } while (true);
@@ -4318,7 +4324,7 @@ wo_bool_t wo_leave_gcguard(wo_vm vm)
         if (vmm != wo::vmbase::_this_thread_gc_guard_vm)
         {
             if (wo::vmbase::_this_thread_gc_guard_vm != nullptr)
-                wo_fail(WO_FAIL_CONFLICT_GC_GUARD,
+                wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
                     "GC scope conflict, need to leave GC scope of VM `%p` first",
                     wo::vmbase::_this_thread_gc_guard_vm);
 
@@ -4342,7 +4348,7 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
 
         if (nullptr != wo::vmbase::_this_thread_gc_guard_vm)
         {
-            wo_fail(WO_FAIL_CONFLICT_GC_GUARD,
+            wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
                 "GC scope conflict, need to leave GC scope of VM `%p` first",
                 wo::vmbase::_this_thread_gc_guard_vm);
         }
@@ -4581,4 +4587,35 @@ void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler)
     c->end();
 
     WO_VM(vm)->init_main_vm(c->finalize());
+}
+
+void wo_set_label_for_current_gcguard_vm(wo_string_t label)
+{
+    if (wo::vmbase::_this_thread_gc_guard_vm == nullptr)
+    {
+        wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
+            "No GC guard VM in current thread to set label.");
+        return;
+    }
+
+    wo::vmbase::_this_thread_gc_guard_vm->set_vm_label_in_gcguard(label);
+}
+wo_bool_t wo_get_label_for_current_gcguard_vm(
+    wo_string_t* out_label)
+{
+    if (wo::vmbase::_this_thread_gc_guard_vm == nullptr)
+    {
+        wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
+            "No GC guard VM in current thread to get label.");
+        return WO_FALSE;
+    }
+
+    auto label = wo::vmbase::_this_thread_gc_guard_vm->try_get_vm_label_in_gcguard();
+
+    if (label.has_value())
+    {
+        *out_label = label.value().c_str();
+        return WO_TRUE;
+    }
+    return WO_FALSE;
 }

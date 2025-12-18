@@ -299,12 +299,12 @@ namespace wo
         static_assert((VM_MAX_STACK_SIZE& (VM_MAX_STACK_SIZE - 1)) == 0);
 
     public:
-        inline static assure_leave_this_thread_vm_shared_mutex _alive_vm_list_mx;
-        inline static std::set<vmbase*> _alive_vm_list;
-        inline static std::set<vmbase*> _gc_ready_vm_list;
+        static assure_leave_this_thread_vm_shared_mutex _alive_vm_list_mx;
+        static std::set<vmbase*> _alive_vm_list;
+        static std::set<vmbase*> _gc_ready_vm_list;
 
-        inline thread_local static vmbase* _this_thread_gc_guard_vm = nullptr;
-        inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct = {};
+        thread_local static vmbase* _this_thread_gc_guard_vm ;
+        static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
     public:
         // For performance, interrupt should be first elem.
         std::atomic<uint32_t> vm_interrupt;
@@ -336,7 +336,6 @@ namespace wo
         // next ircode pointer
         const byte_t* ip;
         shared_pointer<runtime_env> env;
-        std::optional<std::unique_ptr<lexer>> compile_failed_state;
 
         hangup_lock hangup_state;
 
@@ -356,6 +355,9 @@ namespace wo
 
         // Only changed by `switch_vm_kind`
         vm_type virtual_machine_type;
+
+        // Filled if this VM failed to compile, the lexer contains the error information.
+        std::optional<std::unique_ptr<lexer>> compile_failed_state;
 
 #if WO_ENABLE_RUNTIME_CHECK
         // runtime information
@@ -416,6 +418,9 @@ namespace wo
             bool need_offset,
             bool* out_finished_may_null) const noexcept;
         size_t callstack_layer() const noexcept;
+
+        void set_vm_label_in_gcguard(const std::string& label) noexcept;
+        std::optional<std::string> try_get_vm_label_in_gcguard() noexcept;
 
     private:
         // Disassemble helper

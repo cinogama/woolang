@@ -376,7 +376,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             return result;
         }
 
-        void display_variable(
+        void display_local_variable(
             wo::vmbase* vmm,
             wo::program_debug_data_info::function_symbol_infor::variable_symbol_infor& varinfo)
         {
@@ -395,10 +395,11 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             else
                 wo_stdout << value_in_stack << " " << _safe_cast_value_to_string(value_in_stack) << wo_endl;
         }
-        void display_variable(wo::vmbase* vmm, size_t global_offset)
+        void display_global_variable(wo::vmbase* vmm, size_t global_offset)
         {
             wo_stdout << "g[" << global_offset << "]: ";
-            if (global_offset < vmm->env->constant_and_global_value_takeplace_count)
+            if (global_offset < vmm->env->constant_and_global_value_takeplace_count - vmm->env->constant_value_count
+                && global_offset > 0)
             {
                 auto* valueaddr = vmm->env->constant_and_global_storage + vmm->env->constant_value_count + global_offset;
                 wo_stdout << valueaddr << " " << _safe_cast_value_to_string(valueaddr) << wo_endl;
@@ -521,7 +522,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             if (!need_possiable_input(args, offset))
                 printf(ANSI_HIR "Need to specify offset for command 'global'.\n" ANSI_RST);
             else
-                display_variable(vmm, offset);
+                display_global_variable(vmm, offset);
             return command_result::need_next_command;
         }
 
@@ -758,7 +759,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     vfnd != fnd->second.variables.end())
                 {
                     for (auto& varinfo : vfnd->second)
-                        display_variable(vmm, varinfo);
+                        display_local_variable(vmm, varinfo);
                 }
                 else
                     printf(ANSI_HIR "Cannot find '%s' in function '%s'.\n" ANSI_RST,
@@ -802,7 +803,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     breakdown_temp_for_stepir = true;
 
                     printf(ANSI_HIG "Continue running and break at vm (%zu:%p)...\n" ANSI_RST, vmid, focus_on_vm);
-                 
+
                     wo::vmbase::_alive_vm_list_mx.unlock_shared(ctx);
                     clear_stdin_buffer();
                     return command_result::continue_running;
@@ -1259,7 +1260,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         for (auto& [varname, varinfos] : fnd->second.variables)
                         {
                             for (auto& varinfo : varinfos)
-                                display_variable(vmm, varinfo);
+                                display_local_variable(vmm, varinfo);
                         }
                     }
                     else
@@ -1577,8 +1578,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         }
                         wo_stdout << wo_endl;
 
-                        breakdown_temp_for_stepir = true;
                         profiler_enabled = false;
+                        breakdown_immediately();
                     }
                     if (current_time > profiler_last_sampling_times[vmm] + sampling_interval)
                     {

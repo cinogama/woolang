@@ -101,6 +101,9 @@ namespace wo
 
                 temporary,
                 tp = temporary,
+                
+                vm_name_label,
+                lb = vm_name_label,
 
                 last_special_register = 0b00111111,
             };
