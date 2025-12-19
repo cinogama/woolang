@@ -166,6 +166,19 @@ namespace test_basic
         return TF("Helloworld");
     }
     
+    func test_unary_bug()
+    {
+        let mut x = 12345;
+        x = -x;
+        return x;
+    }
+    func test_binary()
+    {
+        let mut x = 12345;
+        x = 0 - x;
+        return x;
+    }
+
     func main()
     {
         func foo_in_constant_tuple()
@@ -478,6 +491,9 @@ namespace test_basic
 
         test_equal(nil: IndexOverload[123], 246);
         test_equal(nil: IndexOverload.123, 246);
+
+        test_equal(test_unary_bug(), -12345);
+        test_equal(test_binary(), -12345);
     }
 }
 

@@ -2486,19 +2486,37 @@ namespace wo
                     case AstValueUnaryOperator::NEGATIVE:
                     {
                         opnum::opnumbase* target_result_opnum = nullptr;
+
+                        m_ircontext.try_keep_opnum_temporary_register(opnum_to_unary
+                            WO_BORROW_TEMPORARY_FROM_SP(node));
+
+                        if (nullptr == dynamic_cast<opnum::temporary*>(opnum_to_unary))
+                        {
+                            // Is not temporary register, we need keep it.
+                            auto* borrow_reg = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
+
+                            m_ircontext.c().mov(
+                                WO_OPNUM(borrow_reg),
+                                WO_OPNUM(opnum_to_unary));
+
+                            // Try free the old `opnum_to_unary`, new one will be freed later.
+                            m_ircontext.try_return_opnum_temporary_register(opnum_to_unary);
+
+                            opnum_to_unary = borrow_reg;
+                        }
+
                         if (target_storage.has_value())
                             target_result_opnum = target_storage.value();
                         else
                         {
-                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_unary
-                                WO_BORROW_TEMPORARY_FROM_SP(node));
-
                             target_result_opnum = m_ircontext.borrow_opnum_temporary_register(
                                 WO_BORROW_TEMPORARY_FROM(node));
                             result.set_result(m_ircontext, target_result_opnum);
-
-                            m_ircontext.try_return_opnum_temporary_register(opnum_to_unary);
                         }
+
+                        // Free it after use.
+                        m_ircontext.try_return_opnum_temporary_register(opnum_to_unary);
 
                         lang_TypeInstance* operand_type_instance =
                             node->m_operand->m_LANG_determined_type.value();

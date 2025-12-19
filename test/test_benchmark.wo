@@ -12,7 +12,7 @@ namespace test_benchmark
         action();
         std::println(name, "cost:", std::time() - b);
     }
-
+    
     func isprime(n: int)
     {
         if (n != 2)
@@ -21,48 +21,48 @@ namespace test_benchmark
                     return false;
         return true;
     }
-
+    
     func bench_1m_prime()
     {
         let searching = []mut: vec<int>;
-
+        
         for (let mut i = 2; i < 100_0000; i += 1)
-        if (isprime(i))
-            searching->add(i);
+            if (isprime(i))
+                searching->add(i);
     }
     func bench_1m_prime2()
     {
         let searching = []mut: vec<int>;
-
+        
         for (let mut i = 2; i < 100_0000; i += 1)
             searching->add(i);
-
+            
         do searching->forall(\n=isprime(n););
     }
     func bench_1m_prime3()
     {
         let searching = []mut: vec<int>;
-
+        
         for (let mut i = 2; i < 100_0000; i += 1)
             searching->add(i);
-
-        do searching->iter 
+            
+        do searching->iter
             |> iterator::filter(\n = isprime(n);)
             ;
     }
     func bench_1m_prime4()
     {
         let searching = []mut: vec<int>;
-
+        
         for (let mut i = 2; i < 100_0000; i += 1)
             searching->add(i);
-
-        do searching->iter 
+            
+        do searching->iter
             |> iterator::filter(\n = isprime(n);)
             |> iterator::collect()
             ;
     }
-    func fannkuch(n: int) 
+    func fannkuch(n: int)
     {
         let p = array::create(n+1, mut 0);
         let q = array::create(n+1, mut 0);
@@ -71,19 +71,19 @@ namespace test_benchmark
         let mut maxflips = 0;
         let mut sum = 0;
         let mut i = 0, mut j = 0;
-
-        for (i = 1; i <= n; i += 1) 
+        
+        for (i = 1; i <= n; i += 1)
         {
             p[i] = i;
             q[i] = i;
             s[i] = i;
         }
-
+        
         for (;;) {
             // Copy and flip.
             let mut q1 = p[1]; // Cache 1st element.
             if (q1 != 1) {
-                for (i = 2; i <= n; i += 1) 
+                for (i = 2; i <= n; i += 1)
                 {
                     q[i] = p[i]; // Work on a copy.
                 }
@@ -92,42 +92,42 @@ namespace test_benchmark
                 {
                     let qq = q[q1];
                     if (qq == 1) { // until 1st element is 1.
-                            sum = sum + sign*flips;
-                            if (flips > maxflips) {
-                                maxflips = flips; // New maximum?
-                            }
-                            break;
+                        sum = sum + sign*flips;
+                        if (flips > maxflips) {
+                            maxflips = flips; // New maximum?
+                        }
+                        break;
                     }
                     q[q1] = q1;
                     if (q1 >= 4) {
-                            i = 2;
-                            j = q1 - 1;
-                            for (;;) 
+                        i = 2;
+                        j = q1 - 1;
+                        for (;;)
+                        {
+                            let swap = q[i];
+                            q[i] = q[j];
+                            q[j] = swap;
+                            i = i + 1;
+                            j = j - 1;
+                            if (i >= j)
                             {
-                                let swap = q[i];
-                                q[i] = q[j];
-                                q[j] = swap;
-                                i = i + 1;
-                                j = j - 1;
-                                if (i >= j)
-                                {
-                                    break;
-                                }
+                                break;
                             }
+                        }
                     }
                     q1 = qq;
                     flips = flips + 1;
                 }
             }
-
-            if (sign == 1) 
+            
+            if (sign == 1)
             {
                 let mut swap = p[2];
                 p[2] = p[1];
                 p[1] = swap;
                 sign = -1; // Rotate 1<-2.
             }
-            else 
+            else
             {
                 let mut swap = p[2];
                 p[2] = p[3];
@@ -136,17 +136,17 @@ namespace test_benchmark
                 for (i=3; i<=n; i += 1) {
                     let sx = s[i];
                     if (sx != 1) {
-                            s[i] = sx-1;
-                            break;
+                        s[i] = sx-1;
+                        break;
                     }
                     if (i == n) {
-                            return [sum, maxflips];
+                        return [sum, maxflips];
                     } // Out of permutations.
                     s[i] = i;
                     // Rotate 1<-...<-i+1.
                     let t = p[1];
                     for (j=1; j <= i; j += 1) {
-                            p[j] = p[j+1];
+                        p[j] = p[j+1];
                     }
                     p[i+1] = t;
                 }
@@ -154,7 +154,7 @@ namespace test_benchmark
         }
         return [0, 0];
     }
-
+    
     func insert_1e7()
     {
         let m = {}mut: map<int, mut void>;
@@ -185,6 +185,22 @@ namespace test_benchmark
         m->clear;
     }
     
+    func test_leibniz_pi_1000000000()
+    {
+        let ROUND = 1_000_000_000.;
+        
+        let mut x = 1.;
+        let mut pi = 1.;
+        for (let mut i = 2.; i < ROUND; i += 1.)
+        {
+            x = -x;
+            pi += x / (2. * i - 1.);
+        }
+        
+        pi *= 4.;
+        std::println("Pi:", pi);
+    }
+        
     func main()
     {
         bench("bench_1m_prime cost:", bench_1m_prime);
@@ -198,8 +214,8 @@ namespace test_benchmark
         bench("set_1e7() cost:", set_1e7);
         bench("prealloc_insert_1e7() cost:", prealloc_insert_1e7);
         bench("prealloc_set_1e7() cost:", prealloc_set_1e7);
+        bench("leibniz_pi_1000000000() cost:", test_leibniz_pi_1000000000);
     }
 }
 
 test_function("test_benchmark.main", test_benchmark::main);
-
