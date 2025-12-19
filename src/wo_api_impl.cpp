@@ -45,19 +45,19 @@ void _wo_warning(
 
 struct _wo_swap_gc_guard
 {
-    wo_vm _vm;
+    wo_vm _last_vm_in_gcguard;
     _wo_swap_gc_guard() = delete;
     _wo_swap_gc_guard(const _wo_swap_gc_guard&) = delete;
     _wo_swap_gc_guard(_wo_swap_gc_guard&&) = delete;
     _wo_swap_gc_guard& operator = (const _wo_swap_gc_guard&) = delete;
     _wo_swap_gc_guard& operator = (_wo_swap_gc_guard&&) = delete;
     _wo_swap_gc_guard(wo_vm vm)
-        : _vm(wo_swap_gcguard(vm))
+        : _last_vm_in_gcguard(wo_swap_gcguard(vm))
     {
     }
     ~_wo_swap_gc_guard()
     {
-        wo_swap_gcguard(_vm);
+        wo_swap_gcguard(_last_vm_in_gcguard);
     }
 };
 
@@ -501,11 +501,11 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
                     if (not_close_vm_count < 32)
                     {
-                        not_closed_vm_call_stacks 
-                            << std::endl 
-                            << "<unclosed " 
-                            << (void*)alive_vms 
-                            << ">" 
+                        not_closed_vm_call_stacks
+                            << std::endl
+                            << "<unclosed "
+                            << (void*)alive_vms
+                            << ">"
                             << std::endl;
                         alive_vms->dump_call_stack(32, true, not_closed_vm_call_stacks);
                     }
@@ -4318,61 +4318,78 @@ void wo_gc_checkpoint(wo_vm vm)
 wo_bool_t wo_leave_gcguard(wo_vm vm)
 {
     auto* vmm = WO_VM(vm);
+    auto* current_guard = wo::vmbase::_this_thread_gc_guard_vm;
 
-    if (vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    if (!vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
-        if (vmm != wo::vmbase::_this_thread_gc_guard_vm)
+        if (current_guard != nullptr)
         {
-            if (wo::vmbase::_this_thread_gc_guard_vm != nullptr)
-                wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
-                    "GC scope conflict, need to leave GC scope of VM `%p` first",
-                    wo::vmbase::_this_thread_gc_guard_vm);
-
-            // Or else, if _this_thread_gc_guarded_vm is nullptr, an error has 
-            // been raised, nothing need to be done.
+            wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
+                "GC protection scope violation: the VM `%p` is not within the GC protection scope, "
+                "but the current thread's GC protection scope still contains another VM `%p`.",
+                vmm,
+                current_guard);
         }
-
-        wo::vmbase::_this_thread_gc_guard_vm = nullptr;
-
-        return WO_TRUE;
+        return WO_FALSE;
     }
-    return WO_FALSE;
+
+    if (vmm != current_guard)
+    {
+        wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
+            "GC protection scope violation: VM `%p` is leaving the GC protection scope, "
+            "but the current thread's GC protection scope contains another VM `%p`.",
+            vmm,
+            current_guard);
+    }
+
+    wo::vmbase::_this_thread_gc_guard_vm = nullptr;
+    return WO_TRUE;
 }
+
 wo_bool_t wo_enter_gcguard(wo_vm vm)
 {
     auto* vmm = WO_VM(vm);
+    auto* current_guard = wo::vmbase::_this_thread_gc_guard_vm;
 
-    if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    if (!vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
-        wo_gc_checkpoint(vm);
-
-        if (nullptr != wo::vmbase::_this_thread_gc_guard_vm)
+        if (current_guard != vmm)
         {
             wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
-                "GC scope conflict, need to leave GC scope of VM `%p` first",
-                wo::vmbase::_this_thread_gc_guard_vm);
+                "GC protection scope violation: VM `%p` is already within the GC protection scope, "
+                "but the current thread's GC protection scope contains another VM `%p`.",
+                vmm,
+                current_guard);
         }
-
-        wo::vmbase::_this_thread_gc_guard_vm = vmm;
-
-        return WO_TRUE;
+        return WO_FALSE;
     }
-    return WO_FALSE;
+        wo_gc_checkpoint(vm);
+
+    if (current_guard != nullptr)
+        {
+            wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
+                "GC protection scope violation: VM `%p` is entering the GC protection scope, "
+                "but the current thread's GC protection scope contains another VM `%p`.",
+                vmm,
+            current_guard);
+        }
+            wo::vmbase::_this_thread_gc_guard_vm = vmm;
+    return WO_TRUE;
 }
 
 wo_vm wo_swap_gcguard(wo_vm vm_may_null)
 {
-    wo_vm last_vm = CS_VM(wo::vmbase::_this_thread_gc_guard_vm);
-    if (last_vm != vm_may_null)
-    {
-        if (last_vm != nullptr)
-            wo_assure(wo_leave_gcguard(last_vm));
+    auto* current_guard = wo::vmbase::_this_thread_gc_guard_vm;
+    if (current_guard == vm_may_null)
+        return CS_VM(current_guard);
 
+    if (current_guard != nullptr)
+        wo_leave_gcguard(CS_VM(current_guard));
         if (vm_may_null != nullptr)
-            wo_assure(wo_enter_gcguard(vm_may_null));
+            wo_enter_gcguard(vm_may_null);
+
+    return CS_VM(current_guard);
     }
-    return last_vm;
-}
 
 wo_weak_ref wo_create_weak_ref(wo_value val)
 {
