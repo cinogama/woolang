@@ -9,7 +9,7 @@ namespace test_compile
 {
     func compile_program(src: string)
     {
-        return vm::create("test_compile/test_tmp_script.wo", src: buffer);
+        return vm::load("test_compile/test_tmp_script.wo", option::value(src: buffer));
     }
     func assure_compile_success(src: string)
     {
@@ -669,7 +669,7 @@ func main()
         assure_compile_fail(@"extern func foo(){} extern func foo(a:int){}"@);
         
         // using namespace
-        do vm::create_virtual_script("test/usingnamespace.wo", @"using std;"@, false);
+        do vm::vfile::add("test/usingnamespace.wo", @"using std;"@: buffer, false);
         assure_compile_fail(@"import woo::std; import test::usingnamespace; println("This should not been displayed!");"@);
         assure_compile_success(@"import woo::std; import test::usingnamespace; using std; println("Helloworld!");"@);
         

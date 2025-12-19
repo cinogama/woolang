@@ -859,7 +859,14 @@ namespace wo
             UNARY_OP("call");
 
         case instruct::calln:
-            result = (dis.dr() & 0b10) ? "callnfp\t" : "callnjit\t";
+        {
+            const auto dr = dis.dr();
+
+            if (dr == 0)
+                result = "callnwo\t";
+            else
+                result = (dr & 0b10) ? "callnfp\t" : "callnjit\t";
+
             if (dis.dr() & 0b01 || dis.dr() & 0b10)
             {
                 char buf[32];
@@ -872,7 +879,7 @@ namespace wo
                 dis.read<uint32_t>(); // Skip padding
             }
             break;
-
+        }
         case instruct::setip:
         case instruct::setipgc:
         {

@@ -9,7 +9,7 @@ namespace test_vm
 {
     func load_and_create_vmm(src:string)
     {
-        let vmm = vm::create("test_vm/test_tmp_script.wo", src: buffer)->unwrap;
+        let vmm = vm::load("test_vm/test_tmp_script.wo", option::value(src: buffer))->unwrap;
         return vmm;
     }
     
@@ -37,9 +37,7 @@ namespace test_vm
             );
         defer do vmm->close();
 
-        if (jit)
-            do vmm->jit();
-        return vmm->run()->unwrap->unsafe::cast:<std::far<(()=>string)=>void>>();
+        return vmm->bootup(jit)->unwrap->unsafe::cast:<std::far<(()=>string)=>void>>();
     }
     
     func main()
@@ -72,7 +70,7 @@ namespace test_vm
             "@
             );
             
-        do vmm->run();
+        do vmm->bootup(false);
         do vmm->close();
         
         // Test memmory leak
@@ -99,7 +97,7 @@ namespace test_vm
                 "@
                 );
                 
-            do vmm->run();
+            do vmm->bootup(false);
             do vmm->close();
         }
     }
