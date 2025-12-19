@@ -4363,33 +4363,32 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
         }
         return WO_FALSE;
     }
-        wo_gc_checkpoint(vm);
+    wo_gc_checkpoint(vm);
 
     if (current_guard != nullptr)
-        {
-            wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
-                "GC protection scope violation: VM `%p` is entering the GC protection scope, "
-                "but the current thread's GC protection scope contains another VM `%p`.",
-                vmm,
+    {
+        wo_fail(WO_FAIL_GC_GUARD_VIOLATION,
+            "GC protection scope violation: VM `%p` is entering the GC protection scope, "
+            "but the current thread's GC protection scope contains another VM `%p`.",
+            vmm,
             current_guard);
-        }
-            wo::vmbase::_this_thread_gc_guard_vm = vmm;
+    }
+    wo::vmbase::_this_thread_gc_guard_vm = vmm;
     return WO_TRUE;
 }
 
 wo_vm wo_swap_gcguard(wo_vm vm_may_null)
 {
-    auto* current_guard = wo::vmbase::_this_thread_gc_guard_vm;
-    if (current_guard == vm_may_null)
-        return CS_VM(current_guard);
-
-    if (current_guard != nullptr)
-        wo_leave_gcguard(CS_VM(current_guard));
+    auto* current_guard = CS_VM(wo::vmbase::_this_thread_gc_guard_vm);
+    if (current_guard != vm_may_null)
+    {
+        if (current_guard != nullptr)
+            wo_leave_gcguard(current_guard);
         if (vm_may_null != nullptr)
             wo_enter_gcguard(vm_may_null);
-
-    return CS_VM(current_guard);
     }
+    return current_guard;
+}
 
 wo_weak_ref wo_create_weak_ref(wo_value val)
 {
