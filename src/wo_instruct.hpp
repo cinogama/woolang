@@ -7,6 +7,132 @@
 
 namespace wo
 {
+    /*
+    R/S Addressing -127 ~ 95:
+        ((0b01100000 ^ ads) & 0b11100000) ? stk + ads : reg + (ads & 0b00011111)
+    */
+    enum class irv2
+    {               // [====== | == ======== ======== ========]
+        WO_NOP,     //  NOP      00 00000000 00000000 00000000
+        WO_END,     //  END      00 00000000 00000000 00000000
+        WO_LOAD,    //  LOAD     [    C/G Adrsing   ] [R/SAds]
+        WO_STORE,   //  STORE    [    C/G Adrsing   ] [R/SAds]
+        WO_LOADEXT, //  LOADEXT  00 00000000 [  SAds 16bits  ] [ C/G Adrsing 32 bits ]
+        WO_STOREEXT,//  STOREEXT 00 00000000 [  SAds 16bits  ] [ C/G Adrsing 32 bits ]
+        WO_LOADLST, //  LOADLST  00 00000000 [ Count 16bits  ] [R/SAds] [   C/G Adrsing 24bit    ]...
+        WO_PUSH,    //  PUSH     00 [  Stack reserved count  ]
+                    //           01 [R/SAds] 00000000 00000000
+                    //           10 [   C/G Adrsing 24bit    ]
+                    //           11 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
+        WO_POP,     //  POP      00 [    Pop stack count     ]
+                    //           01 [R/SAds] 00000000 00000000
+                    //           10 [   C/G Adrsing 24bit    ]
+                    //           11 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
+        WO_CAST,    //  CAST     00 [R/SAds] [R/SAds] [Type8b]
+                    //           01 [R/SAds] [R/SAds] 00000000 // CASTITOR
+                    //           10 [R/SAds] [R/SAds] 00000000 // CASTRTOI
+                    //           11 ======== RESERVED ========
+        WO_TYPECHK, //  TYPECHK  00 [R/SAds] [R/SAds] [Type8b] // TYPEIS
+                    //           01 00000000 [R/SAds] [Type8b] // TYPEAS
+                    //           10 ======== RESERVED ========
+                    //           11 ======== RESERVED ========
+        WO_OPIA,    //  OPIA     00 [R/SAds] [R/SAds] [R/SAds] // ADDI
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // SUBI
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // MULI
+                    //           11 [R/SAds] [R/SAds] [R/SAds] // DIVI
+        WO_OPIB,    //  OPIB     00 [R/SAds] [R/SAds] [R/SAds] // CDIVILR
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // CDIVIL
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // CDIVIR
+                    //           11 [R/SAds] [R/SAds] [R/SAds] // CDIVIRZ
+        WO_OPIC,    //  OPIC     00 [R/SAds] [R/SAds] [R/SAds] // CMODILR
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // CMODIL
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // CMODIR
+                    //           11 [R/SAds] [R/SAds] [R/SAds] // CMODIRZ
+        WO_OPID,    //  OPID     00 [R/SAds] [R/SAds] [R/SAds] // MODI
+                    //           01 [R/SAds] [R/SAds] 00000000 // NEGI
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // LTI
+                    //           11 [R/SAds] [R/SAds] [R/SAds] // GTI
+        WO_OPIE,    //  OPIE     00 [R/SAds] [R/SAds] [R/SAds] // ELTI
+                    //           01 [R/SAds] [R/SAds] 00000000 // EGTI
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // EQUB
+                    //           11 [R/SAds] [R/SAds] [R/SAds] // NEQUB
+        WO_OPRA,    //  OPRA     00 [R/SAds] [R/SAds] [R/SAds] // ADDR
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // SUBR
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // MULR
+                    //           11 [R/SAds] [R/SAds] [R/SAds] // DIVR
+        WO_OPRB,    //  OPRB     00 [R/SAds] [R/SAds] [R/SAds] // MODR
+                    //           01 [R/SAds] [R/SAds] 00000000 // NEGR
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // LTR
+                    //           11 [R/SAds] [R/SAds] [R/SAds] // GTR
+        WO_OPRC,    //  OPRC     00 [R/SAds] [R/SAds] [R/SAds] // ELTR
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // EGTR
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // EQUR
+                    //           11 [R/SAds] [R/SAds] [R/SAds] // NEQUR
+        WO_OPSA,    //  OPSA     00 [R/SAds] [R/SAds] [R/SAds] // ADDS
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // LTS
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // GTS
+                    //           11 [R/SAds] [R/SAds] [R/SAds] // ELTS
+        WO_OPSB,    //  OPSB     00 [R/SAds] [R/SAds] [R/SAds] // EGTS
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // EQUS
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // NEQUS
+                    //           11 ======== RESERVED ========
+        WO_OPLA,    //  OPLA     00 [R/SAds] [R/SAds] [R/SAds] // LAND
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // LOR
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // LNOT
+                    //           11 ======== RESERVED ========
+        WO_IDX,     //  IDX      00 [R/SAds] [R/SAds] [R/SAds] // IDSTR
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // IDARR
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // IDDICT
+                    //           11 [R/SAds] [R/SAds] [Idx 8b] // IDSTRUCT
+        WO_SIDX,    //  SIDX     00 [R/SAds] [R/SAds] [R/SAds] // SIDARR
+                    //           01 [R/SAds] [R/SAds] [R/SAds] // SIDDICT
+                    //           10 [R/SAds] [R/SAds] [R/SAds] // SIDMAP 
+                    //           11 [R/SAds] [R/SAds] [Idx 8b] // SIDSTRUCT
+        WO_IDSTEXT, //  IDSTEXT  00 [R/SAds] [R/SAds] 00000000 [ C/G Adrsing 32 bits ]
+        WO_SIDSTEXT,//  SIDSTEXT 00 [R/SAds] [R/SAds] 00000000 [ C/G Adrsing 32 bits ]
+        WO_JMP,     //  JMP      00 [  Near wo-code abs addr ] // JMP
+                    //           01 ======== RESERVED ========
+                    //           10 [  Near wo-code abs addr ] // JMPF
+                    //           11 [  Near wo-code abs addr ] // JMPT
+        WO_JMPGC,   //  JMPGC    00 [  Near wo-code abs addr ] // JMPGC
+                    //           01 ======== RESERVED ========
+                    //           10 [  Near wo-code abs addr ] // JMPGCF
+                    //           11 [  Near wo-code abs addr ] // JMPGCT
+        WO_RET,     //  RET      00 ======== RESERVED ========
+                    //           01 00000000 [PopCount 16bits]
+        WO_CALLN,   //  CALLN    00 [  Near wo-code abs addr ] [ 00000000 00000000 00000000 00000000 ]  CALLNWO
+                    //           01 [                 Native function address 56 bit                  ]  CALLNJIT
+                    //           10 [                 Native function address 56 bit                  ]  CALLNFP
+                    //           11 ======== RESERVED ========
+        WO_CALL,    //  CALL     00 [R/SAds] 00000000 00000000
+                    //           01 [    C/G Adrsing 24bit    ]
+                    //           10 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
+                    //           11 ======== RESERVED ========
+        WO_CONS,    //  CONS     00 [R/SAds] [ Unit count 16b] // MKARR
+                    //           01 [R/SAds] [ Unit count 16b] // MKMAP
+                    //           10 [R/SAds] [ Unit count 16b] // MKSTRUCT
+                    //           11 [R/SAds] [ Cap count 16b ] // MKCLOSURE
+        WO_CONSEXT, //  CONSEXT  00 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKARREXT
+                    //           01 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKMAPEXT
+                    //           10 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKSTRUCTEXT
+                    //           11 [R/SAds] 00000000 00000000 [    Cap count 32bits   ] // MKCLOSUREEXT
+        WO_UNPACK,  //  UNPACK   00 [R/SAds] [  Unit count   ] // UNPACK
+        WO_PACK,    //  PACK     00 [R/SAds] [FnArgc] [ClArgc] 
+                    //           01 [R/SAds] [ FnArgc 16bits ] [     ClArgc 32bits     ]
+        WO_LDS,     //  LDS      00 [R/SAds] [ StackBp offset]
+                    //           01 [R/SAds] 00000000 00000000 [ StackBp offset 32bits ]
+                    //           10 [R/SAds] [R/SAds] 00000000
+                    //           11 ======== RESERVED ========
+        WO_STS,     //  STS      00 [R/SAds] [ StackBp offset]
+                    //           01 [R/SAds] 00000000 00000000 [ StackBp offset 32bits ]
+                    //           10 [R/SAds] [R/SAds] 00000000
+                    //           11 ======== RESERVED ========
+        WO_PANIC,   //  PANIC    00 [R/SAds] 00000000 00000000
+                    //           01 ======== RESERVED ======== 
+                    //           10 [   C/G Adrsing 24bit    ]
+                    //           11 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
+    };
+
     struct instruct
     {
         /*
