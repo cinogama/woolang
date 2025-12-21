@@ -1840,6 +1840,11 @@ namespace wo
                         auto* target_determined_type_instance =
                             target_type_instance->get_determined_type().value();
 
+                        auto* src_type_instance =
+                            node->m_cast_value->m_LANG_determined_type.value();
+                        auto* src_determined_type_instance =
+                            src_type_instance->get_determined_type().value();
+
                         const auto& target_storage = result.get_assign_target();
 
                         // Need runtime cast.
@@ -1899,20 +1904,54 @@ namespace wo
 
                         if (target_storage.has_value())
                         {
-                            m_ircontext.c().movcast(
-                                WO_OPNUM(target_storage.value()),
-                                WO_OPNUM(opnum_to_cast),
-                                cast_type);
+                            if (cast_type == value::valuetype::integer_type
+                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::REAL)
+                            {
+                                m_ircontext.c().movrcasti(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(opnum_to_cast));
+                            }
+                            else if (cast_type == value::valuetype::real_type
+                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER)
+                            {
+                                m_ircontext.c().movicastr(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(opnum_to_cast));
+                            }
+                            else
+                            {
+                                m_ircontext.c().movcast(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(opnum_to_cast),
+                                    cast_type);
+                            }
                         }
                         else
                         {
                             auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
                                 WO_BORROW_TEMPORARY_FROM(node));
 
-                            m_ircontext.c().movcast(
-                                WO_OPNUM(borrowed_reg),
-                                WO_OPNUM(opnum_to_cast),
-                                cast_type);
+                            if (cast_type == value::valuetype::integer_type
+                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::REAL)
+                            {
+                                m_ircontext.c().movrcasti(
+                                    WO_OPNUM(borrowed_reg),
+                                    WO_OPNUM(opnum_to_cast));
+                            }
+                            else if (cast_type == value::valuetype::real_type
+                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER)
+                            {
+                                m_ircontext.c().movicastr(
+                                    WO_OPNUM(borrowed_reg),
+                                    WO_OPNUM(opnum_to_cast));
+                            }
+                            else
+                            {
+                                m_ircontext.c().movcast(
+                                    WO_OPNUM(borrowed_reg),
+                                    WO_OPNUM(opnum_to_cast),
+                                    cast_type);
+                            }
                             result.set_result(m_ircontext, borrowed_reg);
                         }
                     });

@@ -151,6 +151,8 @@ WO_ASMJIT_IR_ITERFACE_DECL(setip);\
 WO_ASMJIT_IR_ITERFACE_DECL(setipgc);\
 WO_ASMJIT_IR_ITERFACE_DECL(mkunion);\
 WO_ASMJIT_IR_ITERFACE_DECL(movcast);\
+WO_ASMJIT_IR_ITERFACE_DECL(movicastr);\
+WO_ASMJIT_IR_ITERFACE_DECL(movrcasti);\
 WO_ASMJIT_IR_ITERFACE_DECL(mkclos);\
 WO_ASMJIT_IR_ITERFACE_DECL(typeas);\
 WO_ASMJIT_IR_ITERFACE_DECL(mkstruct);\
@@ -2698,6 +2700,53 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             x86_do_fail(ctx, WO_FAIL_TYPE_FAIL, err, rt_ip);
 
             wo_assure(!ctx->c.bind(noerror_label));
+            return true;
+        }
+        virtual bool ir_movicastr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
+            
+            // Cast opnum2(integer) to real
+            auto cast_result = ctx->c.newXmm();
+
+            wo_assure(!ctx->c.cvtsi2sd(
+                cast_result,
+                asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
+            wo_assure(!ctx->c.movsd(
+                asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real)),
+                cast_result));
+
+            // Set type
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::byte_ptr(opnum1.gp_value(), offsetof(value, m_type)),
+                (uint8_t)value::valuetype::real_type));
+
+            return true;
+        }
+        virtual bool ir_movrcasti(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
+
+            // Cast opnum2(real) to integer
+            auto cast_result = ctx->c.newInt64();
+            wo_assure(!ctx->c.cvtsd2si(
+                cast_result,
+                asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)),
+                cast_result));
+
+            // Set type
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::byte_ptr(opnum1.gp_value(), offsetof(value, m_type)),
+                (uint8_t)value::valuetype::integer_type));
+
             return true;
         }
         virtual bool ir_mkclos(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override

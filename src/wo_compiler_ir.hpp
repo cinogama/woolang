@@ -1169,6 +1169,30 @@ namespace wo
 
             WO_PUT_IR_TO_BUFFER(instruct::opcode::movcast, WO_OPNUM(op1), WO_OPNUM(op2), (int)vtt);
         }
+        template<typename OP1T, typename OP2T>
+        void movrcasti(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not set value to immediate.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::movrcasti, WO_OPNUM(op1), WO_OPNUM(op2));
+        }
+        template<typename OP1T, typename OP2T>
+        void movicastr(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not set value to immediate.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::movicastr, WO_OPNUM(op1), WO_OPNUM(op2));
+        }
         template<typename OP1T>
         void typeas(const OP1T& op1, value::valuetype vtt)
         {

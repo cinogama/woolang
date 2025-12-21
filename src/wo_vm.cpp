@@ -788,6 +788,8 @@ namespace wo
             break;
 
         case instruct::mov:   BINARY_OP("mov");
+        case instruct::movicastr:   BINARY_OP("movicastr");
+        case instruct::movrcasti:   BINARY_OP("movrcasti");
         case instruct::addi:  BINARY_OP("addi");
         case instruct::subi:  BINARY_OP("subi");
         case instruct::muli:  BINARY_OP("muli");
@@ -2642,6 +2644,16 @@ namespace wo
                     opnum2,
                     static_cast<value::valuetype>(WO_IPVAL_MOVE_1)))
                     WO_VM_FAIL(WO_FAIL_TYPE_FAIL, err);
+                break;
+            case WO_RSG_ADDRESSING_WRITE_OP1_CASE(movicastr):
+                WO_VM_ASSERT(opnum2->m_type == value::valuetype::integer_type,
+                    "Operand 2 should be integer in 'movicastr'.");
+                opnum1->set_real(static_cast<wo_real_t>(opnum2->m_integer));
+                break;
+            case WO_RSG_ADDRESSING_WRITE_OP1_CASE(movrcasti):
+                WO_VM_ASSERT(opnum2->m_type == value::valuetype::integer_type,
+                    "Operand 2 should be integer in 'movrcasti'.");
+                opnum1->set_integer(static_cast<wo_integer_t>(opnum2->m_real));
                 break;
             case instruct::opcode::typeasg:
                 WO_ADDRESSING_G1;

@@ -2101,6 +2101,16 @@ namespace wo
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                     generated_runtime_code_buf.push_back((byte_t)WO_IR.opinteger1);
                     break;
+                case instruct::opcode::movicastr:
+                    generated_runtime_code_buf.push_back(WO_OPCODE(movicastr));
+                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    break;
+                case instruct::opcode::movrcasti:
+                    generated_runtime_code_buf.push_back(WO_OPCODE(movrcasti));
+                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    break;
                 case instruct::opcode::typeas:
 
                     if (WO_IR.opinteger2 == 0)

@@ -196,6 +196,12 @@ namespace wo
             movcast = WO_OPCODE_SPACE(MOVCAST),
             WO_OPCODE_DR2SG(movcast),
             ///////////////////////////////////
+            movicastr = WO_OPCODE_SPACE(MOVICASTR),
+            WO_OPCODE_DR2SG(movicastr),
+            ///////////////////////////////////
+            movrcasti = WO_OPCODE_SPACE(MOVRCASTI),
+            WO_OPCODE_DR2SG(movrcasti),
+            ///////////////////////////////////
             typeas = WO_OPCODE_SPACE(TYPEAS),
             typeasg = typeas | 0b00,
             typeass = typeas | 0b10,

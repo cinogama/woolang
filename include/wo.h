@@ -1522,7 +1522,10 @@ enum _wo_opcode
     //
     //                                      NOTE: Operands are assumed to be integers, so no write barrier is 
     //                                          guaranteed.
-    // _RESERVED_ = 49,
+    WO_MOVICASTR = 49,
+    // DRH: Opnum1 desc, DRL: Opnum2 desc
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1` and cast it to real, `OPNUM2` 
+    //                                      must be int, 
     WO_SETIPGC = 50,
     // DRH: JCOND_FLAG, DRL: JCOND_FLAG ? (0: JMPF, 1: JMPT) : 0
     // OPNUM1: IMM_U32                      Just like WO_SETIP, but do a gc-checkpoint.
@@ -1542,7 +1545,10 @@ enum _wo_opcode
     //                                      [Build a map]: Pop `OPNUM2` * 2 values from stack.
     //                                          The value in the stack should be:
     //                                              SP-> [Value N-1, Key N-1, ..., Value 0, Key 0] -> BP
-    // _RESERVED_ = 53,
+    WO_MOVRCASTI = 53,
+    // DRH: Opnum1 desc, DRL: Opnum2 desc
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1` and cast it to int, `OPNUM2` 
+    //                                      must be real, 
     WO_MKSTRUCT = 54,
     // DRH: Opnum1 desc, DRL: 0
     // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build a struct.
