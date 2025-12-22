@@ -2651,8 +2651,8 @@ namespace wo
                 opnum1->set_real(static_cast<wo_real_t>(opnum2->m_integer));
                 break;
             case WO_RSG_ADDRESSING_WRITE_OP1_CASE(movrcasti):
-                WO_VM_ASSERT(opnum2->m_type == value::valuetype::integer_type,
-                    "Operand 2 should be integer in 'movrcasti'.");
+                WO_VM_ASSERT(opnum2->m_type == value::valuetype::real_type,
+                    "Operand 2 should be real in 'movrcasti'.");
                 opnum1->set_integer(static_cast<wo_integer_t>(opnum2->m_real));
                 break;
             case instruct::opcode::typeasg:
