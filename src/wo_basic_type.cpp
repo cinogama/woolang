@@ -147,7 +147,7 @@ namespace wo
         return (size_t)val.m_handle;
     }
 
-    structure_base_t::structure_base_t(uint16_t sz) noexcept
+    structure_base_t::structure_base_t(uint32_t sz) noexcept
         : m_count(sz)
     {
         m_values = (value*)malloc(sz * sizeof(value));

@@ -280,14 +280,14 @@ namespace wo
     struct structure_base_t
     {
         value* m_values;
-        const uint16_t m_count;
+        const uint32_t m_count;
 
         structure_base_t(const structure_base_t&) = delete;
         structure_base_t(structure_base_t&&) = delete;
         structure_base_t& operator=(const structure_base_t&) = delete;
         structure_base_t& operator=(structure_base_t&&) = delete;
 
-        structure_base_t(uint16_t sz) noexcept;
+        structure_base_t(uint32_t sz) noexcept;
         ~structure_base_t();
     };
     struct closure_bast_t

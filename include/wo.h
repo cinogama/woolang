@@ -1371,7 +1371,7 @@ enum _wo_irv2
     //  OPCD     00 [R/SAds] [R/SAds] 00000000 // CUMADDS,
     //           01 [R/SAds] [R/SAds] 00000000 // CUMMODI,
     //           10 [R/SAds] [R/SAds] 00000000 // CUMMODR,
-    //           11 ======== RESERVED ========
+    //           11 ======== RESERVED ========,
     WO_OPLA,
     //  OPLA     00 [R/SAds] [R/SAds] [R/SAds] // LAND
     //           01 [R/SAds] [R/SAds] [R/SAds] // LOR
@@ -1406,13 +1406,13 @@ enum _wo_irv2
     //           11 00000000 00000000 00000000 [   PopCount 32 bits   ]
     WO_CALLN,
     //  CALLN    00 [ Function offset 24bits ] 0                          CALLNWO
-    //           01 [        Woolang function address 56 bits          ]  CALLNWOIMM
+    //           01 ======== RESERVED ========
     //           10 [         Native function address 56 bits          ]  CALLNJIT
     //           11 [         Native function address 56 bits          ]  CALLNFP
     WO_CALL,
     //  CALL     00 [R/SAds] 00000000 00000000
-    //           01 [    C/G Adrsing 24bit    ]
-    //           10 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
+    //           01 ======== RESERVED ========
+    //           10 ======== RESERVED ========
     //           11 ======== RESERVED ========
     WO_CONS,
     //  CONS     00 [R/SAds] [ Unit count 16b] // MKARR
@@ -1425,9 +1425,10 @@ enum _wo_irv2
     //           10 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKSTRUCTEXT
     //           11 ======== RESERVED ========
     WO_MKCLOS,  
-    //  MKCLOS   00 [R/SAds] [R/SAds] [CapN8b] 
-    //           01 [R/SAds] [R/SAds] 00000000 [ Captured count 32bits ] 
-    //           10 [R/SAds] [CaptureCount16b] [  C/G Adrsing 32 bits  ]
+    //  MKCLOS   00 [R/SAds] [ Capt count 16b] [ Function offset 32bits ] 0                         // MKCLOS
+    //           01 [R/SAds] [ Capt count 16b] [         Native function address 64 bits          ] // MKCLOS
+    //           10 ======== RESERVED ========
+    //           11 ======== RESERVED ========
     WO_UNPACK,  
     //  UNPACK   00 [R/SAds] 00000000 00000000  // UNPACK
     //           01 [R/SAds] [Unpack count 16b] // UNPACKN

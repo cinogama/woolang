@@ -1522,11 +1522,11 @@ namespace wo
         return rt_sp;
     }
 
-    value* vmbase::make_array_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
+    value* vmbase::make_array_impl(value* opnum1, uint32_t size, value* rt_sp) noexcept
     {
         auto* maked_array = array_t::gc_new<gcbase::gctype::young>((size_t)size);
 
-        for (size_t i = 0; i < (size_t)size; i++)
+        for (uint32_t i = 0; i < size; i++)
         {
             auto* arr_val = ++rt_sp;
             maked_array->at(size - i - 1).set_val(arr_val);
@@ -1536,11 +1536,11 @@ namespace wo
         return rt_sp;
     }
 
-    value* vmbase::make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
+    value* vmbase::make_map_impl(value* opnum1, uint32_t size, value* rt_sp) noexcept
     {
         auto* maked_dict = dictionary_t::gc_new<gcbase::gctype::young>((size_t)size);
 
-        for (size_t i = 0; i < (size_t)size; i++)
+        for (uint32_t i = 0; i < size; i++)
         {
             value* val = ++rt_sp;
             value* key = ++rt_sp;
@@ -1551,11 +1551,11 @@ namespace wo
         return rt_sp;
     }
 
-    value* vmbase::make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept
+    value* vmbase::make_struct_impl(value* opnum1, uint32_t size, value* rt_sp) noexcept
     {
         auto* maked_struct = structure_t::gc_new<gcbase::gctype::young>(size);
 
-        for (size_t i = 0; i < size; i++)
+        for (uint32_t i = 0; i < size; i++)
             maked_struct->m_values[size - i - 1].set_val(++rt_sp);
 
         opnum1->set_gcunit<value::valuetype::struct_type>(maked_struct);
@@ -1825,7 +1825,7 @@ namespace wo
         value* const rt_cr = cr;
         value* const rt_reg_fast_lookup = register_storage - 0b01100000;
 
-        const const irv2::ir* rt_ip =
+        const irv2::ir* rt_ip =
             reinterpret_cast<const irv2::ir*>(ip);
 
 #define WO_VM_INTERRUPT_CHECKPOINT          \
@@ -1866,7 +1866,7 @@ namespace wo
 #define WO_VM_ADRS_S(OFFSET_I)                                        \
         (bp + (OFFSET_I))
 #define WO_VM_ADRS_R_S(OFFSET_I)                                        \
-        (((OFFSET_I >> 5) == 0b011) ? (rt_reg_fast_lookup + (OFFSET_I)) : WO_VM_ADRS_S(OFFSET_I))
+        ((((OFFSET_I) >> 5) == 0b011) ? (rt_reg_fast_lookup + (OFFSET_I)) : WO_VM_ADRS_S(OFFSET_I))
 
 #define WO_VM_BEGIN_CASE_IR6(IRNAME, FORMAT)                            \
             case (WO_##IRNAME << 2) | 0b00:                             \
@@ -1879,7 +1879,7 @@ namespace wo
                 WO_FORMAL_IR6_##FORMAT(rt_ip);
 
 #define WO_VM_BEGIN_CASE_IR8(IRNAME, MODE, FORMAT)                      \
-            case (WO_##IRNAME << 2) | MODE:                             \
+            case (WO_##IRNAME << 2) | (MODE):                             \
             {                                                           \
                 constexpr uint32_t z__wo_vm_next_ir_offset =            \
                     WO_FORMAL_IR8_##FORMAT##_IRCOUNTOF;                 \
@@ -1946,57 +1946,65 @@ namespace wo
                 WO_VM_BEGIN_CASE_IR8(PUSH, 0, U24)
                 {
                     value* new_sp = sp - p1_u24;
-                    if (new_sp < stack_storage)
+
+                    if (new_sp >= stack_storage)
+                        sp = new_sp;
+                    else
                     {
                         wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
                         WO_VM_INTERRUPT_CHECKPOINT;
 
+                        // Break out, donot `WO_VM_END_CASE`
                         break;
                     }
-                    else
-                        sp = new_sp;
                 }
                 WO_VM_END_CASE();
 
                 // PUSH RS
                 WO_VM_BEGIN_CASE_IR8(PUSH, 1, I8_16)
                 {
-                    if (sp <= stack_storage)
+                    if (sp > stack_storage)
+                        (sp--)->set_val(WO_VM_ADRS_R_S(p1_i8));
+                    else
                     {
                         wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
                         WO_VM_INTERRUPT_CHECKPOINT;
 
+                        // Break out, donot `WO_VM_END_CASE`
                         break;
                     }
-                    (sp--)->set_val(WO_VM_ADRS_R_S(p1_i8));
                 }
                 WO_VM_END_CASE();
 
                 // PUSH CG
                 WO_VM_BEGIN_CASE_IR8(PUSH, 2, I24)
                 {
-                    if (sp <= stack_storage)
+                    if (sp > stack_storage)
+                        (sp--)->set_val(WO_VM_ADRS_C_G(p1_i24));
+                    else
                     {
                         wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
                         WO_VM_INTERRUPT_CHECKPOINT;
 
+                        // Break out, donot `WO_VM_END_CASE`
                         break;
                     }
-                    (sp--)->set_val(WO_VM_ADRS_C_G(p1_i24));
                 }
                 WO_VM_END_CASE();
 
                 // PUSH CG-EXT
                 WO_VM_BEGIN_CASE_IR8(PUSH, 3, 24_EI32)
                 {
-                    if (sp <= stack_storage)
+                    if (sp > stack_storage)
+                        (sp--)->set_val(WO_VM_ADRS_C_G(p1_i32));
+                    else
                     {
                         wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
                         WO_VM_INTERRUPT_CHECKPOINT;
 
+                        // Break out, donot `WO_VM_END_CASE`
                         break;
                     }
-                    (sp--)->set_val(WO_VM_ADRS_C_G(p1_i32));
                 }
                 WO_VM_END_CASE();
 
@@ -2142,7 +2150,7 @@ namespace wo
                 // LTI
                 WO_VM_BEGIN_CASE_IR8(OPIB, 2, I8_I8_I8)
                 {
-                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
                         < WO_VM_ADRS_R_S(p3_i8)->m_integer);
                 }
@@ -2151,7 +2159,7 @@ namespace wo
                 // GTI
                 WO_VM_BEGIN_CASE_IR8(OPIB, 3, I8_I8_I8)
                 {
-                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
                         > WO_VM_ADRS_R_S(p3_i8)->m_integer);
                 }
@@ -2160,7 +2168,7 @@ namespace wo
                 // ELTI
                 WO_VM_BEGIN_CASE_IR8(OPIC, 0, I8_I8_I8)
                 {
-                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
                         <= WO_VM_ADRS_R_S(p3_i8)->m_integer);
                 }
@@ -2169,7 +2177,7 @@ namespace wo
                 // EGTI
                 WO_VM_BEGIN_CASE_IR8(OPIC, 1, I8_I8_I8)
                 {
-                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
                         >= WO_VM_ADRS_R_S(p3_i8)->m_integer);
                 }
@@ -2178,7 +2186,7 @@ namespace wo
                 // EQUB
                 WO_VM_BEGIN_CASE_IR8(OPIC, 2, I8_I8_I8)
                 {
-                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
                         == WO_VM_ADRS_R_S(p3_i8)->m_integer);
                 }
@@ -2187,18 +2195,343 @@ namespace wo
                 // NEQUB
                 WO_VM_BEGIN_CASE_IR8(OPIC, 3, I8_I8_I8)
                 {
-                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
                         != WO_VM_ADRS_R_S(p3_i8)->m_integer);
                 }
                 WO_VM_END_CASE();
 
-                // ...
+                // ADDR
+                WO_VM_BEGIN_CASE_IR8(OPRA, 0, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_real(
+                        WO_VM_ADRS_R_S(p2_i8)->m_real
+                        + WO_VM_ADRS_R_S(p3_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // SUBR
+                WO_VM_BEGIN_CASE_IR8(OPRA, 1, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_real(
+                        WO_VM_ADRS_R_S(p2_i8)->m_real
+                        - WO_VM_ADRS_R_S(p3_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // MULR
+                WO_VM_BEGIN_CASE_IR8(OPRA, 2, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_real(
+                        WO_VM_ADRS_R_S(p2_i8)->m_real
+                        * WO_VM_ADRS_R_S(p3_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // DIVR
+                WO_VM_BEGIN_CASE_IR8(OPRA, 3, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_real(
+                        WO_VM_ADRS_R_S(p2_i8)->m_real
+                        / WO_VM_ADRS_R_S(p3_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // MODR
+                WO_VM_BEGIN_CASE_IR8(OPRB, 0, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_real(
+                        std::fmod(
+                            WO_VM_ADRS_R_S(p2_i8)->m_real,
+                            WO_VM_ADRS_R_S(p3_i8)->m_real));
+                }
+                WO_VM_END_CASE();
+
+                // NEGR
+                WO_VM_BEGIN_CASE_IR8(OPRB, 1, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_real(
+                        -WO_VM_ADRS_R_S(p2_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // LTR
+                WO_VM_BEGIN_CASE_IR8(OPRB, 2, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        WO_VM_ADRS_R_S(p2_i8)->m_real
+                        < WO_VM_ADRS_R_S(p3_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // GTR
+                WO_VM_BEGIN_CASE_IR8(OPRB, 3, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        WO_VM_ADRS_R_S(p2_i8)->m_real
+                        > WO_VM_ADRS_R_S(p3_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // ELTR
+                WO_VM_BEGIN_CASE_IR8(OPRC, 0, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        WO_VM_ADRS_R_S(p2_i8)->m_real
+                        <= WO_VM_ADRS_R_S(p3_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // EGTR
+                WO_VM_BEGIN_CASE_IR8(OPRC, 1, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        WO_VM_ADRS_R_S(p2_i8)->m_real
+                        >= WO_VM_ADRS_R_S(p3_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // EQUR
+                WO_VM_BEGIN_CASE_IR8(OPRC, 2, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        WO_VM_ADRS_R_S(p2_i8)->m_real
+                        == WO_VM_ADRS_R_S(p3_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // NEQUR
+                WO_VM_BEGIN_CASE_IR8(OPRC, 3, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        WO_VM_ADRS_R_S(p2_i8)->m_real
+                        != WO_VM_ADRS_R_S(p3_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // ADDS
+                WO_VM_BEGIN_CASE_IR8(OPSA, 0, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_gcunit<wo::value::valuetype::string_type>(
+                        string_t::gc_new<gcbase::gctype::young>(
+                            *WO_VM_ADRS_R_S(p2_i8)->m_string + *WO_VM_ADRS_R_S(p3_i8)->m_string));
+                }
+                WO_VM_END_CASE();
+
+                // LTS
+                WO_VM_BEGIN_CASE_IR8(OPSA, 1, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        *WO_VM_ADRS_R_S(p2_i8)->m_string < *WO_VM_ADRS_R_S(p3_i8)->m_string);
+                }
+                WO_VM_END_CASE();
+
+                // GTS
+                WO_VM_BEGIN_CASE_IR8(OPSA, 2, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        *WO_VM_ADRS_R_S(p2_i8)->m_string > *WO_VM_ADRS_R_S(p3_i8)->m_string);
+                }
+                WO_VM_END_CASE();
+
+                // ELTS
+                WO_VM_BEGIN_CASE_IR8(OPSA, 3, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        *WO_VM_ADRS_R_S(p2_i8)->m_string <= *WO_VM_ADRS_R_S(p3_i8)->m_string);
+                }
+                WO_VM_END_CASE();
+
+                // EGTS
+                WO_VM_BEGIN_CASE_IR8(OPSB, 0, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        *WO_VM_ADRS_R_S(p2_i8)->m_string >= *WO_VM_ADRS_R_S(p3_i8)->m_string);
+                }
+                WO_VM_END_CASE();
+
+                // EQUS
+                WO_VM_BEGIN_CASE_IR8(OPSB, 1, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        *WO_VM_ADRS_R_S(p2_i8)->m_string == *WO_VM_ADRS_R_S(p3_i8)->m_string);
+                }
+                WO_VM_END_CASE();
+
+                // NEQUS
+                WO_VM_BEGIN_CASE_IR8(OPSB, 2, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        *WO_VM_ADRS_R_S(p2_i8)->m_string != *WO_VM_ADRS_R_S(p3_i8)->m_string);
+                }
+                WO_VM_END_CASE();
+
+                // CDIVILR
+                WO_VM_BEGIN_CASE_IR8(OPCA, 0, I8_I8_8)
+                {
+                    const wo_integer_t divisor =
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer;
+
+                    if (divisor == 0)
+                        WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
+                    else if (divisor == -1 && WO_VM_ADRS_R_S(p1_i8)->m_integer == INT64_MIN)
+                        WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
+                }
+                WO_VM_END_CASE();
+
+                // CDIVIL
+                WO_VM_BEGIN_CASE_IR8(OPCA, 1, I8_16)
+                {
+                    if (WO_VM_ADRS_R_S(p1_i8)->m_integer == INT64_MIN)
+                        WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
+                }
+                WO_VM_END_CASE();
+
+                // CDIVIR
+                WO_VM_BEGIN_CASE_IR8(OPCA, 2, I8_16)
+                {
+                    const wo_integer_t divisor =
+                        WO_VM_ADRS_R_S(p1_i8)->m_integer;
+
+                    if (divisor == 0)
+                        WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
+                    else if (divisor == -1)
+                        WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
+                }
+                WO_VM_END_CASE();
+
+                // CDIVIRZ
+                WO_VM_BEGIN_CASE_IR8(OPCA, 3, I8_16)
+                {
+                    if (WO_VM_ADRS_R_S(p1_i8)->m_integer == 0)
+                        WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
+                }
+                WO_VM_END_CASE();
+
+                // CUMADDI
+                WO_VM_BEGIN_CASE_IR8(OPCB, 0, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->m_integer +=
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer;
+                }
+                WO_VM_END_CASE();
+
+                // CUMSUBI
+                WO_VM_BEGIN_CASE_IR8(OPCB, 1, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->m_integer -=
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer;
+                }
+                WO_VM_END_CASE();
+
+                // CUMMULI
+                WO_VM_BEGIN_CASE_IR8(OPCB, 2, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->m_integer *=
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer;
+                }
+                WO_VM_END_CASE();
+
+                // CUMDIVI
+                WO_VM_BEGIN_CASE_IR8(OPCB, 3, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->m_integer /=
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer;
+                }
+                WO_VM_END_CASE();
+
+                // CUMADDR
+                WO_VM_BEGIN_CASE_IR8(OPCC, 0, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->m_real +=
+                        WO_VM_ADRS_R_S(p2_i8)->m_real;
+                }
+                WO_VM_END_CASE();
+
+                // CUMSUBR
+                WO_VM_BEGIN_CASE_IR8(OPCC, 1, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->m_real -=
+                        WO_VM_ADRS_R_S(p2_i8)->m_real;
+                }
+                WO_VM_END_CASE();
+
+                // CUMMULR
+                WO_VM_BEGIN_CASE_IR8(OPCC, 2, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->m_real *=
+                        WO_VM_ADRS_R_S(p2_i8)->m_real;
+                }
+                WO_VM_END_CASE();
+
+                // CUMDIVR
+                WO_VM_BEGIN_CASE_IR8(OPCC, 3, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->m_real /=
+                        WO_VM_ADRS_R_S(p2_i8)->m_real;
+                }
+                WO_VM_END_CASE();
+
+                // CUMADDS
+                WO_VM_BEGIN_CASE_IR8(OPCD, 0, I8_I8_8)
+                {
+                    value* const string_val = WO_VM_ADRS_R_S(p1_i8);
+                    string_val->m_string =
+                        string_t::gc_new<gcbase::gctype::young>(
+                            *string_val->m_string
+                            + *WO_VM_ADRS_R_S(p2_i8)->m_string);
+                }
+                WO_VM_END_CASE();
+
+                // CUMMODI
+                WO_VM_BEGIN_CASE_IR8(OPCD, 1, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->m_integer %=
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer;
+                }
+                WO_VM_END_CASE();
+
+                // CUMMODR
+                WO_VM_BEGIN_CASE_IR8(OPCD, 2, I8_I8_8)
+                {
+                    value* const real_val = WO_VM_ADRS_R_S(p1_i8);
+                    real_val->m_real =
+                        std::fmod(
+                            real_val->m_real,
+                            WO_VM_ADRS_R_S(p2_i8)->m_real);
+                }
+                WO_VM_END_CASE();
+
+                // LAND
+                WO_VM_BEGIN_CASE_IR8(OPLA, 3, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        && WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // LOR
+                WO_VM_BEGIN_CASE_IR8(OPLA, 2, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        || WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // LNOT
+                WO_VM_BEGIN_CASE_IR8(OPLA, 1, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        !WO_VM_ADRS_R_S(p2_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
 
                 // IDSTR
                 WO_VM_BEGIN_CASE_IR8(IDX, 0, I8_I8_I8)
                 {
-                    const string_t* const indexed_str = 
+                    const string_t* const indexed_str =
                         WO_VM_ADRS_R_S(p2_i8)->m_string;
 
                     WO_VM_ADRS_R_S(p1_i8)->set_integer(
@@ -2214,7 +2547,7 @@ namespace wo
                 // IDARR
                 WO_VM_BEGIN_CASE_IR8(IDX, 1, I8_I8_I8)
                 {
-                    const array_t* const indexed_arr = 
+                    const array_t* const indexed_arr =
                         WO_VM_ADRS_R_S(p2_i8)->m_array;
                     gcbase::gc_read_guard rg(indexed_arr);
 
@@ -2232,7 +2565,7 @@ namespace wo
                 // IDDICT
                 WO_VM_BEGIN_CASE_IR8(IDX, 2, I8_I8_I8)
                 {
-                    const dictionary_t* const indexed_dict = 
+                    const dictionary_t* const indexed_dict =
                         WO_VM_ADRS_R_S(p2_i8)->m_dictionary;
                     gcbase::gc_read_guard rg(indexed_dict);
 
@@ -2248,10 +2581,10 @@ namespace wo
                 // IDSTRUCT
                 WO_VM_BEGIN_CASE_IR8(IDX, 3, I8_I8_U8)
                 {
-                    const structure_t* const indexed_struct = 
+                    const structure_t* const indexed_struct =
                         WO_VM_ADRS_R_S(p2_i8)->m_structure;
                     gcbase::gc_read_guard rg(indexed_struct);
-                    
+
                     WO_VM_ADRS_R_S(p1_i8)->set_val(
                         &indexed_struct->m_values[p3_u8]);
                 }
@@ -2260,7 +2593,7 @@ namespace wo
                 // SIDARR
                 WO_VM_BEGIN_CASE_IR8(SIDX, 0, I8_I8_I8)
                 {
-                    array_t* const indexed_arr = 
+                    array_t* const indexed_arr =
                         WO_VM_ADRS_R_S(p2_i8)->m_array;
                     gcbase::gc_write_guard wg(indexed_arr);
 
@@ -2281,7 +2614,7 @@ namespace wo
                 // SIDDICT
                 WO_VM_BEGIN_CASE_IR8(SIDX, 1, I8_I8_I8)
                 {
-                    dictionary_t* const indexed_dict = 
+                    dictionary_t* const indexed_dict =
                         WO_VM_ADRS_R_S(p2_i8)->m_dictionary;
                     gcbase::gc_write_guard wg(indexed_dict);
 
@@ -2310,14 +2643,14 @@ namespace wo
                     value* dict_val = &(*indexed_dict)[*index_key];
                     if (gc::gc_is_marking())
                         value::write_barrier(dict_val);
-                    dict_val->set_val(WO_VM_ADRS_R_S(p1_i8));                  
+                    dict_val->set_val(WO_VM_ADRS_R_S(p1_i8));
                 }
                 WO_VM_END_CASE();
 
                 // SIDSTRUCT
                 WO_VM_BEGIN_CASE_IR8(SIDX, 3, I8_I8_U8)
                 {
-                    structure_t* const indexed_struct = 
+                    structure_t* const indexed_struct =
                         WO_VM_ADRS_R_S(p2_i8)->m_structure;
                     gcbase::gc_write_guard wg(indexed_struct);
                     value* struct_val = &indexed_struct->m_values[p3_u8];
@@ -2330,7 +2663,7 @@ namespace wo
                 // IDSTEXT
                 WO_VM_BEGIN_CASE_IR8(IDSTEXT, 0, I8_I8_8_EU32)
                 {
-                    const structure_t* const indexed_struct = 
+                    const structure_t* const indexed_struct =
                         WO_VM_ADRS_R_S(p2_i8)->m_structure;
                     gcbase::gc_read_guard rg(indexed_struct);
 
@@ -2342,7 +2675,7 @@ namespace wo
                 // SIDSTEXT
                 WO_VM_BEGIN_CASE_IR8(SIDSTEXT, 0, I8_I8_8_EU32)
                 {
-                    structure_t* const indexed_struct = 
+                    structure_t* const indexed_struct =
                         WO_VM_ADRS_R_S(p2_i8)->m_structure;
                     gcbase::gc_write_guard wg(indexed_struct);
 
@@ -2393,7 +2726,7 @@ namespace wo
                 WO_VM_BEGIN_CASE_IR8(JMPGC, 0, U24)
                 {
                     rt_ip = near_rtcode_begin + p1_u24;
-                    
+
                     WO_VM_INTERRUPT_CHECKPOINT;
                     break;
                 }
@@ -2426,6 +2759,404 @@ namespace wo
 
                 // ...
 
+                // CALLNWO
+                WO_VM_BEGIN_CASE_IR8(CALLN, 0, U24_E32)
+                {
+                    if (sp > stack_storage)
+                    {
+                        sp->m_type = value::valuetype::callstack;
+                        sp->m_vmcallstack.bp = static_cast<uint32_t>(sb - bp);
+                        sp->m_vmcallstack.ret_ip =
+                            static_cast<uint32_t>(rt_ip - near_rtcode_begin) + z__wo_vm_next_ir_offset;
+
+                        bp = --sp;
+                        rt_ip = near_rtcode_begin + p1_u24;
+                    }
+                    else
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+
+                    WO_VM_INTERRUPT_CHECKPOINT;
+
+                    // Break out, donot `WO_VM_END_CASE`
+                    break;
+                }
+                WO_VM_END_CASE();
+
+                // CALLNJIT
+                WO_VM_BEGIN_CASE_IR8(CALLN, 1, EU56)
+                {
+                    if (sp > stack_storage)
+                    {
+                        sp->m_type = value::valuetype::callstack;
+                        sp->m_vmcallstack.bp = static_cast<uint32_t>(sb - bp);
+                        sp->m_vmcallstack.ret_ip =
+                            static_cast<uint32_t>(rt_ip - near_rtcode_begin) + z__wo_vm_next_ir_offset;
+
+                        // Donot store or update ip/sp/bp. jit function will not use them.
+                        auto* const rt_sp = sp;
+
+                        switch (reinterpret_cast<wo_extern_native_func_t>(
+                            static_cast<intptr_t>(p1_u56))(
+                                reinterpret_cast<wo_vm>(this),
+                                std::launder(reinterpret_cast<wo_value>(sp + 1))))
+                        {
+                        case wo_result_t::WO_API_NORMAL:
+                        {
+                            WO_VM_ASSERT(rt_sp > stack_storage && rt_sp <= sb,
+                                "Unexpected stack changed in 'callnjit'.");
+                            sp = rt_sp;
+
+                            WO_VM_ASSERT(sp->m_type == value::valuetype::callstack,
+                                "Found broken stack in 'callnjit'.");
+                            bp = sb - sp->m_vmcallstack.bp;
+                            break;
+                        }
+                        case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
+                            rt_ip = this->ip;
+                            WO_VM_INTERRUPT_CHECKPOINT;
+                            break;
+                        default:
+#if WO_ENABLE_RUNTIME_CHECK
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                        WO_VM_INTERRUPT_CHECKPOINT;
+
+                        // Break out, donot `WO_VM_END_CASE`
+                        break;
+                    }
+                }
+                WO_VM_END_CASE();
+
+                // RET
+                WO_VM_BEGIN_CASE_IR8(RET, 0, 24)
+                {
+                    switch ((++bp)->m_type)
+                    {
+                    case value::valuetype::native_callstack:
+                        sp = bp;
+                        // last stack is native_func, just do return;
+                        // stack balance should be keeped by invoker.
+                        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+                    case value::valuetype::callstack:
+                    {
+                        value* stored_bp = sb - bp->m_vmcallstack.bp;
+                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                        rt_ip = near_rtcode_begin + bp->m_vmcallstack.ret_ip;
+                        sp = bp;
+                        bp = stored_bp;
+                        break;
+                    }
+                    case value::valuetype::far_callstack:
+                    {
+                        value* stored_bp = sb - bp->m_ext_farcallstack_bp;
+                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                        rt_ip = bp->m_farcallstack;
+                        sp = bp;
+                        bp = stored_bp;
+
+                        if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                        {
+                            wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                            WO_VM_INTERRUPT_CHECKPOINT;
+                        }
+                        break;
+                    }
+                    default:
+#if WO_ENABLE_RUNTIME_CHECK
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
+#endif
+                        break;
+                    }
+
+                    // Break out, donot `WO_VM_END_CASE`
+                    break;
+                }
+                WO_VM_END_CASE();
+
+                // RETN
+                WO_VM_BEGIN_CASE_IR8(RET, 1, 8_U16)
+                {
+                    switch ((++bp)->m_type)
+                    {
+                    case value::valuetype::native_callstack:
+                        sp = bp;
+                        sp += p1_u16;
+                        // last stack is native_func, just do return;
+                        // stack balance should be keeped by invoker.
+                        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+                    case value::valuetype::callstack:
+                    {
+                        value* stored_bp = sb - bp->m_vmcallstack.bp;
+                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                        rt_ip = near_rtcode_begin + bp->m_vmcallstack.ret_ip;
+                        sp = bp;
+                        bp = stored_bp;
+
+                        break;
+                    }
+                    case value::valuetype::far_callstack:
+                    {
+                        value* stored_bp = sb - bp->m_ext_farcallstack_bp;
+                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                        rt_ip = bp->m_farcallstack;
+                        sp = bp;
+                        bp = stored_bp;
+
+                        if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                        {
+                            wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                            WO_VM_INTERRUPT_CHECKPOINT;
+                        }
+                        break;
+                    }
+                    default:
+#if WO_ENABLE_RUNTIME_CHECK
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
+#endif
+                        break;
+                    }
+                    sp += p1_u16;
+
+                    // Break out, donot `WO_VM_END_CASE`
+                    break;
+                }
+                WO_VM_END_CASE();
+
+                // CALLNFP
+                WO_VM_BEGIN_CASE_IR8(CALLN, 2, EU56)
+                {
+                    if (sp > stack_storage)
+                    {
+                        // For debugging purposes, native calls use far callstack to preserve 
+                        // the complete return address.
+                        // Since native calls do not use the `ret` instruction to return, there 
+                        // is no performance penalty
+
+                        sp->m_type = value::valuetype::far_callstack;
+                        sp->m_ext_farcallstack_bp = static_cast<uint32_t>(sb - bp);
+                        sp->m_farcallstack = rt_ip;
+
+                        bp = --sp;
+
+                        const auto rt_bp = sb - bp;
+                        auto* const target_fp =
+                            reinterpret_cast<wo_extern_native_func_t>(static_cast<intptr_t>(p1_u56));
+                        ip = reinterpret_cast<irv2::ir*>(target_fp);
+
+                        switch (target_fp(
+                            reinterpret_cast<wo_vm>(this),
+                            std::launder(reinterpret_cast<wo_value>(sp + 1))))
+                        {
+                        case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
+                            WO_VM_INTERRUPT_CHECKPOINT;
+                            /* FALLTHROUGH */
+                            [[fallthrough]];
+                        case wo_result_t::WO_API_NORMAL:
+                        {
+                            bp = sb - rt_bp;
+
+                            WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
+                                "Found broken stack in 'callnfp'.");
+                            value* stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
+                            sp = bp;
+                            bp = stored_bp;
+                            break;
+                        }
+                        default:
+#if WO_ENABLE_RUNTIME_CHECK
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                        WO_VM_INTERRUPT_CHECKPOINT;
+
+                        // Break out, donot `WO_VM_END_CASE`
+                        break;
+                    }
+                }
+                WO_VM_END_CASE();
+
+                // CALL
+                WO_VM_BEGIN_CASE_IR8(CALL, 0, I8_16)
+                {
+                    value* const call_target = WO_VM_ADRS_R_S(p1_i8);
+
+                    if (call_target->m_type == value::valuetype::closure_type
+                        ? sp - call_target->m_closure->m_closure_args_count > stack_storage
+                        : sp > stack_storage)
+                    {
+                        switch (call_target->m_type)
+                        {
+                        case value::valuetype::closure_type:
+                        {
+                            closure_t* const closure = call_target->m_closure;
+
+                            // Unpack captured variables to stack
+                            for (uint16_t idx = 0; idx < closure->m_closure_args_count; ++idx)
+                                (sp--)->set_val(closure->m_closure_args + idx);
+
+                            if (closure->m_native_call)
+                            {
+                                // Closure's native function must be callnjit.
+                                sp->m_type = value::valuetype::callstack;
+                                sp->m_vmcallstack.bp = static_cast<uint32_t>(sb - bp);
+                                sp->m_vmcallstack.ret_ip =
+                                    static_cast<uint32_t>(rt_ip - near_rtcode_begin) + z__wo_vm_next_ir_offset;
+
+                                // Donot store or update ip/sp/bp. jit function will not use them.
+                                auto* const rt_sp = sp;
+
+                                switch (closure->m_native_func(
+                                    reinterpret_cast<wo_vm>(this),
+                                    std::launder(reinterpret_cast<wo_value>(sp + 1))))
+                                {
+                                case wo_result_t::WO_API_NORMAL:
+                                {
+                                    WO_VM_ASSERT(rt_sp > stack_storage && rt_sp <= sb,
+                                        "Unexpected stack changed in 'call'.");
+                                    sp = rt_sp;
+
+                                    WO_VM_ASSERT(sp->m_type == value::valuetype::callstack,
+                                        "Found broken stack in 'call'.");
+                                    bp = sb - sp->m_vmcallstack.bp;
+                                    break;
+                                }
+                                case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
+                                    rt_ip = this->ip;
+                                    WO_VM_INTERRUPT_CHECKPOINT;
+                                    break;
+                                default:
+#if WO_ENABLE_RUNTIME_CHECK
+                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                const auto* aim_function_addr = closure->m_vm_func;
+                                if (aim_function_addr < near_rtcode_begin || aim_function_addr >= near_rtcode_end)
+                                {
+                                    sp->m_type = value::valuetype::far_callstack;
+                                    sp->m_farcallstack = rt_ip;
+                                    sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
+                                    bp = --sp;
+                                    wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                                }
+                                else
+                                {
+                                    sp->m_type = value::valuetype::callstack;
+                                    sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
+                                    sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
+                                    bp = --sp;
+                                }
+                                rt_ip = aim_function_addr;
+
+                                goto _label_vm_break_and_continue;
+                            }
+
+                            break;
+                        }
+                        case value::valuetype::native_func_type:
+                        {
+                            auto* const target_fp = call_target->m_native_func;
+
+                            /* Might be far call jit code. */
+                            sp->m_type = value::valuetype::far_callstack;
+                            sp->m_farcallstack = rt_ip;
+                            sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
+                            bp = --sp;
+                            auto rt_bp = sb - bp;
+
+                            // Call native
+                            ip = reinterpret_cast<const irv2::ir*>(target_fp);
+
+                            switch (target_fp(
+                                reinterpret_cast<wo_vm>(this),
+                                std::launder(reinterpret_cast<wo_value>(sp + 2))))
+                            {
+                            case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
+                                WO_VM_INTERRUPT_CHECKPOINT;
+                                /* FALLTHROUGH */
+                                [[fallthrough]];
+                            case wo_result_t::WO_API_NORMAL:
+                            {
+                                bp = sb - rt_bp;
+
+                                WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
+                                    "Found broken stack in 'call'.");
+                                value* stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
+                                sp = bp;
+                                bp = stored_bp;
+                                break;
+                            }
+                            case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
+                                rt_ip = this->ip;
+                                if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                                    wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                                WO_VM_INTERRUPT_CHECKPOINT;
+                                break;
+                            default:
+#if WO_ENABLE_RUNTIME_CHECK
+                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
+                                break;
+                            }
+                            break;
+                        }
+                        case value::valuetype::script_func_type:
+                        {
+                            rt_ip = call_target->m_script_func;
+
+                            if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                            {
+                                sp->m_type = value::valuetype::far_callstack;
+                                sp->m_farcallstack = rt_ip;
+                                sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
+                                bp = --sp;
+                                wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                            }
+                            else
+                            {
+                                sp->m_type = value::valuetype::callstack;
+                                sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
+                                sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
+                                bp = --sp;
+                            }
+                            goto _label_vm_break_and_continue;
+                        }
+                        default:
+                            WO_VM_FAIL(WO_FAIL_CALL_FAIL, "Unexpected invoke target type in 'call'.");
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+
+                    _label_vm_break_and_continue:
+                        WO_VM_INTERRUPT_CHECKPOINT;
+
+                        // Break out, donot `WO_VM_END_CASE`
+                        break;
+                    }
+                }
+                WO_VM_END_CASE();
+
                 // MKARR
                 WO_VM_BEGIN_CASE_IR8(CONS, 0, I8_U16)
                 {
@@ -2452,6 +3183,59 @@ namespace wo
                     sp = make_struct_impl(
                         WO_VM_ADRS_R_S(p1_i8),
                         p2_u16,
+                        sp);
+                }
+                WO_VM_END_CASE();
+
+                // MKARREXT
+                WO_VM_BEGIN_CASE_IR8(CONSEXT, 0, I8_16_EU32)
+                {
+                    sp = make_struct_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        p2_u32,
+                        sp);
+                }
+                WO_VM_END_CASE();
+
+                // MKMAPEXT
+                WO_VM_BEGIN_CASE_IR8(CONSEXT, 1, I8_16_EU32)
+                {
+                    sp = make_map_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        p2_u32,
+                        sp);
+                }
+                WO_VM_END_CASE();
+
+                // MKSTRUCTEXT
+                WO_VM_BEGIN_CASE_IR8(CONSEXT, 2, I8_16_EU32)
+                {
+                    sp = make_struct_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        p2_u32,
+                        sp);
+                }
+                WO_VM_END_CASE();
+
+                // MKCLOSWO
+                WO_VM_BEGIN_CASE_IR8(MKCLOS, 0, I8_U16_EU32_E32)
+                {
+                    sp = make_closure_wo_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        p2_u16,
+                        near_rtcode_begin + p3_u32,
+                        sp);
+                }
+                WO_VM_END_CASE();
+
+                // MKCLOSJIT
+                WO_VM_BEGIN_CASE_IR8(MKCLOS, 1, I8_U16_EU64)
+                {
+                    sp = make_closure_fp_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        p2_u16,
+                        reinterpret_cast<wo_native_func_t>(
+                            static_cast<intptr_t>(p3_u64)),
                         sp);
                 }
                 WO_VM_END_CASE();

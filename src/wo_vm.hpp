@@ -443,9 +443,9 @@ namespace wo
         static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept;
         static value* make_closure_wo_impl(value* opnum1, uint16_t argc, const wo::irv2::ir* addr, value* rt_sp) noexcept;
         static value* make_closure_fp_impl(value* opnum1, uint16_t argc, wo_native_func_t addr, value* rt_sp) noexcept;
-        static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
-        static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
-        static value* make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
+        static value* make_array_impl(value* opnum1, uint32_t size, value* rt_sp) noexcept;
+        static value* make_map_impl(value* opnum1, uint32_t size, value* rt_sp) noexcept;
+        static value* make_struct_impl(value* opnum1, uint32_t size, value* rt_sp) noexcept;
         static void packargs_impl(value* opnum1, uint16_t argcount, const value* tp, value* rt_bp, uint16_t skip_closure_arg_count) noexcept;
         static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const irv2::ir* rt_ip, value* rt_sp, value* rt_bp) noexcept;
         static const char* movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept;
