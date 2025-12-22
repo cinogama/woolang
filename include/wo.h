@@ -1424,25 +1424,35 @@ enum _wo_irv2
     //           01 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKMAPEXT
     //           10 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKSTRUCTEXT
     //           11 ======== RESERVED ========
-    WO_UNPACK,  //  UNPACK   00 [R/SAds] [  Unit count   ] // UNPACK
+    WO_MKCLOS,  
+    //  MKCLOS   00 [R/SAds] [R/SAds] [CapN8b] 
+    //           01 [R/SAds] [R/SAds] 00000000 [ Captured count 32bits ] 
+    //           10 [R/SAds] [CaptureCount16b] [  C/G Adrsing 32 bits  ]
+    WO_UNPACK,  
+    //  UNPACK   00 [R/SAds] 00000000 00000000  // UNPACK
+    //           01 [R/SAds] [Unpack count 16b] // UNPACKN
+    //           10 [R/SAds] [Check count 16b ] // UNPACKC
+    //           11 ======== RESERVED ========
     WO_PACK,
     //  PACK     00 [R/SAds] [FnArgc] [ClArgc] 
     //           01 [R/SAds] [ FnArgc 16bits ] [     ClArgc 32bits     ]
+    //           10 ======== RESERVED ========
+    //           11 ======== RESERVED ========
     WO_LDS,
     //  LDS      00 [R/SAds] [ StackBp offset]
     //           01 [R/SAds] 00000000 00000000 [ StackBp offset 32bits ]
     //           10 [R/SAds] [R/SAds] 00000000
-    //           11 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
+    //           11 [R/SAds] 00000000 00000000 [  C/G Adrsing 32 bits  ]
     WO_STS,
     //  STS      00 [R/SAds] [ StackBp offset]
     //           01 [R/SAds] 00000000 00000000 [ StackBp offset 32bits ]
     //           10 [R/SAds] [R/SAds] 00000000
-    //           11 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
+    //           11 [R/SAds] 00000000 00000000 [  C/G Adrsing 32 bits  ]
     WO_PANIC,
     //  PANIC    00 [R/SAds] 00000000 00000000
     //           01 ======== RESERVED ======== 
     //           10 [   C/G Adrsing 24bit    ]
-    //           11 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
+    //           11 00000000 00000000 00000000 [  C/G Adrsing 32 bits  ]
 };
 
 #endif
