@@ -516,7 +516,7 @@ namespace wo
         env = runtime_environment;
         ++env->_running_on_vm_count;
 
-        runtime_codes_begin = ip = env->rt_codes;
+        runtime_codes_begin = ip = reinterpret_cast<const irv2::ir*>(env->rt_codes);
         runtime_codes_end = runtime_codes_begin + env->rt_code_len;
         runtime_static_storage = env->constant_and_global_storage;
 
@@ -546,145 +546,6 @@ namespace wo
     //////////////////////////////////////////////////////////////////////////
 
     // Bytecode disassembly helper class
-    class bytecode_disassembler
-    {
-    public:
-        bytecode_disassembler(
-            const byte_t* code_ptr,
-            const runtime_env* env) noexcept
-            : m_code_ptr(code_ptr)
-            , m_env(env)
-            , m_static_storage(env->constant_and_global_storage)
-            , m_main_command(0)
-        {
-        }
-
-        // Read main command byte
-        byte_t read_command() noexcept
-        {
-            m_main_command = *m_code_ptr++;
-            return m_main_command;
-        }
-
-        // Get current code pointer
-        const byte_t* current() const noexcept { return m_code_ptr; }
-
-        // Get main command
-        byte_t command() const noexcept { return m_main_command; }
-
-        // Get opcode (upper 6 bits)
-        byte_t opcode() const noexcept { return m_main_command & 0b11111100; }
-
-        // Get DR bits (lower 2 bits)
-        byte_t dr() const noexcept { return m_main_command & 0b00000011; }
-
-        // Read fixed-size data
-        template<typename T>
-        T read() noexcept
-        {
-            T value = *reinterpret_cast<const T*>(m_code_ptr);
-            m_code_ptr += sizeof(T);
-            return value;
-        }
-
-        // Format register or BP offset
-        std::string format_reg_or_bpoffset() noexcept
-        {
-            byte_t data = read<byte_t>();
-            if (data & (1 << 7))
-                return format_bp_offset(data);
-            return format_register(data);
-        }
-
-        // Format global/static value
-        std::string format_global_static() noexcept
-        {
-            uint32_t index = read<uint32_t>();
-            if (index < m_env->constant_value_count)
-                return format_constant_value(index);
-            return "g[" + std::to_string(index - m_env->constant_value_count) + "]";
-        }
-
-        // Format first operand based on DR bits
-        std::string format_opnum1() noexcept
-        {
-            return (m_main_command & 0b00000010)
-                ? format_reg_or_bpoffset()
-                : format_global_static();
-        }
-
-        // Format second operand based on DR bits
-        std::string format_opnum2() noexcept
-        {
-            return (m_main_command & 0b00000001)
-                ? format_reg_or_bpoffset()
-                : format_global_static();
-        }
-
-    private:
-        static constexpr int SIGNED_SHIFT(byte_t val) noexcept
-        {
-            return static_cast<signed char>(
-                static_cast<unsigned char>(
-                    static_cast<unsigned char>(val) << 1)) >> 1;
-        }
-
-        std::string format_bp_offset(byte_t data) const noexcept
-        {
-            int offset = SIGNED_SHIFT(data);
-            std::string result = "[bp";
-            if (offset < 0)
-                result += std::to_string(offset);
-            else if (offset == 0)
-                result += "-0";
-            else
-                result += "+" + std::to_string(offset);
-            return result + "]";
-        }
-
-        std::string format_register(byte_t reg) const noexcept
-        {
-            if (reg <= 15)
-                return "t" + std::to_string(reg);
-            if (reg <= 31)
-                return "r" + std::to_string(reg - 16);
-
-            switch (reg)
-            {
-            case 32: return "cr";
-            case 33: return "tc";
-            case 34: return "er";
-            case 35: return "nil";
-            case 36: return "pm";
-            case 37: return "tp";
-            default: return "reg(" + std::to_string(reg) + ")";
-            }
-        }
-
-        std::string format_constant_value(uint32_t index) const noexcept
-        {
-            const auto& val = m_static_storage[index];
-            std::string result;
-
-            if (val.m_type == value::valuetype::string_type)
-                result = u8enstring(val.m_string->data(), val.m_string->size(), false);
-            else
-                result = wo_cast_string(
-                    std::launder(
-                        reinterpret_cast<wo_value>(
-                            const_cast<value*>(&val))));
-
-            result += ": ";
-            result += wo_type_name(static_cast<wo_type_t>(val.m_type));
-            return result;
-        }
-
-        const byte_t* m_code_ptr;
-        const runtime_env* m_env;
-        const value* m_static_storage;
-        byte_t m_main_command;
-    };
-
     namespace
     {
         // Print hexadecimal representation of bytecode
@@ -717,95 +578,20 @@ namespace wo
         const runtime_env* codeholder,
         size_t begin,
         size_t end,
-        const wo::byte_t* focus_runtime_ip,
+        const irv2::ir* focus_runtime_ip,
         std::ostream& os) noexcept
     {
-        const byte_t* const program = codeholder->rt_codes;
-        const byte_t* code_ptr = program + begin;
-        const byte_t* const code_end = program + std::min(codeholder->rt_code_len, end);
-
-        while (code_ptr < code_end)
-        {
-            const byte_t* const instr_begin = code_ptr;
-            bytecode_disassembler dis(code_ptr, codeholder);
-
-            std::string mnemonic = disassemble_instruction(dis);
-            code_ptr = dis.current();
-
-            // Highlight current instruction pointer position
-            const bool is_current_ip =
-                (focus_runtime_ip >= instr_begin && focus_runtime_ip < code_ptr);
-
-            if (is_current_ip)
-                os << ANSI_INV;
-
-            print_hex_bytes(os, instr_begin, code_ptr,
-                static_cast<uint32_t>(instr_begin - program));
-
-            if (is_current_ip)
-                os << ANSI_RST;
-
-            os << "| " << mnemonic << std::endl;
-        }
-
-        os << std::endl;
+        
     }
 
     std::string vmbase::disassemble_instruction(bytecode_disassembler& dis) noexcept
     {
-        dis.read_command();
-        std::string result;
-
-        // Helper macros to simplify binary operation instructions
-#define BINARY_OP(name) \
-            result = name "\t"; \
-            result += dis.format_opnum1(); \
-            result += ",\t"; \
-            result += dis.format_opnum2(); \
-            break
-
-#define UNARY_OP(name) \
-            result = name "\t"; \
-            result += dis.format_opnum1(); \
-            break
-
-#define TERNARY_OP(name) \
-            result = name "\t"; \
-            result += dis.format_opnum1(); \
-            result += ",\t"; \
-            result += dis.format_opnum2(); \
-            result += ",\t"; \
-            result += dis.format_reg_or_bpoffset(); \
-            break
-
-        switch (dis.opcode())
-        {
-        default:
-            result = "??\t";
-            break;
-        }
-
-#undef BINARY_OP
-#undef UNARY_OP
-#undef TERNARY_OP
-
-        return result;
+        return "";
     }
 
     std::string vmbase::disassemble_ext_instruction(bytecode_disassembler& dis) noexcept
     {
-        std::string result = "ext ";
-        int page = dis.dr();
-        dis.read_command(); // Read extended opcode
-
-        switch (page)
-        {
-        default:
-            result += "??\t";
-            break;
-        }
-
-        return result;
+        return "";
     }
 
     void vmbase::dump_call_stack(
@@ -871,7 +657,7 @@ namespace wo
 
             union
             {
-                const byte_t* m_abs_addr;
+                const irv2::ir* m_abs_addr;
                 uint32_t m_diff_offset;
             };
             value* m_bp;
@@ -882,7 +668,7 @@ namespace wo
                 , m_bp(nullptr)
             {
             }
-            callstack_ip_state(const byte_t* abs, value* bp)
+            callstack_ip_state(const irv2::ir* abs, value* bp)
                 : m_type(ipaddr_kind::ABS)
                 , m_abs_addr(abs)
                 , m_bp(bp)
@@ -1006,7 +792,8 @@ namespace wo
                 if (
                     (rip >= callenv->rt_codes
                         && rip < callenv->rt_codes + callenv->rt_code_len)
-                    || runtime_env::fetch_far_runtime_env(rip, &callenv))
+                    || runtime_env::fetch_far_runtime_env(
+                        reinterpret_cast<const irv2::ir*>(rip), &callenv))
                 {
                     if (callenv == env)
                         callway = call_way::NEAR;
@@ -1082,7 +869,7 @@ namespace wo
                     row_number,
                     col_number,
                     callway,
-                    rip,
+                    reinterpret_cast<const irv2::ir*>(rip),
                     nullptr, // Will be set outside.
                 };
             };
@@ -1107,7 +894,8 @@ namespace wo
             */
             if (callstack_state.m_type == callstack_ip_state::ipaddr_kind::ABS
                 && runtime_env::fetch_far_runtime_env(
-                    callstack_state.m_abs_addr, &current_env_pointer))
+                    callstack_state.m_abs_addr, 
+                    &current_env_pointer))
             {
                 // Found.
                 break;
@@ -1137,7 +925,7 @@ namespace wo
                 callstack_ip = nullptr;
                 break;
             case callstack_ip_state::ipaddr_kind::ABS:
-                callstack_ip = callstack_state.m_abs_addr;
+                callstack_ip = reinterpret_cast<const wo::byte_t*>(callstack_state.m_abs_addr);
                 break;
             case callstack_ip_state::ipaddr_kind::OFFSET:
                 callstack_ip = current_env_pointer->rt_codes + callstack_state.m_diff_offset;
@@ -1275,7 +1063,7 @@ namespace wo
     // Coroutine Pre-Invoke Functions
     //////////////////////////////////////////////////////////////////////////
 
-    void vmbase::co_pre_invoke_script(const byte_t* wo_func_addr, wo_int_t argc) noexcept
+    void vmbase::co_pre_invoke_script(const irv2::ir* wo_func_addr, wo_int_t argc) noexcept
     {
         wo_assert(nullptr != wo_func_addr);
 
@@ -1316,7 +1104,7 @@ namespace wo
         sp->m_nativecallstack = ip;
         --sp;
 
-        ip = reinterpret_cast<const byte_t*>(ex_func_addr);
+        ip = reinterpret_cast<const irv2::ir*>(ex_func_addr);
         tc->set_integer(argc);
 
         bp = sp;
@@ -1349,7 +1137,7 @@ namespace wo
         --sp;
 
         ip = wo_func_addr->m_native_call
-            ? (const byte_t*)wo_func_addr->m_native_func
+            ? (const irv2::ir*)wo_func_addr->m_native_func
             : wo_func_addr->m_vm_func;
         tc->set_integer(argc);
 
@@ -1369,7 +1157,7 @@ namespace wo
     // Invoke Functions
     //////////////////////////////////////////////////////////////////////////
 
-    value* vmbase::invoke_script(const byte_t* wo_func_addr, wo_int_t argc) noexcept
+    value* vmbase::invoke_script(const irv2::ir* wo_func_addr, wo_int_t argc) noexcept
     {
         wo_assert(nullptr != wo_func_addr);
 
@@ -1432,7 +1220,7 @@ namespace wo
         --sp;
 
         tc->set_integer(argc);
-        ip = reinterpret_cast<const wo::byte_t*>(wo_func_addr);
+        ip = reinterpret_cast<const wo::irv2::ir*>(wo_func_addr);
         bp = sp;
 
         auto vm_exec_result = ((wo_native_func_t)wo_func_addr)(
@@ -1578,68 +1366,12 @@ namespace wo
     // VM Instruction Implementation Helpers
     //////////////////////////////////////////////////////////////////////////
 
-#define WO_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
-#define WO_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t*)(rt_ip-4))
-#define WO_SAFE_READ_OFFSET_GET_WORD (*(uint16_t*)(rt_ip-2))
-
-    // FOR BigEndian
-#define WO_SAFE_READ_OFFSET_PER_BYTE(OFFSET, TYPE) (((TYPE)(*(rt_ip-OFFSET)))<<((sizeof(TYPE)-OFFSET)*8))
-#define WO_IS_ODD_IRPTR(ALLIGN) 1 //(reinterpret_cast<size_t>(rt_ip)%ALLIGN)
-
-#define WO_SAFE_READ_MOVE_2 \
-    (rt_ip+=2,WO_IS_ODD_IRPTR(2)?\
-        (uint16_t)(WO_SAFE_READ_OFFSET_PER_BYTE(2,uint16_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint16_t)):\
-        WO_SAFE_READ_OFFSET_GET_WORD)
-#define WO_SAFE_READ_MOVE_4 \
-    (rt_ip+=4,WO_IS_ODD_IRPTR(4)?\
-        (uint32_t)(WO_SAFE_READ_OFFSET_PER_BYTE(4,uint32_t)|WO_SAFE_READ_OFFSET_PER_BYTE(3,uint32_t)\
-        |WO_SAFE_READ_OFFSET_PER_BYTE(2,uint32_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint32_t)):\
-        WO_SAFE_READ_OFFSET_GET_DWORD)
-#define WO_SAFE_READ_MOVE_8 \
-    (rt_ip+=8,WO_IS_ODD_IRPTR(8)?\
-        (uint64_t)(WO_SAFE_READ_OFFSET_PER_BYTE(8,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(7,uint64_t)|\
-        WO_SAFE_READ_OFFSET_PER_BYTE(6,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(5,uint64_t)|\
-        WO_SAFE_READ_OFFSET_PER_BYTE(4,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(3,uint64_t)|\
-        WO_SAFE_READ_OFFSET_PER_BYTE(2,uint64_t)|WO_SAFE_READ_OFFSET_PER_BYTE(1,uint64_t)):\
-        WO_SAFE_READ_OFFSET_GET_QWORD)
-
-    // X86 support non-aligned addressing, so just do it!
-#define WO_FAST_READ_MOVE_2 (*(uint16_t*)((rt_ip += 2) - 2))
-#define WO_FAST_READ_MOVE_4 (*(uint32_t*)((rt_ip += 4) - 4))
-#define WO_FAST_READ_MOVE_8 (*(uint64_t*)((rt_ip += 8) - 8))
-
-#define WO_IPVAL (*(rt_ip))
-#define WO_IPVAL_MOVE_1 (*(rt_ip++))
-
-#ifdef WO_VM_SUPPORT_FAST_NO_ALIGN
-#   define WO_IPVAL_MOVE_2 WO_FAST_READ_MOVE_2
-#   define WO_IPVAL_MOVE_4 WO_FAST_READ_MOVE_4
-#   define WO_IPVAL_MOVE_8 WO_FAST_READ_MOVE_8
-#else
-#   define WO_IPVAL_MOVE_2 WO_SAFE_READ_MOVE_2
-#   define WO_IPVAL_MOVE_4 WO_SAFE_READ_MOVE_4
-#   define WO_IPVAL_MOVE_8 WO_SAFE_READ_MOVE_8
-#endif
-
     // VM Operate
-#define WO_VM_RETURN(V) do{ ip = rt_ip; return (V); }while(0)
-#define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
-
-#define WO_ADDRESSING_RS \
-    ((WO_IPVAL & (1 << 7)) ? (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1)) : (WO_IPVAL_MOVE_1 + reg_begin))
-#define WO_ADDRESSING_G \
-    (WO_IPVAL_MOVE_4 + near_static_global)
-
-#define WO_ADDRESSING_RS1 \
-        opnum1 = WO_ADDRESSING_RS
-#define WO_ADDRESSING_G1 \
-        opnum1 = WO_ADDRESSING_G
-#define WO_ADDRESSING_RS2 \
-        opnum2 = WO_ADDRESSING_RS
-#define WO_ADDRESSING_G2 \
-        opnum2 = WO_ADDRESSING_G
-#define WO_ADDRESSING_RS3 \
-        opnum3 = WO_ADDRESSING_RS
+#define WO_VM_RETURN(V)                                     \
+    do{                                                     \
+        ip = rt_ip;    \
+        return (V);                                         \
+    }while(0)
 
     //////////////////////////////////////////////////////////////////////////
     // Comparison Operation Implementations
@@ -1757,7 +1489,7 @@ namespace wo
     value* vmbase::make_closure_wo_impl(
         value* opnum1,
         uint16_t argc,
-        const wo::byte_t* addr,
+        const irv2::ir* addr,
         value* rt_sp) noexcept
     {
         auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(addr, argc);
@@ -1860,7 +1592,7 @@ namespace wo
         value* opnum1,
         int32_t unpack_argc,
         value* tc,
-        const byte_t* rt_ip,
+        const irv2::ir* rt_ip,
         value* rt_sp,
         value* rt_bp) noexcept
     {
@@ -2083,89 +1815,29 @@ namespace wo
         wo_assert(!check_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
         wo_assert(_this_thread_gc_guard_vm == this);
 
-        const byte_t* near_rtcode_begin = runtime_codes_begin;
-        const byte_t* near_rtcode_end = runtime_codes_end;
+        const irv2::ir
+            * near_rtcode_begin = reinterpret_cast<const irv2::ir*>(
+                runtime_codes_begin),
+            * near_rtcode_end = reinterpret_cast<const irv2::ir*>(
+                runtime_codes_end);
         value* near_static_global = runtime_static_storage;
 
         value* const rt_cr = cr;
-        value* const reg_begin = register_storage;
+        value* const rt_reg_fast_lookup = register_storage - 0b01100000;
 
-        value* opnum1, * opnum2, * opnum3;
-
-        const byte_t* rt_ip = ip;
-        const byte_t* ip_for_rollback;
-
-#define WO_RSG_ADDRESSING_CASE(CODE)        \
-        instruct::opcode::CODE##gg:         \
-            WO_ADDRESSING_G1;               \
-            WO_ADDRESSING_G2;               \
-        goto _label_##CODE##_impl;          \
-        case instruct::opcode::CODE##gs:    \
-            WO_ADDRESSING_G1;               \
-            WO_ADDRESSING_RS2;              \
-            goto _label_##CODE##_impl;      \
-        case instruct::opcode::CODE##sg:    \
-            WO_ADDRESSING_RS1;              \
-            WO_ADDRESSING_G2;               \
-            goto _label_##CODE##_impl;      \
-        case instruct::opcode::CODE##ss:    \
-            WO_ADDRESSING_RS1;              \
-            WO_ADDRESSING_RS2;              \
-        _label_##CODE##_impl
-        /*
-        // ISSUE: 25-08-16:
-        The global storage area functions like a container, and as such, elements within
-        it may escape, just like in a container. Therefore, write barrier checks are
-        required for all potential write operations to the global storage area. Below
-        is a list of instructions that may trigger such write barriers:
-
-        pop,
-        adds,
-        mov,
-        movcast,
-        lds,
-        mkstruct,
-        idstruct,
-        mkcontain,
-        mkunion,
-        ext0 pack,
-
-        Note that instructions like addi and addr do not require write barrier checks
-        because they explicitly specify that the operand's type is a primitive type.
-        */
-#define WO_WRITE_CHECK_FOR_GLOBAL(VAL)          \
-        if (wo::gc::gc_is_marking())            \
-            wo::value::write_barrier(VAL)
-#define WO_RSG_ADDRESSING_WRITE_OP1_CASE(CODE)  \
-        instruct::opcode::CODE##gg:             \
-            WO_ADDRESSING_G1;                   \
-            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);  \
-            WO_ADDRESSING_G2;                   \
-        goto _label_##CODE##_impl;              \
-        case instruct::opcode::CODE##gs:        \
-            WO_ADDRESSING_G1;                   \
-            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);  \
-            WO_ADDRESSING_RS2;                  \
-            goto _label_##CODE##_impl;          \
-        case instruct::opcode::CODE##sg:        \
-            WO_ADDRESSING_RS1;                  \
-            WO_ADDRESSING_G2;                   \
-            goto _label_##CODE##_impl;          \
-        case instruct::opcode::CODE##ss:        \
-            WO_ADDRESSING_RS1;                  \
-            WO_ADDRESSING_RS2;                  \
-        _label_##CODE##_impl
+        const const irv2::ir* rt_ip =
+            reinterpret_cast<const irv2::ir*>(ip);
 
 #define WO_VM_INTERRUPT_CHECKPOINT          \
         fast_interrupt_state =              \
             vm_interrupt.load(std::memory_order_acquire)
 
-#define WO_VM_FAIL(ERRNO, ...)           \
-    do {                                    \
-        ip = rt_ip;                         \
-        wo_fail(ERRNO, __VA_ARGS__);             \
-        WO_VM_INTERRUPT_CHECKPOINT;         \
-        goto re_entry_for_failed_command;   \
+#define WO_VM_FAIL(ERRNO, ...)                          \
+    do {                                                \
+        ip = rt_ip;\
+        wo_fail(ERRNO, __VA_ARGS__);                    \
+        WO_VM_INTERRUPT_CHECKPOINT;                     \
+        goto re_entry_for_failed_command;               \
     } while(0)
 
 #if WO_ENABLE_RUNTIME_CHECK == 0
@@ -2182,19 +1854,63 @@ namespace wo
         for (;;)
         {
         re_entry_for_failed_command:
-            uint32_t rtopcode = *(rt_ip++);
+            uint32_t rtopcode = static_cast<uint32_t>(rt_ip->m_op);
 
             if (fast_interrupt_state)
                 rtopcode |= fast_interrupt_state;
 
         re_entry_for_interrupt:
+
+#define WO_VM_ADRS_C_G(OFFSET_I)                                        \
+        near_static_global + (OFFSET_I)
+#define WO_VM_ADRS_S(OFFSET_I)                                        \
+        bp + (OFFSET_I)
+#define WO_VM_ADRS_R_S(OFFSET_I)                                        \
+        ((OFFSET_I >> 5) == 0b011) ? (rt_reg_fast_lookup + (OFFSET_I)) : WO_VM_ADRS_S(OFFSET_I)
+
+#define WO_VM_BEGIN_CASE_IR6(IRNAME, FORMAT)                            \
+            case (WO_##IRNAME << 2) | 0b00:                             \
+            case (WO_##IRNAME << 2) | 0b01:                             \
+            case (WO_##IRNAME << 2) | 0b10:                             \
+            case (WO_##IRNAME << 2) | 0b11:                             \
+            {                                                           \
+                const auto& cmd = rt_ip->m_ir6_##FORMAT;                            
+
+#define WO_VM_BEGIN_CASE_IR8(IRNAME, MODE, FORMAT)                      \
+            case (WO_##IRNAME << 2) | MODE:                             \
+            {                                                           \
+                const auto& cmd = rt_ip->m_ir8_##FORMAT;                            
+
+#define WO_VM_END_CASE()                                                \
+                rt_ip = reinterpret_cast<const irv2::ir*>(              \
+                    reinterpret_cast<intptr_t>(rt_ip) + sizeof(cmd));   \
+                break;                                                  \
+            }
+               
             switch (rtopcode)
             {
-            
+                // NOP
+                WO_VM_BEGIN_CASE_IR8(NOP, 0, i8_i8_i8)
+                {
+                    // Do nothing~
+                }
+                WO_VM_END_CASE();
+
+                // END
+                WO_VM_BEGIN_CASE_IR8(END, 0, i8_i8_i8)
+                {
+                    WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+                }
+                WO_VM_END_CASE();
+
+                WO_VM_BEGIN_CASE_IR6(LOAD, i18_i8)
+                {
+                    WO_VM_ADRS_C_G(cmd.m_arg1);
+                }
+                WO_VM_END_CASE();
+
             default:
             {
-                --rt_ip;    // Move back one command.
-
                 static_assert(std::is_same_v<decltype(rtopcode), uint32_t>);
                 if ((0xFFFFFF00u & rtopcode) == 0)
                     wo_error("Unknown instruct.");
@@ -2284,7 +2000,7 @@ namespace wo
 
                     // Refetch ip from vm, it may modified by debugger.
                     rt_ip = ip;
-                    rtopcode = *(rt_ip++);
+                    rtopcode = static_cast<uint32_t>(rt_ip->m_op);
 
                     goto re_entry_for_interrupt;
                 }
@@ -2313,29 +2029,4 @@ namespace wo
 
 #undef WO_VM_RETURN
 #undef WO_VM_FAIL
-#undef WO_ADDRESSING_N2
-#undef WO_ADDRESSING_N1
-#undef WO_ADDRESSING_N2
-#undef WO_ADDRESSING_N1
-#undef WO_SIGNED_SHIFT
-#undef WO_IPVAL_MOVE_8
-#undef WO_IPVAL_MOVE_4
-#undef WO_IPVAL_MOVE_2
-#undef WO_IPVAL_MOVE_1
-#undef WO_IPVAL
-
-#undef WO_SAFE_READ_OFFSET_GET_QWORD
-#undef WO_SAFE_READ_OFFSET_GET_DWORD
-#undef WO_SAFE_READ_OFFSET_GET_WORD
-
-#undef WO_SAFE_READ_OFFSET_PER_BYTE
-#undef WO_IS_ODD_IRPTR
-
-#undef WO_SAFE_READ_MOVE_2
-#undef WO_SAFE_READ_MOVE_4
-#undef WO_SAFE_READ_MOVE_8
-
-#undef WO_FAST_READ_MOVE_2
-#undef WO_FAST_READ_MOVE_4
-#undef WO_FAST_READ_MOVE_8
 }

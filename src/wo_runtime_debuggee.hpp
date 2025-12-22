@@ -39,11 +39,11 @@ namespace wo
             {
                 std::string         m_filepath;
                 size_t              m_row_no;
-                std::vector<const wo::byte_t*>
+                std::vector<const irv2::ir*>
                     m_break_runtime_ips;
             };
             std::vector<breakpoint_info> m_breakpoint_traps;
-            std::unordered_multiset<const wo::byte_t*> m_break_runtime_ips;
+            std::unordered_multiset<const irv2::ir*> m_break_runtime_ips;
         };
 
         breakpoint_collection breakpoints;
@@ -71,9 +71,9 @@ namespace wo
             const runtime_env* env,
             const std::string& src_file,
             size_t rowno,
-            std::vector<const wo::byte_t*> ips)
+            std::vector<const irv2::ir*> ips)
         {
-            for (const wo::byte_t* bip : ips)
+            for (const irv2::ir* bip : ips)
                 breakpoints.m_break_runtime_ips.insert(bip);
             breakpoints.m_breakpoint_traps.emplace_back(
                 breakpoint_collection::breakpoint_info{ src_file, rowno, ips });
@@ -88,10 +88,11 @@ namespace wo
 
             if (!breakip.empty())
             {
-                std::vector<const wo::byte_t*> breakips;
+                std::vector<const irv2::ir*> breakips;
                 for (auto bip : breakip)
                     breakips.push_back(
-                        env->rt_codes + pdi->get_runtime_ip_by_ip(bip));
+                        reinterpret_cast<const irv2::ir*>(
+                            env->rt_codes + pdi->get_runtime_ip_by_ip(bip)));
                 set_breakpoint_with_ips(env, src_file, rowno, breakips);
                 return true;
             }
@@ -299,7 +300,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         std::string breakdown_temp_for_step_srcfile = "";
         std::string last_command = "";
 
-        const wo::byte_t* current_runtime_ip;
+        const irv2::ir* current_runtime_ip;
         const runtime_env* current_runtime_env;
         wo::value* current_frame_sp;
         wo::value* current_frame_bp;
@@ -541,7 +542,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         // Check if the new IP is in a function
                         auto& pdi = current_runtime_env->program_debug_info.value();
                         auto current_function = pdi->get_current_func_signature_by_runtime_ip(
-                            current_runtime_ip);
+                            reinterpret_cast<const wo::byte_t*>(
+                                current_runtime_ip));
 
                         auto fnd = pdi->_function_ip_data_buf.find(current_function);
                         if (fnd != pdi->_function_ip_data_buf.end())
@@ -557,7 +559,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         }
                     }
 
-                    vmm->ip = current_runtime_ip = current_runtime_env->rt_codes + ipoffset;
+                    vmm->ip = current_runtime_ip =
+                        reinterpret_cast<const irv2::ir*>(
+                            current_runtime_env->rt_codes + ipoffset);
                     printf(ANSI_HIG "Set ip to offset +%04zu successfully.\n" ANSI_RST, ipoffset);
                 }
                 else
@@ -595,7 +599,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             }
 
             auto& pdi = current_runtime_env->program_debug_info.value();
-            auto& loc = pdi->get_src_location_by_runtime_ip(vmm->ip);
+            auto& loc = pdi->get_src_location_by_runtime_ip(
+                reinterpret_cast<const wo::byte_t*>(vmm->ip));
 
             breakdown_temp_for_step = true;
             breakdown_temp_for_step_row_begin = loc.begin_row_no;
@@ -618,7 +623,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             }
 
             auto& pdi = current_runtime_env->program_debug_info.value();
-            auto& loc = pdi->get_src_location_by_runtime_ip(vmm->ip);
+            auto& loc = pdi->get_src_location_by_runtime_ip(
+                reinterpret_cast<const wo::byte_t*>(vmm->ip));
 
             breakdown_temp_for_next = true;
             breakdown_temp_for_next_callstackdepth = vmm->callstack_layer();
@@ -751,7 +757,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 return command_result::need_next_command;
             }
 
-            auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+            auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(
+                reinterpret_cast<const wo::byte_t*>(current_runtime_ip));
             auto fnd = pdi->_function_ip_data_buf.find(funcname);
             if (fnd != pdi->_function_ip_data_buf.end())
             {
@@ -987,7 +994,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 {
                     auto& pdi = current_runtime_env->program_debug_info.value();
 
-                    auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                    auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(
+                        reinterpret_cast<const wo::byte_t*>(current_runtime_ip));
                     auto fnd = pdi->_function_ip_data_buf.find(funcname);
                     if (fnd != pdi->_function_ip_data_buf.end())
                     {
@@ -1002,7 +1010,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     else
                     {
                         wo_stdout << "Unable to located function, display following 100 bytes." << wo_endl;
-                        auto begin_offset = (size_t)(current_runtime_ip - current_runtime_env->rt_codes);
+                        auto begin_offset = (size_t)(
+                            reinterpret_cast<const wo::byte_t*>(current_runtime_ip) - current_runtime_env->rt_codes);
                         vmm->dump_program_bin(
                             current_runtime_env,
                             std::min(begin_offset, current_runtime_env->rt_code_len),
@@ -1132,7 +1141,11 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             auto frtip = current_runtime_env->rt_codes + pdi->get_runtime_ip_by_ip(
                                 funcinfo.command_ip_begin);
                             auto& srcinfo = pdi->get_src_location_by_runtime_ip(frtip);
-                            set_breakpoint_with_ips(current_runtime_env, srcinfo.source_file, srcinfo.begin_row_no, { frtip });
+                            set_breakpoint_with_ips(
+                                current_runtime_env, 
+                                srcinfo.source_file, 
+                                srcinfo.begin_row_no, 
+                                { reinterpret_cast<const irv2::ir*>(frtip) });
                         }
                         breakpoint_set_by_funcname = true;
                         break;
@@ -1143,7 +1156,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     result = set_breakpoint(
                         current_runtime_env,
                         pdi,
-                        pdi->get_src_location_by_runtime_ip(current_runtime_ip).source_file,
+                        pdi->get_src_location_by_runtime_ip(
+                            reinterpret_cast<const wo::byte_t*>(current_runtime_ip)).source_file,
                         (size_t)std::stoull(filename_or_funcname) - 1);
                 }
             }
@@ -1171,7 +1185,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
 
             std::string filename;
             size_t display_range = 5;
-            auto& loc = pdi->get_src_location_by_runtime_ip(current_runtime_ip);
+            auto& loc = pdi->get_src_location_by_runtime_ip(
+                reinterpret_cast<const wo::byte_t*>(current_runtime_ip));
             bool handled_by_filename = false;
 
             if (need_possiable_input(args, filename))
@@ -1253,7 +1268,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                 {
                     auto& pdi = current_runtime_env->program_debug_info.value();
 
-                    auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                    auto&& funcname = pdi->get_current_func_signature_by_runtime_ip(
+                        reinterpret_cast<const wo::byte_t*>(current_runtime_ip));
                     auto fnd = pdi->_function_ip_data_buf.find(funcname);
                     if (fnd != pdi->_function_ip_data_buf.end())
                     {
@@ -1607,7 +1623,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                     break;
                 }
 
-                const byte_t* next_execute_ip = vmm->ip;
+                const irv2::ir* next_execute_ip = vmm->ip;
 
                 runtime_env* fetching_current_env = nullptr;
                 auto try_fetching_current_env =
@@ -1634,7 +1650,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                             if (this_env->program_debug_info.has_value())
                             {
                                 auto& pdi = this_env->program_debug_info.value();
-                                fetching_current_loc = &pdi->get_src_location_by_runtime_ip(next_execute_ip);
+                                fetching_current_loc = &pdi->get_src_location_by_runtime_ip(
+                                    reinterpret_cast<const wo::byte_t*>(next_execute_ip));
                             }
                             else
                                 fetching_current_loc = &wo::program_debug_data_info::FAIL_LOC;
@@ -1696,13 +1713,14 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         "in function: " ANSI_HIG " %s\n" ANSI_RST
                         "in virtual-machine: " ANSI_HIG " %p\n" ANSI_RST,
 
-                        (int)(current_runtime_ip - current_runtime_env->rt_codes),
+                        (int)(reinterpret_cast<const wo::byte_t*>(
+                            current_runtime_ip) - current_runtime_env->rt_codes),
                         src_location->source_file.c_str(),
                         src_location->begin_row_no + 1,
                         src_location->begin_col_no + 1,
                         current_runtime_env->program_debug_info.has_value()
                         ? current_runtime_env->program_debug_info.value()->get_current_func_signature_by_runtime_ip(
-                            next_execute_ip).c_str()
+                            reinterpret_cast<const wo::byte_t*>(next_execute_ip)).c_str()
                         : "[unknown function]",
                         vmm
                     );
@@ -1711,7 +1729,8 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         auto& pdi = current_runtime_env->program_debug_info.value();
 
                         printf("-------------------------------------------\n");
-                        auto& current_loc = pdi->get_src_location_by_runtime_ip(current_runtime_ip);
+                        auto& current_loc = pdi->get_src_location_by_runtime_ip(
+                            reinterpret_cast<const wo::byte_t*>(current_runtime_ip));
                         print_src_file(
                             vmm,
                             current_loc.source_file,

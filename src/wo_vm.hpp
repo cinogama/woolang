@@ -266,7 +266,7 @@ namespace wo
             size_t m_col;
             call_way m_call_way;
 
-            const wo::byte_t* m_address;
+            const irv2::ir* m_address;
             wo::value* m_bp;
         };
         struct hangup_lock
@@ -329,12 +329,12 @@ namespace wo
         value* register_storage;
 
         // Runtime min-env.
-        const byte_t* runtime_codes_begin;
-        const byte_t* runtime_codes_end;
+        const irv2::ir* runtime_codes_begin;
+        const irv2::ir* runtime_codes_end;
         value* runtime_static_storage;
 
         // next ircode pointer
-        const byte_t* ip;
+        const irv2::ir* ip;
         shared_pointer<runtime_env> env;
 
         hangup_lock hangup_state;
@@ -407,7 +407,7 @@ namespace wo
             const runtime_env* codeholder,
             size_t begin,
             size_t end,
-            const wo::byte_t* focus_runtime_ip,
+            const irv2::ir* focus_runtime_ip,
             std::ostream& os) noexcept;
         void dump_call_stack(
             size_t max_count,
@@ -427,10 +427,10 @@ namespace wo
     public:
         void gc_checkpoint_self_mark() noexcept;
         bool assure_stack_size(wo_size_t assure_stack_size) noexcept;
-        void co_pre_invoke_script(const byte_t* wo_func_addr, wo_int_t argc) noexcept;
+        void co_pre_invoke_script(const irv2::ir* wo_func_addr, wo_int_t argc) noexcept;
         void co_pre_invoke_native(wo_native_func_t ex_func_addr, wo_int_t argc) noexcept;
         void co_pre_invoke_closure(closure_t* wo_func_addr, wo_int_t argc) noexcept;
-        value* invoke_script(const byte_t* wo_func_addr, wo_int_t argc) noexcept;
+        value* invoke_script(const irv2::ir* wo_func_addr, wo_int_t argc) noexcept;
         value* invoke_native(wo_native_func_t wo_func_addr, wo_int_t argc) noexcept;
         value* invoke_closure(closure_t* wo_func_closure, wo_int_t argc) noexcept;
         void switch_vm_kind(vm_type new_type) noexcept;
@@ -441,15 +441,13 @@ namespace wo
         static void gtx_impl(value* result, value* opnum1, value* opnum2) noexcept;
         static void egtx_impl(value* result, value* opnum1, value* opnum2) noexcept;
         static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept;
-        // static value* make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
-        // static value* make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
-        static value* make_closure_wo_impl(value* opnum1, uint16_t argc, const wo::byte_t* addr, value* rt_sp) noexcept;
+        static value* make_closure_wo_impl(value* opnum1, uint16_t argc, const wo::irv2::ir* addr, value* rt_sp) noexcept;
         static value* make_closure_fp_impl(value* opnum1, uint16_t argc, wo_native_func_t addr, value* rt_sp) noexcept;
         static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
         static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
         static value* make_struct_impl(value* opnum1, uint16_t size, value* rt_sp) noexcept;
         static void packargs_impl(value* opnum1, uint16_t argcount, const value* tp, value* rt_bp, uint16_t skip_closure_arg_count) noexcept;
-        static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const byte_t* rt_ip, value* rt_sp, value* rt_bp) noexcept;
+        static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const irv2::ir* rt_ip, value* rt_sp, value* rt_bp) noexcept;
         static const char* movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept;
     };
     static_assert(std::is_standard_layout_v<vmbase>);

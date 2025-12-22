@@ -63,7 +63,7 @@ namespace wo
         (void)result;
         wo_assert(result.second);
     }
-    bool runtime_env::fetch_is_far_addr(const byte_t* ip) noexcept
+    bool runtime_env::fetch_is_far_addr(const irv2::ir* ip) noexcept
     {
         std::shared_lock g1(_paged_env_mapping_context.m_paged_envs_mx);
         auto fnd = _paged_env_mapping_context.m_paged_envs.upper_bound(reinterpret_cast<intptr_t>(ip));
@@ -72,13 +72,13 @@ namespace wo
 
         auto& far_context = (--fnd)->second;
 
-        if (ip >= far_context.m_runtime_code_end)
+        if (reinterpret_cast<const wo::byte_t*>(ip) >= far_context.m_runtime_code_end)
             return false;
 
         return true;
     }
     bool runtime_env::fetch_far_runtime_env(
-        const byte_t* ip,
+        const irv2::ir* ip,
         runtime_env** out_env) noexcept
     {
         std::shared_lock g1(_paged_env_mapping_context.m_paged_envs_mx);
@@ -88,7 +88,7 @@ namespace wo
 
         auto& far_context = (--fnd)->second;
 
-        if (ip >= far_context.m_runtime_code_end)
+        if (reinterpret_cast<const wo::byte_t*>(ip) >= far_context.m_runtime_code_end)
             return false;
 
         *out_env = far_context.m_runtime_env;
@@ -96,9 +96,9 @@ namespace wo
         return true;
     }
     bool runtime_env::resync_far_state(
-        const byte_t* ip,
-        const byte_t** out_runtime_code_begin,
-        const byte_t** out_runtime_code_end,
+        const irv2::ir* ip,
+        const irv2::ir** out_runtime_code_begin,
+        const irv2::ir** out_runtime_code_end,
         value** out_static_storage_edge) noexcept
     {
         std::shared_lock g1(_paged_env_mapping_context.m_paged_envs_mx);
@@ -108,11 +108,13 @@ namespace wo
 
         auto& far_context = (--fnd)->second;
 
-        if (ip >= far_context.m_runtime_code_end)
+        if (reinterpret_cast<const wo::byte_t*>(ip) >= far_context.m_runtime_code_end)
             return false;
 
-        *out_runtime_code_begin = far_context.m_runtime_code_begin;
-        *out_runtime_code_end = far_context.m_runtime_code_end;
+        *out_runtime_code_begin = reinterpret_cast<const irv2::ir*>(
+            far_context.m_runtime_code_begin);
+        *out_runtime_code_end = reinterpret_cast<const irv2::ir*>(
+            far_context.m_runtime_code_end);
         *out_static_storage_edge = far_context.m_static_storage_edge;
 
         return true;
@@ -709,7 +711,8 @@ namespace wo
                     case wo::value::valuetype::script_func_type:
                     {
                         // Save offset instead script func address.
-                        const ptrdiff_t diff = struct_constant_elem.m_script_func - rt_codes;
+                        const ptrdiff_t diff =
+                            reinterpret_cast<const wo::byte_t*>(struct_constant_elem.m_script_func) - rt_codes;
                         write_binary_to_buffer(static_cast<uint64_t>(diff), 8);
                         break;
                     }
@@ -731,7 +734,7 @@ namespace wo
             case wo::value::valuetype::script_func_type:
             {
                 // Save offset instead script func address.
-                const ptrdiff_t diff = constant_value.m_script_func - rt_codes;
+                const ptrdiff_t diff = reinterpret_cast<const wo::byte_t*>(constant_value.m_script_func) - rt_codes;
                 write_binary_to_buffer(static_cast<uint64_t>(diff), 8);
                 break;
             }
@@ -1109,7 +1112,8 @@ namespace wo
                         if (!stream->read_elem(&diff))
                             WO_LOAD_BIN_FAILED("Failed to restore constant value.");
 
-                        tuple_constant_elem.m_script_func = code_buf + diff;
+                        tuple_constant_elem.m_script_func = 
+                            reinterpret_cast<const irv2::ir*>(code_buf + diff);
                         break;
                     }
                     case wo::value::valuetype::native_func_type:
@@ -1138,7 +1142,8 @@ namespace wo
                 if (!stream->read_elem(&diff))
                     WO_LOAD_BIN_FAILED("Failed to restore constant value.");
 
-                this_constant_value.m_script_func = code_buf + diff;
+                this_constant_value.m_script_func = 
+                    reinterpret_cast<const irv2::ir*>(code_buf + diff);
                 break;
             }
             case wo::value::valuetype::native_func_type:

@@ -474,14 +474,14 @@ namespace wo
         static void register_envs(runtime_env* env) noexcept;
         static void unregister_envs(const runtime_env* env) noexcept;
 
-        static bool fetch_is_far_addr(const byte_t* ip) noexcept;
+        static bool fetch_is_far_addr(const irv2::ir* ip) noexcept;
         static bool fetch_far_runtime_env(
-            const byte_t* ip,
+            const irv2::ir* ip,
             runtime_env** out_env) noexcept;
         static bool resync_far_state(
-            const byte_t* ip,
-            const byte_t** out_runtime_code_begin,
-            const byte_t** out_runtime_code_end,
+            const irv2::ir* ip,
+            const irv2::ir** out_runtime_code_begin,
+            const irv2::ir** out_runtime_code_end,
             value** out_static_storage_edge) noexcept;
 
         value* constant_and_global_storage = nullptr;

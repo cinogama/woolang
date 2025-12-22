@@ -3307,7 +3307,7 @@ wo_value wo_run(wo_vm vm)
 
     if (vmm->env)
     {
-        vmm->ip = vmm->env->rt_codes;
+        vmm->ip = reinterpret_cast<const wo::irv2::ir*>(vmm->env->rt_codes);
         auto vm_exec_result = vmm->run();
 
         switch (vm_exec_result)
@@ -3345,7 +3345,7 @@ wo_value wo_bootup(wo_vm vm, wo_bool_t jit)
             // NOTE: other operation for vm must happend after init(wo_run).
             analyze_jit(const_cast<wo::byte_t*>(envp->rt_codes), envp);
 
-        vminstance->ip = envp->rt_codes;
+        vminstance->ip = reinterpret_cast<const wo::irv2::ir*>(envp->rt_codes);
         auto vm_exec_result = vminstance->run();
 
         switch (vm_exec_result)
@@ -4229,7 +4229,8 @@ wo_bool_t wo_extern_symb(wo_value out_val, wo_vm vm, wo_string_t fullname)
         if (env->try_find_jit_func(script_func, &jit_func))
             WO_VAL(out_val)->set_native_func(jit_func);
         else
-            WO_VAL(out_val)->set_script_func(script_func);
+            WO_VAL(out_val)->set_script_func(
+                reinterpret_cast<const wo::irv2::ir*>(script_func));
 
         return WO_TRUE;
     }

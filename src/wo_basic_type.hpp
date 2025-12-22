@@ -17,6 +17,11 @@
 
 namespace wo
 {
+    namespace irv2
+    {
+        union ir;
+    }
+
     struct value;
     struct value_equal
     {
@@ -109,7 +114,7 @@ namespace wo
             wo_real_t m_real;
             wo_integer_t m_integer;
             wo_handle_t m_handle;
-            const byte_t* m_script_func;
+            const irv2::ir* m_script_func;
             wo_native_func_t m_native_func;
             gcbase* m_gcunit;
             string_t* m_string;
@@ -119,8 +124,8 @@ namespace wo
             closure_t* m_closure;
             structure_t* m_structure;
             callstack_t m_vmcallstack;
-            const byte_t* m_farcallstack;
-            const byte_t* m_nativecallstack;
+            const irv2::ir* m_farcallstack;
+            const irv2::ir* m_nativecallstack;
             yieldcheckpt_t m_yield_checkpoint;
             uint64_t m_value_field;
         };
@@ -153,7 +158,7 @@ namespace wo
         value* set_string_nogc(std::string_view str);
         value* set_struct_nogc(uint16_t sz);
         value* set_val_with_compile_time_check(const value * val);
-        WO_FORCE_INLINE value* set_script_func(const byte_t * val)
+        WO_FORCE_INLINE value* set_script_func(const irv2::ir * val)
         {
             m_type = valuetype::script_func_type;
             m_script_func = val;
@@ -291,7 +296,7 @@ namespace wo
         const uint16_t m_closure_args_count;
         union
         {
-            const byte_t* m_vm_func;
+            const irv2::ir* m_vm_func;
             wo_native_func_t m_native_func;
         };
         value* m_closure_args;
@@ -301,7 +306,7 @@ namespace wo
         closure_bast_t& operator=(const closure_bast_t&) = delete;
         closure_bast_t& operator=(closure_bast_t&&) = delete;
 
-        closure_bast_t(const byte_t* vmfunc, uint16_t argc) noexcept;
+        closure_bast_t(const irv2::ir* vmfunc, uint16_t argc) noexcept;
         closure_bast_t(wo_native_func_t nfunc, uint16_t argc) noexcept;
         ~closure_bast_t();
     };

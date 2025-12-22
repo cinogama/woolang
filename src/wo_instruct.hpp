@@ -18,48 +18,48 @@ namespace wo
         struct ir6_i18_i8
         {
             uint32_t m_op : 6;
-            int32_t m_arg1 : 18;
-            int32_t m_arg2 : 8;
+            int32_t m_arg1_i18 : 18;
+            int32_t m_arg2_i8 : 8;
         };
         static_assert(sizeof(ir6_i18_i8) == 4);
 
         struct ir6_i10_i16
         {
             uint32_t m_op : 6;
-            int32_t m_arg1 : 10;
-            int32_t m_arg2 : 16;
+            int32_t m_arg1_i10 : 10;
+            int32_t m_arg2_i16 : 16;
         };
         static_assert(sizeof(ir6_i18_i8) == 4);
 
         struct ir8_i24
         {
             uint32_t m_op : 8;
-            int32_t m_arg1 : 24;
+            int32_t m_arg1_i24 : 24;
         };
         static_assert(sizeof(ir8_i24) == 4);
 
         struct ir8_u24
         {
             uint32_t m_op : 8;
-            uint32_t m_arg1 : 24;
+            uint32_t m_arg1_u24 : 24;
         };
         static_assert(sizeof(ir8_u24) == 4);
 
         struct ir8_i8_i8_i8
         {
             uint32_t m_op : 8;
-            int32_t m_arg1 : 8;
-            int32_t m_arg2 : 8;
-            int32_t m_arg3 : 8;
+            int32_t m_arg1_i8 : 8;
+            int32_t m_arg2_i8 : 8;
+            int32_t m_arg3_i8 : 8;
         };
         static_assert(sizeof(ir8_i8_i8_i8) == 4);
 
         struct ir8_i8_i8_u8
         {
             uint32_t m_op : 8;
-            int32_t m_arg1 : 8;
-            int32_t m_arg2 : 8;
-            uint32_t m_arg3 : 8;
+            int32_t m_arg1_i8 : 8;
+            int32_t m_arg2_i8 : 8;
+            uint32_t m_arg3_u8 : 8;
         };
         static_assert(sizeof(ir8_i8_i8_u8) == 4);
 
