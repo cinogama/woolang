@@ -1283,389 +1283,155 @@ WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
 
 #if defined(WO_NEED_OPCODE_API)
 
-enum _wo_opcode
-{
-    /*
-      CODE VAL     DR-OPNUM-FORMAT                      DESCRIPTION
-    */
-    WO_NOP = 0, // DR: Byte count
-    // -- No OPNUM --                       Donothing, and skip next `DR`(0~3) byte codes.
-    WO_MOV = 1, // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1`.
-    WO_PSH = 2, // DRH: Opnum1 desc, DRL: Mode
-    // OPNUM1: DRL = 1 ? RS/GLB : IMM_U16   If DRL == 1, Push `OPNUM1` to stack. or move
-    //                                      the stack pointer by `OPNUM1` length, just like
-    //                                      psh same count of garbage value
-    WO_POP = 3, // DRH: Opnum1 desc, DRL: Mode
-    // OPNUM1: DRL = 1 ? RS/GLB : IMM_U16   If DRL == 1, Pop value fron stack and store it
-    //                                      into `OPNUM1` . or move the stack pointer by
-    //                                      `OPNUM1` length, just like pop same times.
-    WO_ADDI = 4, // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
-    //                                      in `OPNUM1`. Operands should be integers
-    WO_SUBI = 5, // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Subtract `OPNUM1` from `OPNUM2` and store the
-    //                                      result in `OPNUM1`. Operands should be integers.
-    WO_MULI = 6, // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Multiply `OPNUM1` by `OPNUM2` and store the
-    //                                      result in `OPNUM1`. Operands should be integers.
-    WO_DIVI = 7, // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Divide `OPNUM1` by `OPNUM2` and store the result
-    //                                      in `OPNUM1`. Operands should be integers.
-    //                                      ATTENTION:
-    //                                          There is no check for division by zero and
-    //                                          division overflow in DIVI.
-    WO_MODI = 8, // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the remainder of `OPNUM1` divided by `OPNUM2`
-    //                                      and store the result in `OPNUM1`. Operands should
-    //                                      be integers.
-    //                                      ATTENTION:
-    //                                          There is no check for division by zero and
-    //                                          division overflow in MODI.
-    WO_ADDR = 9, // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
-    //                                      in `OPNUM1`. Operands should be reals.
-    WO_SUBR = 10,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Subtract `OPNUM1` from `OPNUM2` and store the
-    //                                      result in `OPNUM1`. Operands should be reals.
-    WO_MULR = 11,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Multiply `OPNUM1` by `OPNUM2` and store the
-    //                                      result in `OPNUM1`. Operands should be reals.
-    WO_DIVR = 12,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Divide `OPNUM1` by `OPNUM2` and store the result
-    //                                      in `OPNUM1`. Operands should be reals.
-    WO_MODR = 13,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the remainder of `OPNUM1` divided by `OPNUM2`
-    //                                      and store the result in `OPNUM1`. Operands should
-    //                                      be reals.
-    WO_ADDH = 14,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
-    //                                      in `OPNUM1`. Operands should be handles.
-    WO_SUBH = 15,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Subtract `OPNUM1` from `OPNUM2` and store the
-    //                                      result in `OPNUM1`. Operands should be handles.
-    WO_ADDS = 16,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Concatenate `OPNUM2` to `OPNUM1` and store the
-    //                                      result in `OPNUM1`. Operands should be strings.
-    WO_IDARR = 17,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the element of `OPNUM1` by index `OPNUM2`
-    //                                      and store the result in register(cr).
-    WO_SIDARR = 18,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the element of `OPNUM1` by index `OPNUM2`
-    // OPNUM3: RS                           with the value of `OPNUM3`.
-    WO_IDDICT = 19,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the value of `OPNUM2` by key `OPNUM2`
-    //                                      and store the result in register(cr).
-    WO_SIDDICT = 20,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the value of `OPNUM2` by key `OPNUM2`
-    // OPNUM3: RS                           with the value of `OPNUM3`. If the key is not
-    //                                      exist, a panic will be triggered.
-    WO_SIDMAP = 21,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the value of `OPNUM2` by key `OPNUM2`
-    // OPNUM3: RS                           with the value of `OPNUM3`.
-    WO_IDSTRUCT = 22,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the field of `OPNUM2` by index `OPNUM3`
-    // OPNUM3: IMM_U16                      and store the result in `OPNUM1`.
-    WO_SIDSTRUCT = 23,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Set the field of `OPNUM1` by index `OPNUM3`
-    // OPNUM3: IMM_U16                      with the value of `OPNUM2`.
-    WO_IDSTR = 24,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the character of `OPNUM1` by index `OPNUM2`
-    //                                      and store the result in register(cr).
-    WO_LTI = 25,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` less than `OPNUM2`, store true in
-    //                                      register(cr), otherwise store false. Type of `OPNUM1`
-    //                                      & `OPNUM2` should be integer.
-    WO_GTI = 26,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` greater than `OPNUM2`, store true in
-    //                                      register(cr), otherwise store false. Type of `OPNUM1`
-    //                                      & `OPNUM2` should be integer.
-    WO_ELTI = 27,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` less than or equal to `OPNUM2`, store
-    //                                      true in register(cr), otherwise store false. Type of
-    //                                      `OPNUM1` & `OPNUM2` should be integer.
-    WO_EGTI = 28,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` greater than or equal to `OPNUM2`, store
-    //                                      true in register(cr), otherwise store false. Type of
-    //                                      `OPNUM1` & `OPNUM2` should be integer.
-    WO_LAND = 29,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` and `OPNUM2` are true, store true in
-    //                                      register(cr), otherwise store false.
-    WO_LOR = 30,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` or `OPNUM2` are true, store true in
-    //                                      register(cr), otherwise store false.
-    WO_LTX = 31,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than `OPNUM2`, store true in
-    //                                      register(cr), otherwise store false. The type of `OPNUM1`
-    //                                      and `OPNUM2` should be the same.
-    WO_GTX = 32,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than `OPNUM2`, store true in
-    //                                      register(cr), otherwise store false. The type of `OPNUM1`
-    //                                      and `OPNUM2` should be the same.
-    WO_ELTX = 33,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than or equal to `OPNUM2`, store
-    //                                      true in register(cr), otherwise store false. The type of
-    //                                      `OPNUM1` and `OPNUM2` should be the same.
-    WO_EGTX = 34,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than or equal to `OPNUM2`, store
-    //                                      true in register(cr), otherwise store false. The type of
-    //                                      `OPNUM1` and `OPNUM2` should be the same.
-    WO_LTR = 35,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than `OPNUM2`, store true in
-    //                                      register(cr), otherwise store false. Type of `OPNUM1` &
-    //                                      `OPNUM2` should be real.
-    WO_GTR = 36,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than `OPNUM2`, store true in
-    //                                      register(cr), otherwise store false. Type of `OPNUM1` &
-    //                                      `OPNUM2` should be real.
-    WO_ELTR = 37,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than or equal to `OPNUM2`, store
-    //                                      true in register(cr), otherwise store false. Type of
-    //                                      `OPNUM1` & `OPNUM2` should be real.
-    WO_EGTR = 38,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than or equal to `OPNUM2`, store
-    //                                      true in register(cr), otherwise store false. Type of
-    //                                      `OPNUM1` & `OPNUM2` should be real.
-    WO_EQUR = 39,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` equal to `OPNUM2`, store true in register(cr),
-    //                                      otherwise store false. The type of `OPNUM1` and `OPNUM2`
-    //                                      should be real.
-    WO_NEQUR = 40,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` not equal to `OPNUM2`, store true in register(cr),
-    //                                      otherwise store false. The type of `OPNUM1` and `OPNUM2`
-    //                                      should be real.
-    WO_EQUS = 41,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` equal to `OPNUM2`, store true in register(cr),
-    //                                      otherwise store false. The type of `OPNUM1` and `OPNUM2`
-    //                                      should be string.
-    WO_NEQUS = 42,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` not equal to `OPNUM2`, store true in register(cr),
-    //                                      otherwise store false. The type of `OPNUM1` and `OPNUM2`
-    //                                      should be string.
-    WO_EQUB = 43,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` equal to `OPNUM2`, store true in register(cr),
-    //                                      otherwise store false. Only compare data field of value and
-    //                                      ignore type.
-    WO_NEQUB = 44,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` not equal to `OPNUM2`, store true in register(cr),
-    //                                      otherwise store false. Only compare data field of value and
-    //                                      ignore type.
-    WO_JNEQUB = 45,
-    // DRH: Opnum1 desc, DRL: 0
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U16      If `OPNUM1` not equal to register(cr), jump to the instruction
-    //                                      at the address `OPNUM2`. the compare method just like WO_EQUB.
-
-    WO_CALL = 46,
-    // DRH: Opnum1 desc, DRL: 0
-    // OPNUM1: RS/GLB                       Push current bp & ip into stack, then:
-    //                                      * if `OPNUM1` is integer, jump to target instruction.
-    //                                      * if `OPNUM1` is handle, this is Woolang Native API Function.
-    //                                          It will be invoked.
-    //                                     * if `OPNUM1` is closure, the captured variable will be expand
-    //                                          to stack, and the captured function will work following the
-    //                                          above rules
-    WO_CALLN = 47,
-    // DRH: Leaving invoke flag, DRL: Woolang Native API Function flag.
-    // OPNUM1: If DRL = 1 ? IMM_U64 : [IMM_U32 with 32bits padding]
-    //                                      Absolute address call, the `OPNUM1` is the address of the function
-    //                                      to be called. If DRL = 1, the function is a Woolang Native API
-    //                                      Function.
-    //                                      If DRL = 0, DRH must be 0, and invoke just like integer case in
-    //                                      WO_CALL.
-    WO_MOVICAS = 48,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB  OPNUM3: RS
-    //                                      Compare-and-swap: Compare the value of `OPNUM1` with `OPNUM3`,
-    //                                      if they are equal, set `OPNUM1` to `OPNUM2`. The operation is
-    //                                      atomic. If the platform does not support lock-free atomic
-    //                                      operations, it will fall back to a locked implementation.
-    //
-    //                                      Operand types are ignored and treated as wo_integer_t.
-    //
-    //                                      If the swap is successful, CR will be set to true, otherwise false;
-    //                                      If the swap fails, the old value of OPNUM1 will be written to OPNUM3.
-    //
-    //                                      NOTE: Operands are assumed to be integers, so no write barrier is 
-    //                                          guaranteed.
-    WO_MOVICASTR = 49,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1` and cast it to real, `OPNUM2` 
-    //                                      must be int, 
-    WO_SETIPGC = 50,
-    // DRH: JCOND_FLAG, DRL: JCOND_FLAG ? (0: JMPF, 1: JMPT) : 0
-    // OPNUM1: IMM_U32                      Just like WO_SETIP, but do a gc-checkpoint.
-    WO_ENDPROC = 51,
-    // DR: Mode flag
-    // -- No OPNUM --                       * If DR = 0b00, debug command, an wo_error will be raise and
-    //                                          the process will be aborted.
-    //                                      * If DR = 0b10, vm will return from runing.
-    //                                      * If DR = 0b01, Pop current bp & ip from stack, restore bp 
-    //                                          then jump to the address of ip
-    //                                      * If DR = 0b11, like 0b00, but pop `OPNUM1` values from stack.
-    WO_MKCONTAIN = 52,
-    // DRH: Opnum1 desc, DRL == 0 ? MakeArray : MakeMap
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U16     [Build an array]: Pop `OPNUM2` values from stack.
-    //                                          The value in the stack should be:
-    //                                              SP-> [Elem N-1, Elem N-2, ..., Elem 0] -> BP
-    //                                      [Build a map]: Pop `OPNUM2` * 2 values from stack.
-    //                                          The value in the stack should be:
-    //                                              SP-> [Value N-1, Key N-1, ..., Value 0, Key 0] -> BP
-    WO_MOVRCASTI = 53,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1` and cast it to int, `OPNUM2` 
-    //                                      must be real, 
-    WO_MKSTRUCT = 54,
-    // DRH: Opnum1 desc, DRL: 0
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Pop `OPNUM2` values from stack, Build a struct.
-    //                                      The value in the stack should be:
-    //                                          SP-> [Field N-1, Field N-2, ..., Field 0] -> BP
-    WO_MKUNION = 55,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Construct a struct of {+0: OPNUM3, +1: OPNUM2} and store the
-    // OPNUM3: IMM_U16                      result in `OPNUM1`.
-    WO_MKCLOS = 56,
-    // DRH: Woolang Native API Function flag, DRL: 0
-    // OPNUM1: IMM_U16  OPNUM2: DRH = 1 ? IMM_U64 : [IMM_U32 with 32bits padding]
-    //                                      Pop `OPNUM1` values from stack, Build a closure for function
-    //                                      `OPNUM2`.
-    //                                      The value in the stack should be:
-    //                                          SP-> [Captured N-1, Captured N-2, ..., Captured 0] -> BP
-    //                                      Captured 0 will be [bp - 1] when this closure is invoked.
-    WO_UNPACK = 57,
-    // DRH: Opnum1 desc, DRL: 0
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U32      Expand array/struct into stack, at least expand abs(OPNUM2).
-    //                                      * If reintp_cast<IMM_32>(OPNUM2) <= 0, expand count will be
-    //                                          append into register(tc).
-    WO_MOVCAST = 58,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Move value from `OPNUM2` to `OPNUM1`, and cast the type
-    // OPNUM3: IMM_U8                       of `OPNUM2` to the type `OPNUM3`.
-    WO_TYPEAS = 59,
-    // DRH: Opnum1 desc, DRL: Mode flag
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U8       Check if the type of `OPNUM1` is equal to `OPNUM2`, then:
-    //                                      * If DRL = 1, store true in register(cr) if equal, otherwise
-    //                                          store false.
-    //                                      * If DRL = 0, a panic will be triggered if not equal.
-    WO_SETIP = 60,
-    // DRH: JCOND_FLAG, DRL: JCOND_FLAG ? (0: JMPF, 1: JMPT) : 0
-    // OPNUM1: IMM_U32                      Jump to the instruction at the address `OPNUM1`.
-    WO_LDS = 61,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Load value from [bp + `OPNUM2`] and store it in `OPNUM1`.
-    WO_STS = 62,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Store value of `OPNUM1` to [bp + `OPNUM2`].
-    WO_EXT = 63,
-    // DR: Extern opcode type page
-    // OPNUM1: IMM_U8 ...                   Let vm execute extern opcode `OPNUM1` in `DR` page.
+enum _wo_irv2
+{               // [====== | == ======== ======== ========]
+    WO_NOP,     //  NOP      00 00000000 00000000 00000000
+    WO_END,     //  END      00 00000000 00000000 00000000
+    WO_LOAD,    //  LOAD     [    C/G Adrsing   ] [R/SAds]
+    WO_STORE,   //  STORE    [    C/G Adrsing   ] [R/SAds]
+    WO_LOADEXT, //  LOADEXT  00 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
+    WO_STOREEXT,//  STOREEXT 00 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
+    WO_LOADLST, //  LOADLST  00 00000000 [ Count 16bits  ] [R/SAds] [   C/G Adrsing 24bit    ]...
+    WO_PUSH,
+    //  PUSH     00 [  Stack reserved count  ]
+    //           01 [R/SAds] 00000000 00000000
+    //           10 [   C/G Adrsing 24bit    ]
+    //           11 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
+    WO_POP,
+    //  POP      00 [    Pop stack count     ]
+    //           01 [R/SAds] 00000000 00000000
+    //           10 [   C/G Adrsing 24bit    ]
+    //           11 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
+    WO_CAST,
+    //  CAST     00 [R/SAds] [R/SAds] [Type8b]
+    //           01 [R/SAds] [R/SAds] 00000000 // CASTITOR
+    //           10 [R/SAds] [R/SAds] 00000000 // CASTRTOI
+    //           11 ======== RESERVED ========
+    WO_TYPECHK,
+    //  TYPECHK  00 [R/SAds] [R/SAds] [Type8b] // TYPEIS
+    //           01 00000000 [R/SAds] [Type8b] // TYPEAS
+    //           10 ======== RESERVED ========
+    //           11 ======== RESERVED ========
+    WO_OPIA,
+    //  OPIA     00 [R/SAds] [R/SAds] [R/SAds] // ADDI
+    //           01 [R/SAds] [R/SAds] [R/SAds] // SUBI
+    //           10 [R/SAds] [R/SAds] [R/SAds] // MULI
+    //           11 [R/SAds] [R/SAds] [R/SAds] // DIVI
+    WO_OPIB,
+    //  OPIB     00 [R/SAds] [R/SAds] [R/SAds] // CDIVILR
+    //           01 [R/SAds] [R/SAds] [R/SAds] // CDIVIL
+    //           10 [R/SAds] [R/SAds] [R/SAds] // CDIVIR
+    //           11 [R/SAds] [R/SAds] [R/SAds] // CDIVIRZ
+    WO_OPIC,
+    //  OPIC     00 [R/SAds] [R/SAds] [R/SAds] // CMODILR
+    //           01 [R/SAds] [R/SAds] [R/SAds] // CMODIL
+    //           10 [R/SAds] [R/SAds] [R/SAds] // CMODIR
+    //           11 [R/SAds] [R/SAds] [R/SAds] // CMODIRZ
+    WO_OPID,
+    //  OPID     00 [R/SAds] [R/SAds] [R/SAds] // MODI
+    //           01 [R/SAds] [R/SAds] 00000000 // NEGI
+    //           10 [R/SAds] [R/SAds] [R/SAds] // LTI
+    //           11 [R/SAds] [R/SAds] [R/SAds] // GTI
+    WO_OPIE,
+    //  OPIE     00 [R/SAds] [R/SAds] [R/SAds] // ELTI
+    //           01 [R/SAds] [R/SAds] 00000000 // EGTI
+    //           10 [R/SAds] [R/SAds] [R/SAds] // EQUB
+    //           11 [R/SAds] [R/SAds] [R/SAds] // NEQUB
+    WO_OPRA,
+    //  OPRA     00 [R/SAds] [R/SAds] [R/SAds] // ADDR
+    //           01 [R/SAds] [R/SAds] [R/SAds] // SUBR
+    //           10 [R/SAds] [R/SAds] [R/SAds] // MULR
+    //           11 [R/SAds] [R/SAds] [R/SAds] // DIVR
+    WO_OPRB,
+    //  OPRB     00 [R/SAds] [R/SAds] [R/SAds] // MODR
+    //           01 [R/SAds] [R/SAds] 00000000 // NEGR
+    //           10 [R/SAds] [R/SAds] [R/SAds] // LTR
+    //           11 [R/SAds] [R/SAds] [R/SAds] // GTR
+    WO_OPRC,
+    //  OPRC     00 [R/SAds] [R/SAds] [R/SAds] // ELTR
+    //           01 [R/SAds] [R/SAds] [R/SAds] // EGTR
+    //           10 [R/SAds] [R/SAds] [R/SAds] // EQUR
+    //           11 [R/SAds] [R/SAds] [R/SAds] // NEQUR
+    WO_OPSA,
+    //  OPSA     00 [R/SAds] [R/SAds] [R/SAds] // ADDS
+    //           01 [R/SAds] [R/SAds] [R/SAds] // LTS
+    //           10 [R/SAds] [R/SAds] [R/SAds] // GTS
+    //           11 [R/SAds] [R/SAds] [R/SAds] // ELTS
+    WO_OPSB,
+    //  OPSB     00 [R/SAds] [R/SAds] [R/SAds] // EGTS
+    //           01 [R/SAds] [R/SAds] [R/SAds] // EQUS
+    //           10 [R/SAds] [R/SAds] [R/SAds] // NEQUS
+    //           11 ======== RESERVED ========
+    WO_OPLA,
+    //  OPLA     00 [R/SAds] [R/SAds] [R/SAds] // LAND
+    //           01 [R/SAds] [R/SAds] [R/SAds] // LOR
+    //           01 [R/SAds] [R/SAds] [R/SAds] // LNOT
+    //           11 ======== RESERVED ========
+    WO_IDX,
+    //  IDX      00 [R/SAds] [R/SAds] [R/SAds] // IDSTR
+    //           01 [R/SAds] [R/SAds] [R/SAds] // IDARR
+    //           10 [R/SAds] [R/SAds] [R/SAds] // IDDICT
+    //           11 [R/SAds] [R/SAds] [Idx 8b] // IDSTRUCT
+    WO_SIDX,
+    //  SIDX     00 [R/SAds] [R/SAds] [R/SAds] // SIDARR
+    //           01 [R/SAds] [R/SAds] [R/SAds] // SIDDICT
+    //           10 [R/SAds] [R/SAds] [R/SAds] // SIDMAP 
+    //           11 [R/SAds] [R/SAds] [Idx 8b] // SIDSTRUCT
+    WO_IDSTEXT, //  IDSTEXT  00 [R/SAds] [R/SAds] 00000000 [ Idx 32 bits ]
+    WO_SIDSTEXT,//  SIDSTEXT 00 [R/SAds] [R/SAds] 00000000 [ Idx 32 bits ]
+    WO_JMP,
+    //  JMP      00 [  Near wo-code abs addr ] // JMP
+    //           01 ======== RESERVED ========
+    //           10 [  Near wo-code abs addr ] // JMPF
+    //           11 [  Near wo-code abs addr ] // JMPT
+    WO_JMPGC,
+    //  JMPGC    00 [  Near wo-code abs addr ] // JMPGC
+    //           01 ======== RESERVED ========
+    //           10 [  Near wo-code abs addr ] // JMPGCF
+    //           11 [  Near wo-code abs addr ] // JMPGCT
+    WO_RET,
+    //  RET      00 ======== RESERVED ========
+    //           01 00000000 [PopCount 16bits]
+    WO_CALLN,
+    //  CALLN    00 [  Near wo-code abs addr ] [ 00000000 00000000 00000000 00000000 ]  CALLNWO
+    //           01 [                 Native function address 56 bit                  ]  CALLNJIT
+    //           10 [                 Native function address 56 bit                  ]  CALLNFP
+    //           11 ======== RESERVED ========
+    WO_CALL,
+    //  CALL     00 [R/SAds] 00000000 00000000
+    //           01 [    C/G Adrsing 24bit    ]
+    //           10 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
+    //           11 ======== RESERVED ========
+    WO_CONS,
+    //  CONS     00 [R/SAds] [ Unit count 16b] // MKARR
+    //           01 [R/SAds] [ Unit count 16b] // MKMAP
+    //           10 [R/SAds] [ Unit count 16b] // MKSTRUCT
+    //           11 [R/SAds] [ Capt count 16b] // MKCLOSURE
+    WO_CONSEXT,
+    //  CONSEXT  00 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKARREXT
+    //           01 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKMAPEXT
+    //           10 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKSTRUCTEXT
+    //           11 [R/SAds] 00000000 00000000 [   Capt count 32bits   ] // MKCLOSUREEXT
+    WO_UNPACK,  //  UNPACK   00 [R/SAds] [  Unit count   ] // UNPACK
+    WO_PACK,
+    //  PACK     00 [R/SAds] [FnArgc] [ClArgc] 
+    //           01 [R/SAds] [ FnArgc 16bits ] [     ClArgc 32bits     ]
+    WO_LDS,
+    //  LDS      00 [R/SAds] [ StackBp offset]
+    //           01 [R/SAds] 00000000 00000000 [ StackBp offset 32bits ]
+    //           10 [R/SAds] [R/SAds] 00000000
+    //           11 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
+    WO_STS,
+    //  STS      00 [R/SAds] [ StackBp offset]
+    //           01 [R/SAds] 00000000 00000000 [ StackBp offset 32bits ]
+    //           10 [R/SAds] [R/SAds] 00000000
+    //           11 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
+    WO_PANIC,
+    //  PANIC    00 [R/SAds] 00000000 00000000
+    //           01 ======== RESERVED ======== 
+    //           10 [   C/G Adrsing 24bit    ]
+    //           11 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
 };
-
-enum _wo_opcode_ext0
-{
-    WO_PANIC = 0,
-    // DRH: Panic type, DRL: 0
-    // OPNUM1: RS/GLB                       Trigger a panic with message `OPNUM1`.
-    WO_PACK = 1,
-    // DRH: Opnum1 desc, DRL: 0
-    // OPNUM1: RS/GLB  OPNUM2: IMM_U16      Collect arguments from [bp + 2 + OPNUM2 + OPNUM3] to
-    // OPNUM3: IMM_U16                      [bp + 2 + tc + OPNUM3 - 1], and store them into an array,
-    //                                      then store the result into `OPNUM1`.
-    WO_CDIVILR = 2,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Trigger a panic when:
-    //                                      * OPNUM2 == 0
-    //                                      * OPNUM1 == INT64_MIN and OPNUM2 == -1
-    WO_CDIVIL = 3,
-    // DRH: Opnum1 desc
-    // OPNUM1: RS/GLB                       Trigger a panic when:
-    //                                      * OPNUM1 == INT64_MIN
-    WO_CDIVIR = 4,
-    // DRH: Opnum1 desc
-    // OPNUM1: RS/GLB                       Trigger a panic when:
-    //                                      * OPNUM1 == 0
-    //                                      * OPNUM1 == -1
-    WO_CDIVIRZ = 5,
-    // DRH: Opnum1 desc
-    // OPNUM1: RS/GLB                       Trigger a panic when:
-    //                                      * OPNUM1 == 0
-    WO_POPN = 6,
-    // DRH: Opnum1 desc
-    // DRL: 0
-    // -- No OPNUM --                       Pop N values from stack, N is the value of Opnum1.
-};
-
-enum _wo_opcode_ext3
-{
-    WO_FUNCBEGIN = 0,
-    // DRH: 0, DRL: 0
-    // -- No OPNUM --                       Flag the begin of a function.
-    //                                      Cannot execute, or it will cause a panic.
-    WO_FUNCEND = 1,
-    // DRH: 0, DRL: 0
-    // -- No OPNUM --                       Flag the end of a function.
-    //                                      Cannot execute, or it will cause a panic.
-};
-
-typedef struct _wo_ir_compiler* wo_ir_compiler;
-
-WO_API wo_ir_compiler wo_create_ir_compiler(void);
-WO_API void wo_close_ir_compiler(wo_ir_compiler ircompiler);
-
-WO_API void wo_ir_opcode(wo_ir_compiler compiler, uint8_t opcode, uint8_t drh, uint8_t drl);
-WO_API void wo_ir_bind_tag(wo_ir_compiler compiler, wo_string_t name);
-
-WO_API void wo_ir_int(wo_ir_compiler compiler, wo_integer_t val);
-WO_API void wo_ir_real(wo_ir_compiler compiler, wo_real_t val);
-WO_API void wo_ir_handle(wo_ir_compiler compiler, wo_handle_t val);
-WO_API void wo_ir_string(wo_ir_compiler compiler, wo_string_t val);
-WO_API void wo_ir_bool(wo_ir_compiler compiler, wo_bool_t val);
-WO_API void wo_ir_glb(wo_ir_compiler compiler, int32_t offset);
-WO_API void wo_ir_reg(wo_ir_compiler compiler, uint8_t regid);
-WO_API void wo_ir_bp(wo_ir_compiler compiler, int8_t offset);
-WO_API void wo_ir_tag(wo_ir_compiler compiler, wo_string_t name);
-
-WO_API void wo_ir_immtag(wo_ir_compiler compiler, wo_string_t name);
-WO_API void wo_ir_immu8(wo_ir_compiler compiler, uint8_t val);
-WO_API void wo_ir_immu16(wo_ir_compiler compiler, uint16_t val);
-WO_API void wo_ir_immu32(wo_ir_compiler compiler, uint32_t val);
-WO_API void wo_ir_immu64(wo_ir_compiler compiler, uint64_t val);
-
-WO_API void wo_load_ir_compiler(wo_vm vm, wo_ir_compiler compiler);
 
 #endif
 

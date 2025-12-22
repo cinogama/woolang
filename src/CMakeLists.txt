@@ -34,6 +34,11 @@ endif()
 add_library(woolang_library_options INTERFACE)
 target_compile_definitions(woolang_library_options INTERFACE -DWO_SRC_PATH="${PROJECT_SOURCE_DIR}")
 
+####################################################################################
+# FOR DEV PURPOSES ONLY
+target_compile_definitions(woolang_library_options INTERFACE -DWO_DISABLE_COMPILER=1)
+####################################################################################
+
 if (WO_SUPPORT_ASMJIT)
     target_compile_definitions(woolang_library_options INTERFACE -DWO_JIT_SUPPORT_ASMJIT=1) 
 endif()

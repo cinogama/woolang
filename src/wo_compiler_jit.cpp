@@ -13,7 +13,7 @@ callnjit. These calls do not require updating sp/bp/ip, so reading
 these values from the VM often yields incorrect results.
 */
 
-#if WO_JIT_SUPPORT_ASMJIT
+#if 0 && WO_JIT_SUPPORT_ASMJIT
 
 #ifndef ASMJIT_STATIC
 #define ASMJIT_STATIC
