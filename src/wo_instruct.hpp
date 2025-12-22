@@ -41,9 +41,9 @@ namespace wo
         ((IR->m_ir32 & WO_IR_SHIFT_FETCH_MASK(WIDTH, SHIFT))    \
         >> static_cast<uint32_t>(32 - (WIDTH) - (SHIFT)))
 #define WO_IR_FETCH_SIGNED(IR, WIDTH, SHIFT)                    \
-        (static_cast<int32_t>(                                  \
+        ((static_cast<int32_t>(                                 \
             (IR->m_ir32 & WO_IR_SHIFT_FETCH_MASK(WIDTH, SHIFT)) \
-            << static_cast<uint32_t>(SHIFT))                    \
+            << static_cast<uint32_t>(SHIFT)))                   \
         >> static_cast<int32_t>(32 - (WIDTH)))
 
 #define WO_OPNUM_SIGNED(N, IR, WIDTH, SHIFT)                    \

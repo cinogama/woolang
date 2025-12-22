@@ -1318,22 +1318,12 @@ enum _wo_irv2
     //           10 [R/SAds] [R/SAds] [R/SAds] // MULI
     //           11 [R/SAds] [R/SAds] [R/SAds] // DIVI
     WO_OPIB,
-    //  OPIB     00 [R/SAds] [R/SAds] [R/SAds] // CDIVILR
-    //           01 [R/SAds] [R/SAds] [R/SAds] // CDIVIL
-    //           10 [R/SAds] [R/SAds] [R/SAds] // CDIVIR
-    //           11 [R/SAds] [R/SAds] [R/SAds] // CDIVIRZ
-    WO_OPIC,
-    //  OPIC     00 [R/SAds] [R/SAds] [R/SAds] // CMODILR
-    //           01 [R/SAds] [R/SAds] [R/SAds] // CMODIL
-    //           10 [R/SAds] [R/SAds] [R/SAds] // CMODIR
-    //           11 [R/SAds] [R/SAds] [R/SAds] // CMODIRZ
-    WO_OPID,
-    //  OPID     00 [R/SAds] [R/SAds] [R/SAds] // MODI
+    //  OPIB     00 [R/SAds] [R/SAds] [R/SAds] // MODI
     //           01 [R/SAds] [R/SAds] 00000000 // NEGI
     //           10 [R/SAds] [R/SAds] [R/SAds] // LTI
     //           11 [R/SAds] [R/SAds] [R/SAds] // GTI
-    WO_OPIE,
-    //  OPIE     00 [R/SAds] [R/SAds] [R/SAds] // ELTI
+    WO_OPIC,
+    //  OPIC     00 [R/SAds] [R/SAds] [R/SAds] // ELTI
     //           01 [R/SAds] [R/SAds] 00000000 // EGTI
     //           10 [R/SAds] [R/SAds] [R/SAds] // EQUB
     //           11 [R/SAds] [R/SAds] [R/SAds] // NEQUB
@@ -1361,6 +1351,26 @@ enum _wo_irv2
     //  OPSB     00 [R/SAds] [R/SAds] [R/SAds] // EGTS
     //           01 [R/SAds] [R/SAds] [R/SAds] // EQUS
     //           10 [R/SAds] [R/SAds] [R/SAds] // NEQUS
+    //           11 ======== RESERVED ========
+    WO_OPCA,
+    //  OPCA     00 [R/SAds] [R/SAds] 00000000 // CDIVILR
+    //           01 [R/SAds] [R/SAds] 00000000 // CDIVIL
+    //           10 [R/SAds] [R/SAds] 00000000 // CDIVIR
+    //           11 [R/SAds] [R/SAds] 00000000 // CDIVIRZ
+    WO_OPCB,
+    //  OPCB     00 [R/SAds] [R/SAds] 00000000 // CUMADDI,
+    //           01 [R/SAds] [R/SAds] 00000000 // CUMSUBI,
+    //           10 [R/SAds] [R/SAds] 00000000 // CUMMULI,
+    //           11 [R/SAds] [R/SAds] 00000000 // CUMDIVI,
+    WO_OPCC,
+    //  OPCC     00 [R/SAds] [R/SAds] 00000000 // CUMADDR,
+    //           01 [R/SAds] [R/SAds] 00000000 // CUMSUBR,
+    //           10 [R/SAds] [R/SAds] 00000000 // CUMMULR,
+    //           11 [R/SAds] [R/SAds] 00000000 // CUMDIVR,
+    WO_OPCD,
+    //  OPCD     00 [R/SAds] [R/SAds] 00000000 // CUMADDS,
+    //           01 [R/SAds] [R/SAds] 00000000 // CUMMODI,
+    //           10 [R/SAds] [R/SAds] 00000000 // CUMMODR,
     //           11 ======== RESERVED ========
     WO_OPLA,
     //  OPLA     00 [R/SAds] [R/SAds] [R/SAds] // LAND
@@ -1408,12 +1418,12 @@ enum _wo_irv2
     //  CONS     00 [R/SAds] [ Unit count 16b] // MKARR
     //           01 [R/SAds] [ Unit count 16b] // MKMAP
     //           10 [R/SAds] [ Unit count 16b] // MKSTRUCT
-    //           11 [R/SAds] [ Capt count 16b] // MKCLOSURE
+    //           11 ======== RESERVED ========
     WO_CONSEXT,
     //  CONSEXT  00 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKARREXT
     //           01 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKMAPEXT
     //           10 [R/SAds] 00000000 00000000 [   Unit count 32bits   ] // MKSTRUCTEXT
-    //           11 [R/SAds] 00000000 00000000 [   Capt count 32bits   ] // MKCLOSUREEXT
+    //           11 ======== RESERVED ========
     WO_UNPACK,  //  UNPACK   00 [R/SAds] [  Unit count   ] // UNPACK
     WO_PACK,
     //  PACK     00 [R/SAds] [FnArgc] [ClArgc] 

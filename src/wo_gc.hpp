@@ -255,7 +255,7 @@ namespace wo
 #else
         struct gc_non_lock_guard
         {
-            inline gc_non_lock_guard(gcbase*)
+            inline gc_non_lock_guard(const gcbase*)
             {
             }
             inline ~gc_non_lock_guard()
@@ -280,7 +280,7 @@ namespace wo
         };
 
         using rw_lock = _shared_spin;
-        rw_lock gc_read_write_mx;
+        mutable rw_lock gc_read_write_mx;
 
 #if WO_ENABLE_RUNTIME_CHECK
         const char* gc_typename = nullptr;
@@ -295,11 +295,11 @@ namespace wo
         {
             gc_read_write_mx.unlock();
         }
-        inline void read()
+        inline void read() const 
         {
             gc_read_write_mx.lock_shared();
         }
-        inline void read_end()
+        inline void read_end() const
         {
             gc_read_write_mx.unlock_shared();
         }

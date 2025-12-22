@@ -581,7 +581,7 @@ namespace wo
         const irv2::ir* focus_runtime_ip,
         std::ostream& os) noexcept
     {
-        
+
     }
 
     std::string vmbase::disassemble_instruction(bytecode_disassembler& dis) noexcept
@@ -894,7 +894,7 @@ namespace wo
             */
             if (callstack_state.m_type == callstack_ip_state::ipaddr_kind::ABS
                 && runtime_env::fetch_far_runtime_env(
-                    callstack_state.m_abs_addr, 
+                    callstack_state.m_abs_addr,
                     &current_env_pointer))
             {
                 // Found.
@@ -1889,7 +1889,7 @@ namespace wo
                 rt_ip += z__wo_vm_next_ir_offset;                \
                 break;                                                  \
             }
-            
+
             switch (rtopcode)
             {
                 // NOP
@@ -2035,7 +2035,7 @@ namespace wo
                     cg->set_val((++sp));
                 }
                 WO_VM_END_CASE();
-              
+
                 // CASTX
                 WO_VM_BEGIN_CASE_IR8(CAST, 0, I8_I8_U8)
                 {
@@ -2083,6 +2083,376 @@ namespace wo
                         WO_VM_FAIL(WO_FAIL_TYPE_FAIL,
                             "The given value is not the same as the requested type.");
                     }
+                }
+                WO_VM_END_CASE();
+
+                // ADDI
+                WO_VM_BEGIN_CASE_IR8(OPIA, 0, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        + WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // SUBI
+                WO_VM_BEGIN_CASE_IR8(OPIA, 1, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        - WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // MULI
+                WO_VM_BEGIN_CASE_IR8(OPIA, 2, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        * WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // DIVI
+                WO_VM_BEGIN_CASE_IR8(OPIA, 3, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        / WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // MODI
+                WO_VM_BEGIN_CASE_IR8(OPIB, 0, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        % WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // NEGI
+                WO_VM_BEGIN_CASE_IR8(OPIB, 1, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        -WO_VM_ADRS_R_S(p2_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // LTI
+                WO_VM_BEGIN_CASE_IR8(OPIB, 2, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        < WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // GTI
+                WO_VM_BEGIN_CASE_IR8(OPIB, 3, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        > WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // ELTI
+                WO_VM_BEGIN_CASE_IR8(OPIC, 0, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        <= WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // EGTI
+                WO_VM_BEGIN_CASE_IR8(OPIC, 1, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        >= WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // EQUB
+                WO_VM_BEGIN_CASE_IR8(OPIC, 2, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        == WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // NEQUB
+                WO_VM_BEGIN_CASE_IR8(OPIC, 3, I8_I8_I8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer
+                        != WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // ...
+
+                // IDSTR
+                WO_VM_BEGIN_CASE_IR8(IDX, 0, I8_I8_I8)
+                {
+                    const string_t* const indexed_str = 
+                        WO_VM_ADRS_R_S(p2_i8)->m_string;
+
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        static_cast<wo_integer_t>(
+                            wo_strn_get_char(
+                                indexed_str->c_str(),
+                                indexed_str->size(),
+                                static_cast<size_t>(WO_VM_ADRS_R_S(p3_i8)->m_integer)))
+                    );
+                }
+                WO_VM_END_CASE();
+
+                // IDARR
+                WO_VM_BEGIN_CASE_IR8(IDX, 1, I8_I8_I8)
+                {
+                    const array_t* const indexed_arr = 
+                        WO_VM_ADRS_R_S(p2_i8)->m_array;
+                    gcbase::gc_read_guard rg(indexed_arr);
+
+                    const size_t index = static_cast<size_t>(
+                        WO_VM_ADRS_R_S(p3_i8)->m_integer);
+
+                    if (index < indexed_arr->size())
+                        WO_VM_ADRS_R_S(p1_i8)->set_val(
+                            &indexed_arr->at(index));
+                    else
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Array index out of range.");
+                }
+                WO_VM_END_CASE();
+
+                // IDDICT
+                WO_VM_BEGIN_CASE_IR8(IDX, 2, I8_I8_I8)
+                {
+                    const dictionary_t* const indexed_dict = 
+                        WO_VM_ADRS_R_S(p2_i8)->m_dictionary;
+                    gcbase::gc_read_guard rg(indexed_dict);
+
+                    const value* const index_key = WO_VM_ADRS_R_S(p3_i8);
+                    auto find_iter = indexed_dict->find(*index_key);
+                    if (find_iter != indexed_dict->end())
+                        WO_VM_ADRS_R_S(p1_i8)->set_val(&find_iter->second);
+                    else
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Dictionary key not found.");
+                }
+                WO_VM_END_CASE();
+
+                // IDSTRUCT
+                WO_VM_BEGIN_CASE_IR8(IDX, 3, I8_I8_U8)
+                {
+                    const structure_t* const indexed_struct = 
+                        WO_VM_ADRS_R_S(p2_i8)->m_structure;
+                    gcbase::gc_read_guard rg(indexed_struct);
+                    
+                    WO_VM_ADRS_R_S(p1_i8)->set_val(
+                        &indexed_struct->m_values[p3_u8]);
+                }
+                WO_VM_END_CASE();
+
+                // SIDARR
+                WO_VM_BEGIN_CASE_IR8(SIDX, 0, I8_I8_I8)
+                {
+                    array_t* const indexed_arr = 
+                        WO_VM_ADRS_R_S(p2_i8)->m_array;
+                    gcbase::gc_write_guard wg(indexed_arr);
+
+                    const size_t index = static_cast<size_t>(
+                        WO_VM_ADRS_R_S(p3_i8)->m_integer);
+                    if (index < indexed_arr->size())
+                    {
+                        value* arr_val = &indexed_arr->at(index);
+                        if (gc::gc_is_marking())
+                            value::write_barrier(arr_val);
+                        arr_val->set_val(WO_VM_ADRS_R_S(p1_i8));
+                    }
+                    else
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Array index out of range.");
+                }
+                WO_VM_END_CASE();
+
+                // SIDDICT
+                WO_VM_BEGIN_CASE_IR8(SIDX, 1, I8_I8_I8)
+                {
+                    dictionary_t* const indexed_dict = 
+                        WO_VM_ADRS_R_S(p2_i8)->m_dictionary;
+                    gcbase::gc_write_guard wg(indexed_dict);
+
+                    const value* const index_key = WO_VM_ADRS_R_S(p3_i8);
+                    auto fnd = indexed_dict->find(*index_key);
+                    if (fnd != indexed_dict->end())
+                    {
+                        value* dict_val = &fnd->second;
+                        if (gc::gc_is_marking())
+                            value::write_barrier(dict_val);
+                        dict_val->set_val(WO_VM_ADRS_R_S(p1_i8));
+                    }
+                    else
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Dictionary key not found.");
+                }
+                WO_VM_END_CASE();
+
+                // SIDMAP
+                WO_VM_BEGIN_CASE_IR8(SIDX, 2, I8_I8_I8)
+                {
+                    dictionary_t* const indexed_dict =
+                        WO_VM_ADRS_R_S(p2_i8)->m_dictionary;
+                    gcbase::gc_modify_write_guard wg(indexed_dict);
+
+                    const value* const index_key = WO_VM_ADRS_R_S(p3_i8);
+                    value* dict_val = &(*indexed_dict)[*index_key];
+                    if (gc::gc_is_marking())
+                        value::write_barrier(dict_val);
+                    dict_val->set_val(WO_VM_ADRS_R_S(p1_i8));                  
+                }
+                WO_VM_END_CASE();
+
+                // SIDSTRUCT
+                WO_VM_BEGIN_CASE_IR8(SIDX, 3, I8_I8_U8)
+                {
+                    structure_t* const indexed_struct = 
+                        WO_VM_ADRS_R_S(p2_i8)->m_structure;
+                    gcbase::gc_write_guard wg(indexed_struct);
+                    value* struct_val = &indexed_struct->m_values[p3_u8];
+                    if (gc::gc_is_marking())
+                        value::write_barrier(struct_val);
+                    struct_val->set_val(WO_VM_ADRS_R_S(p1_i8));
+                }
+                WO_VM_END_CASE();
+
+                // IDSTEXT
+                WO_VM_BEGIN_CASE_IR8(IDSTEXT, 0, I8_I8_8_EU32)
+                {
+                    const structure_t* const indexed_struct = 
+                        WO_VM_ADRS_R_S(p2_i8)->m_structure;
+                    gcbase::gc_read_guard rg(indexed_struct);
+
+                    WO_VM_ADRS_R_S(p1_i8)->set_val(
+                        &indexed_struct->m_values[p3_u32]);
+                }
+                WO_VM_END_CASE();
+
+                // SIDSTEXT
+                WO_VM_BEGIN_CASE_IR8(SIDSTEXT, 0, I8_I8_8_EU32)
+                {
+                    structure_t* const indexed_struct = 
+                        WO_VM_ADRS_R_S(p2_i8)->m_structure;
+                    gcbase::gc_write_guard wg(indexed_struct);
+
+                    value* struct_val = &indexed_struct->m_values[p3_u32];
+                    if (gc::gc_is_marking())
+                        value::write_barrier(struct_val);
+                    struct_val->set_val(WO_VM_ADRS_R_S(p1_i8));
+                }
+                WO_VM_END_CASE();
+
+                // JMP
+                WO_VM_BEGIN_CASE_IR8(JMP, 0, U24)
+                {
+                    rt_ip = near_rtcode_begin + p1_u24;
+
+                    // Break out, donot `WO_VM_END_CASE`
+                    break;
+                }
+                WO_VM_END_CASE();
+
+                // JMPF
+                WO_VM_BEGIN_CASE_IR8(JMP, 2, U24)
+                {
+                    if (!rt_cr->m_integer)
+                    {
+                        rt_ip = near_rtcode_begin + p1_u24;
+
+                        // Break out, donot `WO_VM_END_CASE`
+                        break;
+                    }
+                }
+                WO_VM_END_CASE();
+
+                // JMPT
+                WO_VM_BEGIN_CASE_IR8(JMP, 3, U24)
+                {
+                    if (rt_cr->m_integer)
+                    {
+                        rt_ip = near_rtcode_begin + p1_u24;
+
+                        // Break out, donot `WO_VM_END_CASE`
+                        break;
+                    }
+                }
+                WO_VM_END_CASE();
+
+                // JMPGC
+                WO_VM_BEGIN_CASE_IR8(JMPGC, 0, U24)
+                {
+                    rt_ip = near_rtcode_begin + p1_u24;
+                    
+                    WO_VM_INTERRUPT_CHECKPOINT;
+                    break;
+                }
+                WO_VM_END_CASE();
+
+                // JMPFGC
+                WO_VM_BEGIN_CASE_IR8(JMPGC, 2, U24)
+                {
+                    if (!rt_cr->m_integer)
+                    {
+                        rt_ip = near_rtcode_begin + p1_u24;
+                        WO_VM_INTERRUPT_CHECKPOINT;
+                        break;
+                    }
+                }
+                WO_VM_END_CASE();
+
+                // JMPTGC
+                WO_VM_BEGIN_CASE_IR8(JMPGC, 3, U24)
+                {
+                    if (rt_cr->m_integer)
+                    {
+                        rt_ip = near_rtcode_begin + p1_u24;
+                        WO_VM_INTERRUPT_CHECKPOINT;
+                        break;
+                    }
+                }
+                WO_VM_END_CASE();
+
+
+                // ...
+
+                // MKARR
+                WO_VM_BEGIN_CASE_IR8(CONS, 0, I8_U16)
+                {
+                    sp = make_array_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        p2_u16,
+                        sp);
+                }
+                WO_VM_END_CASE();
+
+                // MKMAP
+                WO_VM_BEGIN_CASE_IR8(CONS, 1, I8_U16)
+                {
+                    sp = make_map_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        p2_u16,
+                        sp);
+                }
+                WO_VM_END_CASE();
+
+                // MKSTRUCT
+                WO_VM_BEGIN_CASE_IR8(CONS, 2, I8_U16)
+                {
+                    sp = make_struct_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        p2_u16,
+                        sp);
                 }
                 WO_VM_END_CASE();
 
@@ -2192,9 +2562,9 @@ namespace wo
                 WO_VM_INTERRUPT_CHECKPOINT;
             }
             }
-        }// vm loop end.
+            }// vm loop end.
 
-        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+            WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
 
 #undef WO_VM_FAIL
 #undef WO_VM_ASSERT
@@ -2202,8 +2572,8 @@ namespace wo
 #undef WO_RSG_ADDRESSING_WRITE_OP1_CASE
 #undef WO_WRITE_CHECK_FOR_GLOBAL
 #undef WO_RSG_ADDRESSING_CASE
-    }
+        }
 
 #undef WO_VM_RETURN
 #undef WO_VM_FAIL
-}
+    }
