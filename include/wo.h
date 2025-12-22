@@ -1291,7 +1291,7 @@ enum _wo_irv2
     WO_STORE,   //  STORE    [    C/G Adrsing   ] [R/SAds]
     WO_LOADEXT, //  LOADEXT  00 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
     WO_STOREEXT,//  STOREEXT 00 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
-    WO_LOADLST, //  LOADLST  00 00000000 [ Count 16bits  ] [R/SAds] [   C/G Adrsing 24bit    ]...
+    // WO_LOADLST, //  LOADLST  00 00000000 [ Count 16bits  ] [R/SAds] [   C/G Adrsing 24bit    ]...
     WO_PUSH,
     //  PUSH     00 [  Stack reserved count  ]
     //           01 [R/SAds] 00000000 00000000
@@ -1390,13 +1390,15 @@ enum _wo_irv2
     //           10 [  Near wo-code abs addr ] // JMPGCF
     //           11 [  Near wo-code abs addr ] // JMPGCT
     WO_RET,
-    //  RET      00 ======== RESERVED ========
+    //  RET      00 00000000 00000000 00000000
     //           01 00000000 [PopCount 16bits]
+    //           10 [    PopCount 24 bits    ]
+    //           11 00000000 00000000 00000000 [   PopCount 32 bits   ]
     WO_CALLN,
-    //  CALLN    00 [  Near wo-code abs addr ] [ 00000000 00000000 00000000 00000000 ]  CALLNWO
-    //           01 [                 Native function address 56 bit                  ]  CALLNJIT
-    //           10 [                 Native function address 56 bit                  ]  CALLNFP
-    //           11 ======== RESERVED ========
+    //  CALLN    00 [ Function offset 24bits ] 0                          CALLNWO
+    //           01 [        Woolang function address 56 bits          ]  CALLNWOIMM
+    //           10 [         Native function address 56 bits          ]  CALLNJIT
+    //           11 [         Native function address 56 bits          ]  CALLNFP
     WO_CALL,
     //  CALL     00 [R/SAds] 00000000 00000000
     //           01 [    C/G Adrsing 24bit    ]

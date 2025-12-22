@@ -1862,11 +1862,11 @@ namespace wo
         re_entry_for_interrupt:
 
 #define WO_VM_ADRS_C_G(OFFSET_I)                                        \
-        near_static_global + (OFFSET_I)
+        (near_static_global + (OFFSET_I))
 #define WO_VM_ADRS_S(OFFSET_I)                                        \
-        bp + (OFFSET_I)
+        (bp + (OFFSET_I))
 #define WO_VM_ADRS_R_S(OFFSET_I)                                        \
-        ((OFFSET_I >> 5) == 0b011) ? (rt_reg_fast_lookup + (OFFSET_I)) : WO_VM_ADRS_S(OFFSET_I)
+        (((OFFSET_I >> 5) == 0b011) ? (rt_reg_fast_lookup + (OFFSET_I)) : WO_VM_ADRS_S(OFFSET_I))
 
 #define WO_VM_BEGIN_CASE_IR6(IRNAME, FORMAT)                            \
             case (WO_##IRNAME << 2) | 0b00:                             \
@@ -1874,38 +1874,215 @@ namespace wo
             case (WO_##IRNAME << 2) | 0b10:                             \
             case (WO_##IRNAME << 2) | 0b11:                             \
             {                                                           \
-                const auto& cmd = rt_ip->m_ir6_##FORMAT;                            
+                constexpr uint32_t z__wo_vm_next_ir_offset =            \
+                    WO_FORMAL_IR6_##FORMAT##_IRCOUNTOF;                 \
+                WO_FORMAL_IR6_##FORMAT(rt_ip);
 
 #define WO_VM_BEGIN_CASE_IR8(IRNAME, MODE, FORMAT)                      \
             case (WO_##IRNAME << 2) | MODE:                             \
             {                                                           \
-                const auto& cmd = rt_ip->m_ir8_##FORMAT;                            
+                constexpr uint32_t z__wo_vm_next_ir_offset =            \
+                    WO_FORMAL_IR8_##FORMAT##_IRCOUNTOF;                 \
+                WO_FORMAL_IR8_##FORMAT(rt_ip);                
 
 #define WO_VM_END_CASE()                                                \
-                rt_ip = reinterpret_cast<const irv2::ir*>(              \
-                    reinterpret_cast<intptr_t>(rt_ip) + sizeof(cmd));   \
+                rt_ip += z__wo_vm_next_ir_offset;                \
                 break;                                                  \
             }
-               
+            
             switch (rtopcode)
             {
                 // NOP
-                WO_VM_BEGIN_CASE_IR8(NOP, 0, i8_i8_i8)
+                WO_VM_BEGIN_CASE_IR8(NOP, 0, 24)
                 {
                     // Do nothing~
                 }
                 WO_VM_END_CASE();
 
                 // END
-                WO_VM_BEGIN_CASE_IR8(END, 0, i8_i8_i8)
+                WO_VM_BEGIN_CASE_IR8(END, 0, 24)
                 {
                     WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
                 }
                 WO_VM_END_CASE();
 
-                WO_VM_BEGIN_CASE_IR6(LOAD, i18_i8)
+                // LOAD
+                WO_VM_BEGIN_CASE_IR6(LOAD, I18_I8)
                 {
-                    WO_VM_ADRS_C_G(cmd.m_arg1);
+                    WO_VM_ADRS_R_S(p2_i8)->set_val(WO_VM_ADRS_C_G(p1_i18));
+                }
+                WO_VM_END_CASE();
+
+                // STORE
+                WO_VM_BEGIN_CASE_IR6(STORE, I18_I8)
+                {
+                    value* cg = WO_VM_ADRS_C_G(p1_i18);
+                    if (gc::gc_is_marking())
+                        value::write_barrier(cg);
+
+                    cg->set_val(WO_VM_ADRS_R_S(p2_i8));
+                }
+                WO_VM_END_CASE();
+
+                // LOADEXT
+                WO_VM_BEGIN_CASE_IR8(LOADEXT, 0, I8_16_EI32)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_val(WO_VM_ADRS_C_G(p2_i32));
+                }
+                WO_VM_END_CASE();
+
+                // STOREEXT
+                WO_VM_BEGIN_CASE_IR8(STOREEXT, 0, I8_16_EI32)
+                {
+                    value* cg = WO_VM_ADRS_C_G(p2_i32);
+                    if (gc::gc_is_marking())
+                        value::write_barrier(cg);
+
+                    cg->set_val(WO_VM_ADRS_R_S(p1_i8));
+                }
+                WO_VM_END_CASE();
+
+                // PUSH RESERVE STACK COUNT
+                WO_VM_BEGIN_CASE_IR8(PUSH, 0, U24)
+                {
+                    value* new_sp = sp - p1_u24;
+                    if (new_sp < stack_storage)
+                    {
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                        WO_VM_INTERRUPT_CHECKPOINT;
+
+                        break;
+                    }
+                    else
+                        sp = new_sp;
+                }
+                WO_VM_END_CASE();
+
+                // PUSH RS
+                WO_VM_BEGIN_CASE_IR8(PUSH, 1, I8_16)
+                {
+                    if (sp <= stack_storage)
+                    {
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                        WO_VM_INTERRUPT_CHECKPOINT;
+
+                        break;
+                    }
+                    (sp--)->set_val(WO_VM_ADRS_R_S(p1_i8));
+                }
+                WO_VM_END_CASE();
+
+                // PUSH CG
+                WO_VM_BEGIN_CASE_IR8(PUSH, 2, I24)
+                {
+                    if (sp <= stack_storage)
+                    {
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                        WO_VM_INTERRUPT_CHECKPOINT;
+
+                        break;
+                    }
+                    (sp--)->set_val(WO_VM_ADRS_C_G(p1_i24));
+                }
+                WO_VM_END_CASE();
+
+                // PUSH CG-EXT
+                WO_VM_BEGIN_CASE_IR8(PUSH, 3, 24_EI32)
+                {
+                    if (sp <= stack_storage)
+                    {
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                        WO_VM_INTERRUPT_CHECKPOINT;
+
+                        break;
+                    }
+                    (sp--)->set_val(WO_VM_ADRS_C_G(p1_i32));
+                }
+                WO_VM_END_CASE();
+
+                // POP TO SHRINK STACK
+                WO_VM_BEGIN_CASE_IR8(POP, 0, U24)
+                {
+                    sp -= p1_u24;
+                }
+                WO_VM_END_CASE();
+
+                // POP RS
+                WO_VM_BEGIN_CASE_IR8(POP, 1, I8_16)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_val((++sp));
+                }
+                WO_VM_END_CASE();
+
+                // POP CG
+                WO_VM_BEGIN_CASE_IR8(POP, 2, I24)
+                {
+                    value* cg = WO_VM_ADRS_C_G(p1_i24);
+                    if (gc::gc_is_marking())
+                        value::write_barrier(cg);
+
+                    cg->set_val((++sp));
+                }
+                WO_VM_END_CASE();
+
+                // POP CG-EXT
+                WO_VM_BEGIN_CASE_IR8(POP, 3, 24_EI32)
+                {
+                    value* cg = WO_VM_ADRS_C_G(p1_i32);
+                    if (gc::gc_is_marking())
+                        value::write_barrier(cg);
+
+                    cg->set_val((++sp));
+                }
+                WO_VM_END_CASE();
+              
+                // CASTX
+                WO_VM_BEGIN_CASE_IR8(CAST, 0, I8_I8_U8)
+                {
+                    if (const auto* error_msg = movcast_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        WO_VM_ADRS_R_S(p2_i8),
+                        static_cast<value::valuetype>(p3_u8)))
+                    {
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "%s", error_msg);
+                    }
+                }
+                WO_VM_END_CASE();
+
+                // CASTITOR
+                WO_VM_BEGIN_CASE_IR8(CAST, 1, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_real(
+                        static_cast<wo_real_t>(WO_VM_ADRS_R_S(p2_i8)->m_integer));
+                }
+                WO_VM_END_CASE();
+
+                // CASTRTOI
+                WO_VM_BEGIN_CASE_IR8(CAST, 2, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_integer(
+                        static_cast<wo_integer_t>(WO_VM_ADRS_R_S(p2_i8)->m_real));
+                }
+                WO_VM_END_CASE();
+
+                // TYPEIS
+                WO_VM_BEGIN_CASE_IR8(TYPECHK, 0, I8_I8_U8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_bool(
+                        static_cast<value::valuetype>(
+                            p3_u8) == WO_VM_ADRS_R_S(p2_i8)->m_type);
+                }
+                WO_VM_END_CASE();
+
+                // TYPEAS
+                WO_VM_BEGIN_CASE_IR8(TYPECHK, 1, 8_I8_U8)
+                {
+                    if (static_cast<value::valuetype>(
+                        p2_u8) != WO_VM_ADRS_R_S(p1_i8)->m_type)
+                    {
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL,
+                            "The given value is not the same as the requested type.");
+                    }
                 }
                 WO_VM_END_CASE();
 
