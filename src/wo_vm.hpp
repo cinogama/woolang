@@ -56,7 +56,7 @@ namespace wo
     public:
         static void attach_global_debuggee_bridge(
             const std::optional<shared_pointer<vm_debuggee_bridge_base>>& bridge) noexcept;
-        static std::optional<shared_pointer<vm_debuggee_bridge_base>> 
+        static std::optional<shared_pointer<vm_debuggee_bridge_base>>
             current_global_debuggee_bridge() noexcept;
         static bool has_current_global_debuggee_bridge() noexcept;
     };
@@ -303,7 +303,7 @@ namespace wo
         static std::set<vmbase*> _alive_vm_list;
         static std::set<vmbase*> _gc_ready_vm_list;
 
-        thread_local static vmbase* _this_thread_gc_guard_vm ;
+        thread_local static vmbase* _this_thread_gc_guard_vm;
         static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
     public:
         // For performance, interrupt should be first elem.
@@ -446,8 +446,12 @@ namespace wo
         static value* make_array_impl(value* opnum1, uint32_t size, value* rt_sp) noexcept;
         static value* make_map_impl(value* opnum1, uint32_t size, value* rt_sp) noexcept;
         static value* make_struct_impl(value* opnum1, uint32_t size, value* rt_sp) noexcept;
-        static void packargs_impl(value* opnum1, uint16_t argcount, const value* tp, value* rt_bp, uint16_t skip_closure_arg_count) noexcept;
-        static value* unpackargs_impl(vmbase* vm, value* opnum1, int32_t unpack_argc, value* tc, const irv2::ir* rt_ip, value* rt_sp, value* rt_bp) noexcept;
+        static void packargs_impl(
+            value* opnum1,
+            value* rt_bp,
+            wo_integer_t func_argument_count,
+            uint16_t func_named_param,
+            uint16_t closure_captured_count) noexcept;
         static const char* movcast_impl(value* opnum1, value* opnum2, value::valuetype aim_type) noexcept;
     };
     static_assert(std::is_standard_layout_v<vmbase>);

@@ -45,11 +45,43 @@ namespace wo
 #define WO_IR_FETCH_SIGNED(IR, WIDTH, SHIFT) \
     ((int32_t)((((uint32_t)((IR)->m_ir32 >> (32 - (WIDTH) - (SHIFT)))) & WO_IR_FETCH_MASK(WIDTH)) << (32 - (WIDTH))) >> (32 - (WIDTH)))
 
-#define WO_OPNUM_SIGNED(N, IR, WIDTH, SHIFT) \
-    const int32_t p##N##_i##WIDTH = WO_IR_FETCH_SIGNED(IR, WIDTH, SHIFT)
+#define WO_OPNUM_TYPE_1 int8_t
+#define WO_OPNUM_TYPE_2 int8_t
+#define WO_OPNUM_TYPE_3 int8_t
+#define WO_OPNUM_TYPE_4 int8_t
+#define WO_OPNUM_TYPE_5 int8_t
+#define WO_OPNUM_TYPE_6 int8_t
+#define WO_OPNUM_TYPE_7 int8_t
+#define WO_OPNUM_TYPE_8 int8_t
+#define WO_OPNUM_TYPE_9 int16_t
+#define WO_OPNUM_TYPE_10 int16_t
+#define WO_OPNUM_TYPE_11 int16_t
+#define WO_OPNUM_TYPE_12 int16_t
+#define WO_OPNUM_TYPE_13 int16_t
+#define WO_OPNUM_TYPE_14 int16_t
+#define WO_OPNUM_TYPE_15 int16_t
+#define WO_OPNUM_TYPE_16 int16_t
+#define WO_OPNUM_TYPE_17 int32_t
+#define WO_OPNUM_TYPE_18 int32_t
+#define WO_OPNUM_TYPE_19 int32_t
+#define WO_OPNUM_TYPE_20 int32_t
+#define WO_OPNUM_TYPE_21 int32_t
+#define WO_OPNUM_TYPE_22 int32_t
+#define WO_OPNUM_TYPE_23 int32_t
+#define WO_OPNUM_TYPE_24 int32_t
 
-#define WO_OPNUM_UNSIGNED(N, IR, WIDTH, SHIFT) \
-    const uint32_t p##N##_u##WIDTH = WO_IR_FETCH_UNSIGNED(IR, WIDTH, SHIFT)
+#define _WO_OPNUM_UNSIGNED_TYPE(TYPE) u##TYPE
+#define WO_OPNUM_UNSIGNED_TYPE(TYPE) _WO_OPNUM_UNSIGNED_TYPE(TYPE)
+
+#define WO_OPNUM_SIGNED(N, IR, WIDTH, SHIFT)                    \
+    const WO_OPNUM_TYPE_##WIDTH p##N##_i##WIDTH =               \
+        static_cast<WO_OPNUM_TYPE_##WIDTH>(WO_IR_FETCH_SIGNED(IR, WIDTH, SHIFT))
+
+#define WO_OPNUM_UNSIGNED(N, IR, WIDTH, SHIFT)                  \
+    const WO_OPNUM_UNSIGNED_TYPE(WO_OPNUM_TYPE_##WIDTH)         \
+        p##N##_u##WIDTH = static_cast<                          \
+            WO_OPNUM_UNSIGNED_TYPE(WO_OPNUM_TYPE_##WIDTH)>(     \
+                WO_IR_FETCH_UNSIGNED(IR, WIDTH, SHIFT))
 
 #define WO_FORMAL_IR6_I18_I8_IRCOUNTOF 1
 #define WO_FORMAL_IR6_I18_I8(IR)                                \
@@ -60,6 +92,11 @@ namespace wo
 #define WO_FORMAL_IR8_8_I8_U8(IR)                               \
         WO_OPNUM_SIGNED(1, IR, 8, 16);                          \
         WO_OPNUM_UNSIGNED(2, IR, 8, 24)
+
+#define WO_FORMAL_IR8_8_I16_EI32_IRCOUNTOF 2
+#define WO_FORMAL_IR8_8_I16_EI32(IR)                            \
+        WO_OPNUM_SIGNED(1, IR, 16, 16);                          \
+        const int32_t p2_i32 = IR->m_ext32
 
 #define WO_FORMAL_IR8_8_U16_IRCOUNTOF 1
 #define WO_FORMAL_IR8_8_U16(IR)                                 \
@@ -151,6 +188,11 @@ namespace wo
 #define WO_FORMAL_IR8_I24_IRCOUNTOF 1
 #define WO_FORMAL_IR8_I24(IR)                                   \
         WO_OPNUM_SIGNED(1, IR, 24, 8)
+
+#define WO_FORMAL_IR8_I24_EI32_IRCOUNTOF 2
+#define WO_FORMAL_IR8_I24_EI32(IR)                              \
+        WO_OPNUM_SIGNED(1, IR, 24, 8);                          \
+        const int32_t p2_i32 = IR->m_ext32
 
 #define WO_FORMAL_IR8_U24_IRCOUNTOF 1
 #define WO_FORMAL_IR8_U24(IR)                                   \

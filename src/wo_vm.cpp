@@ -1568,161 +1568,23 @@ namespace wo
 
     void vmbase::packargs_impl(
         value* opnum1,
-        uint16_t argcount,
-        const value* tp,
         value* rt_bp,
-        uint16_t skip_closure_arg_count) noexcept
+        wo_integer_t    func_argument_count,
+        uint16_t        func_named_param,
+        uint16_t        closure_captured_count) noexcept
     {
-        auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
-        packed_array->resize((size_t)tp->m_integer - (size_t)argcount);
+        auto* packed_array = array_t::gc_new<gcbase::gctype::young>(
+            func_argument_count - func_named_param);
 
-        for (auto argindex = 0 + (size_t)argcount;
-            argindex < (size_t)tp->m_integer;
-            argindex++)
+        for (size_t argindex = 0 + func_named_param;
+            argindex < static_cast<size_t>(func_argument_count);
+            ++argindex)
         {
-            (*packed_array)[(size_t)argindex - (size_t)argcount].set_val(
-                rt_bp + 2 + argindex + skip_closure_arg_count);
+            packed_array->at(argindex - func_named_param).set_val(
+                rt_bp + 2 + argindex + closure_captured_count);
         }
 
         opnum1->set_gcunit<wo::value::valuetype::array_type>(packed_array);
-    }
-
-    value* vmbase::unpackargs_impl(
-        vmbase* vm,
-        value* opnum1,
-        int32_t unpack_argc,
-        value* tc,
-        const irv2::ir* rt_ip,
-        value* rt_sp,
-        value* rt_bp) noexcept
-    {
-        if (opnum1->m_type == value::valuetype::struct_type)
-        {
-            auto* arg_tuple = opnum1->m_structure;
-            gcbase::gc_read_guard gwg1(arg_tuple);
-
-            if (unpack_argc > 0)
-            {
-                if ((size_t)unpack_argc > (size_t)arg_tuple->m_count)
-                {
-                    vm->ip = rt_ip;
-                    vm->sp = rt_sp;
-                    vm->bp = rt_bp;
-
-                    wo_fail(WO_FAIL_INDEX_FAIL,
-                        "The number of arguments required for unpack exceeds the number "
-                        "of arguments in the given arguments-package.");
-                }
-                else
-                {
-                    if (rt_sp - unpack_argc < vm->stack_storage)
-                        goto _wo_unpackargs_stack_overflow;
-
-                    for (uint16_t i = (uint16_t)unpack_argc; i > 0; --i)
-                        (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
-                }
-            }
-            else
-            {
-                if ((size_t)arg_tuple->m_count < (size_t)(-unpack_argc))
-                {
-                    vm->ip = rt_ip;
-                    vm->sp = rt_sp;
-                    vm->bp = rt_bp;
-
-                    wo_fail(WO_FAIL_INDEX_FAIL,
-                        "The number of arguments required for unpack exceeds the number "
-                        "of arguments in the given arguments-package.");
-                }
-                else
-                {
-                    if (rt_sp - arg_tuple->m_count < vm->stack_storage)
-                        goto _wo_unpackargs_stack_overflow;
-
-                    for (uint16_t i = arg_tuple->m_count; i > 0; --i)
-                        (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
-
-                    tc->m_integer += (wo_integer_t)arg_tuple->m_count;
-                }
-            }
-        }
-        else if (opnum1->m_type == value::valuetype::array_type)
-        {
-            if (unpack_argc > 0)
-            {
-                auto* arg_array = opnum1->m_array;
-                gcbase::gc_read_guard gwg1(arg_array);
-
-                if ((size_t)unpack_argc > arg_array->size())
-                {
-                    vm->ip = rt_ip;
-                    vm->sp = rt_sp;
-                    vm->bp = rt_bp;
-
-                    wo_fail(WO_FAIL_INDEX_FAIL,
-                        "The number of arguments required for unpack exceeds the number "
-                        "of arguments in the given arguments-package.");
-                }
-                else
-                {
-                    if (rt_sp - unpack_argc < vm->stack_storage)
-                        goto _wo_unpackargs_stack_overflow;
-
-                    const auto args_rend = arg_array->rend();
-                    auto arg_idx = arg_array->rbegin();
-
-                    std::advance(
-                        arg_idx,
-                        static_cast<ptrdiff_t>(
-                            (wo_integer_t)arg_array->size() - unpack_argc));
-
-                    for (; arg_idx != args_rend; arg_idx++)
-                        (rt_sp--)->set_val(&*arg_idx);
-                }
-            }
-            else
-            {
-                auto* arg_array = opnum1->m_array;
-                gcbase::gc_read_guard gwg1(arg_array);
-
-                if (arg_array->size() < (size_t)(-unpack_argc))
-                {
-                    vm->ip = rt_ip;
-                    vm->sp = rt_sp;
-                    vm->bp = rt_bp;
-
-                    wo_fail(WO_FAIL_INDEX_FAIL,
-                        "The number of arguments required for unpack exceeds the number "
-                        "of arguments in the given arguments-package.");
-                }
-                else
-                {
-                    size_t arg_array_len = arg_array->size();
-
-                    if (rt_sp - arg_array_len < vm->stack_storage)
-                        goto _wo_unpackargs_stack_overflow;
-
-                    const auto args_rend = arg_array->rend();
-                    for (auto arg_idx = arg_array->rbegin(); arg_idx != args_rend; arg_idx++)
-                        (rt_sp--)->set_val(&*arg_idx);
-
-                    tc->m_integer += arg_array_len;
-                }
-            }
-        }
-        else
-        {
-            vm->ip = rt_ip;
-            vm->sp = rt_sp;
-            vm->bp = rt_bp;
-            wo_fail(WO_FAIL_INDEX_FAIL, "Only valid array/struct can be used in unpack.");
-        }
-
-        return rt_sp;
-
-    _wo_unpackargs_stack_overflow:
-        vm->interrupt(vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
-        return nullptr;
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -1825,8 +1687,7 @@ namespace wo
         value* const rt_cr = cr;
         value* const rt_reg_fast_lookup = register_storage - 0b01100000;
 
-        const irv2::ir* rt_ip =
-            reinterpret_cast<const irv2::ir*>(ip);
+        const irv2::ir* rt_ip = ip;
 
 #define WO_VM_INTERRUPT_CHECKPOINT          \
         fast_interrupt_state =              \
@@ -1861,12 +1722,22 @@ namespace wo
 
         re_entry_for_interrupt:
 
+#define WO_VM_FP_SHIFT(BASE, OFFSET)                                    \
+        reinterpret_cast<const irv2::ir*>(                              \
+            reinterpret_cast<const uint32_t*>(BASE) + (OFFSET))
+
+#define WO_VM_FP_OFFSET(BASE, FP)                                       \
+        static_cast<uint32_t>(                                          \
+            reinterpret_cast<const uint32_t*>(FP) - reinterpret_cast<const uint32_t*>(BASE))
+
 #define WO_VM_ADRS_C_G(OFFSET_I)                                        \
         (near_static_global + (OFFSET_I))
-#define WO_VM_ADRS_S(OFFSET_I)                                        \
+#define WO_VM_ADRS_S(OFFSET_I)                                          \
         (bp + (OFFSET_I))
 #define WO_VM_ADRS_R_S(OFFSET_I)                                        \
-        ((((OFFSET_I) >> 5) == 0b011) ? (rt_reg_fast_lookup + (OFFSET_I)) : WO_VM_ADRS_S(OFFSET_I))
+        ((static_cast<int8_t>(OFFSET_I) < 0b0110'0000)                  \
+            ? WO_VM_ADRS_S(static_cast<int8_t>(OFFSET_I))               \
+            : (rt_reg_fast_lookup + static_cast<int8_t>(OFFSET_I)))
 
 #define WO_VM_BEGIN_CASE_IR6(IRNAME, FORMAT)                            \
             case (WO_##IRNAME << 2) | 0b00:                             \
@@ -1879,14 +1750,14 @@ namespace wo
                 WO_FORMAL_IR6_##FORMAT(rt_ip);
 
 #define WO_VM_BEGIN_CASE_IR8(IRNAME, MODE, FORMAT)                      \
-            case (WO_##IRNAME << 2) | (MODE):                             \
+            case (WO_##IRNAME << 2) | (MODE):                           \
             {                                                           \
                 constexpr uint32_t z__wo_vm_next_ir_offset =            \
                     WO_FORMAL_IR8_##FORMAT##_IRCOUNTOF;                 \
                 WO_FORMAL_IR8_##FORMAT(rt_ip);                
 
 #define WO_VM_END_CASE()                                                \
-                rt_ip += z__wo_vm_next_ir_offset;                \
+                rt_ip = WO_VM_FP_SHIFT(rt_ip, z__wo_vm_next_ir_offset); \
                 break;                                                  \
             }
 
@@ -1931,6 +1802,20 @@ namespace wo
                 }
                 WO_VM_END_CASE();
 
+                // LOADEXT 16
+                WO_VM_BEGIN_CASE_IR8(LOADEXT, 1, 8_I16_EI32)
+                {
+                    WO_VM_ADRS_S(p1_i16)->set_val(WO_VM_ADRS_C_G(p2_i32));
+                }
+                WO_VM_END_CASE();
+
+                // LOADEXT 24
+                WO_VM_BEGIN_CASE_IR8(LOADEXT, 2, I24_EI32)
+                {
+                    WO_VM_ADRS_S(p1_i24)->set_val(WO_VM_ADRS_C_G(p2_i32));
+                }
+                WO_VM_END_CASE();
+
                 // STOREEXT
                 WO_VM_BEGIN_CASE_IR8(STOREEXT, 0, I8_16_EI32)
                 {
@@ -1939,6 +1824,26 @@ namespace wo
                         value::write_barrier(cg);
 
                     cg->set_val(WO_VM_ADRS_R_S(p1_i8));
+                }
+                WO_VM_END_CASE();
+
+                // STOREEXT 16
+                WO_VM_BEGIN_CASE_IR8(STOREEXT, 1, 8_I16_EI32)
+                {
+                    value* cg = WO_VM_ADRS_C_G(p2_i32);
+                    if (gc::gc_is_marking())
+                        value::write_barrier(cg);
+                    cg->set_val(WO_VM_ADRS_S(p1_i16));
+                }
+                WO_VM_END_CASE();
+
+                // STOREEXT 24
+                WO_VM_BEGIN_CASE_IR8(STOREEXT, 2, I24_EI32)
+                {
+                    value* cg = WO_VM_ADRS_C_G(p2_i32);
+                    if (gc::gc_is_marking())
+                        value::write_barrier(cg);
+                    cg->set_val(WO_VM_ADRS_S(p1_i24));
                 }
                 WO_VM_END_CASE();
 
@@ -2689,7 +2594,7 @@ namespace wo
                 // JMP
                 WO_VM_BEGIN_CASE_IR8(JMP, 0, U24)
                 {
-                    rt_ip = near_rtcode_begin + p1_u24;
+                    rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
 
                     // Break out, donot `WO_VM_END_CASE`
                     break;
@@ -2701,7 +2606,7 @@ namespace wo
                 {
                     if (!rt_cr->m_integer)
                     {
-                        rt_ip = near_rtcode_begin + p1_u24;
+                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
 
                         // Break out, donot `WO_VM_END_CASE`
                         break;
@@ -2714,7 +2619,7 @@ namespace wo
                 {
                     if (rt_cr->m_integer)
                     {
-                        rt_ip = near_rtcode_begin + p1_u24;
+                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
 
                         // Break out, donot `WO_VM_END_CASE`
                         break;
@@ -2725,9 +2630,11 @@ namespace wo
                 // JMPGC
                 WO_VM_BEGIN_CASE_IR8(JMPGC, 0, U24)
                 {
-                    rt_ip = near_rtcode_begin + p1_u24;
+                    rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
 
                     WO_VM_INTERRUPT_CHECKPOINT;
+
+                    // Break out, donot `WO_VM_END_CASE`
                     break;
                 }
                 WO_VM_END_CASE();
@@ -2737,8 +2644,11 @@ namespace wo
                 {
                     if (!rt_cr->m_integer)
                     {
-                        rt_ip = near_rtcode_begin + p1_u24;
+                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
+                        
                         WO_VM_INTERRUPT_CHECKPOINT;
+
+                        // Break out, donot `WO_VM_END_CASE`
                         break;
                     }
                 }
@@ -2749,82 +2659,8 @@ namespace wo
                 {
                     if (rt_cr->m_integer)
                     {
-                        rt_ip = near_rtcode_begin + p1_u24;
-                        WO_VM_INTERRUPT_CHECKPOINT;
-                        break;
-                    }
-                }
-                WO_VM_END_CASE();
-
-
-                // ...
-
-                // CALLNWO
-                WO_VM_BEGIN_CASE_IR8(CALLN, 0, U24_E32)
-                {
-                    if (sp > stack_storage)
-                    {
-                        sp->m_type = value::valuetype::callstack;
-                        sp->m_vmcallstack.bp = static_cast<uint32_t>(sb - bp);
-                        sp->m_vmcallstack.ret_ip =
-                            static_cast<uint32_t>(rt_ip - near_rtcode_begin) + z__wo_vm_next_ir_offset;
-
-                        bp = --sp;
-                        rt_ip = near_rtcode_begin + p1_u24;
-                    }
-                    else
-                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-
-                    WO_VM_INTERRUPT_CHECKPOINT;
-
-                    // Break out, donot `WO_VM_END_CASE`
-                    break;
-                }
-                WO_VM_END_CASE();
-
-                // CALLNJIT
-                WO_VM_BEGIN_CASE_IR8(CALLN, 1, EU56)
-                {
-                    if (sp > stack_storage)
-                    {
-                        sp->m_type = value::valuetype::callstack;
-                        sp->m_vmcallstack.bp = static_cast<uint32_t>(sb - bp);
-                        sp->m_vmcallstack.ret_ip =
-                            static_cast<uint32_t>(rt_ip - near_rtcode_begin) + z__wo_vm_next_ir_offset;
-
-                        // Donot store or update ip/sp/bp. jit function will not use them.
-                        auto* const rt_sp = sp;
-
-                        switch (reinterpret_cast<wo_extern_native_func_t>(
-                            static_cast<intptr_t>(p1_u56))(
-                                reinterpret_cast<wo_vm>(this),
-                                std::launder(reinterpret_cast<wo_value>(sp + 1))))
-                        {
-                        case wo_result_t::WO_API_NORMAL:
-                        {
-                            WO_VM_ASSERT(rt_sp > stack_storage && rt_sp <= sb,
-                                "Unexpected stack changed in 'callnjit'.");
-                            sp = rt_sp;
-
-                            WO_VM_ASSERT(sp->m_type == value::valuetype::callstack,
-                                "Found broken stack in 'callnjit'.");
-                            bp = sb - sp->m_vmcallstack.bp;
-                            break;
-                        }
-                        case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
-                            rt_ip = this->ip;
-                            WO_VM_INTERRUPT_CHECKPOINT;
-                            break;
-                        default:
-#if WO_ENABLE_RUNTIME_CHECK
-                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
-#endif
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
+                        
                         WO_VM_INTERRUPT_CHECKPOINT;
 
                         // Break out, donot `WO_VM_END_CASE`
@@ -2848,7 +2684,7 @@ namespace wo
                         value* stored_bp = sb - bp->m_vmcallstack.bp;
                         wo_assert(stored_bp <= sb && stored_bp > stack_storage);
 
-                        rt_ip = near_rtcode_begin + bp->m_vmcallstack.ret_ip;
+                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, bp->m_vmcallstack.ret_ip);
                         sp = bp;
                         bp = stored_bp;
                         break;
@@ -2881,7 +2717,7 @@ namespace wo
                 }
                 WO_VM_END_CASE();
 
-                // RETN
+                // RETN 16
                 WO_VM_BEGIN_CASE_IR8(RET, 1, 8_U16)
                 {
                     switch ((++bp)->m_type)
@@ -2897,7 +2733,7 @@ namespace wo
                         value* stored_bp = sb - bp->m_vmcallstack.bp;
                         wo_assert(stored_bp <= sb && stored_bp > stack_storage);
 
-                        rt_ip = near_rtcode_begin + bp->m_vmcallstack.ret_ip;
+                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, bp->m_vmcallstack.ret_ip);
                         sp = bp;
                         bp = stored_bp;
 
@@ -2929,6 +2765,182 @@ namespace wo
 
                     // Break out, donot `WO_VM_END_CASE`
                     break;
+                }
+                WO_VM_END_CASE();
+
+                // RETN 24
+                WO_VM_BEGIN_CASE_IR8(RET, 2, U24)
+                {
+                    switch ((++bp)->m_type)
+                    {
+                    case value::valuetype::native_callstack:
+                        sp = bp;
+                        sp += p1_u24;
+                        // last stack is native_func, just do return;
+                        // stack balance should be keeped by invoker.
+                        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+                    case value::valuetype::callstack:
+                    {
+                        value* stored_bp = sb - bp->m_vmcallstack.bp;
+                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, bp->m_vmcallstack.ret_ip);
+                        sp = bp;
+                        bp = stored_bp;
+
+                        break;
+                    }
+                    case value::valuetype::far_callstack:
+                    {
+                        value* stored_bp = sb - bp->m_ext_farcallstack_bp;
+                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                        rt_ip = bp->m_farcallstack;
+                        sp = bp;
+                        bp = stored_bp;
+
+                        if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                        {
+                            wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                            WO_VM_INTERRUPT_CHECKPOINT;
+                        }
+                        break;
+                    }
+                    default:
+#if WO_ENABLE_RUNTIME_CHECK
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
+#endif
+                        break;
+                    }
+                    sp += p1_u24;
+
+                    // Break out, donot `WO_VM_END_CASE`
+                    break;
+                }
+                WO_VM_END_CASE();
+
+                // RETN 32
+                WO_VM_BEGIN_CASE_IR8(RET, 3, 24_EU32)
+                {
+                    switch ((++bp)->m_type)
+                    {
+                    case value::valuetype::native_callstack:
+                        sp = bp;
+                        sp += p1_u32;
+                        // last stack is native_func, just do return;
+                        // stack balance should be keeped by invoker.
+                        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+                    case value::valuetype::callstack:
+                    {
+                        value* stored_bp = sb - bp->m_vmcallstack.bp;
+                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, bp->m_vmcallstack.ret_ip);
+                        sp = bp;
+                        bp = stored_bp;
+
+                        break;
+                    }
+                    case value::valuetype::far_callstack:
+                    {
+                        value* stored_bp = sb - bp->m_ext_farcallstack_bp;
+                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                        rt_ip = bp->m_farcallstack;
+                        sp = bp;
+                        bp = stored_bp;
+
+                        if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                        {
+                            wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                            WO_VM_INTERRUPT_CHECKPOINT;
+                        }
+                        break;
+                    }
+                    default:
+#if WO_ENABLE_RUNTIME_CHECK
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
+#endif
+                        break;
+                    }
+                    sp += p1_u32;
+
+                    // Break out, donot `WO_VM_END_CASE`
+                    break;
+                }
+                WO_VM_END_CASE();
+
+                // CALLNWO
+                WO_VM_BEGIN_CASE_IR8(CALLN, 0, U24_E32)
+                {
+                    if (sp > stack_storage)
+                    {
+                        sp->m_type = value::valuetype::callstack;
+                        sp->m_vmcallstack.bp = static_cast<uint32_t>(sb - bp);
+                        sp->m_vmcallstack.ret_ip =
+                            WO_VM_FP_OFFSET(near_rtcode_begin, rt_ip) + z__wo_vm_next_ir_offset;
+
+                        bp = --sp;
+                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
+                    }
+                    else
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+
+                    WO_VM_INTERRUPT_CHECKPOINT;
+
+                    // Break out, donot `WO_VM_END_CASE`
+                    break;
+                }
+                WO_VM_END_CASE();
+
+                // CALLNJIT
+                WO_VM_BEGIN_CASE_IR8(CALLN, 1, EU56)
+                {
+                    if (sp > stack_storage)
+                    {
+                        sp->m_type = value::valuetype::callstack;
+                        sp->m_vmcallstack.bp = static_cast<uint32_t>(sb - bp);
+                        sp->m_vmcallstack.ret_ip =
+                            WO_VM_FP_OFFSET(near_rtcode_begin, rt_ip) + z__wo_vm_next_ir_offset;
+
+                        // Donot store or update ip/sp/bp. jit function will not use them.
+                        auto* const rt_sp = sp;
+
+                        switch (reinterpret_cast<wo_extern_native_func_t>(
+                            static_cast<intptr_t>(p1_u56))(
+                                reinterpret_cast<wo_vm>(this),
+                                std::launder(reinterpret_cast<wo_value>(sp + 1))))
+                        {
+                        case wo_result_t::WO_API_NORMAL:
+                        {
+                            WO_VM_ASSERT(rt_sp > stack_storage && rt_sp <= sb,
+                                "Unexpected stack changed in 'callnjit'.");
+                            sp = rt_sp;
+
+                            WO_VM_ASSERT(sp->m_type == value::valuetype::callstack,
+                                "Found broken stack in 'callnjit'.");
+                            bp = sb - sp->m_vmcallstack.bp;
+                            break;
+                        }
+                        case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
+                            rt_ip = ip;
+                            WO_VM_INTERRUPT_CHECKPOINT;
+                            break;
+                        default:
+#if WO_ENABLE_RUNTIME_CHECK
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
+#endif
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                        WO_VM_INTERRUPT_CHECKPOINT;
+
+                        // Break out, donot `WO_VM_END_CASE`
+                        break;
+                    }
                 }
                 WO_VM_END_CASE();
 
@@ -3015,7 +3027,7 @@ namespace wo
                                 sp->m_type = value::valuetype::callstack;
                                 sp->m_vmcallstack.bp = static_cast<uint32_t>(sb - bp);
                                 sp->m_vmcallstack.ret_ip =
-                                    static_cast<uint32_t>(rt_ip - near_rtcode_begin) + z__wo_vm_next_ir_offset;
+                                    WO_VM_FP_OFFSET(near_rtcode_begin, rt_ip) + z__wo_vm_next_ir_offset;
 
                                 // Donot store or update ip/sp/bp. jit function will not use them.
                                 auto* const rt_sp = sp;
@@ -3036,7 +3048,7 @@ namespace wo
                                     break;
                                 }
                                 case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
-                                    rt_ip = this->ip;
+                                    rt_ip = ip;
                                     WO_VM_INTERRUPT_CHECKPOINT;
                                     break;
                                 default:
@@ -3060,7 +3072,8 @@ namespace wo
                                 else
                                 {
                                     sp->m_type = value::valuetype::callstack;
-                                    sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
+                                    sp->m_vmcallstack.ret_ip =
+                                        WO_VM_FP_OFFSET(near_rtcode_begin, rt_ip);
                                     sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
                                     bp = --sp;
                                 }
@@ -3105,9 +3118,10 @@ namespace wo
                                 break;
                             }
                             case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
-                                rt_ip = this->ip;
+                                rt_ip = ip;
                                 if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
-                                    wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                                    wo_assure(interrupt(
+                                        vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                                 WO_VM_INTERRUPT_CHECKPOINT;
                                 break;
                             default:
@@ -3133,7 +3147,7 @@ namespace wo
                             else
                             {
                                 sp->m_type = value::valuetype::callstack;
-                                sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
+                                sp->m_vmcallstack.ret_ip = WO_VM_FP_OFFSET(near_rtcode_begin, rt_ip);
                                 sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
                                 bp = --sp;
                             }
@@ -3239,6 +3253,278 @@ namespace wo
                         sp);
                 }
                 WO_VM_END_CASE();
+
+                // UNPACKSN
+                WO_VM_BEGIN_CASE_IR8(UNPACK, 0, I8_U16)
+                {
+                    const structure_t* const unpack_struct =
+                        WO_VM_ADRS_R_S(p1_i8)->m_structure;
+                    gcbase::gc_read_guard rg(unpack_struct);
+
+                    if (unpack_struct->m_count >= p2_u16)
+                    {
+                        auto* const new_sp = sp - p2_u16;
+                        if (new_sp >= stack_storage)
+                        {
+                            sp = new_sp;
+                            for (uint16_t idx = 0; idx < p2_u16; ++idx)
+                            {
+                                new_sp[idx + 1].set_val(
+                                    &unpack_struct->m_values[idx]);
+                            }
+                        }
+                        else
+                        {
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                            WO_VM_INTERRUPT_CHECKPOINT;
+
+                            // Break out, donot `WO_VM_END_CASE`
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
+                            "Structure unpack count exceed.");
+                    }
+                }
+                WO_VM_END_CASE();
+
+                // UNPACKSC
+                WO_VM_BEGIN_CASE_IR8(UNPACK, 1, I8_U16)
+                {
+                    const structure_t* const unpack_struct =
+                        WO_VM_ADRS_R_S(p1_i8)->m_structure;
+                    gcbase::gc_read_guard rg(unpack_struct);
+
+                    if (unpack_struct->m_count >= p2_u16)
+                    {
+                        auto* const new_sp = sp - unpack_struct->m_count;
+                        if (new_sp >= stack_storage)
+                        {
+                            sp = new_sp;
+                            for (uint32_t idx = 0; idx < unpack_struct->m_count; ++idx)
+                            {
+                                new_sp[idx + 1].set_val(
+                                    &unpack_struct->m_values[idx]);
+                            }
+                        }
+                        else
+                        {
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                            WO_VM_INTERRUPT_CHECKPOINT;
+
+                            // Break out, donot `WO_VM_END_CASE`
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
+                            "Structure unpack count exceed.");
+                    }
+                }
+                WO_VM_END_CASE();
+
+                // UNPACKAN
+                WO_VM_BEGIN_CASE_IR8(UNPACK, 2, I8_U16)
+                {
+                    const array_t* const unpack_array =
+                        WO_VM_ADRS_R_S(p1_i8)->m_array;
+                    gcbase::gc_read_guard rg(unpack_array);
+
+                    if (unpack_array->size() >= p2_u16)
+                    {
+                        auto* const new_sp = sp - p2_u16;
+                        if (new_sp >= stack_storage)
+                        {
+                            sp = new_sp;
+
+                            auto* data = unpack_array->data();
+                            for (uint16_t idx = 0; idx < p2_u16; ++idx)
+                            {
+                                new_sp[idx + 1].set_val(&data[idx]);
+                            }
+                        }
+                        else
+                        {
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                            WO_VM_INTERRUPT_CHECKPOINT;
+
+                            // Break out, donot `WO_VM_END_CASE`
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
+                            "Structure unpack count exceed.");
+                    }
+                }
+                WO_VM_END_CASE();
+
+                // UNPACKAC
+                WO_VM_BEGIN_CASE_IR8(UNPACK, 3, I8_U16)
+                {
+                    const array_t* const unpack_array =
+                        WO_VM_ADRS_R_S(p1_i8)->m_array;
+                    gcbase::gc_read_guard rg(unpack_array);
+
+                    const auto array_length = unpack_array->size();
+                    if (array_length >= p2_u16)
+                    {
+                        auto* const new_sp = sp - array_length;
+                        if (new_sp >= stack_storage)
+                        {
+                            sp = new_sp;
+                            auto* data = unpack_array->data();
+                            for (size_t idx = 0; idx < array_length; ++idx)
+                            {
+                                new_sp[idx + 1].set_val(&data[idx]);
+                            }
+                        }
+                        else
+                        {
+                            wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+                            WO_VM_INTERRUPT_CHECKPOINT;
+
+                            // Break out, donot `WO_VM_END_CASE`
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL,
+                            "Structure unpack count exceed.");
+                    }
+                }
+                WO_VM_END_CASE();
+
+                // PACK
+                WO_VM_BEGIN_CASE_IR8(PACK, 0, I8_U8_U8)
+                {
+                    packargs_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        bp,
+                        tp->m_integer,
+                        static_cast<uint16_t>(p2_u8),
+                        static_cast<uint16_t>(p3_u8));
+                }
+                WO_VM_END_CASE();
+
+                // PACKEXT
+                WO_VM_BEGIN_CASE_IR8(PACK, 1, I8_U16_EU32)
+                {
+                    packargs_impl(
+                        WO_VM_ADRS_R_S(p1_i8),
+                        bp,
+                        tp->m_integer,
+                        p2_u16,
+                        static_cast<uint16_t>(p3_u32));
+                }
+                WO_VM_END_CASE();
+
+                // LDSIMM
+                WO_VM_BEGIN_CASE_IR8(LDS, 0, I8_I16)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_val(
+                        WO_VM_ADRS_S(p2_i16));
+                }
+                WO_VM_END_CASE();
+
+                // LDSIMMEXT
+                WO_VM_BEGIN_CASE_IR8(LDS, 1, I8_16_EI32)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_val(
+                        WO_VM_ADRS_S(p2_i32));
+                }
+                WO_VM_END_CASE();
+
+                // LDSIDX
+                WO_VM_BEGIN_CASE_IR8(LDS, 2, I8_I8_8)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_val(
+                        WO_VM_ADRS_S(
+                            WO_VM_ADRS_R_S(p2_i8)->m_integer));
+                }
+                WO_VM_END_CASE();
+
+                // LDSIDXEXT
+                WO_VM_BEGIN_CASE_IR8(LDS, 3, I8_16_EI32)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_val(
+                        WO_VM_ADRS_S(
+                            WO_VM_ADRS_R_S(p2_i32)->m_integer));
+                }
+                WO_VM_END_CASE();
+
+                // STSIMM
+                WO_VM_BEGIN_CASE_IR8(STS, 0, I8_I16)
+                {
+                    WO_VM_ADRS_S(p2_i16)->set_val(
+                        WO_VM_ADRS_R_S(p1_i8));
+                }
+                WO_VM_END_CASE();
+
+                // STSIMMEXT
+                WO_VM_BEGIN_CASE_IR8(STS, 1, I8_16_EI32)
+                {
+                    WO_VM_ADRS_S(p2_i32)->set_val(
+                        WO_VM_ADRS_R_S(p1_i8));
+                }
+                WO_VM_END_CASE();
+
+                // STSIDX
+                WO_VM_BEGIN_CASE_IR8(STS, 2, I8_I8_8)
+                {
+                    WO_VM_ADRS_S(
+                        WO_VM_ADRS_R_S(p2_i8)->m_integer)->set_val(
+                            WO_VM_ADRS_R_S(p1_i8));
+                }
+                WO_VM_END_CASE();
+
+                // STSIDXEXT
+                WO_VM_BEGIN_CASE_IR8(STS, 3, I8_16_EI32)
+                {
+                    WO_VM_ADRS_S(
+                        WO_VM_ADRS_R_S(p2_i32)->m_integer)->set_val(
+                            WO_VM_ADRS_R_S(p1_i8));
+                }
+                WO_VM_END_CASE();
+
+                // PANIC
+                WO_VM_BEGIN_CASE_IR8(PANIC, 0, I8_16)
+                {
+                    WO_VM_FAIL(WO_FAIL_UNEXPECTED,
+                        "%s",
+                        wo_cast_string(
+                            reinterpret_cast<wo_value>(
+                                WO_VM_ADRS_R_S(p1_i8))));
+                }
+                WO_VM_END_CASE();
+
+                // PANIC C/G 24
+                WO_VM_BEGIN_CASE_IR8(PANIC, 2, I24)
+                {
+                    WO_VM_FAIL(WO_FAIL_UNEXPECTED,
+                        "%s",
+                        wo_cast_string(
+                            reinterpret_cast<wo_value>(
+                                WO_VM_ADRS_C_G(p1_i24))));
+                }
+                WO_VM_END_CASE();
+
+                // PANIC C/G 32
+                WO_VM_BEGIN_CASE_IR8(PANIC, 3, 24_EI32)
+                {
+                    WO_VM_FAIL(WO_FAIL_UNEXPECTED,
+                        "%s",
+                        wo_cast_string(
+                            reinterpret_cast<wo_value>(
+                                WO_VM_ADRS_C_G(p1_i32))));
+                }
+                WO_VM_END_CASE();
+
 
             default:
             {

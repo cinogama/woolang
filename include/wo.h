@@ -1289,9 +1289,16 @@ enum _wo_irv2
     WO_END,     //  END      00 00000000 00000000 00000000
     WO_LOAD,    //  LOAD     [    C/G Adrsing   ] [R/SAds]
     WO_STORE,   //  STORE    [    C/G Adrsing   ] [R/SAds]
-    WO_LOADEXT, //  LOADEXT  00 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
-    WO_STOREEXT,//  STOREEXT 00 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
-    // WO_LOADLST, //  LOADLST  00 00000000 [ Count 16bits  ] [R/SAds] [   C/G Adrsing 24bit    ]...
+    WO_LOADEXT, 
+    //  LOADEXT  00 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
+    //           01 00000000 [  SAds 16 bits  ] [ C/G Adrsing 32 bits ]   
+    //           10 [    SAds 24 bits         ] [ C/G Adrsing 32 bits ]
+    //           11 ======== RESERVED ========
+    WO_STOREEXT,
+    //  STOREEXT 00 [R/SAds] 00000000 00000000 [ C/G Adrsing 32 bits ]
+    //           01 00000000 [  SAds 16 bits  ] [ C/G Adrsing 32 bits ]
+    //           10 [    SAds 24 bits         ] [ C/G Adrsing 32 bits ]
+    //           11 ======== RESERVED ========
     WO_PUSH,
     //  PUSH     00 [  Stack reserved count  ]
     //           01 [R/SAds] 00000000 00000000
@@ -1430,10 +1437,10 @@ enum _wo_irv2
     //           10 ======== RESERVED ========
     //           11 ======== RESERVED ========
     WO_UNPACK,  
-    //  UNPACK   00 [R/SAds] 00000000 00000000  // UNPACK
-    //           01 [R/SAds] [Unpack count 16b] // UNPACKN
-    //           10 [R/SAds] [Check count 16b ] // UNPACKC
-    //           11 ======== RESERVED ========
+    //  UNPACK   00 [R/SAds] [Unpack count 16b] // UNPACKSN
+    //           01 [R/SAds] [Unpack count 16b] // UNPACKSC
+    //           10 [R/SAds] [Unpack count 16b] // UNPACKAN
+    //           11 [R/SAds] [Check count 16b ] // UNPACKAC
     WO_PACK,
     //  PACK     00 [R/SAds] [FnArgc] [ClArgc] 
     //           01 [R/SAds] [ FnArgc 16bits ] [     ClArgc 32bits     ]
