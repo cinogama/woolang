@@ -270,7 +270,7 @@ namespace wo
                     U32,
                 };
                 Formal      m_formal;
-                uint32_t*   m_address;
+                uint32_t* m_address;
             };
             std::optional<uint32_t> m_bound_ip_offset;
             std::optional<std::vector<ApplyAddress>> m_pending_apply_address;
@@ -296,11 +296,119 @@ namespace wo
 
         void emit(uint32_t opcode) noexcept;
 
+        template<size_t width>
+        struct cg_adrsing
+        {
+            int32_t m_adrs;
+            cg_adrsing(int32_t adr) noexcept
+                : m_adrs(adr)
+            {
+                wo_test(adr >= -(1 << (width - 1)) && adr < (1 << (width - 1)));
+            }
+
+            template<size_t width_b>
+            cg_adrsing(const cg_adrsing<width_b>& b) noexcept
+                : m_adrs(b.adr)
+            {
+                static_assert(
+                    width_b <= width, 
+                    "Cannot convert from wider to narrower address sing.");
+            }
+            template<size_t width_b>
+            cg_adrsing(cg_adrsing<width_b>&& b) noexcept
+                : m_adrs(b.adr)
+            {
+                static_assert(
+                    width_b <= width, 
+                    "Cannot convert from wider to narrower address sing.");
+            }
+
+            template<size_t width_b>
+            cg_adrsing<width>& operator =(const cg_adrsing<width_b>& b) noexcept
+            {
+                static_assert(
+                    width_b <= width,
+                    "Cannot convert from wider to narrower address sing.");
+                m_adrs = b.m_adrs;
+                return *this;
+            }
+            template<size_t width_b>
+            cg_adrsing<width>& operator =(cg_adrsing<width_b>&& b) noexcept
+            {
+                static_assert(
+                    width_b <= width,
+                    "Cannot convert from wider to narrower address sing.");
+                m_adrs = b.m_adrs;
+                return *this;
+            }
+        };
+
+        struct rs_adrsing8
+        {
+            int8_t m_adrs;
+            rs_adrsing8(int8_t adr) noexcept
+                : m_adrs(adr)
+            {
+            }
+        };
+
+        template<size_t width>
+        struct s_adrsing
+        {
+            int32_t m_adrs;
+            s_adrsing(int32_t adr) noexcept
+                : m_adrs(adr)
+            {
+                wo_test(adr >= -(1 << (width - 1)) && adr < (1 << (width - 1)));
+            }
+
+            template<size_t width_b>
+            s_adrsing(const s_adrsing<width_b>& b) noexcept
+                : m_adrs(b.adr)
+            {
+                static_assert(
+                    width_b <= width,
+                    "Cannot convert from wider to narrower address sing.");
+            }
+            template<size_t width_b>
+            s_adrsing(s_adrsing<width_b>&& b) noexcept
+                : m_adrs(b.adr)
+            {
+                static_assert(
+                    width_b <= width,
+                    "Cannot convert from wider to narrower address sing.");
+            }
+
+            template<size_t width_b>
+            s_adrsing<width>& operator =(const s_adrsing<width_b>& b) noexcept
+            {
+                static_assert(
+                    width_b <= width,
+                    "Cannot convert from wider to narrower address sing.");
+                m_adrs = b.m_adrs;
+                return *this;
+            }
+            template<size_t width_b>
+            s_adrsing<width>& operator =(s_adrsing<width_b>&& b) noexcept
+            {
+                static_assert(
+                    width_b <= width,
+                    "Cannot convert from wider to narrower address sing.");
+                m_adrs = b.m_adrs;
+                return *this;
+            }
+        };
+
         // Code emission
         Label* label() noexcept;
         Label* named_label(const char* name) noexcept;
         void bind(Label* label) noexcept;
 
         void nop() noexcept;
+        void end() noexcept;
+        void load(cg_adrsing<32> cg32, rs_adrsing8 rs8) noexcept;
+        void store(cg_adrsing<32> cg32, rs_adrsing8 rs8) noexcept;
+        void loadext(s_adrsing<24> s24, cg_adrsing<32> cg32) noexcept;
+        void storeext(s_adrsing<24> s24, cg_adrsing<32> cg32) noexcept;
     };
 }

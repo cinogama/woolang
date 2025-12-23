@@ -1872,12 +1872,122 @@ namespace wo
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define _WO_EMIT_OP6_CMD(CMD, P26B) \
-    (((WO_##CMD) << 2) | (P26B))
+#define _WO_EMIT_OP6_CMD(CMD, P26B)                     \
+    ((static_cast<uint32_t>(WO_##CMD) << 2)             \
+    | (static_cast<uint32_t>(P26B) & static_cast<uint32_t>(0x3ffffffu)))
+
+#define _WO_EMIT_OP8_CMD(CMD, MODE, P24B)               \
+    _WO_EMIT_OP6_CMD(                                   \
+        CMD,                                            \
+        (((static_cast<uint32_t>(MODE)                  \
+            & static_cast<uint32_t>(0b11u)) << 24)      \
+        | (static_cast<uint32_t>(P24B) & static_cast<uint32_t>(0x00ffffffu))))
+
+#define _WO_EMIT_EXT_I32(I32)                           \
+    static_cast<int32_t>(I32)
+
+#define _WO_EMIT_EXT_U32(U32)                           \
+    static_cast<uint32_t>(U32)
+
+#define _WO_CMD26_I18_I8(I18, I8)                       \
+    ((static_cast<uint32_t>(I18) << 8) | static_cast<uint8_t>(I8))
+
+#define _WO_CMD24_I18_16(I8)                            \
+    (static_cast<uint32_t>(I8) << 16)
+
+#define _WO_CMD24_8_I16(I16)                            \
+    static_cast<uint32_t>(I16)
+
+#define _WO_CMD24_I24(I24)                              \
+    static_cast<uint32_t>(I24)
+
+    template<typename IntegerT>
+    size_t min_width(IntegerT n)
+    {
+        if (n == 0)
+            return 1;
+
+        if constexpr (std::is_signed_v<IntegerT>)
+        {
+            const int64_t v = n;
+
+            size_t bits = 2;
+            for (; bits < 64; ++bits)
+            {
+                const int64_t min = -(1LL << (bits - 1));
+                const int64_t max = (1LL << (bits - 1)) - 1;
+                if (v >= min && v <= max)
+                    return bits;
+            }
+            return bits;
+        }
+        else
+        {
+            const uint64_t v = n;
+
+            size_t bits = 1;
+            for (; bits < 64; ++bits)
+            {
+                const uint64_t max = (1ULL << bits) - 1;
+                if (v <= max)
+                    return bits;
+            }
+            return bits;
+        }
+    }
 
     void IRBuilder::nop() noexcept
     {
-        TODO;
-        emit(WO_NOP << 2 | 00 << 24 | 0x000000);
+        emit(_WO_EMIT_OP8_CMD(NOP, 0, 0));
+    }
+    void IRBuilder::end() noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(END, 0, 0));
+    }
+    void IRBuilder::load(cg_adrsing<32> cg32, rs_adrsing8 rs8) noexcept
+    {
+        if (min_width(cg32.m_adrs) <= 18)
+            emit(_WO_EMIT_OP6_CMD(LOAD, _WO_CMD26_I18_I8(cg32.m_adrs, rs8.m_adrs)));
+        else
+        {
+            emit(_WO_EMIT_OP6_CMD(LOADEXT, _WO_CMD24_I18_16(rs8.m_adrs)));
+            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+        }
+    }
+    void IRBuilder::store(cg_adrsing<32> cg32, rs_adrsing8 rs8) noexcept
+    {
+        if (min_width(cg32.m_adrs) <= 18)
+            emit(_WO_EMIT_OP6_CMD(STORE, _WO_CMD26_I18_I8(cg32.m_adrs, rs8.m_adrs)));
+        else
+        {
+            emit(_WO_EMIT_OP6_CMD(STOREEXT, _WO_CMD24_I18_16(rs8.m_adrs)));
+            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+        }
+    }
+    void IRBuilder::loadext(s_adrsing<24> s24, cg_adrsing<32> cg32) noexcept
+    {
+        if (min_width(s24.m_adrs) <= 16)
+        {
+            emit(_WO_EMIT_OP6_CMD(LOADEXT, _WO_CMD24_8_I16(s24.m_adrs)));
+            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP6_CMD(LOADEXT, _WO_CMD24_I24(s24.m_adrs)));
+            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+        }
+    }
+    void IRBuilder::storeext(s_adrsing<24> s24, cg_adrsing<32> cg32) noexcept
+    {
+        if (min_width(s24.m_adrs) <= 16)
+        {
+            emit(_WO_EMIT_OP6_CMD(STOREEXT, _WO_CMD24_8_I16(s24.m_adrs)));
+            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP6_CMD(STOREEXT, _WO_CMD24_I24(s24.m_adrs)));
+            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+        }
     }
 }
