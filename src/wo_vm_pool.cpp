@@ -72,11 +72,9 @@ namespace wo
         // Clear stack & register to make sure gc will not mark the useless data of current vm;
         vm->sp = vm->bp = vm->sb;
 
-        const size_t register_count = vm->env->real_register_count;
+        const size_t register_count = vmbase::VM_REGISTER_COUNT;
         for (size_t regi = 0; regi < register_count; ++regi)
-        {
             vm->register_storage[regi].set_nil();
-        }
 
         do
         {

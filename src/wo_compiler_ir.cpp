@@ -549,12 +549,11 @@ namespace wo
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     runtime_env::runtime_env()
-        : constant_and_global_storage(nullptr)
+        : rt_codes(nullptr)
+        , rt_code_len(0)
+        , constant_and_global_storage(nullptr)
         , constant_and_global_value_takeplace_count(0)
         , constant_value_count(0)
-        , real_register_count(0)
-        , rt_codes(nullptr)
-        , rt_code_len(0)
         , _running_on_vm_count(0)
         , _created_destructable_instance_count(0)
     {
@@ -645,10 +644,6 @@ namespace wo
         write_binary_to_buffer(
             (uint64_t)(this->constant_and_global_value_takeplace_count
                 - this->constant_value_count), 8);
-
-        // 2.2 Default register size
-        write_binary_to_buffer(
-            (uint64_t)this->real_register_count, 8);
 
         // 3.1 Code data
         //  3.1.1 Code data length
@@ -959,11 +954,6 @@ namespace wo
         if (!stream->read_elem(&global_value_count))
             WO_LOAD_BIN_FAILED("Failed to restore global value count.");
 
-        // 2.2 Default register size
-        uint64_t register_count;
-        if (!stream->read_elem(&register_count))
-            WO_LOAD_BIN_FAILED("Failed to restore register count.");
-
         // 3.1 Code data
         //  3.1.1 Code data length
         uint64_t rt_code_with_padding_length;
@@ -987,7 +977,6 @@ namespace wo
 
         created_env->rt_codes = code_buf;
         created_env->rt_code_len = (size_t)rt_code_with_padding_length * sizeof(byte_t);
-        created_env->real_register_count = (size_t)register_count;
         created_env->constant_and_global_value_takeplace_count =
             (size_t)(constant_value_count + 1 + global_value_count + 1);
         created_env->constant_value_count = (size_t)constant_value_count;
@@ -1112,7 +1101,7 @@ namespace wo
                         if (!stream->read_elem(&diff))
                             WO_LOAD_BIN_FAILED("Failed to restore constant value.");
 
-                        tuple_constant_elem.m_script_func = 
+                        tuple_constant_elem.m_script_func =
                             reinterpret_cast<const irv2::ir*>(code_buf + diff);
                         break;
                     }
@@ -1142,7 +1131,7 @@ namespace wo
                 if (!stream->read_elem(&diff))
                     WO_LOAD_BIN_FAILED("Failed to restore constant value.");
 
-                this_constant_value.m_script_func = 
+                this_constant_value.m_script_func =
                     reinterpret_cast<const irv2::ir*>(code_buf + diff);
                 break;
             }
@@ -1772,4 +1761,123 @@ namespace wo
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void IRBuilder::Label::apply_to_address(uint32_t* address, ApplyAddress::Formal formal) noexcept
+    {
+        if (m_bound_ip_offset.has_value())
+        {
+            const uint32_t ip_offset = m_bound_ip_offset.value();
+            switch (formal)
+            {
+            case ApplyAddress::Formal::U32:
+            {
+                *address = ip_offset;
+                break;
+            }
+            case ApplyAddress::Formal::SHIFT8_U24:
+            {
+                wo_assert((ip_offset & static_cast<uint32_t>(0xFF000000u)) == 0);
+                *address =
+                    (*address & static_cast<uint32_t>(0xFFu << 24))
+                    | static_cast<uint32_t>(ip_offset);
+
+                break;
+            }
+            default:
+                wo_error("Unsupported apply address formal.");
+                break;
+            }
+        }
+        else
+        {
+            std::vector<ApplyAddress>* const pending_apply_address =
+                m_pending_apply_address.has_value()
+                ? &m_pending_apply_address.value()
+                : &m_pending_apply_address.emplace();
+
+            pending_apply_address->emplace_back(
+                ApplyAddress{
+                    formal,
+                    address,
+                });
+        }
+    }
+    void IRBuilder::Label::bind_at_ip_offset(uint32_t ip_offset) noexcept
+    {
+        wo_assert(!m_bound_ip_offset.has_value());
+
+        m_bound_ip_offset.emplace(ip_offset);
+        if (m_pending_apply_address.has_value())
+        {
+            for (auto& apply_addr : m_pending_apply_address.value())
+                apply_to_address(apply_addr.m_address, apply_addr.m_formal);
+
+            m_pending_apply_address.reset();
+        }
+    }
+
+    IRBuilder::IRBuilder()
+        : m_code_holder(nullptr)
+        , m_code_holder_capacity(0)
+        , m_code_holder_size(0)
+    {
+    }
+    IRBuilder::~IRBuilder()
+    {
+        if (m_code_holder != nullptr)
+            free(m_code_holder);
+
+        for (auto* label : m_created_labels)
+            delete label;
+    }
+
+    void IRBuilder::emit(uint32_t opcode) noexcept
+    {
+        if (m_code_holder_size >= m_code_holder_capacity)
+        {
+            wo_assert(m_code_holder_size == m_code_holder_capacity);
+
+            m_code_holder_capacity *= 2;
+            m_code_holder = (uint32_t*)realloc(
+                m_code_holder,
+                m_code_holder_capacity * sizeof(uint32_t));
+
+            wo_assert(m_code_holder != nullptr);
+        }
+        m_code_holder[m_code_holder_size++] = opcode;
+    }
+
+    IRBuilder::Label* IRBuilder::label() noexcept
+    {
+        Label* result = new Label();
+
+        m_created_labels.push_back(result);
+        return result;
+    }
+    IRBuilder::Label* IRBuilder::named_label(const char* name) noexcept
+    {
+        auto fnd = m_named_label.find(name);
+        if (fnd != m_named_label.end())
+            return fnd->second;
+
+        Label* result = label();
+        m_named_label.emplace(name, result);
+
+        return result;
+    }
+    void IRBuilder::bind(Label* label) noexcept
+    {
+        label->bind_at_ip_offset(m_code_holder_size);
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define _WO_EMIT_OP6_CMD(CMD, P26B) \
+    (((WO_##CMD) << 2) | (P26B))
+
+    void IRBuilder::nop() noexcept
+    {
+        TODO;
+        emit(WO_NOP << 2 | 00 << 24 | 0x000000);
+    }
 }

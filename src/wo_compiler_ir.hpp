@@ -22,266 +22,6 @@
 
 namespace wo
 {
-    namespace opnum
-    {
-        struct opnumbase
-        {
-            virtual ~opnumbase() = default;
-            virtual size_t generate_opnum_to_buffer(std::vector<byte_t>&) const
-            {
-                wo_error("This type can not generate opnum.");
-            }
-        };
-
-        struct global :virtual opnumbase
-        {
-            int32_t offset;
-            int32_t real_offset_const_glb;
-
-            global(int32_t _offset) noexcept
-                :offset(_offset)
-                , real_offset_const_glb(0xFFFFFFFF)
-            {
-
-            }
-
-            size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const override
-            {
-                byte_t* buf = (byte_t*)&real_offset_const_glb;
-
-                buffer.push_back(buf[0]);
-                buffer.push_back(buf[1]);
-                buffer.push_back(buf[2]);
-                buffer.push_back(buf[3]);
-
-                return 4;
-            }
-        };
-        struct temporary : virtual opnumbase
-        {
-            uint32_t m_id;
-            temporary(uint32_t id) noexcept
-                : m_id(id)
-            {
-            }
-        };
-        struct reg :virtual opnumbase
-        {
-            // REGID
-            // 0B | 1    |         1           |000000
-            //    |isreg?|stacksign(if not reg)|offset
-
-            uint8_t id;
-
-            static constexpr uint32_t T_REGISTER_COUNT = 16;
-            static constexpr uint32_t R_REGISTER_COUNT = 16;
-            static constexpr uint32_t ALL_REGISTER_COUNT = 64;
-
-            enum spreg : uint8_t
-            {
-                // normal regist
-                t0 = _wo_reg::WO_REG_T0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15,
-                r0 = _wo_reg::WO_REG_R0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
-
-                // special regist
-                op_trace_result = _wo_reg::WO_REG_CR,
-                cr = op_trace_result,
-
-                argument_count,
-                tc = argument_count,
-
-                exception_inform,
-                er = exception_inform,
-
-                nil_constant,
-                ni = nil_constant,
-
-                pattern_match,
-                pm = pattern_match,
-
-                temporary,
-                tp = temporary,
-
-                last_special_register = 0b00111111,
-            };
-
-            reg(uint8_t _id) noexcept
-                :id(_id)
-            {
-            }
-
-            static constexpr uint8_t bp_offset(int8_t offset)
-            {
-                wo_assert(offset >= -64 && offset <= 63);
-                return static_cast<uint8_t>(
-                    (uint8_t)0b10000000 | static_cast<uint8_t>(offset));
-            }
-            bool is_bp_offset() const
-            {
-                return id & (uint8_t)0b10000000;
-            }
-            int8_t get_bp_offset() const
-            {
-                wo_assert(is_bp_offset());
-#define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
-                return WO_SIGNED_SHIFT(id);
-#undef WO_SIGNED_SHIFT
-            }
-            size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const override
-            {
-                buffer.push_back(id);
-                return 1;
-            }
-        };
-        struct tag :virtual opnumbase
-        {
-            wo_pstring_t name;
-
-            tag(wo_pstring_t _name)
-                : name(_name)
-            {
-            }
-        };
-        struct immbase :virtual opnumbase
-        {
-        protected:
-            explicit immbase(const bool* val)
-                : constant_index(std::nullopt)
-                , constant_value(*val)
-            {
-            }
-            explicit immbase(const wo_integer_t* val)
-                : constant_index(std::nullopt)
-                , constant_value(*val)
-            {
-            }
-            explicit immbase(const wo_real_t* val)
-                : constant_index(std::nullopt)
-                , constant_value(*val)
-            {
-            }
-            explicit immbase(const wo_handle_t* val)
-                : constant_index(std::nullopt)
-                , constant_value(*val)
-            {
-            }
-            explicit immbase(void* const* val)
-                : constant_index(std::nullopt)
-                , constant_value(static_cast<wo_handle_t>(
-                    reinterpret_cast<intptr_t>(
-                        *val)))
-            {
-            }
-            explicit immbase(ast::AstValueFunction* const* val)
-                : constant_index(std::nullopt)
-                , constant_value(*val)
-            {
-            }
-            explicit immbase(wo_pstring_t val)
-                : constant_index(std::nullopt)
-                , constant_value(val)
-            {
-            }
-            explicit immbase(const std::string& val)
-                : constant_index(std::nullopt)
-                , constant_value(val)
-            {
-            }
-        public:
-            std::optional<uint32_t> constant_index;
-            ast::ConstantValue constant_value;
-
-            explicit immbase(const ast::ConstantValue& val)
-                : constant_index(std::nullopt)
-                , constant_value(val)
-            {
-            }
-
-            bool operator < (const immbase& another) const
-            {
-                return constant_value < another.constant_value;
-            }
-            ast::ConstantValue::Type type()const
-            {
-                return constant_value.m_type;
-            }
-            size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const override
-            {
-                const byte_t* buf =
-                    reinterpret_cast<const byte_t*>(
-                        &constant_index.value());
-
-                buffer.push_back(buf[0]);
-                buffer.push_back(buf[1]);
-                buffer.push_back(buf[2]);
-                buffer.push_back(buf[3]);
-
-                return 4;
-            }
-        };
-
-        struct imm_bool : virtual immbase
-        {
-            explicit imm_bool(bool val)
-                : immbase(&val)
-            {
-            }
-        };
-        struct imm_int : virtual immbase
-        {
-            explicit imm_int(wo_integer_t val)
-                : immbase(&val)
-            {
-            }
-        };
-        struct imm_real : virtual immbase
-        {
-            explicit imm_real(wo_real_t val)
-                : immbase(&val)
-            {
-            }
-        };
-        struct imm_handle : virtual immbase
-        {
-            explicit imm_handle(wo_handle_t val)
-                : immbase(&val)
-            {
-            }
-            explicit imm_handle(void* val)
-                : immbase(&val)
-            {
-            }
-        };
-        struct imm_string : virtual immbase
-        {
-            explicit imm_string(wo_pstring_t val)
-                : immbase(val)
-            {
-            }
-            explicit imm_string(const std::string& val)
-                : immbase(val)
-            {
-            }
-        };
-#ifndef WO_DISABLE_COMPILER
-        struct imm_extfunc : virtual immbase
-        {
-            imm_extfunc(ast::AstValueFunction* func);
-        };
-        struct tagimm_rsfunc :virtual tag, virtual immbase
-        {
-            tagimm_rsfunc(ast::AstValueFunction* func);
-            size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const override
-            {
-                // Avoid warning c4250.
-                return immbase::generate_opnum_to_buffer(buffer);
-            }
-        };
-#endif
-    } // namespace opnum;
-
-    class vmbase;
-    class ir_compiler;
     struct runtime_env;
 
     struct program_debug_data_info
@@ -469,8 +209,33 @@ namespace wo
         bool try_find_script_func(const std::string& name, const byte_t** out_script_func);
         bool try_find_jit_func(const byte_t* script_func, wo_native_func_t* out_jit_func);
 
-        static paged_env_mapping _paged_env_mapping_context;
+        // Base runtime state.
+        // NOTE: An environment needs to have at least the following five fields
+        //      ready if it is to be started by a VM.
+        const byte_t* rt_codes;
+        size_t rt_code_len;
 
+        value* constant_and_global_storage;
+        size_t constant_and_global_value_takeplace_count;
+        size_t constant_value_count;
+
+        // Reference counting for runtime_env instance.
+        std::atomic_size_t _running_on_vm_count;
+        std::atomic_size_t _created_destructable_instance_count;
+
+        // JIT state
+        jit_meta meta_data_for_jit;
+        std::optional<jit_code_holder_map_t> jit_code_holder;
+
+        // Extern symbols
+        rslib_extern_symbols::extern_lib_set loaded_libraries;
+        extern_native_functions_t extern_native_functions;
+        extern_function_map_t extern_script_functions;
+
+        // Debug info
+        std::optional<shared_pointer<program_debug_data_info>> program_debug_info;
+
+        // Far call context.
         static void register_envs(runtime_env* env) noexcept;
         static void unregister_envs(const runtime_env* env) noexcept;
 
@@ -484,23 +249,58 @@ namespace wo
             const irv2::ir** out_runtime_code_end,
             value** out_static_storage_edge) noexcept;
 
-        value* constant_and_global_storage = nullptr;
-        size_t constant_and_global_value_takeplace_count = 0;
-        size_t constant_value_count = 0;
-        size_t real_register_count = 0;
-
-        const byte_t* rt_codes = nullptr;
-        size_t rt_code_len = 0;
-
-        std::atomic_size_t _running_on_vm_count = 0;
-        std::atomic_size_t _created_destructable_instance_count = 0;
-
-        jit_meta meta_data_for_jit;
-        std::optional<jit_code_holder_map_t> jit_code_holder;
-        std::optional<shared_pointer<program_debug_data_info>> program_debug_info;
-        rslib_extern_symbols::extern_lib_set loaded_libraries;
-        extern_native_functions_t extern_native_functions;
-        extern_function_map_t extern_script_functions;
+        static paged_env_mapping _paged_env_mapping_context;
     };
     struct BytecodeGenerateContext;
+
+    struct IRBuilder
+    {
+        struct Label
+        {
+            friend struct IRBuilder;
+
+        protected:
+            Label() = default;
+
+            struct ApplyAddress
+            {
+                enum class Formal
+                {
+                    SHIFT8_U24,
+                    U32,
+                };
+                Formal      m_formal;
+                uint32_t*   m_address;
+            };
+            std::optional<uint32_t> m_bound_ip_offset;
+            std::optional<std::vector<ApplyAddress>> m_pending_apply_address;
+
+            void apply_to_address(uint32_t* address, ApplyAddress::Formal formal) noexcept;
+            void bind_at_ip_offset(uint32_t ip_offset) noexcept;
+        };
+
+        uint32_t* m_code_holder;
+        size_t m_code_holder_capacity;
+        size_t m_code_holder_size;
+
+        std::vector<Label*> m_created_labels;
+        std::unordered_map<std::string, Label*> m_named_label;
+
+        IRBuilder();
+        ~IRBuilder();
+
+        IRBuilder(const IRBuilder&) = delete;
+        IRBuilder(IRBuilder&&) = delete;
+        IRBuilder& operator = (const IRBuilder&) = delete;
+        IRBuilder& operator = (IRBuilder&&) = delete;
+
+        void emit(uint32_t opcode) noexcept;
+
+        // Code emission
+        Label* label() noexcept;
+        Label* named_label(const char* name) noexcept;
+        void bind(Label* label) noexcept;
+
+        void nop() noexcept;
+    };
 }

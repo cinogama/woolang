@@ -826,6 +826,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         // state/st - Display VM register state
         command_result cmd_state(vmbase* vmm, std::vector<std::string>& args)
         {
+            /*
             wo::assure_leave_this_thread_vm_shared_lock sg1(wo::vmbase::_alive_vm_list_mx);
 
             wo::vmbase* target_vm = nullptr;
@@ -913,6 +914,7 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                         &target_vm->register_storage[reg_idx]).c_str());
                 }
             }
+            */
             return command_result::need_next_command;
         }
 
@@ -1142,9 +1144,9 @@ whereis                         <ipoffset>    Find the function that the ipoffse
                                 funcinfo.command_ip_begin);
                             auto& srcinfo = pdi->get_src_location_by_runtime_ip(frtip);
                             set_breakpoint_with_ips(
-                                current_runtime_env, 
-                                srcinfo.source_file, 
-                                srcinfo.begin_row_no, 
+                                current_runtime_env,
+                                srcinfo.source_file,
+                                srcinfo.begin_row_no,
                                 { reinterpret_cast<const irv2::ir*>(frtip) });
                         }
                         breakpoint_set_by_funcname = true;

@@ -4,11 +4,16 @@
 #include "wo_basic_type.hpp"
 
 #include <cstdint>
-
 namespace wo
 {
     namespace irv2
     {
+        /*
+        * Little endian
+        | 0x00 | 0x01 | 0x02 | 0x03 |
+        |        ARGNS       |  OP  |
+        */
+
         /*
         R/S Addressing -127 ~ 95:
             ((ads >> 5) == 0b011) ? (reg - 0b01100000) + ads : stk + ads
@@ -16,10 +21,8 @@ namespace wo
 
         union ir
         {
-            uint8_t             m_op;
-
             struct {
-                uint32_t        m_ir32;     // Low
+                uint32_t        m_iru32;     // Low
                 union
                 {
                     int32_t     m_ext32;    // High
@@ -33,17 +36,7 @@ namespace wo
             };
         };
         static_assert(alignof(ir) == 4);
-        static_assert(0 == offsetof(ir, m_op));
-        static_assert(0 == offsetof(ir, m_ir32));
-
-#define WO_IR_FETCH_MASK(WIDTH) \
-    ((1U << (WIDTH)) - 1)
-
-#define WO_IR_FETCH_UNSIGNED(IR, WIDTH, SHIFT) \
-    (((IR)->m_ir32 >> (32 - (WIDTH) - (SHIFT))) & WO_IR_FETCH_MASK(WIDTH))
-
-#define WO_IR_FETCH_SIGNED(IR, WIDTH, SHIFT) \
-    ((int32_t)((((uint32_t)((IR)->m_ir32 >> (32 - (WIDTH) - (SHIFT)))) & WO_IR_FETCH_MASK(WIDTH)) << (32 - (WIDTH))) >> (32 - (WIDTH)))
+        static_assert(0 == offsetof(ir, m_iru32));
 
 #define WO_OPNUM_TYPE_1 int8_t
 #define WO_OPNUM_TYPE_2 int8_t
@@ -69,6 +62,15 @@ namespace wo
 #define WO_OPNUM_TYPE_22 int32_t
 #define WO_OPNUM_TYPE_23 int32_t
 #define WO_OPNUM_TYPE_24 int32_t
+        
+#define WO_IR_FETCH_MASK(WIDTH)                                 \
+    ((static_cast<uint32_t>(1) << (WIDTH)) - 1)
+
+#define WO_IR_FETCH_UNSIGNED(IR, WIDTH, SHIFT)                  \
+    (((IR)->m_iru32 >> (32 - (WIDTH) - (SHIFT))) & WO_IR_FETCH_MASK(WIDTH))
+
+#define WO_IR_FETCH_SIGNED(IR, WIDTH, SHIFT)                    \
+    ((int32_t)((((uint32_t)((IR)->m_iru32 >> (32 - (WIDTH) - (SHIFT)))) & WO_IR_FETCH_MASK(WIDTH)) << (32 - (WIDTH))) >> (32 - (WIDTH)))
 
 #define _WO_OPNUM_UNSIGNED_TYPE(TYPE) u##TYPE
 #define WO_OPNUM_UNSIGNED_TYPE(TYPE) _WO_OPNUM_UNSIGNED_TYPE(TYPE)
@@ -210,4 +212,7 @@ namespace wo
             << static_cast<uint64_t>(32))                       \
             | static_cast<uint64_t>(IR->m_extu32)
     }
+
+#define WO_IR_OPBYTE(IR) ((IR)->m_iru32 >> 24)
+    
 }

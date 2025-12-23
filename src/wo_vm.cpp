@@ -434,9 +434,9 @@ namespace wo
         register_storage = std::launder(
             reinterpret_cast<value*>(calloc(regcount, sizeof(wo::value))));
 
-        cr = register_storage + opnum::reg::spreg::cr;
-        tc = register_storage + opnum::reg::spreg::tc;
-        tp = register_storage + opnum::reg::spreg::tp;
+        cr = register_storage + WO_REG_CR;
+        tc = register_storage + WO_REG_TC;
+        tp = register_storage + WO_REG_TP;
     }
 
     void vmbase::_allocate_stack_space(size_t stacksz) noexcept
@@ -521,7 +521,7 @@ namespace wo
         runtime_static_storage = env->constant_and_global_storage;
 
         _allocate_stack_space(VM_DEFAULT_STACK_SIZE);
-        _allocate_register_space(env->real_register_count);
+        _allocate_register_space(VM_REGISTER_COUNT);
 
         do
         {
@@ -1715,7 +1715,7 @@ namespace wo
         for (;;)
         {
         re_entry_for_failed_command:
-            uint32_t rtopcode = static_cast<uint32_t>(rt_ip->m_op);
+            uint32_t rtopcode = WO_IR_OPBYTE(rt_ip);
 
             if (fast_interrupt_state)
                 rtopcode |= fast_interrupt_state;
@@ -3617,7 +3617,7 @@ namespace wo
 
                     // Refetch ip from vm, it may modified by debugger.
                     rt_ip = ip;
-                    rtopcode = static_cast<uint32_t>(rt_ip->m_op);
+                    rtopcode = WO_IR_OPBYTE(rt_ip);
 
                     goto re_entry_for_interrupt;
                 }

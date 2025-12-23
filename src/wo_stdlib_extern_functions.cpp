@@ -1667,15 +1667,20 @@ WO_API wo_api rslib_std_weakref_trylock(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_env_pin_create(wo_vm vm, wo_value args)
 {
+    auto new_shared_env = new wo::shared_pointer<wo::runtime_env>(
+        reinterpret_cast<wo::vmbase*>(vm)->env);
+
     return wo_ret_gcstruct(
         vm,
-        new wo::shared_pointer<wo::runtime_env>(
-            reinterpret_cast<wo::vmbase*>(vm)->env),
+        new_shared_env,
         [](wo_gc_work_context_t ctx, wo_ptr_t p)
         {
             auto* env_p = reinterpret_cast<wo::shared_pointer<wo::runtime_env>*>(p)->get();
             auto* global_and_const_values = env_p->constant_and_global_storage;
 
+            // Env's constant & global values might missing mark if other vm instance
+            // has been closed.
+            // So we need to mark them again here.
             for (size_t cgr_index = env_p->constant_value_count;
                 cgr_index < env_p->constant_and_global_value_takeplace_count;
                 cgr_index++)
@@ -1686,7 +1691,10 @@ WO_API wo_api rslib_std_env_pin_create(wo_vm vm, wo_value args)
         },
         [](wo_ptr_t p)
         {
-            delete reinterpret_cast<wo::shared_pointer<wo::runtime_env>*>(p);
+            auto* shared_env_ptr =
+                reinterpret_cast<wo::shared_pointer<wo::runtime_env>*>(p);
+
+            delete shared_env_ptr;
         });
 }
 
