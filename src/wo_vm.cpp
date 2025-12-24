@@ -1,5 +1,44 @@
 #include "wo_afx.hpp"
 
+#define WO_VM_FP_SHIFT(BASE, OFFSET)                                    \
+        reinterpret_cast<const irv2::ir*>(                              \
+            reinterpret_cast<const uint32_t*>(BASE) + (OFFSET))
+
+#define WO_VM_FP_OFFSET(BASE, FP)                                       \
+        static_cast<uint32_t>(                                          \
+            reinterpret_cast<const uint32_t*>(FP) - reinterpret_cast<const uint32_t*>(BASE))
+
+#define WO_VM_ADRS_C_G(OFFSET_I)                                        \
+        (near_static_global + (OFFSET_I))
+#define WO_VM_ADRS_S(OFFSET_I)                                          \
+        (bp + (OFFSET_I))
+#define WO_VM_ADRS_R_S(OFFSET_I)                                        \
+        ((static_cast<int8_t>(OFFSET_I) < 0b0110'0000)                  \
+            ? WO_VM_ADRS_S(static_cast<int8_t>(OFFSET_I))               \
+            : (rt_reg_fast_lookup + static_cast<int8_t>(OFFSET_I)))
+
+#define WO_VM_BEGIN_CASE_IR6(IRNAME, FORMAT)                            \
+            case (WO_##IRNAME << 2) | 0b00:                             \
+            case (WO_##IRNAME << 2) | 0b01:                             \
+            case (WO_##IRNAME << 2) | 0b10:                             \
+            case (WO_##IRNAME << 2) | 0b11:                             \
+            {                                                           \
+                constexpr uint32_t z__wo_vm_next_ir_offset =            \
+                    WO_FORMAL_IR6_##FORMAT##_IRCOUNTOF;                 \
+                WO_FORMAL_IR6_##FORMAT(rt_ip);
+
+#define WO_VM_BEGIN_CASE_IR8(IRNAME, MODE, FORMAT)                      \
+            case (WO_##IRNAME << 2) | (MODE):                           \
+            {                                                           \
+                constexpr uint32_t z__wo_vm_next_ir_offset =            \
+                    WO_FORMAL_IR8_##FORMAT##_IRCOUNTOF;                 \
+                WO_FORMAL_IR8_##FORMAT(rt_ip);                
+
+#define WO_VM_END_CASE()                                                \
+                rt_ip = WO_VM_FP_SHIFT(rt_ip, z__wo_vm_next_ir_offset); \
+                break;                                                  \
+            }
+
 namespace wo
 {
     //////////////////////////////////////////////////////////////////////////
@@ -584,8 +623,8 @@ namespace wo
         const auto end_at = std::min(end, codeholder->rt_code_len);
         for (size_t bi = begin; bi + 4 <= end_at; bi += 4)
         {
-            // XX XX XX XX
-            char command_4bytes[12];
+            // +XXXXX | XX XX XX XX
+            char command_4bytes[32];
 
             const uint32_t command_line = *std::launder(
                 reinterpret_cast<const uint32_t*>(
@@ -594,15 +633,32 @@ namespace wo
             if (0 > snprintf(
                 command_4bytes,
                 sizeof(command_4bytes),
-                "%02X %02X %02X %02X",
+                "+0x%08zX | %02X %02X %02X %02X ",
+                bi,
                 (command_line & (0xFF << 24)) >> 24,
                 (command_line & (0xFF << 16)) >> 16,
                 (command_line & (0xFF << 8)) >> 8,
                 (command_line & (0xFF << 0)) >> 0))
             {
-                abort();
+                // Should not happend.
+                wo_error("Failed to format disassemble line.");
             }
-            os << "+" << bi << "\t | " << command_4bytes << std::endl;
+
+            const auto current_ip_offset = static_cast<size_t>(
+                reinterpret_cast<const byte_t*>(focus_runtime_ip) - codeholder->rt_codes);
+
+            const bool is_current_command =
+                current_ip_offset >= bi && current_ip_offset < bi + 4;
+
+            if (is_current_command)
+                os << ANSI_INV;
+
+            os << command_4bytes;
+
+            if (is_current_command)
+                os << ANSI_RST;
+
+            os << "| " << std::endl;
         }
     }
 
@@ -1743,45 +1799,6 @@ namespace wo
                 rtopcode |= fast_interrupt_state;
 
         re_entry_for_interrupt:
-
-#define WO_VM_FP_SHIFT(BASE, OFFSET)                                    \
-        reinterpret_cast<const irv2::ir*>(                              \
-            reinterpret_cast<const uint32_t*>(BASE) + (OFFSET))
-
-#define WO_VM_FP_OFFSET(BASE, FP)                                       \
-        static_cast<uint32_t>(                                          \
-            reinterpret_cast<const uint32_t*>(FP) - reinterpret_cast<const uint32_t*>(BASE))
-
-#define WO_VM_ADRS_C_G(OFFSET_I)                                        \
-        (near_static_global + (OFFSET_I))
-#define WO_VM_ADRS_S(OFFSET_I)                                          \
-        (bp + (OFFSET_I))
-#define WO_VM_ADRS_R_S(OFFSET_I)                                        \
-        ((static_cast<int8_t>(OFFSET_I) < 0b0110'0000)                  \
-            ? WO_VM_ADRS_S(static_cast<int8_t>(OFFSET_I))               \
-            : (rt_reg_fast_lookup + static_cast<int8_t>(OFFSET_I)))
-
-#define WO_VM_BEGIN_CASE_IR6(IRNAME, FORMAT)                            \
-            case (WO_##IRNAME << 2) | 0b00:                             \
-            case (WO_##IRNAME << 2) | 0b01:                             \
-            case (WO_##IRNAME << 2) | 0b10:                             \
-            case (WO_##IRNAME << 2) | 0b11:                             \
-            {                                                           \
-                constexpr uint32_t z__wo_vm_next_ir_offset =            \
-                    WO_FORMAL_IR6_##FORMAT##_IRCOUNTOF;                 \
-                WO_FORMAL_IR6_##FORMAT(rt_ip);
-
-#define WO_VM_BEGIN_CASE_IR8(IRNAME, MODE, FORMAT)                      \
-            case (WO_##IRNAME << 2) | (MODE):                           \
-            {                                                           \
-                constexpr uint32_t z__wo_vm_next_ir_offset =            \
-                    WO_FORMAL_IR8_##FORMAT##_IRCOUNTOF;                 \
-                WO_FORMAL_IR8_##FORMAT(rt_ip);                
-
-#define WO_VM_END_CASE()                                                \
-                rt_ip = WO_VM_FP_SHIFT(rt_ip, z__wo_vm_next_ir_offset); \
-                break;                                                  \
-            }
 
             switch (rtopcode)
             {
