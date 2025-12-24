@@ -2715,8 +2715,32 @@ wo::compile_result _wo_compile_impl(
                 }
             }
 #else
+
+#if 1 /* DEBUG */
+            wo::IRBuilder builder;
+
+            auto funcbegin = builder.label();
+            auto funcend = builder.label();
+            auto loop = builder.label();
+
+            builder.jmp(funcend);
+            builder.bind(funcbegin);
+            builder.ret();
+            builder.bind(funcend);
+
+            builder.bind(loop);
+            builder.calln(funcbegin);
+            builder.jmp(loop);
+            builder.end();
+            
+            compile_env_result.emplace(builder.finish());
+
+
+            compile_result = wo::compile_result::PROCESS_OK;
+#else
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
+#endif
 #endif
         }
     }

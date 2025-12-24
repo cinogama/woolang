@@ -581,7 +581,29 @@ namespace wo
         const irv2::ir* focus_runtime_ip,
         std::ostream& os) noexcept
     {
+        const auto end_at = std::min(end, codeholder->rt_code_len);
+        for (size_t bi = begin; bi + 4 <= end_at; bi += 4)
+        {
+            // XX XX XX XX
+            char command_4bytes[12];
 
+            const uint32_t command_line = *std::launder(
+                reinterpret_cast<const uint32_t*>(
+                    &codeholder->rt_codes[bi]));
+
+            if (0 > snprintf(
+                command_4bytes,
+                sizeof(command_4bytes),
+                "%02X %02X %02X %02X",
+                (command_line & (0xFF << 24)) >> 24,
+                (command_line & (0xFF << 16)) >> 16,
+                (command_line & (0xFF << 8)) >> 8,
+                (command_line & (0xFF << 0)) >> 0))
+            {
+                abort();
+            }
+            os << "+" << bi << "\t | " << command_4bytes << std::endl;
+        }
     }
 
     std::string vmbase::disassemble_instruction(bytecode_disassembler& dis) noexcept
@@ -2388,8 +2410,19 @@ namespace wo
                 }
                 WO_VM_END_CASE();
 
-                // CUMMODI
+                // CUMADDSF
                 WO_VM_BEGIN_CASE_IR8(OPCD, 1, I8_I8_8)
+                {
+                    value* const string_val = WO_VM_ADRS_R_S(p1_i8);
+                    string_val->m_string =
+                        string_t::gc_new<gcbase::gctype::young>(
+                            *WO_VM_ADRS_R_S(p2_i8)->m_string
+                            + *string_val->m_string);
+                }
+                WO_VM_END_CASE();
+
+                // CUMMODI
+                WO_VM_BEGIN_CASE_IR8(OPCD, 2, I8_I8_8)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->m_integer %=
                         WO_VM_ADRS_R_S(p2_i8)->m_integer;
@@ -2397,7 +2430,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMMODR
-                WO_VM_BEGIN_CASE_IR8(OPCD, 2, I8_I8_8)
+                WO_VM_BEGIN_CASE_IR8(OPCD, 3, I8_I8_8)
                 {
                     value* const real_val = WO_VM_ADRS_R_S(p1_i8);
                     real_val->m_real =
@@ -2407,8 +2440,44 @@ namespace wo
                 }
                 WO_VM_END_CASE();
 
+                // CUMLAND
+                WO_VM_BEGIN_CASE_IR8(OPCE, 0, I8_I8_8)
+                {
+                    value* const bool_val = WO_VM_ADRS_R_S(p1_i8);
+                    bool_val->m_integer =
+                        bool_val->m_integer != 0
+                        && WO_VM_ADRS_R_S(p2_i8)->m_integer != 0;
+                }
+                WO_VM_END_CASE();
+
+                // CUMLOR
+                WO_VM_BEGIN_CASE_IR8(OPCE, 1, I8_I8_8)
+                {
+                    value* const bool_val = WO_VM_ADRS_R_S(p1_i8);
+                    bool_val->m_integer =
+                        bool_val->m_integer != 0
+                        || WO_VM_ADRS_R_S(p2_i8)->m_integer != 0;
+                }
+                WO_VM_END_CASE();
+
+                // CUMNEGI
+                WO_VM_BEGIN_CASE_IR8(OPCE, 2, I8_16)
+                {
+                    value* const integer_val = WO_VM_ADRS_R_S(p1_i8);
+                    integer_val->m_integer = -integer_val->m_integer;
+                }
+                WO_VM_END_CASE();
+
+                // CUMNEGR
+                WO_VM_BEGIN_CASE_IR8(OPCE, 3, I8_16)
+                {
+                    value* const real_val = WO_VM_ADRS_R_S(p1_i8);
+                    real_val->m_real = -real_val->m_real;
+                }
+                WO_VM_END_CASE();
+
                 // LAND
-                WO_VM_BEGIN_CASE_IR8(OPLA, 3, I8_I8_I8)
+                WO_VM_BEGIN_CASE_IR8(OPLA, 0, I8_I8_I8)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2417,7 +2486,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LOR
-                WO_VM_BEGIN_CASE_IR8(OPLA, 2, I8_I8_I8)
+                WO_VM_BEGIN_CASE_IR8(OPLA, 1, I8_I8_I8)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2426,10 +2495,19 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LNOT
-                WO_VM_BEGIN_CASE_IR8(OPLA, 1, I8_I8_8)
+                WO_VM_BEGIN_CASE_IR8(OPLA, 2, I8_I8_8)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         !WO_VM_ADRS_R_S(p2_i8)->m_integer);
+                }
+                WO_VM_END_CASE();
+
+                // CUMLNOT
+                WO_VM_BEGIN_CASE_IR8(OPLA, 3, I8_16)
+                {
+                    value* const bool_val = WO_VM_ADRS_R_S(p1_i8);
+                    bool_val->m_integer =
+                        bool_val->m_integer == 0;
                 }
                 WO_VM_END_CASE();
 
@@ -2645,7 +2723,7 @@ namespace wo
                     if (!rt_cr->m_integer)
                     {
                         rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
-                        
+
                         WO_VM_INTERRUPT_CHECKPOINT;
 
                         // Break out, donot `WO_VM_END_CASE`
@@ -2660,7 +2738,7 @@ namespace wo
                     if (rt_cr->m_integer)
                     {
                         rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
-                        
+
                         WO_VM_INTERRUPT_CHECKPOINT;
 
                         // Break out, donot `WO_VM_END_CASE`
@@ -2717,8 +2795,59 @@ namespace wo
                 }
                 WO_VM_END_CASE();
 
+                // RETN 8
+                WO_VM_BEGIN_CASE_IR8(RET, 1, U8_16)
+                {
+                    switch ((++bp)->m_type)
+                    {
+                    case value::valuetype::native_callstack:
+                        sp = bp;
+                        sp += p1_u8;
+                        // last stack is native_func, just do return;
+                        // stack balance should be keeped by invoker.
+                        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+                    case value::valuetype::callstack:
+                    {
+                        value* stored_bp = sb - bp->m_vmcallstack.bp;
+                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, bp->m_vmcallstack.ret_ip);
+                        sp = bp;
+                        bp = stored_bp;
+
+                        break;
+                    }
+                    case value::valuetype::far_callstack:
+                    {
+                        value* stored_bp = sb - bp->m_ext_farcallstack_bp;
+                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
+
+                        rt_ip = bp->m_farcallstack;
+                        sp = bp;
+                        bp = stored_bp;
+
+                        if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                        {
+                            wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                            WO_VM_INTERRUPT_CHECKPOINT;
+                        }
+                        break;
+                    }
+                    default:
+#if WO_ENABLE_RUNTIME_CHECK
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
+#endif
+                        break;
+                    }
+                    sp += p1_u8;
+
+                    // Break out, donot `WO_VM_END_CASE`
+                    break;
+                }
+                WO_VM_END_CASE();
+
                 // RETN 16
-                WO_VM_BEGIN_CASE_IR8(RET, 1, 8_U16)
+                WO_VM_BEGIN_CASE_IR8(RET, 2, 8_U16)
                 {
                     switch ((++bp)->m_type)
                     {
@@ -2762,108 +2891,6 @@ namespace wo
                         break;
                     }
                     sp += p1_u16;
-
-                    // Break out, donot `WO_VM_END_CASE`
-                    break;
-                }
-                WO_VM_END_CASE();
-
-                // RETN 24
-                WO_VM_BEGIN_CASE_IR8(RET, 2, U24)
-                {
-                    switch ((++bp)->m_type)
-                    {
-                    case value::valuetype::native_callstack:
-                        sp = bp;
-                        sp += p1_u24;
-                        // last stack is native_func, just do return;
-                        // stack balance should be keeped by invoker.
-                        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
-                    case value::valuetype::callstack:
-                    {
-                        value* stored_bp = sb - bp->m_vmcallstack.bp;
-                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
-
-                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, bp->m_vmcallstack.ret_ip);
-                        sp = bp;
-                        bp = stored_bp;
-
-                        break;
-                    }
-                    case value::valuetype::far_callstack:
-                    {
-                        value* stored_bp = sb - bp->m_ext_farcallstack_bp;
-                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
-
-                        rt_ip = bp->m_farcallstack;
-                        sp = bp;
-                        bp = stored_bp;
-
-                        if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
-                        {
-                            wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-                            WO_VM_INTERRUPT_CHECKPOINT;
-                        }
-                        break;
-                    }
-                    default:
-#if WO_ENABLE_RUNTIME_CHECK
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
-#endif
-                        break;
-                    }
-                    sp += p1_u24;
-
-                    // Break out, donot `WO_VM_END_CASE`
-                    break;
-                }
-                WO_VM_END_CASE();
-
-                // RETN 32
-                WO_VM_BEGIN_CASE_IR8(RET, 3, 24_EU32)
-                {
-                    switch ((++bp)->m_type)
-                    {
-                    case value::valuetype::native_callstack:
-                        sp = bp;
-                        sp += p1_u32;
-                        // last stack is native_func, just do return;
-                        // stack balance should be keeped by invoker.
-                        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
-                    case value::valuetype::callstack:
-                    {
-                        value* stored_bp = sb - bp->m_vmcallstack.bp;
-                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
-
-                        rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, bp->m_vmcallstack.ret_ip);
-                        sp = bp;
-                        bp = stored_bp;
-
-                        break;
-                    }
-                    case value::valuetype::far_callstack:
-                    {
-                        value* stored_bp = sb - bp->m_ext_farcallstack_bp;
-                        wo_assert(stored_bp <= sb && stored_bp > stack_storage);
-
-                        rt_ip = bp->m_farcallstack;
-                        sp = bp;
-                        bp = stored_bp;
-
-                        if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
-                        {
-                            wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-                            WO_VM_INTERRUPT_CHECKPOINT;
-                        }
-                        break;
-                    }
-                    default:
-#if WO_ENABLE_RUNTIME_CHECK
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Broken stack in 'retn'.");
-#endif
-                        break;
-                    }
-                    sp += p1_u32;
 
                     // Break out, donot `WO_VM_END_CASE`
                     break;

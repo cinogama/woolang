@@ -1346,9 +1346,9 @@ enum _wo_irv2
     //           11 ======== RESERVED ========
     WO_OPCA,
     //  OPCA     00 [R/SAds] [R/SAds] 00000000 // CDIVILR
-    //           01 [R/SAds] [R/SAds] 00000000 // CDIVIL
-    //           10 [R/SAds] [R/SAds] 00000000 // CDIVIR
-    //           11 [R/SAds] [R/SAds] 00000000 // CDIVIRZ
+    //           01 [R/SAds] 00000000 00000000 // CDIVIL
+    //           10 [R/SAds] 00000000 00000000 // CDIVIR
+    //           11 [R/SAds] 00000000 00000000 // CDIVIRZ
     WO_OPCB,
     //  OPCB     00 [R/SAds] [R/SAds] 00000000 // CUMADDI,
     //           01 [R/SAds] [R/SAds] 00000000 // CUMSUBI,
@@ -1361,14 +1361,19 @@ enum _wo_irv2
     //           11 [R/SAds] [R/SAds] 00000000 // CUMDIVR,
     WO_OPCD,
     //  OPCD     00 [R/SAds] [R/SAds] 00000000 // CUMADDS,
-    //           01 [R/SAds] [R/SAds] 00000000 // CUMMODI,
-    //           10 [R/SAds] [R/SAds] 00000000 // CUMMODR,
-    //           11 ======== RESERVED ========,
+    //           01 [R/SAds] [R/SAds] 00000000 // CUMADDSF,
+    //           10 [R/SAds] [R/SAds] 00000000 // CUMMODI,
+    //           11 [R/SAds] [R/SAds] 00000000 // CUMMODR,
+    WO_OPCE,
+    //  OPCE     00 [R/SAds] [R/SAds] 00000000 // CUMLAND,
+    //           01 [R/SAds] [R/SAds] 00000000 // CUMLOR,
+    //           10 [R/SAds] 00000000 00000000 // CUMNEGI,
+    //           11 [R/SAds] 00000000 00000000 // CUMNEGR
     WO_OPLA,
     //  OPLA     00 [R/SAds] [R/SAds] [R/SAds] // LAND
     //           01 [R/SAds] [R/SAds] [R/SAds] // LOR
     //           01 [R/SAds] [R/SAds] [R/SAds] // LNOT
-    //           11 ======== RESERVED ========
+    //           11 [R/SAds] 00000000 00000000 // CUMLNOT,
     WO_IDX,
     //  IDX      00 [R/SAds] [R/SAds] [R/SAds] // IDSTR
     //           01 [R/SAds] [R/SAds] [R/SAds] // IDARR
@@ -1393,9 +1398,9 @@ enum _wo_irv2
     //           11 [  Near wo-code abs addr ] // JMPGCT
     WO_RET,
     //  RET      00 00000000 00000000 00000000
-    //           01 00000000 [PopCount 16bits]
-    //           10 [    PopCount 24 bits    ]
-    //           11 00000000 00000000 00000000 [   PopCount 32 bits   ]
+    //           01 [PopC8b] 00000000 00000000
+    //           10 00000000 [PopCount 16bits]
+    //           ======== RESERVED ========
     WO_CALLN,
     //  CALLN    00 [ Function offset 24bits ] 0                          CALLNWO
     //           01 ======== RESERVED ========

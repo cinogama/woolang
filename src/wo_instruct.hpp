@@ -187,6 +187,10 @@ namespace wo
         const uint64_t p3_u64 =                                 \
             (static_cast<uint64_t>(IR->m_extu32) << static_cast<uint64_t>(32)) | IR->m_extu32_2
 
+#define WO_FORMAL_IR8_U8_16_IRCOUNTOF 1
+#define WO_FORMAL_IR8_U8_16(IR)                                 \
+        WO_OPNUM_UNSIGNED(1, IR, 8, 8)
+
 #define WO_FORMAL_IR8_I24_IRCOUNTOF 1
 #define WO_FORMAL_IR8_I24(IR)                                   \
         WO_OPNUM_SIGNED(1, IR, 24, 8)

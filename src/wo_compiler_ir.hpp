@@ -270,18 +270,23 @@ namespace wo
                     U32,
                 };
                 Formal      m_formal;
-                uint32_t* m_address;
+                uint32_t    m_ipoffset;
             };
             std::optional<uint32_t> m_bound_ip_offset;
             std::optional<std::vector<ApplyAddress>> m_pending_apply_address;
 
-            void apply_to_address(uint32_t* address, ApplyAddress::Formal formal) noexcept;
-            void bind_at_ip_offset(uint32_t ip_offset) noexcept;
+            void apply_to_address(
+                uint32_t* baseaddr,
+                uint32_t ipoffset, 
+                ApplyAddress::Formal formal) noexcept;
+            void bind_at_ip_offset(
+                uint32_t* baseaddr, 
+                uint32_t ipoffset) noexcept;
         };
 
         uint32_t* m_code_holder;
-        size_t m_code_holder_capacity;
-        size_t m_code_holder_size;
+        uint32_t m_code_holder_capacity;
+        uint32_t m_code_holder_size;
 
         std::vector<Label*> m_created_labels;
         std::unordered_map<std::string, Label*> m_named_label;
@@ -294,46 +299,59 @@ namespace wo
         IRBuilder& operator = (const IRBuilder&) = delete;
         IRBuilder& operator = (IRBuilder&&) = delete;
 
-        void emit(uint32_t opcode) noexcept;
+        uint32_t emit(uint32_t opcode) noexcept;
 
-        template<size_t width>
-        struct cg_adrsing
+        template<typename T, size_t width>
+        struct fixed_width
         {
-            int32_t m_adrs;
-            cg_adrsing(int32_t adr) noexcept
-                : m_adrs(adr)
+            static_assert(
+                std::is_same_v<T, uint32_t>
+                || std::is_same_v<T, int32_t>);
+
+            T m_val;
+            explicit fixed_width(T val) noexcept
+                : m_val(val)
             {
-                wo_test(adr >= -(1 << (width - 1)) && adr < (1 << (width - 1)));
+                static_assert(width <= 32);
+                if constexpr (width < 32)
+                {
+                    if (std::is_signed_v<T>)
+                        wo_test(
+                            m_val >= -(1 << (width - 1))
+                            && m_val < (1 << (width - 1)));
+                    else
+                        wo_test(m_val < (1u << width));
+                }
             }
 
             template<size_t width_b>
-            cg_adrsing(const cg_adrsing<width_b>& b) noexcept
-                : m_adrs(b.adr)
-            {
-                static_assert(
-                    width_b <= width, 
-                    "Cannot convert from wider to narrower address sing.");
-            }
-            template<size_t width_b>
-            cg_adrsing(cg_adrsing<width_b>&& b) noexcept
-                : m_adrs(b.adr)
-            {
-                static_assert(
-                    width_b <= width, 
-                    "Cannot convert from wider to narrower address sing.");
-            }
-
-            template<size_t width_b>
-            cg_adrsing<width>& operator =(const cg_adrsing<width_b>& b) noexcept
+            fixed_width(const fixed_width<T, width_b>& b) noexcept
+                : m_val(b.m_val)
             {
                 static_assert(
                     width_b <= width,
                     "Cannot convert from wider to narrower address sing.");
-                m_adrs = b.m_adrs;
+            }
+            template<size_t width_b>
+            fixed_width(fixed_width<T, width_b>&& b) noexcept
+                : m_val(b.m_val)
+            {
+                static_assert(
+                    width_b <= width,
+                    "Cannot convert from wider to narrower address sing.");
+            }
+
+            template<size_t width_b>
+            fixed_width<T, width>& operator =(const fixed_width<T, width_b>& b) noexcept
+            {
+                static_assert(
+                    width_b <= width,
+                    "Cannot convert from wider to narrower address sing.");
+                m_val = b.m_val;
                 return *this;
             }
             template<size_t width_b>
-            cg_adrsing<width>& operator =(cg_adrsing<width_b>&& b) noexcept
+            fixed_width<T, width>& operator =(fixed_width<T, width_b>&& b) noexcept
             {
                 static_assert(
                     width_b <= width,
@@ -343,59 +361,47 @@ namespace wo
             }
         };
 
-        struct rs_adrsing8
+        template<size_t width>
+        struct cg_adrsing : fixed_width<int32_t, width>
         {
-            int8_t m_adrs;
-            rs_adrsing8(int8_t adr) noexcept
-                : m_adrs(adr)
+            explicit cg_adrsing(int32_t val) noexcept
+                : fixed_width<int32_t, width>(val)
+            {
+            }
+        };
+
+        struct rs_adrsing8 : fixed_width<int32_t, 8>
+        {
+            explicit rs_adrsing8(int32_t val) noexcept
+                : fixed_width<int32_t, 8>(val)
             {
             }
         };
 
         template<size_t width>
-        struct s_adrsing
+        struct s_adrsing : fixed_width<int32_t, width>
         {
-            int32_t m_adrs;
-            s_adrsing(int32_t adr) noexcept
-                : m_adrs(adr)
+            explicit s_adrsing(int32_t val) noexcept
+                : fixed_width<int32_t, width>(val)
             {
-                wo_test(adr >= -(1 << (width - 1)) && adr < (1 << (width - 1)));
             }
+        };
 
-            template<size_t width_b>
-            s_adrsing(const s_adrsing<width_b>& b) noexcept
-                : m_adrs(b.adr)
+        template<size_t width>
+        struct fixed_unsigned : fixed_width<uint32_t, width>
+        {
+            explicit fixed_unsigned(uint32_t val) noexcept
+                : fixed_width<uint32_t, width>(val)
             {
-                static_assert(
-                    width_b <= width,
-                    "Cannot convert from wider to narrower address sing.");
             }
-            template<size_t width_b>
-            s_adrsing(s_adrsing<width_b>&& b) noexcept
-                : m_adrs(b.adr)
-            {
-                static_assert(
-                    width_b <= width,
-                    "Cannot convert from wider to narrower address sing.");
-            }
+        };
 
-            template<size_t width_b>
-            s_adrsing<width>& operator =(const s_adrsing<width_b>& b) noexcept
+        template<size_t width>
+        struct fixed_signed : fixed_width<int32_t, width>
+        {
+            explicit fixed_signed(int32_t val) noexcept
+                : fixed_width<int32_t, width>(val)
             {
-                static_assert(
-                    width_b <= width,
-                    "Cannot convert from wider to narrower address sing.");
-                m_adrs = b.m_adrs;
-                return *this;
-            }
-            template<size_t width_b>
-            s_adrsing<width>& operator =(s_adrsing<width_b>&& b) noexcept
-            {
-                static_assert(
-                    width_b <= width,
-                    "Cannot convert from wider to narrower address sing.");
-                m_adrs = b.m_adrs;
-                return *this;
             }
         };
 
@@ -406,9 +412,233 @@ namespace wo
 
         void nop() noexcept;
         void end() noexcept;
-        void load(cg_adrsing<32> cg32, rs_adrsing8 rs8) noexcept;
-        void store(cg_adrsing<32> cg32, rs_adrsing8 rs8) noexcept;
-        void loadext(s_adrsing<24> s24, cg_adrsing<32> cg32) noexcept;
-        void storeext(s_adrsing<24> s24, cg_adrsing<32> cg32) noexcept;
+        void load(cg_adrsing<32> src_cg32, rs_adrsing8 dst_rs8) noexcept;
+        void store(cg_adrsing<32> dst_cg32, rs_adrsing8 src_rs8) noexcept;
+        void loadext(s_adrsing<24> dst_s24, cg_adrsing<32> src_cg32) noexcept;
+        void storeext(s_adrsing<24> dst_s24, cg_adrsing<32> src_cg32) noexcept;
+
+        void push(fixed_unsigned<24> count_u24) noexcept;
+        void push(rs_adrsing8 src_rs8) noexcept;
+        void push(cg_adrsing<32> src_cg32) noexcept;
+
+        void pop(fixed_unsigned<24> count_u24) noexcept;
+        void pop(rs_adrsing8 dst_rs8) noexcept;
+        void pop(cg_adrsing<32> dst_cg32) noexcept;
+
+        void cast(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8,
+            wo_type_t cast_to) noexcept;
+        void castitors(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8) noexcept;
+        void castrtoi(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8) noexcept;
+
+        void typeis(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8,
+            wo_type_t check_type) noexcept;
+        void typeas(
+            rs_adrsing8 src_rs8,
+            wo_type_t as_type) noexcept;
+
+        void addi(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void subi(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void muli(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void divi(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void modi(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void negi(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8) noexcept;
+        void lti(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void gti(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void elti(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void egti(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void equb(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void nequb(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+
+        void addr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void subr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void mulr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void divr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void modr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void negr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8) noexcept;
+        void ltr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void gtr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void eltr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void egtr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void equr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void nequr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+
+        void adds(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void lts(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void gts(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void elts(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void egts(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void equs(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void nequs(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+
+        void cdivilr(
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void cdivil(rs_adrsing8 src_rs8) noexcept;
+        void cdivir(rs_adrsing8 src_rs8) noexcept;
+        void cdivirz(rs_adrsing8 src_rs8) noexcept;
+
+        void land(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void lor(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8_a,
+            rs_adrsing8 src_rs8_b) noexcept;
+        void lnot(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8) noexcept;
+
+        void idstr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 cont_rs8,
+            rs_adrsing8 idx_rs8) noexcept;
+        void idarr(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 cont_rs8,
+            rs_adrsing8 idx_rs8) noexcept;
+        void iddict(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 cont_rs8,
+            rs_adrsing8 idx_rs8) noexcept;
+        void idstruct(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 cont_rs8,
+            fixed_unsigned<32> idx_u32) noexcept;
+
+        void sidarr(
+            rs_adrsing8 src_rs8,
+            rs_adrsing8 cont_rs8,
+            rs_adrsing8 idx_rs8) noexcept;
+        void siddict(
+            rs_adrsing8 src_rs8,
+            rs_adrsing8 cont_rs8,
+            rs_adrsing8 idx_rs8) noexcept;
+        void sidmap(
+            rs_adrsing8 src_rs8,
+            rs_adrsing8 cont_rs8,
+            rs_adrsing8 idx_rs8) noexcept;
+        void sidstruct(
+            rs_adrsing8 src_rs8,
+            rs_adrsing8 cont_rs8,
+            fixed_unsigned<32> idx_u32) noexcept;
+
+        void jmp(Label* label) noexcept;
+        void jmpf(Label* label) noexcept;
+        void jmpt(Label* label) noexcept;
+
+        void jmpgc(Label* label) noexcept;
+        void jmpgcf(Label* label) noexcept;
+        void jmpgct(Label* label) noexcept;
+
+        void ret() noexcept;
+        void retn(fixed_unsigned<16> count_u16) noexcept;
+
+        void calln(Label* label) noexcept;
+        void callnfp(wo_native_func_t extfunc) noexcept;
+        void call(rs_adrsing8 src_rs8) noexcept;
+
+        ////////////////////////////////////////////////////////
+
+        shared_pointer<runtime_env> finish();
     };
 }

@@ -1762,7 +1762,8 @@ namespace wo
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    void IRBuilder::Label::apply_to_address(uint32_t* address, ApplyAddress::Formal formal) noexcept
+    void IRBuilder::Label::apply_to_address(
+        uint32_t* baseaddr, uint32_t ipoffset, ApplyAddress::Formal formal) noexcept
     {
         if (m_bound_ip_offset.has_value())
         {
@@ -1771,14 +1772,14 @@ namespace wo
             {
             case ApplyAddress::Formal::U32:
             {
-                *address = ip_offset;
+                baseaddr[ipoffset] = ip_offset;
                 break;
             }
             case ApplyAddress::Formal::SHIFT8_U24:
             {
-                wo_assert((ip_offset & static_cast<uint32_t>(0xFF000000u)) == 0);
-                *address =
-                    (*address & static_cast<uint32_t>(0xFFu << 24))
+                wo_assert((ip_offset & static_cast<uint32_t>(0xff000000u)) == 0);
+                baseaddr[ipoffset] =
+                    (baseaddr[ipoffset] & static_cast<uint32_t>(0xff000000u))
                     | static_cast<uint32_t>(ip_offset);
 
                 break;
@@ -1798,19 +1799,23 @@ namespace wo
             pending_apply_address->emplace_back(
                 ApplyAddress{
                     formal,
-                    address,
+                    ipoffset,
                 });
         }
     }
-    void IRBuilder::Label::bind_at_ip_offset(uint32_t ip_offset) noexcept
+    void IRBuilder::Label::bind_at_ip_offset(
+        uint32_t* baseaddr, uint32_t ipoffset) noexcept
     {
         wo_assert(!m_bound_ip_offset.has_value());
 
-        m_bound_ip_offset.emplace(ip_offset);
+        m_bound_ip_offset.emplace(ipoffset);
         if (m_pending_apply_address.has_value())
         {
             for (auto& apply_addr : m_pending_apply_address.value())
-                apply_to_address(apply_addr.m_address, apply_addr.m_formal);
+                apply_to_address(
+                    baseaddr,
+                    apply_addr.m_ipoffset,
+                    apply_addr.m_formal);
 
             m_pending_apply_address.reset();
         }
@@ -1831,20 +1836,23 @@ namespace wo
             delete label;
     }
 
-    void IRBuilder::emit(uint32_t opcode) noexcept
+    uint32_t IRBuilder::emit(uint32_t opcode) noexcept
     {
         if (m_code_holder_size >= m_code_holder_capacity)
         {
             wo_assert(m_code_holder_size == m_code_holder_capacity);
 
-            m_code_holder_capacity *= 2;
+            if ((m_code_holder_capacity *= 2) == 0)
+                m_code_holder_capacity = 128;
+
             m_code_holder = (uint32_t*)realloc(
                 m_code_holder,
                 m_code_holder_capacity * sizeof(uint32_t));
 
             wo_assert(m_code_holder != nullptr);
         }
-        m_code_holder[m_code_holder_size++] = opcode;
+        m_code_holder[m_code_holder_size] = opcode;
+        return m_code_holder_size++;
     }
 
     IRBuilder::Label* IRBuilder::label() noexcept
@@ -1867,39 +1875,85 @@ namespace wo
     }
     void IRBuilder::bind(Label* label) noexcept
     {
-        label->bind_at_ip_offset(m_code_holder_size);
+        label->bind_at_ip_offset(
+            m_code_holder,
+            m_code_holder_size);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#define _WO_UI8(V)                                      \
+    (static_cast<uint32_t>(V) & static_cast<uint32_t>(0xFFu))
+
+#define _WO_UI16(V)                                      \
+    (static_cast<uint32_t>(V) & static_cast<uint32_t>(0xFFFFu))
+
+#define _WO_UI18(V)                                      \
+    (static_cast<uint32_t>(V) & static_cast<uint32_t>(0x3FFFFu))
+
+#define _WO_UI24(V)                                      \
+    (static_cast<uint32_t>(V) & static_cast<uint32_t>(0xFFFFFFu))
+
+#define _WO_UI26(V)                                      \
+    (static_cast<uint32_t>(V) & static_cast<uint32_t>(0x3FFFFFFu))
+
+#define _WO_UI32(V)                                      \
+    (static_cast<uint32_t>(V))
+
 #define _WO_EMIT_OP6_CMD(CMD, P26B)                     \
-    ((static_cast<uint32_t>(WO_##CMD) << 2)             \
-    | (static_cast<uint32_t>(P26B) & static_cast<uint32_t>(0x3ffffffu)))
+    ((static_cast<uint32_t>(WO_##CMD) << (32 - 6))             \
+    | _WO_UI26(P26B))
 
 #define _WO_EMIT_OP8_CMD(CMD, MODE, P24B)               \
     _WO_EMIT_OP6_CMD(                                   \
         CMD,                                            \
         (((static_cast<uint32_t>(MODE)                  \
             & static_cast<uint32_t>(0b11u)) << 24)      \
-        | (static_cast<uint32_t>(P24B) & static_cast<uint32_t>(0x00ffffffu))))
+        | _WO_UI24(P24B)))
 
 #define _WO_EMIT_EXT_I32(I32)                           \
-    static_cast<int32_t>(I32)
+    _WO_UI32(I32)
 
 #define _WO_EMIT_EXT_U32(U32)                           \
-    static_cast<uint32_t>(U32)
+    _WO_UI32(U32)
 
 #define _WO_CMD26_I18_I8(I18, I8)                       \
-    ((static_cast<uint32_t>(I18) << 8) | static_cast<uint8_t>(I8))
+    ((_WO_UI18(I18) << 8) | _WO_UI8(I8))
 
 #define _WO_CMD24_I18_16(I8)                            \
-    (static_cast<uint32_t>(I8) << 16)
+    (_WO_UI8(I8) << 16)
+
+#define _WO_CMD24_8_I8_U8(I8, U8)                     \
+    ((_WO_UI8(I8) << 8) | _WO_UI8(U8))
 
 #define _WO_CMD24_8_I16(I16)                            \
-    static_cast<uint32_t>(I16)
+    _WO_UI16(I16)
+
+#define _WO_CMD24_8_U16(U16)                            \
+    _WO_UI16(U16)
+
+#define _WO_CMD24_I8_16(I8)                             \
+    (_WO_UI8(I8) << 16)
+
+#define _WO_CMD24_I8_I8_8(I8A, I8B)                     \
+    ((_WO_UI8(I8A) << 16) | (_WO_UI8(I8B) << 8))
+
+#define _WO_CMD24_I8_I8_I8(I8A, I8B, I8C)               \
+    ((_WO_UI8(I8A) << 16) | (_WO_UI8(I8B) << 8) | _WO_UI8(I8C))
+
+#define _WO_CMD24_I8_I8_U8(I8A, I8B, U8)               \
+    ((_WO_UI8(I8A) << 16) | (_WO_UI8(I8B) << 8) | _WO_UI8(U8))
+
+#define _WO_CMD24_U8_16(U8)                             \
+    (_WO_UI8(U8) << 16)
 
 #define _WO_CMD24_I24(I24)                              \
     static_cast<uint32_t>(I24)
+
+#define _WO_CMD24_U24(U24)                              \
+    static_cast<uint32_t>(U24)
+
+#define _WO_CMD24_24() 0
 
     template<typename IntegerT>
     size_t min_width(IntegerT n)
@@ -1944,50 +1998,876 @@ namespace wo
     {
         emit(_WO_EMIT_OP8_CMD(END, 0, 0));
     }
-    void IRBuilder::load(cg_adrsing<32> cg32, rs_adrsing8 rs8) noexcept
+    void IRBuilder::load(cg_adrsing<32> src_cg32, rs_adrsing8 dst_rs8) noexcept
     {
-        if (min_width(cg32.m_adrs) <= 18)
-            emit(_WO_EMIT_OP6_CMD(LOAD, _WO_CMD26_I18_I8(cg32.m_adrs, rs8.m_adrs)));
+        if (min_width(src_cg32.m_val) <= 18)
+            emit(_WO_EMIT_OP6_CMD(LOAD, _WO_CMD26_I18_I8(src_cg32.m_val, dst_rs8.m_val)));
         else
         {
-            emit(_WO_EMIT_OP6_CMD(LOADEXT, _WO_CMD24_I18_16(rs8.m_adrs)));
-            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+            emit(_WO_EMIT_OP6_CMD(LOADEXT, _WO_CMD24_I18_16(dst_rs8.m_val)));
+            emit(_WO_EMIT_EXT_I32(src_cg32.m_val));
         }
     }
-    void IRBuilder::store(cg_adrsing<32> cg32, rs_adrsing8 rs8) noexcept
+    void IRBuilder::store(cg_adrsing<32> dst_cg32, rs_adrsing8 src_rs8) noexcept
     {
-        if (min_width(cg32.m_adrs) <= 18)
-            emit(_WO_EMIT_OP6_CMD(STORE, _WO_CMD26_I18_I8(cg32.m_adrs, rs8.m_adrs)));
+        if (min_width(dst_cg32.m_val) <= 18)
+            emit(_WO_EMIT_OP6_CMD(STORE, _WO_CMD26_I18_I8(dst_cg32.m_val, src_rs8.m_val)));
         else
         {
-            emit(_WO_EMIT_OP6_CMD(STOREEXT, _WO_CMD24_I18_16(rs8.m_adrs)));
-            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+            emit(_WO_EMIT_OP6_CMD(STOREEXT, _WO_CMD24_I18_16(src_rs8.m_val)));
+            emit(_WO_EMIT_EXT_I32(dst_cg32.m_val));
         }
     }
-    void IRBuilder::loadext(s_adrsing<24> s24, cg_adrsing<32> cg32) noexcept
+    void IRBuilder::loadext(s_adrsing<24> dst_s24, cg_adrsing<32> src_cg32) noexcept
     {
-        if (min_width(s24.m_adrs) <= 16)
+        if (min_width(dst_s24.m_val) <= 16)
         {
-            emit(_WO_EMIT_OP6_CMD(LOADEXT, _WO_CMD24_8_I16(s24.m_adrs)));
-            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+            emit(_WO_EMIT_OP6_CMD(LOADEXT, _WO_CMD24_8_I16(dst_s24.m_val)));
+            emit(_WO_EMIT_EXT_I32(src_cg32.m_val));
         }
         else
         {
-            emit(_WO_EMIT_OP6_CMD(LOADEXT, _WO_CMD24_I24(s24.m_adrs)));
-            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+            emit(_WO_EMIT_OP6_CMD(LOADEXT, _WO_CMD24_I24(dst_s24.m_val)));
+            emit(_WO_EMIT_EXT_I32(src_cg32.m_val));
         }
     }
-    void IRBuilder::storeext(s_adrsing<24> s24, cg_adrsing<32> cg32) noexcept
+    void IRBuilder::storeext(s_adrsing<24> src_s24, cg_adrsing<32> cg32) noexcept
     {
-        if (min_width(s24.m_adrs) <= 16)
+        if (min_width(src_s24.m_val) <= 16)
         {
-            emit(_WO_EMIT_OP6_CMD(STOREEXT, _WO_CMD24_8_I16(s24.m_adrs)));
-            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+            emit(_WO_EMIT_OP6_CMD(STOREEXT, _WO_CMD24_8_I16(src_s24.m_val)));
+            emit(_WO_EMIT_EXT_I32(cg32.m_val));
         }
         else
         {
-            emit(_WO_EMIT_OP6_CMD(STOREEXT, _WO_CMD24_I24(s24.m_adrs)));
-            emit(_WO_EMIT_EXT_I32(cg32.m_adrs));
+            emit(_WO_EMIT_OP6_CMD(STOREEXT, _WO_CMD24_I24(src_s24.m_val)));
+            emit(_WO_EMIT_EXT_I32(cg32.m_val));
         }
+    }
+    void IRBuilder::push(fixed_unsigned<24> count_u24) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(PUSH, 0, _WO_CMD24_U24(count_u24.m_val)));
+    }
+    void IRBuilder::push(rs_adrsing8 src_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(PUSH, 1, _WO_CMD24_I8_16(src_rs8.m_val)));
+    }
+    void IRBuilder::push(cg_adrsing<32> src_cg32) noexcept
+    {
+        if (min_width(src_cg32.m_val) <= 24)
+        {
+            emit(_WO_EMIT_OP8_CMD(PUSH, 2, _WO_CMD24_U24(src_cg32.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(PUSH, 3, 0));
+            emit(_WO_EMIT_EXT_I32(src_cg32.m_val));
+        }
+    }
+    void IRBuilder::pop(fixed_unsigned<24> count_u24) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(POP, 0, _WO_CMD24_U24(count_u24.m_val)));
+    }
+    void IRBuilder::pop(rs_adrsing8 dst_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(POP, 1, _WO_CMD24_I8_16(dst_rs8.m_val)));
+    }
+    void IRBuilder::pop(cg_adrsing<32> dst_cg32) noexcept
+    {
+        if (min_width(dst_cg32.m_val) <= 24)
+        {
+            emit(_WO_EMIT_OP8_CMD(POP, 2, _WO_CMD24_U24(dst_cg32.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(POP, 3, 0));
+            emit(_WO_EMIT_EXT_I32(dst_cg32.m_val));
+        }
+    }
+    void IRBuilder::cast(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8,
+        wo_type_t cast_to) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            CAST, 0, _WO_CMD24_I8_I8_U8(
+                dst_rs8.m_val, src_rs8.m_val, cast_to)));
+    }
+    void IRBuilder::castitors(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            CAST, 1, _WO_CMD24_I8_I8_8(
+                dst_rs8.m_val, src_rs8.m_val)));
+    }
+    void IRBuilder::castrtoi(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            CAST, 2, _WO_CMD24_I8_I8_8(
+                dst_rs8.m_val, src_rs8.m_val)));
+    }
+    void IRBuilder::typeis(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8,
+        wo_type_t check_type) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            TYPECHK, 0, _WO_CMD24_I8_I8_U8(
+                dst_rs8.m_val, src_rs8.m_val, check_type)));
+    }
+    void IRBuilder::typeas(
+        rs_adrsing8 src_rs8,
+        wo_type_t as_type) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            TYPECHK, 1, _WO_CMD24_8_I8_U8(
+                src_rs8.m_val, as_type)));
+    }
+    void IRBuilder::addi(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCB, 0, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else if (dst_rs8.m_val == src_rs8_b.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCB, 0, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_a.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPIA, 0, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::subi(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCB, 1, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPIA, 1, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::muli(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCB, 2, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else if (dst_rs8.m_val == src_rs8_b.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCB, 2, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_a.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPIA, 2, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::divi(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCB, 3, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPIA, 3, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::modi(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCD, 2, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPIB, 0, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::negi(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCE, 2, _WO_CMD24_I8_16(
+                    dst_rs8.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPIB, 1, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8.m_val)));
+        }
+    }
+    void IRBuilder::lti(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPIB, 2, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::gti(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPIB, 3, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::elti(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPIC, 0, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::egti(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPIC, 1, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::equb(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPIC, 2, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::nequb(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPIC, 3, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+
+    void IRBuilder::addr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCC, 0, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else if (dst_rs8.m_val == src_rs8_b.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCC, 0, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_a.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPRA, 0, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::subr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCC, 1, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPRA, 1, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::mulr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCC, 2, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else if (dst_rs8.m_val == src_rs8_b.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCC, 2, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_a.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPRA, 2, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::divr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCC, 3, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPRA, 3, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::modr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCD, 3, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPRB, 0, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::negr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCE, 3, _WO_CMD24_I8_16(
+                    dst_rs8.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPRB, 1, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8.m_val)));
+        }
+    }
+    void IRBuilder::ltr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPRB, 2, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::gtr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPRB, 3, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::eltr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPRC, 0, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::egtr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPRC, 1, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::equr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPRC, 2, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::nequr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPRC, 3, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+
+    void IRBuilder::adds(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCD, 0, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else if (dst_rs8.m_val == src_rs8_b.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCD, 1, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_a.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPSA, 0, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::lts(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPSA, 1, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::gts(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPSA, 2, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::elts(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPSA, 3, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::egts(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPSB, 0, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::equs(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPSB, 1, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::nequs(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPSB, 2, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+
+    void IRBuilder::cdivilr(
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPCA, 0, _WO_CMD24_I8_I8_8(
+                src_rs8_a.m_val, src_rs8_b.m_val)));
+    }
+    void IRBuilder::cdivil(rs_adrsing8 src_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPCA, 1, _WO_CMD24_I8_16(
+                src_rs8.m_val)));
+    }
+    void IRBuilder::cdivir(rs_adrsing8 src_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPCA, 2, _WO_CMD24_I8_16(
+                src_rs8.m_val)));
+    }
+    void IRBuilder::cdivirz(rs_adrsing8 src_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            OPCA, 3, _WO_CMD24_I8_16(
+                src_rs8.m_val)));
+    }
+
+    void IRBuilder::land(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCE, 0, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else if (dst_rs8.m_val == src_rs8_b.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCE, 0, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_a.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPLA, 0, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::lor(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8_a,
+        rs_adrsing8 src_rs8_b) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8_a.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCE, 1, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_b.m_val)));
+        }
+        else if (dst_rs8.m_val == src_rs8_b.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPCE, 1, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8_a.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPLA, 1, _WO_CMD24_I8_I8_I8(
+                    dst_rs8.m_val, src_rs8_a.m_val, src_rs8_b.m_val)));
+        }
+    }
+    void IRBuilder::lnot(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8) noexcept
+    {
+        if (dst_rs8.m_val == src_rs8.m_val)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPLA, 3, _WO_CMD24_I8_16(
+                    dst_rs8.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                OPLA, 2, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, src_rs8.m_val)));
+        }
+    }
+
+    void IRBuilder::idstr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 cont_rs8,
+        rs_adrsing8 idx_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            IDX, 0, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, cont_rs8.m_val, idx_rs8.m_val)));
+    }
+    void IRBuilder::idarr(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 cont_rs8,
+        rs_adrsing8 idx_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            IDX, 1, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, cont_rs8.m_val, idx_rs8.m_val)));
+    }
+    void IRBuilder::iddict(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 cont_rs8,
+        rs_adrsing8 idx_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            IDX, 2, _WO_CMD24_I8_I8_I8(
+                dst_rs8.m_val, cont_rs8.m_val, idx_rs8.m_val)));
+    }
+    void IRBuilder::idstruct(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 cont_rs8,
+        fixed_unsigned<32> idx_u32) noexcept
+    {
+        if (min_width(idx_u32.m_val) <= 8)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                IDX, 3, _WO_CMD24_I8_I8_U8(
+                    dst_rs8.m_val, cont_rs8.m_val, idx_u32.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                IDSTEXT, 0, _WO_CMD24_I8_I8_8(
+                    dst_rs8.m_val, cont_rs8.m_val)));
+            emit(_WO_EMIT_EXT_U32(idx_u32.m_val));
+        }
+    }
+
+    void IRBuilder::sidarr(
+        rs_adrsing8 src_rs8,
+        rs_adrsing8 cont_rs8,
+        rs_adrsing8 idx_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            SIDX, 0, _WO_CMD24_I8_I8_I8(
+                src_rs8.m_val, cont_rs8.m_val, idx_rs8.m_val)));
+    }
+    void IRBuilder::siddict(
+        rs_adrsing8 src_rs8,
+        rs_adrsing8 cont_rs8,
+        rs_adrsing8 idx_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            SIDX, 1, _WO_CMD24_I8_I8_I8(
+                src_rs8.m_val, cont_rs8.m_val, idx_rs8.m_val)));
+    }
+    void IRBuilder::sidmap(
+        rs_adrsing8 src_rs8,
+        rs_adrsing8 cont_rs8,
+        rs_adrsing8 idx_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            SIDX, 2, _WO_CMD24_I8_I8_I8(
+                src_rs8.m_val, cont_rs8.m_val, idx_rs8.m_val)));
+    }
+    void IRBuilder::sidstruct(
+        rs_adrsing8 src_rs8,
+        rs_adrsing8 cont_rs8,
+        fixed_unsigned<32> idx_u32) noexcept
+    {
+        if (min_width(idx_u32.m_val) <= 8)
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                SIDX, 3, _WO_CMD24_I8_I8_U8(
+                    src_rs8.m_val, cont_rs8.m_val, idx_u32.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                SIDSTEXT, 0, _WO_CMD24_I8_I8_8(
+                    src_rs8.m_val, cont_rs8.m_val)));
+            emit(_WO_EMIT_EXT_U32(idx_u32.m_val));
+        }
+    }
+
+    void IRBuilder::jmp(Label* label) noexcept
+    {
+        label->apply_to_address(
+            m_code_holder,
+            emit(_WO_EMIT_OP8_CMD(
+                JMP, 0, _WO_CMD24_U24(0))),
+            Label::ApplyAddress::Formal::SHIFT8_U24);
+    }
+    void IRBuilder::jmpf(Label* label) noexcept
+    {
+        label->apply_to_address(
+            m_code_holder,
+            emit(_WO_EMIT_OP8_CMD(
+                JMP, 2, _WO_CMD24_U24(0))),
+            Label::ApplyAddress::Formal::SHIFT8_U24);
+    }
+    void IRBuilder::jmpt(Label* label) noexcept
+    {
+        label->apply_to_address(
+            m_code_holder,
+            emit(_WO_EMIT_OP8_CMD(
+                JMP, 3, _WO_CMD24_U24(0))),
+            Label::ApplyAddress::Formal::SHIFT8_U24);
+    }
+
+    void IRBuilder::jmpgc(Label* label) noexcept
+    {
+        label->apply_to_address(
+            m_code_holder,
+            emit(_WO_EMIT_OP8_CMD(
+                JMPGC, 0, _WO_CMD24_U24(0))),
+            Label::ApplyAddress::Formal::SHIFT8_U24);
+    }
+    void IRBuilder::jmpgcf(Label* label) noexcept
+    {
+        label->apply_to_address(
+            m_code_holder,
+            emit(_WO_EMIT_OP8_CMD(
+                JMPGC, 2, _WO_CMD24_U24(0))),
+            Label::ApplyAddress::Formal::SHIFT8_U24);
+    }
+    void IRBuilder::jmpgct(Label* label) noexcept
+    {
+        label->apply_to_address(
+            m_code_holder,
+            emit(_WO_EMIT_OP8_CMD(
+                JMPGC, 3, _WO_CMD24_U24(0))),
+            Label::ApplyAddress::Formal::SHIFT8_U24);
+    }
+
+    void IRBuilder::ret() noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(RET, 0, _WO_CMD24_24()));
+    }
+    void IRBuilder::retn(fixed_unsigned<16> count_u16) noexcept
+    {
+        const auto width = min_width(count_u16.m_val);
+        if (width <= 8)
+        {
+            emit(_WO_EMIT_OP8_CMD(RET, 1,
+                _WO_CMD24_U8_16(count_u16.m_val)));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(RET, 2,
+                _WO_CMD24_8_U16(count_u16.m_val)));
+        }
+    }
+
+    void IRBuilder::calln(Label* label) noexcept
+    {
+        label->apply_to_address(
+            m_code_holder,
+            emit(_WO_EMIT_OP8_CMD(
+                CALLN, 0, _WO_CMD24_U24(0))),
+            Label::ApplyAddress::Formal::SHIFT8_U24);
+        emit(_WO_EMIT_EXT_U32(0));
+    }
+    void IRBuilder::callnfp(wo_native_func_t extfunc) noexcept
+    {
+        const uint64_t fpaddr = static_cast<uint64_t>(
+            reinterpret_cast<intptr_t>(
+                reinterpret_cast<void*>(extfunc)));
+
+        const uint32_t fpaddr_hi =
+            static_cast<uint32_t>((fpaddr >> 32) & 0xFFFFFFFFu);
+        const uint32_t fpaddr_lo =
+            static_cast<uint32_t>(fpaddr & 0xFFFFFFFFu);
+
+        emit(_WO_EMIT_OP8_CMD(CALLN, 3, _WO_CMD24_U24(fpaddr_hi)));
+        emit(_WO_EMIT_EXT_U32(fpaddr_lo));
+    }
+    void IRBuilder::call(rs_adrsing8 src_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            CALL, 0, _WO_CMD24_I8_16(src_rs8.m_val)));
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    shared_pointer<runtime_env> IRBuilder::finish()
+    {
+        shared_pointer<runtime_env> result(new runtime_env());
+
+        result->rt_code_len = 
+            sizeof(uint32_t) * m_code_holder_size;
+        result->rt_codes =
+            (const byte_t*)realloc(
+                m_code_holder,
+                m_code_holder_size * sizeof(uint32_t));
+
+        // TMP IMPL;
+        result->constant_and_global_storage = nullptr; // malloc.
+        result->constant_and_global_value_takeplace_count = 0;
+        result->constant_value_count = 0;
+
+        m_code_holder = nullptr;
+        m_code_holder_capacity = 0;
+        m_code_holder_size = 0;
+
+#ifndef NDEBUG
+        for (auto* label : m_created_labels)
+        {
+            wo_assert(label->m_bound_ip_offset.has_value(),
+                "All label must be bind.");
+        }
+#endif
+
+        return result;
     }
 }
