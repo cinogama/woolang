@@ -2610,6 +2610,7 @@ void wo_make_vm_weak(wo_vm vm)
     WO_VM(vm)->switch_vm_kind(wo::vmbase::vm_type::WEAK_NORMAL);
 }
 
+WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args);
 WO_API wo_api rslib_std_print(wo_vm vm, wo_value args);
 
 wo::compile_result _wo_compile_impl(
@@ -2722,24 +2723,38 @@ wo::compile_result _wo_compile_impl(
             wo::IRBuilder builder;
 
             auto loop = builder.label();
-
-            auto helloworld = builder.allocate_constant();
-            helloworld.get_value()->set_string_nogc("Hello, Woolang VM JIT!\n");
+            auto loop_cond = builder.label();
 
             auto one = builder.allocate_constant();
             one.get_value()->set_integer(1);
-
-            // builder.panic(wo::IRBuilder::rs_adrsing8(WO_REG_TC));
-
-            builder.bind(loop);
-            builder.push(wo::IRBuilder::cg_adrsing32(helloworld));
-            builder.load(
-                wo::IRBuilder::cg_adrsing32(one),
-                wo::IRBuilder::rs_adrsing8(WO_REG_TC));
-            builder.callnfp(rslib_std_print);
-            builder.pop(wo::IRBuilder::fixed_unsigned<24>(1));
-            builder.jmp(loop);
             
+            auto one_billion = builder.allocate_constant();
+            one_billion.get_value()->set_integer(1000000000);
+
+            using rs = wo::IRBuilder::rs_adrsing8;
+            using cg = wo::IRBuilder::cg_adrsing32;
+
+            builder.callnfp(rslib_std_time_sec);                        //  callnfp `rslib_std_time_sec`
+            builder.mov(rs(WO_REG_T0), rs(WO_REG_CR));                  //  mov t0, cr
+            builder.load(cg(one), rs(WO_REG_T1));                       //  load t1, [one]
+            builder.mov(rs(WO_REG_T3), rs(WO_REG_T1));                  //  mov t3, t1
+            builder.load(cg(one_billion), rs(WO_REG_T2));               //  load t2, [one_billion]
+            builder.jmp(loop_cond);                                     //  jmp loop_cond
+            builder.bind(loop);                                         // loop:
+            builder.addi(rs(WO_REG_T1), rs(WO_REG_T1), rs(WO_REG_T3));  //  addi t1, t1, t3
+            builder.bind(loop_cond);                                    // loop_cond:
+            builder.lti(rs(WO_REG_CR), rs(WO_REG_T1), rs(WO_REG_T2));   //  lti cr, t1, t2
+            builder.jmpt(loop);                                         //  jmpt loop
+            builder.callnfp(rslib_std_time_sec);                        //  callnfp `rslib_std_time_sec`
+            builder.subr(rs(WO_REG_CR), rs(WO_REG_CR), rs(WO_REG_T0));  //  subr cr, cr, t0
+            builder.push(rs(WO_REG_CR));                                //  push cr
+            builder.load(cg(one), rs(WO_REG_TC));                       //  load tc, [one]
+            builder.callnfp(rslib_std_print);                           //  callnfp `rslib_std_print`
+            builder.pop(wo::IRBuilder::fixed_unsigned<24>(1));          //  pop 1
+            builder.end();
+
+            builder.end();
+
             compile_env_result.emplace(builder.finish());
 
 

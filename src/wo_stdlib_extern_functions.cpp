@@ -1676,13 +1676,13 @@ WO_API wo_api rslib_std_env_pin_create(wo_vm vm, wo_value args)
         [](wo_gc_work_context_t ctx, wo_ptr_t p)
         {
             auto* env_p = reinterpret_cast<wo::shared_pointer<wo::runtime_env>*>(p)->get();
-            auto* global_and_const_values = env_p->constant_and_global_storage;
+            auto* global_and_const_values = env_p->global_and_constant_storage;
 
-            // Env's constant & global values might missing mark if other vm instance
+            // Env's global values might missing mark if other vm instance
             // has been closed.
             // So we need to mark them again here.
-            for (size_t cgr_index = env_p->constant_value_count;
-                cgr_index < env_p->constant_and_global_value_takeplace_count;
+            for (size_t cgr_index = 0;
+                cgr_index < env_p->global_count;
                 cgr_index++)
             {
                 auto* global_val = global_and_const_values + cgr_index;

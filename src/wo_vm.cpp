@@ -62,9 +62,10 @@
 #define WO_BEGIN_CASE_pop           WO_VM_BEGIN_CASE_IR8(POP, 1, I8_16)
 #define WO_BEGIN_CASE_popcg         WO_VM_BEGIN_CASE_IR8(POP, 2, I24)
 #define WO_BEGIN_CASE_popcgext      WO_VM_BEGIN_CASE_IR8(POP, 3, 24_EI32)
-#define WO_BEGIN_CASE_cast          WO_VM_BEGIN_CASE_IR8(CAST, 0, I8_I8_U8)
-#define WO_BEGIN_CASE_castitor      WO_VM_BEGIN_CASE_IR8(CAST, 1, I8_I8_8)
-#define WO_BEGIN_CASE_castrtoi      WO_VM_BEGIN_CASE_IR8(CAST, 2, I8_I8_8)
+#define WO_BEGIN_CASE_cast          WO_VM_BEGIN_CASE_IR8(MOVCAST, 0, I8_I8_U8)
+#define WO_BEGIN_CASE_castitor      WO_VM_BEGIN_CASE_IR8(MOVCAST, 1, I8_I8_8)
+#define WO_BEGIN_CASE_castrtoi      WO_VM_BEGIN_CASE_IR8(MOVCAST, 2, I8_I8_8)
+#define WO_BEGIN_CASE_mov           WO_VM_BEGIN_CASE_IR8(MOVCAST, 3, I8_I8_8)
 #define WO_BEGIN_CASE_typeis        WO_VM_BEGIN_CASE_IR8(TYPECHK, 0, I8_I8_U8)
 #define WO_BEGIN_CASE_typeas        WO_VM_BEGIN_CASE_IR8(TYPECHK, 1, 8_I8_U8)
 #define WO_BEGIN_CASE_addi          WO_VM_BEGIN_CASE_IR8(OPIA, 0, I8_I8_I8)
@@ -690,7 +691,7 @@ namespace wo
 
         runtime_codes_begin = ip = reinterpret_cast<const irv2::ir*>(env->rt_codes);
         runtime_codes_end = runtime_codes_begin + env->rt_code_len;
-        runtime_static_storage = env->constant_and_global_storage;
+        runtime_static_storage = env->global_and_constant_storage + env->global_count - 1;
 
         _allocate_stack_space(VM_DEFAULT_STACK_SIZE);
         _allocate_register_space(VM_REGISTER_COUNT);
@@ -733,19 +734,19 @@ namespace wo
         {
             char buf[32];
 
-            if (v < 0)
-                // Constant
-                (void)snprintf(
-                    buf,
-                    sizeof(buf),
-                    "<c%+d>",
-                    (int)v);
-            else
-                // Global
+            if (v <= 0)
+                // Static storage.
                 (void)snprintf(
                     buf,
                     sizeof(buf),
                     "<g%+d>",
+                    -(int)v);
+            else
+                // Constant storage.
+                (void)snprintf(
+                    buf,
+                    sizeof(buf),
+                    "<c%+d>",
                     (int)v);
             return buf;
         }
@@ -786,8 +787,8 @@ namespace wo
             (void)snprintf(
                 buf,
                 sizeof(buf),
-                "0x%016X",
-                static_cast<unsigned int>(sizeof(uint32_t) * v));
+                "0x%016llX",
+                (unsigned long long)v);
             return buf;
         }
         std::string dump_ir(
@@ -854,7 +855,7 @@ namespace wo
             reinterpret_cast<const irv2::ir*>(
                 &codeholder->rt_codes[begin]));
 
-        os << "Offset(BYTE)|   Main     Ext      Ext2   | Disassembly" << std::endl;
+        os << "  Offset(BYTE) |   Main     Ext      Ext2   | Disassembly" << std::endl;
 
         while (rt_ip < dump_end_ip)
         {
@@ -862,6 +863,9 @@ namespace wo
             const auto dumped_line = disassemble_instruction(&rt_ip);
 
             wo_assert(rt_ip != dumping_ip);
+            const bool is_current_command =
+                focus_runtime_ip >= dumping_ip
+                && focus_runtime_ip < rt_ip;
 
             // +0x00000000
             char diffoffset[12];
@@ -871,11 +875,15 @@ namespace wo
                 "+0x%08X ",
                 static_cast<uint32_t>(
                     reinterpret_cast<const byte_t*>(dumping_ip) - codeholder->rt_codes));
-
-            os << diffoffset << " | ";
+       
+            os << (is_current_command ? "-> " ANSI_BWHI ANSI_HIR : "   ")
+                << diffoffset 
+                << (is_current_command ? ANSI_RST : "")
+                << " | ";
 
             // Dump command sequence.      
-            const auto* command_u32 = std::launder(reinterpret_cast<const uint32_t*>(dumping_ip));
+            const auto* command_u32 = 
+                std::launder(reinterpret_cast<const uint32_t*>(dumping_ip));
             const size_t command_length =
                 reinterpret_cast<const uint32_t*>(rt_ip) -
                 reinterpret_cast<const uint32_t*>(dumping_ip);
@@ -890,6 +898,7 @@ namespace wo
                         sizeof(command_value),
                         "%08X",
                         command_u32[i]);
+
                     os << command_value << " ";
                 }
                 else
@@ -1216,6 +1225,7 @@ namespace wo
             WO_VM_DUMP_BIN_FORMAL_R8_R8_TYPE8(cast);
             WO_VM_DUMP_BIN_FORMAL_R8_R8_8(castitor);
             WO_VM_DUMP_BIN_FORMAL_R8_R8_8(castrtoi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(mov);
             WO_VM_DUMP_BIN_FORMAL_R8_R8_TYPE8(typeis);
             WO_VM_DUMP_BIN_FORMAL_8_R8_TYPE8(typeas);
             WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(addi);
@@ -2455,8 +2465,8 @@ namespace wo
         re_entry_for_failed_command:
             uint32_t rtopcode = WO_IR_OPBYTE(rt_ip);
 
-            if (fast_interrupt_state)
-                rtopcode |= fast_interrupt_state;
+            /*if (fast_interrupt_state)
+                rtopcode |= fast_interrupt_state;*/
 
         re_entry_for_interrupt:
 
@@ -2674,6 +2684,13 @@ namespace wo
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_integer(
                         static_cast<wo_integer_t>(WO_VM_ADRS_R_S(p2_i8)->m_real));
+                }
+                WO_VM_END_CASE();
+
+                // MOV
+                WO_BEGIN_CASE(mov)
+                {
+                    WO_VM_ADRS_R_S(p1_i8)->set_val(WO_VM_ADRS_R_S(p2_i8));
                 }
                 WO_VM_END_CASE();
 
@@ -4231,110 +4248,111 @@ namespace wo
 
 
             default:
-            {
-                static_assert(std::is_same_v<decltype(rtopcode), uint32_t>);
-                if ((0xFFFFFF00u & rtopcode) == 0)
-                    wo_error("Unknown instruct.");
+                __assume(0);
+            //{
+            //    static_assert(std::is_same_v<decltype(rtopcode), uint32_t>);
+            //    if ((0xFFFFFF00u & rtopcode) == 0)
+            //        wo_error("Unknown instruct.");
 
-                const auto interrupt_state = vm_interrupt.load(std::memory_order_acquire);
+            //    const auto interrupt_state = vm_interrupt.load(std::memory_order_acquire);
 
-                if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
-                {
-                    gc_checkpoint_self_mark();
-                }
-                ///////////////////////////////////////////////////////////////////////
-                if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
-                {
-                    if (clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                        hangup();
-                }
-                else if (interrupt_state & vm_interrupt_type::ABORT_INTERRUPT)
-                {
-                    // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
-                    // CLEAR ABORT_INTERRUPT
-                    WO_VM_RETURN(wo_result_t::WO_API_SIM_ABORT);
-                }
-                else if (interrupt_state & vm_interrupt_type::BR_YIELD_INTERRUPT)
-                {
-                    wo_assure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
-                    WO_VM_RETURN(wo_result_t::WO_API_SIM_YIELD);
-                }
-                else if (interrupt_state & vm_interrupt_type::LEAVE_INTERRUPT)
-                {
-                    // That should not be happend...
-                    wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
-                }
-                else if (interrupt_state & vm_interrupt_type::PENDING_INTERRUPT)
-                {
-                    // That should not be happend...
-                    wo_error("Virtual machine handled a PENDING_INTERRUPT.");
-                }
-                else if (interrupt_state & vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
-                {
-                    while (check_interrupt(vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
-                        wo::gcbase::_shared_spin::spin_loop_hint();
-                }
-                else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
-                {
-                    shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, (uint8_t)(shrink_stack_edge + 1));
-                    // Force realloc stack buffer.
-                    bool r = _reallocate_stack_space(stack_size << 1);
+            //    if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
+            //    {
+            //        gc_checkpoint_self_mark();
+            //    }
+            //    ///////////////////////////////////////////////////////////////////////
+            //    if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
+            //    {
+            //        if (clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
+            //            hangup();
+            //    }
+            //    else if (interrupt_state & vm_interrupt_type::ABORT_INTERRUPT)
+            //    {
+            //        // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
+            //        // CLEAR ABORT_INTERRUPT
+            //        WO_VM_RETURN(wo_result_t::WO_API_SIM_ABORT);
+            //    }
+            //    else if (interrupt_state & vm_interrupt_type::BR_YIELD_INTERRUPT)
+            //    {
+            //        wo_assure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
+            //        WO_VM_RETURN(wo_result_t::WO_API_SIM_YIELD);
+            //    }
+            //    else if (interrupt_state & vm_interrupt_type::LEAVE_INTERRUPT)
+            //    {
+            //        // That should not be happend...
+            //        wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
+            //    }
+            //    else if (interrupt_state & vm_interrupt_type::PENDING_INTERRUPT)
+            //    {
+            //        // That should not be happend...
+            //        wo_error("Virtual machine handled a PENDING_INTERRUPT.");
+            //    }
+            //    else if (interrupt_state & vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
+            //    {
+            //        while (check_interrupt(vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
+            //            wo::gcbase::_shared_spin::spin_loop_hint();
+            //    }
+            //    else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
+            //    {
+            //        shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, (uint8_t)(shrink_stack_edge + 1));
+            //        // Force realloc stack buffer.
+            //        bool r = _reallocate_stack_space(stack_size << 1);
 
-                    wo_assure(clear_interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+            //        wo_assure(clear_interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
 
-                    if (!r)
-                        WO_VM_FAIL(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
-                }
-                else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
-                {
-                    if (_reallocate_stack_space(stack_size >> 1))
-                        shrink_stack_edge = VM_SHRINK_STACK_COUNT;
+            //        if (!r)
+            //            WO_VM_FAIL(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
+            //    }
+            //    else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
+            //    {
+            //        if (_reallocate_stack_space(stack_size >> 1))
+            //            shrink_stack_edge = VM_SHRINK_STACK_COUNT;
 
-                    wo_assure(clear_interrupt(vm_interrupt_type::SHRINK_STACK_INTERRUPT));
-                }
-                else if (interrupt_state & vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT)
-                {
-                    if (!runtime_env::resync_far_state(
-                        rt_ip,
-                        &near_rtcode_begin,
-                        &near_rtcode_end,
-                        &near_static_global))
-                        WO_VM_FAIL(WO_FAIL_CALL_FAIL, "Unkown function.");
+            //        wo_assure(clear_interrupt(vm_interrupt_type::SHRINK_STACK_INTERRUPT));
+            //    }
+            //    else if (interrupt_state & vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT)
+            //    {
+            //        if (!runtime_env::resync_far_state(
+            //            rt_ip,
+            //            &near_rtcode_begin,
+            //            &near_rtcode_end,
+            //            &near_static_global))
+            //            WO_VM_FAIL(WO_FAIL_CALL_FAIL, "Unkown function.");
 
-                    wo_assure(clear_interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-                }
-                // ATTENTION: it should be last interrupt..
-                else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
-                {
-                    // static_assert(sizeof(instruct::opcode) == 1);
+            //        wo_assure(clear_interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+            //    }
+            //    // ATTENTION: it should be last interrupt..
+            //    else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
+            //    {
+            //        // static_assert(sizeof(instruct::opcode) == 1);
 
-                    ip = rt_ip;
+            //        ip = rt_ip;
 
-                    auto debug_bridge = vm_debuggee_bridge_base::current_global_debuggee_bridge();
-                    if (debug_bridge.has_value())
-                    {
-                        // check debuggee here
-                        wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
-                        debug_bridge.value()->_vm_invoke_debuggee(this);
-                        wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
-                    }
+            //        auto debug_bridge = vm_debuggee_bridge_base::current_global_debuggee_bridge();
+            //        if (debug_bridge.has_value())
+            //        {
+            //            // check debuggee here
+            //            wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
+            //            debug_bridge.value()->_vm_invoke_debuggee(this);
+            //            wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
+            //        }
 
-                    // Refetch ip from vm, it may modified by debugger.
-                    rt_ip = ip;
-                    rtopcode = WO_IR_OPBYTE(rt_ip);
+            //        // Refetch ip from vm, it may modified by debugger.
+            //        rt_ip = ip;
+            //        rtopcode = WO_IR_OPBYTE(rt_ip);
 
-                    goto re_entry_for_interrupt;
-                }
-                else
-                {
-                    // a vm_interrupt is invalid now, just roll back one byte and continue~
-                    // so here do nothing
-                    wo_assert(interrupt_state == 0
-                        || interrupt_state == vm_interrupt_type::GC_INTERRUPT);
-                }
+            //        goto re_entry_for_interrupt;
+            //    }
+            //    else
+            //    {
+            //        // a vm_interrupt is invalid now, just roll back one byte and continue~
+            //        // so here do nothing
+            //        wo_assert(interrupt_state == 0
+            //            || interrupt_state == vm_interrupt_type::GC_INTERRUPT);
+            //    }
 
-                WO_VM_INTERRUPT_CHECKPOINT;
-            }
+            //    WO_VM_INTERRUPT_CHECKPOINT;
+            //}
             }
         }// vm loop end.
 

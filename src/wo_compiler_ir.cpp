@@ -57,7 +57,7 @@ namespace wo
                     env,
                     env->rt_codes,
                     env->rt_codes + env->rt_code_len,
-                    env->constant_and_global_storage,
+                    env->global_and_constant_storage + env->global_count - 1,
                 }
                 ));
         (void)result;
@@ -551,9 +551,9 @@ namespace wo
     runtime_env::runtime_env()
         : rt_codes(nullptr)
         , rt_code_len(0)
-        , constant_and_global_storage(nullptr)
-        , constant_and_global_value_takeplace_count(0)
-        , constant_value_count(0)
+        , global_and_constant_storage(nullptr)
+        , global_and_constant_count(0)
+        , global_count(0)
         , _running_on_vm_count(0)
         , _created_destructable_instance_count(0)
     {
@@ -565,12 +565,12 @@ namespace wo
         if (wo::config::ENABLE_JUST_IN_TIME)
             free_jit(this);
 
-        if (constant_and_global_storage)
+        if (global_and_constant_storage)
         {
-            for (size_t ci = 0; ci < constant_value_count; ++ci)
-                cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
+            for (size_t ci = global_count; ci < global_and_constant_count; ++ci)
+                cancel_nogc_mark_for_value(global_and_constant_storage[ci]);
 
-            free(constant_and_global_storage);
+            free(global_and_constant_storage);
         }
 
         if (rt_codes)
@@ -644,8 +644,7 @@ namespace wo
 
         // 2.1 (+16 + 2N * 8) Global space size * sizeof(Value)
         write_binary_to_buffer(
-            (uint64_t)(this->constant_and_global_value_takeplace_count
-                - this->constant_value_count), 8);
+            (uint64_t)this->global_count, 8);
 
         // 3.1 Code data
         //  3.1.1 Code data length
@@ -658,13 +657,13 @@ namespace wo
 
         // 3.2 Constant data
         write_binary_to_buffer(
-            (uint64_t)this->constant_value_count, 8);
+            (uint64_t)(this->global_and_constant_count - this->global_count), 8);
 
         std::unordered_map<gcbase*, size_t> gcunit_in_constant_indexs_cache;
 
-        for (size_t ci = 0; ci < this->constant_value_count; ++ci)
+        for (size_t ci = this->global_count; ci < this->global_and_constant_count; ++ci)
         {
-            auto& constant_value = this->constant_and_global_storage[ci];
+            auto& constant_value = this->global_and_constant_storage[ci];
 
             write_binary_to_buffer(static_cast<uint64_t>(constant_value.m_type), 8);
             switch (constant_value.m_type)
@@ -979,17 +978,17 @@ namespace wo
 
         created_env->rt_codes = code_buf;
         created_env->rt_code_len = (size_t)rt_code_with_padding_length * sizeof(byte_t);
-        created_env->constant_and_global_value_takeplace_count =
-            (size_t)(constant_value_count + 1 + global_value_count + 1);
-        created_env->constant_value_count = (size_t)constant_value_count;
+        created_env->global_and_constant_count =
+            (size_t)(global_value_count + constant_value_count);
+        created_env->global_count = (size_t)global_value_count;
 
         size_t preserve_memory_size =
-            created_env->constant_and_global_value_takeplace_count;
+            created_env->global_and_constant_count;
 
         value* preserved_memory = (value*)calloc(preserve_memory_size, sizeof(wo::value));
         memset(preserved_memory, 0, preserve_memory_size * sizeof(wo::value));
 
-        created_env->constant_and_global_storage = preserved_memory;
+        created_env->global_and_constant_storage = preserved_memory;
 
         struct string_buffer_index
         {
@@ -1003,7 +1002,7 @@ namespace wo
         };
         std::unordered_map<value*, string_buffer_index> constant_string_index_for_update;
 
-        for (uint64_t ci = 0; ci < constant_value_count; ++ci)
+        for (uint64_t ci = global_value_count + 1; ci < created_env->global_and_constant_count; ++ci)
         {
             auto& this_constant_value = preserved_memory[ci];
 
@@ -1833,8 +1832,7 @@ namespace wo
 
     value* IRBuilder::Constant::get_value() const noexcept
     {
-        return m_builder->m_constant_storage
-            + (m_builder->m_constant_storage_size - m_constant_index);
+        return &m_builder->m_constant_storage[m_constant_index];
     }
 
     IRBuilder::IRBuilder()
@@ -1912,29 +1910,15 @@ namespace wo
         if (m_constant_storage_size >= m_constant_storage_capacity)
         {
             wo_assert(m_constant_storage_size == m_constant_storage_capacity);
-            if (m_constant_storage_capacity == 0)
-            {
-                wo_assert(m_constant_storage == nullptr);
-                m_constant_storage_capacity = 32;
-            }
+            if ((m_constant_storage_capacity *= 2) == 0)
+                m_constant_storage_capacity = 64;
 
-            auto* new_constant_storage = (value*)malloc(
-                m_constant_storage_capacity * 2 * sizeof(value));
-            wo_assert(new_constant_storage != nullptr);
-
-            if (m_constant_storage != nullptr)
-            {
-                memcpy(
-                    new_constant_storage + m_constant_storage_capacity,
-                    m_constant_storage,
-                    m_constant_storage_capacity * sizeof(value));
-
-                free(m_constant_storage);
-            }
-            m_constant_storage = new_constant_storage;
-            m_constant_storage_capacity *= 2;           
+            m_constant_storage = (value*)realloc(
+                m_constant_storage,
+                m_constant_storage_capacity * sizeof(value));
+            wo_assert(m_constant_storage != nullptr);
         }
-        return Constant(this, ++m_constant_storage_size);
+        return Constant(this, m_constant_storage_size++);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2103,7 +2087,8 @@ namespace wo
     }
     void IRBuilder::push(fixed_unsigned<24> count_u24) noexcept
     {
-        emit(_WO_EMIT_OP8_CMD(PUSH, 0, _WO_CMD24_U24(count_u24.m_val)));
+        if (count_u24.m_val > 0)
+            emit(_WO_EMIT_OP8_CMD(PUSH, 0, _WO_CMD24_U24(count_u24.m_val)));
     }
     void IRBuilder::push(rs_adrsing8 src_rs8) noexcept
     {
@@ -2123,7 +2108,8 @@ namespace wo
     }
     void IRBuilder::pop(fixed_unsigned<24> count_u24) noexcept
     {
-        emit(_WO_EMIT_OP8_CMD(POP, 0, _WO_CMD24_U24(count_u24.m_val)));
+        if (count_u24.m_val > 0)
+            emit(_WO_EMIT_OP8_CMD(POP, 0, _WO_CMD24_U24(count_u24.m_val)));
     }
     void IRBuilder::pop(rs_adrsing8 dst_rs8) noexcept
     {
@@ -2147,7 +2133,7 @@ namespace wo
         wo_type_t cast_to) noexcept
     {
         emit(_WO_EMIT_OP8_CMD(
-            CAST, 0, _WO_CMD24_I8_I8_U8(
+            MOVCAST, 0, _WO_CMD24_I8_I8_U8(
                 dst_rs8.m_val, src_rs8.m_val, cast_to)));
     }
     void IRBuilder::castitors(
@@ -2155,7 +2141,7 @@ namespace wo
         rs_adrsing8 src_rs8) noexcept
     {
         emit(_WO_EMIT_OP8_CMD(
-            CAST, 1, _WO_CMD24_I8_I8_8(
+            MOVCAST, 1, _WO_CMD24_I8_I8_8(
                 dst_rs8.m_val, src_rs8.m_val)));
     }
     void IRBuilder::castrtoi(
@@ -2163,7 +2149,15 @@ namespace wo
         rs_adrsing8 src_rs8) noexcept
     {
         emit(_WO_EMIT_OP8_CMD(
-            CAST, 2, _WO_CMD24_I8_I8_8(
+            MOVCAST, 2, _WO_CMD24_I8_I8_8(
+                dst_rs8.m_val, src_rs8.m_val)));
+    }
+    void IRBuilder::mov(
+        rs_adrsing8 dst_rs8,
+        rs_adrsing8 src_rs8) noexcept
+    {
+        emit(_WO_EMIT_OP8_CMD(
+            MOVCAST, 3, _WO_CMD24_I8_I8_8(
                 dst_rs8.m_val, src_rs8.m_val)));
     }
     void IRBuilder::typeis(
@@ -2946,15 +2940,25 @@ namespace wo
                     sizeof(uint32_t) * m_code_holder_size));
 
         // TMP IMPL;
-        result->constant_value_count =
-            static_cast<size_t>(m_constant_storage_size);
-        result->constant_and_global_value_takeplace_count =
-            result->constant_value_count + 1 /* Always keep 0 for reserving */;
-        result->constant_and_global_storage =
+        result->global_count = 1 /* Always keep 0 for reserving */;
+        result->global_and_constant_count =
+            result->global_count + m_constant_storage_size;
+
+        result->global_and_constant_storage =
             reinterpret_cast<value*>(
                 realloc(
                     m_constant_storage,
-                    sizeof(value) * result->constant_and_global_value_takeplace_count));
+                    sizeof(value) * result->global_and_constant_count));
+
+        // Move constant storage to after global storage, then clear static storage.
+        memmove(
+            &result->global_and_constant_storage[result->global_count],
+            result->global_and_constant_storage,
+            sizeof(value) * m_constant_storage_size);
+        memset(
+            result->global_and_constant_storage,
+            0,
+            sizeof(value) * result->global_count);
 
         // Reset builder state.
         m_code_holder = nullptr;

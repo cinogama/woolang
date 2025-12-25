@@ -415,7 +415,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
             for (auto funtions_constant_offset : env->meta_data_for_jit._functions_constant_idx_for_jit)
             {
-                auto* val = &env->constant_and_global_storage[funtions_constant_offset];
+                auto* val = &env->global_and_constant_storage[funtions_constant_offset];
                 wo_assert(val->m_type == value::valuetype::script_func_type);
 
                 auto& func_state = m_compiling_functions.at(val->m_script_func);
@@ -431,7 +431,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             for (auto& [tuple_constant_offset, function_index] :
                 env->meta_data_for_jit._functions_constant_in_tuple_idx_for_jit)
             {
-                auto* val = &env->constant_and_global_storage[tuple_constant_offset];
+                auto* val = &env->global_and_constant_storage[tuple_constant_offset];
                 wo_assert(val->m_type == value::valuetype::struct_type
                     && function_index < val->m_structure->m_count);
 
@@ -987,7 +987,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                 if (is_constant())
                 {
                     auto offset = (size_t)
-                        (m_constant - ctx->env->constant_and_global_storage);
+                        (m_constant - ctx->env->global_and_constant_storage);
                     if (std::find(
                         ctx->env->meta_data_for_jit._functions_constant_idx_for_jit.begin(),
                         ctx->env->meta_data_for_jit._functions_constant_idx_for_jit.end(),
@@ -1052,15 +1052,15 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
                 auto const_global_index = WO_SAFE_READ_MOVE_4;
 
-                if (const_global_index < env->constant_value_count)
+                if (const_global_index < env->globle_value_count)
                 {
                     //Is constant
-                    return may_constant_x86Gp{ &x86compiler, true, env->constant_and_global_storage + const_global_index };
+                    return may_constant_x86Gp{ &x86compiler, true, env->global_and_constant_storage + const_global_index };
                 }
                 else
                 {
                     auto result = x86compiler.newUIntPtr();
-                    wo_assure(!x86compiler.mov(result, (size_t)(env->constant_and_global_storage + const_global_index)));
+                    wo_assure(!x86compiler.mov(result, (size_t)(env->global_and_constant_storage + const_global_index)));
                     return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
                 }
             }

@@ -399,10 +399,12 @@ whereis                         <ipoffset>    Find the function that the ipoffse
         void display_global_variable(wo::vmbase* vmm, size_t global_offset)
         {
             wo_stdout << "g[" << global_offset << "]: ";
-            if (global_offset < vmm->env->constant_and_global_value_takeplace_count - vmm->env->constant_value_count
-                && global_offset > 0)
+            if (global_offset < vmm->env->global_count)
             {
-                auto* valueaddr = vmm->env->constant_and_global_storage + vmm->env->constant_value_count + global_offset;
+                auto* valueaddr = 
+                    vmm->env->global_and_constant_storage 
+                    + vmm->env->global_count 
+                    - global_offset;
                 wo_stdout << valueaddr << " " << _safe_cast_value_to_string(valueaddr) << wo_endl;
             }
             else

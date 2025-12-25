@@ -1294,11 +1294,11 @@ enum _wo_irv2
     //           01 [R/SAds] 00000000 00000000
     //           10 [   C/G Adrsing 24bit    ]
     //           11 00000000 00000000 00000000 [ C/G Adrsing 32 bits ]
-    WO_CAST,
-    //  CAST     00 [R/SAds] [R/SAds] [Type8b]
+    WO_MOVCAST,
+    //  MOVCAST  00 [R/SAds] [R/SAds] [Type8b] // CAST
     //           01 [R/SAds] [R/SAds] 00000000 // CASTITOR
     //           10 [R/SAds] [R/SAds] 00000000 // CASTRTOI
-    //           11 ======== RESERVED ========
+    //           11 [R/SAds] [R/SAds] 00000000 // MOVE
     WO_TYPECHK,
     //  TYPECHK  00 [R/SAds] [R/SAds] [Type8b] // TYPEIS
     //           01 00000000 [R/SAds] [Type8b] // TYPEAS
@@ -1344,6 +1344,11 @@ enum _wo_irv2
     //           01 [R/SAds] [R/SAds] [R/SAds] // EQUS
     //           10 [R/SAds] [R/SAds] [R/SAds] // NEQUS
     //           11 ======== RESERVED ========
+    WO_OPLA,
+    //  OPLA     00 [R/SAds] [R/SAds] [R/SAds] // LAND
+    //           01 [R/SAds] [R/SAds] [R/SAds] // LOR
+    //           01 [R/SAds] [R/SAds] [R/SAds] // LNOT
+    //           11 [R/SAds] 00000000 00000000 // CUMLNOT,
     WO_OPCA,
     //  OPCA     00 [R/SAds] [R/SAds] 00000000 // CDIVILR
     //           01 [R/SAds] 00000000 00000000 // CDIVIL
@@ -1369,11 +1374,6 @@ enum _wo_irv2
     //           01 [R/SAds] [R/SAds] 00000000 // CUMLOR,
     //           10 [R/SAds] 00000000 00000000 // CUMNEGI,
     //           11 [R/SAds] 00000000 00000000 // CUMNEGR
-    WO_OPLA,
-    //  OPLA     00 [R/SAds] [R/SAds] [R/SAds] // LAND
-    //           01 [R/SAds] [R/SAds] [R/SAds] // LOR
-    //           01 [R/SAds] [R/SAds] [R/SAds] // LNOT
-    //           11 [R/SAds] 00000000 00000000 // CUMLNOT,
     WO_IDX,
     //  IDX      00 [R/SAds] [R/SAds] [R/SAds] // IDSTR
     //           01 [R/SAds] [R/SAds] [R/SAds] // IDARR

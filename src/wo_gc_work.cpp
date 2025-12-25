@@ -940,23 +940,23 @@ namespace wo
                             wo_assert(env != nullptr);
 
                             // If current gc-vm is orphan, skip marking global value.
-                            if (env->_running_on_vm_count > 1)
+                            if (env->_running_on_vm_count <= 1)
+                                continue;
+
+                            // Any code context only have one GC_DESTRUCTOR, here to mark global space.
+                            auto* global_and_const_values = env->global_and_constant_storage;
+
+                            // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
+                            for (size_t cgr_index = 0;
+                                cgr_index < env->global_count;
+                                cgr_index++)
                             {
-                                // Any code context only have one GC_DESTRUCTOR, here to mark global space.
-                                auto* global_and_const_values = env->constant_and_global_storage;
+                                auto* const global_val = global_and_const_values + cgr_index;
 
-                                // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
-                                for (size_t cgr_index = env->constant_value_count;
-                                    cgr_index < env->constant_and_global_value_takeplace_count;
-                                    cgr_index++)
-                                {
-                                    auto* global_val = global_and_const_values + cgr_index;
-
-                                    gc::unit_attrib* attr;
-                                    gcbase* gcunit_address = global_val->get_gcunit_and_attrib_ref(&attr);
-                                    if (gcunit_address)
-                                        gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], gcunit_address, attr);
-                                }
+                                gc::unit_attrib* attr;
+                                gcbase* gcunit_address = global_val->get_gcunit_and_attrib_ref(&attr);
+                                if (gcunit_address)
+                                    gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], gcunit_address, attr);
                             }
                         }
                     }

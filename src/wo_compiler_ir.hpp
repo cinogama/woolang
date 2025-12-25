@@ -215,9 +215,9 @@ namespace wo
         const byte_t* rt_codes;
         size_t rt_code_len;
 
-        value* constant_and_global_storage;
-        size_t constant_and_global_value_takeplace_count;
-        size_t constant_value_count;
+        value* global_and_constant_storage;
+        size_t global_and_constant_count;
+        size_t global_count;
 
         // Reference counting for runtime_env instance.
         std::atomic_size_t _running_on_vm_count;
@@ -388,8 +388,9 @@ namespace wo
             }
             explicit cg_adrsing32(Constant constant_index) noexcept
                 : cg_adrsing32(
-                    -static_cast<int32_t>(
-                        constant_index.m_constant_index))
+                    // NOTE: Constant storage begin at 1, but index from 0, so +1
+                    static_cast<int32_t>(
+                        constant_index.m_constant_index) + 1)
             {
             }
         };
@@ -465,6 +466,9 @@ namespace wo
             rs_adrsing8 dst_rs8,
             rs_adrsing8 src_rs8) noexcept;
         void castrtoi(
+            rs_adrsing8 dst_rs8,
+            rs_adrsing8 src_rs8) noexcept;
+        void mov(
             rs_adrsing8 dst_rs8,
             rs_adrsing8 src_rs8) noexcept;
 
