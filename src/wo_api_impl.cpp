@@ -2725,6 +2725,7 @@ wo::compile_result _wo_compile_impl(
 
             builder.jmp(funcend);
             builder.bind(funcbegin);
+            builder.panic(wo::IRBuilder::rs_adrsing8(WO_REG_CR));
             builder.ret();
             builder.bind(funcend);
 

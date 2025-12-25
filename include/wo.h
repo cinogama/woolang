@@ -1394,8 +1394,8 @@ enum _wo_irv2
     WO_JMPGC,
     //  JMPGC    00 [  Near wo-code abs addr ] // JMPGC
     //           01 ======== RESERVED ========
-    //           10 [  Near wo-code abs addr ] // JMPGCF
-    //           11 [  Near wo-code abs addr ] // JMPGCT
+    //           10 [  Near wo-code abs addr ] // JMPFGC
+    //           11 [  Near wo-code abs addr ] // JMPTGC
     WO_RET,
     //  RET      00 00000000 00000000 00000000
     //           01 [PopC8b] 00000000 00000000

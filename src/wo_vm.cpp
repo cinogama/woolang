@@ -12,8 +12,11 @@
         (near_static_global + (OFFSET_I))
 #define WO_VM_ADRS_S(OFFSET_I)                                          \
         (bp + (OFFSET_I))
+#define WO_VM_ADRS_R_SHIFT (0b0110'0000)
+#define WO_VM_ADRS_CHECK_S(OFFSET_I)                                    \
+        (static_cast<int8_t>(OFFSET_I) < WO_VM_ADRS_R_SHIFT)
 #define WO_VM_ADRS_R_S(OFFSET_I)                                        \
-        ((static_cast<int8_t>(OFFSET_I) < 0b0110'0000)                  \
+        (WO_VM_ADRS_CHECK_S(OFFSET_I)                                   \
             ? WO_VM_ADRS_S(static_cast<int8_t>(OFFSET_I))               \
             : (rt_reg_fast_lookup + static_cast<int8_t>(OFFSET_I)))
 
@@ -39,131 +42,134 @@
                 break;                                                  \
             }
 
-#define WO_BEGIN_CASE_NOP   WO_VM_BEGIN_CASE_IR8(NOP, 0, 24)
-#define WO_BEGIN_CASE_END   WO_VM_BEGIN_CASE_IR8(END, 0, 24)
-WO_VM_BEGIN_CASE_IR6(LOAD, I18_I8)
-WO_VM_BEGIN_CASE_IR6(STORE, I18_I8)
-WO_VM_BEGIN_CASE_IR8(LOADEXT, 0, I8_16_EI32)
-WO_VM_BEGIN_CASE_IR8(LOADEXT, 1, 8_I16_EI32)
-WO_VM_BEGIN_CASE_IR8(LOADEXT, 2, I24_EI32)
-WO_VM_BEGIN_CASE_IR8(STOREEXT, 0, I8_16_EI32)
-WO_VM_BEGIN_CASE_IR8(STOREEXT, 1, 8_I16_EI32)
-WO_VM_BEGIN_CASE_IR8(STOREEXT, 2, I24_EI32)
-WO_VM_BEGIN_CASE_IR8(PUSH, 0, U24)
-WO_VM_BEGIN_CASE_IR8(PUSH, 1, I8_16)
-WO_VM_BEGIN_CASE_IR8(PUSH, 2, I24)
-WO_VM_BEGIN_CASE_IR8(PUSH, 3, 24_EI32)
-WO_VM_BEGIN_CASE_IR8(POP, 0, U24)
-WO_VM_BEGIN_CASE_IR8(POP, 2, I24)
-WO_VM_BEGIN_CASE_IR8(POP, 3, 24_EI32)
-WO_VM_BEGIN_CASE_IR8(CAST, 0, I8_I8_U8)
-WO_VM_BEGIN_CASE_IR8(CAST, 1, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(CAST, 2, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(TYPECHK, 0, I8_I8_U8)
-WO_VM_BEGIN_CASE_IR8(TYPECHK, 1, 8_I8_U8)
-WO_VM_BEGIN_CASE_IR8(OPIA, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPIA, 1, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPIA, 2, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPIA, 3, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPIB, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPIB, 1, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPIB, 2, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPIB, 3, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPIC, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPIC, 1, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPIC, 2, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPIC, 3, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRA, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRA, 1, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRA, 2, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRA, 3, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRB, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRB, 1, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPRB, 2, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRB, 3, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRC, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRC, 1, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRC, 2, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPRC, 3, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPSA, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPSA, 1, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPSA, 2, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPSA, 3, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPSB, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPSB, 1, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPSB, 2, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPCA, 0, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCA, 1, I8_16)
-WO_VM_BEGIN_CASE_IR8(OPCA, 2, I8_16)
-WO_VM_BEGIN_CASE_IR8(OPCA, 3, I8_16)
-WO_VM_BEGIN_CASE_IR8(OPCB, 0, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCB, 1, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCB, 2, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCB, 3, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCC, 0, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCC, 1, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCC, 2, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCC, 3, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCD, 0, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCD, 1, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCD, 2, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCD, 3, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCE, 0, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCE, 1, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPCE, 2, I8_16)
-WO_VM_BEGIN_CASE_IR8(OPCE, 3, I8_16)
-WO_VM_BEGIN_CASE_IR8(OPLA, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPLA, 1, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(OPLA, 2, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(OPLA, 3, I8_16)
-WO_VM_BEGIN_CASE_IR8(IDX, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(IDX, 1, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(IDX, 2, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(IDX, 3, I8_I8_U8)
-WO_VM_BEGIN_CASE_IR8(SIDX, 0, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(SIDX, 1, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(SIDX, 2, I8_I8_I8)
-WO_VM_BEGIN_CASE_IR8(SIDX, 3, I8_I8_U8)
-WO_VM_BEGIN_CASE_IR8(IDSTEXT, 0, I8_I8_8_EU32)
-WO_VM_BEGIN_CASE_IR8(SIDSTEXT, 0, I8_I8_8_EU32)
-WO_VM_BEGIN_CASE_IR8(JMP, 0, U24)
-WO_VM_BEGIN_CASE_IR8(JMP, 2, U24)
-WO_VM_BEGIN_CASE_IR8(JMP, 3, U24)
-WO_VM_BEGIN_CASE_IR8(JMPGC, 0, U24)
-WO_VM_BEGIN_CASE_IR8(JMPGC, 2, U24)
-WO_VM_BEGIN_CASE_IR8(JMPGC, 3, U24)
-WO_VM_BEGIN_CASE_IR8(RET, 0, 24)
-WO_VM_BEGIN_CASE_IR8(RET, 1, U8_16)
-WO_VM_BEGIN_CASE_IR8(RET, 2, 8_U16)
-WO_VM_BEGIN_CASE_IR8(CALLN, 0, U24_E32)
-WO_VM_BEGIN_CASE_IR8(CALLN, 1, EU56)
-WO_VM_BEGIN_CASE_IR8(CALLN, 2, EU56)
-WO_VM_BEGIN_CASE_IR8(CALL, 0, I8_16)
-WO_VM_BEGIN_CASE_IR8(CONS, 0, I8_U16)
-WO_VM_BEGIN_CASE_IR8(CONS, 1, I8_U16)
-WO_VM_BEGIN_CASE_IR8(CONS, 2, I8_U16)
-WO_VM_BEGIN_CASE_IR8(CONSEXT, 0, I8_16_EU32)
-WO_VM_BEGIN_CASE_IR8(CONSEXT, 1, I8_16_EU32)
-WO_VM_BEGIN_CASE_IR8(CONSEXT, 2, I8_16_EU32)
-WO_VM_BEGIN_CASE_IR8(MKCLOS, 0, I8_U16_EU32_E32)
-WO_VM_BEGIN_CASE_IR8(MKCLOS, 1, I8_U16_EU64)
-WO_VM_BEGIN_CASE_IR8(UNPACK, 0, I8_U16)
-WO_VM_BEGIN_CASE_IR8(UNPACK, 1, I8_U16)
-WO_VM_BEGIN_CASE_IR8(UNPACK, 2, I8_U16)
-WO_VM_BEGIN_CASE_IR8(UNPACK, 3, I8_U16)
-WO_VM_BEGIN_CASE_IR8(PACK, 0, I8_U8_U8)
-WO_VM_BEGIN_CASE_IR8(PACK, 1, I8_U16_EU32)
-WO_VM_BEGIN_CASE_IR8(LDS, 0, I8_I16)
-WO_VM_BEGIN_CASE_IR8(LDS, 1, I8_16_EI32)
-WO_VM_BEGIN_CASE_IR8(LDS, 2, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(LDS, 3, I8_16_EI32)
-WO_VM_BEGIN_CASE_IR8(STS, 0, I8_I16)
-WO_VM_BEGIN_CASE_IR8(STS, 1, I8_16_EI32)
-WO_VM_BEGIN_CASE_IR8(STS, 2, I8_I8_8)
-WO_VM_BEGIN_CASE_IR8(STS, 3, I8_16_EI32)
-WO_VM_BEGIN_CASE_IR8(PANIC, 0, I8_16)
-WO_VM_BEGIN_CASE_IR8(PANIC, 2, I24)
-WO_VM_BEGIN_CASE_IR8(PANIC, 3, 24_EI32)
+#define WO_BEGIN_CASE(CASE)         WO_BEGIN_CASE_##CASE
+
+#define WO_BEGIN_CASE_nop           WO_VM_BEGIN_CASE_IR8(NOP, 0, 24)
+#define WO_BEGIN_CASE_end           WO_VM_BEGIN_CASE_IR8(END, 0, 24)
+#define WO_BEGIN_CASE_load          WO_VM_BEGIN_CASE_IR6(LOAD, I18_I8)
+#define WO_BEGIN_CASE_store         WO_VM_BEGIN_CASE_IR6(STORE, I18_I8)
+#define WO_BEGIN_CASE_loadext       WO_VM_BEGIN_CASE_IR8(LOADEXT, 0, I8_16_EI32)
+#define WO_BEGIN_CASE_loads16ext    WO_VM_BEGIN_CASE_IR8(LOADEXT, 1, 8_I16_EI32)
+#define WO_BEGIN_CASE_loads24ext    WO_VM_BEGIN_CASE_IR8(LOADEXT, 2, I24_EI32)
+#define WO_BEGIN_CASE_storeext      WO_VM_BEGIN_CASE_IR8(STOREEXT, 0, I8_16_EI32)
+#define WO_BEGIN_CASE_stores16ext   WO_VM_BEGIN_CASE_IR8(STOREEXT, 1, 8_I16_EI32)
+#define WO_BEGIN_CASE_stores24ext   WO_VM_BEGIN_CASE_IR8(STOREEXT, 2, I24_EI32)
+#define WO_BEGIN_CASE_pushc         WO_VM_BEGIN_CASE_IR8(PUSH, 0, U24)
+#define WO_BEGIN_CASE_push          WO_VM_BEGIN_CASE_IR8(PUSH, 1, I8_16)
+#define WO_BEGIN_CASE_pushcg        WO_VM_BEGIN_CASE_IR8(PUSH, 2, I24)
+#define WO_BEGIN_CASE_pushcgext     WO_VM_BEGIN_CASE_IR8(PUSH, 3, 24_EI32)
+#define WO_BEGIN_CASE_popc          WO_VM_BEGIN_CASE_IR8(POP, 0, U24)
+#define WO_BEGIN_CASE_pop           WO_VM_BEGIN_CASE_IR8(POP, 1, I8_16)
+#define WO_BEGIN_CASE_popcg         WO_VM_BEGIN_CASE_IR8(POP, 2, I24)
+#define WO_BEGIN_CASE_popcgext      WO_VM_BEGIN_CASE_IR8(POP, 3, 24_EI32)
+#define WO_BEGIN_CASE_cast          WO_VM_BEGIN_CASE_IR8(CAST, 0, I8_I8_U8)
+#define WO_BEGIN_CASE_castitor      WO_VM_BEGIN_CASE_IR8(CAST, 1, I8_I8_8)
+#define WO_BEGIN_CASE_castrtoi      WO_VM_BEGIN_CASE_IR8(CAST, 2, I8_I8_8)
+#define WO_BEGIN_CASE_typeis        WO_VM_BEGIN_CASE_IR8(TYPECHK, 0, I8_I8_U8)
+#define WO_BEGIN_CASE_typeas        WO_VM_BEGIN_CASE_IR8(TYPECHK, 1, 8_I8_U8)
+#define WO_BEGIN_CASE_addi          WO_VM_BEGIN_CASE_IR8(OPIA, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_subi          WO_VM_BEGIN_CASE_IR8(OPIA, 1, I8_I8_I8)
+#define WO_BEGIN_CASE_muli          WO_VM_BEGIN_CASE_IR8(OPIA, 2, I8_I8_I8)
+#define WO_BEGIN_CASE_divi          WO_VM_BEGIN_CASE_IR8(OPIA, 3, I8_I8_I8)
+#define WO_BEGIN_CASE_modi          WO_VM_BEGIN_CASE_IR8(OPIB, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_negi          WO_VM_BEGIN_CASE_IR8(OPIB, 1, I8_I8_8)
+#define WO_BEGIN_CASE_lti           WO_VM_BEGIN_CASE_IR8(OPIB, 2, I8_I8_I8)
+#define WO_BEGIN_CASE_gti           WO_VM_BEGIN_CASE_IR8(OPIB, 3, I8_I8_I8)
+#define WO_BEGIN_CASE_elti          WO_VM_BEGIN_CASE_IR8(OPIC, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_egti          WO_VM_BEGIN_CASE_IR8(OPIC, 1, I8_I8_I8)
+#define WO_BEGIN_CASE_equb          WO_VM_BEGIN_CASE_IR8(OPIC, 2, I8_I8_I8)
+#define WO_BEGIN_CASE_nequb         WO_VM_BEGIN_CASE_IR8(OPIC, 3, I8_I8_I8)
+#define WO_BEGIN_CASE_addr          WO_VM_BEGIN_CASE_IR8(OPRA, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_subr          WO_VM_BEGIN_CASE_IR8(OPRA, 1, I8_I8_I8)
+#define WO_BEGIN_CASE_mulr          WO_VM_BEGIN_CASE_IR8(OPRA, 2, I8_I8_I8)
+#define WO_BEGIN_CASE_divr          WO_VM_BEGIN_CASE_IR8(OPRA, 3, I8_I8_I8)
+#define WO_BEGIN_CASE_modr          WO_VM_BEGIN_CASE_IR8(OPRB, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_negr          WO_VM_BEGIN_CASE_IR8(OPRB, 1, I8_I8_8)
+#define WO_BEGIN_CASE_ltr           WO_VM_BEGIN_CASE_IR8(OPRB, 2, I8_I8_I8)
+#define WO_BEGIN_CASE_gtr           WO_VM_BEGIN_CASE_IR8(OPRB, 3, I8_I8_I8)
+#define WO_BEGIN_CASE_eltr          WO_VM_BEGIN_CASE_IR8(OPRC, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_egtr          WO_VM_BEGIN_CASE_IR8(OPRC, 1, I8_I8_I8)
+#define WO_BEGIN_CASE_equr          WO_VM_BEGIN_CASE_IR8(OPRC, 2, I8_I8_I8)
+#define WO_BEGIN_CASE_nequr         WO_VM_BEGIN_CASE_IR8(OPRC, 3, I8_I8_I8)
+#define WO_BEGIN_CASE_adds          WO_VM_BEGIN_CASE_IR8(OPSA, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_lts           WO_VM_BEGIN_CASE_IR8(OPSA, 1, I8_I8_I8)
+#define WO_BEGIN_CASE_gts           WO_VM_BEGIN_CASE_IR8(OPSA, 2, I8_I8_I8)
+#define WO_BEGIN_CASE_elts          WO_VM_BEGIN_CASE_IR8(OPSA, 3, I8_I8_I8)
+#define WO_BEGIN_CASE_egts          WO_VM_BEGIN_CASE_IR8(OPSB, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_equs          WO_VM_BEGIN_CASE_IR8(OPSB, 1, I8_I8_I8)
+#define WO_BEGIN_CASE_nequs         WO_VM_BEGIN_CASE_IR8(OPSB, 2, I8_I8_I8)
+#define WO_BEGIN_CASE_cdivilr       WO_VM_BEGIN_CASE_IR8(OPCA, 0, I8_I8_8)
+#define WO_BEGIN_CASE_cdivil        WO_VM_BEGIN_CASE_IR8(OPCA, 1, I8_16)
+#define WO_BEGIN_CASE_cdivir        WO_VM_BEGIN_CASE_IR8(OPCA, 2, I8_16)
+#define WO_BEGIN_CASE_cdivirz       WO_VM_BEGIN_CASE_IR8(OPCA, 3, I8_16)
+#define WO_BEGIN_CASE_cumaddi       WO_VM_BEGIN_CASE_IR8(OPCB, 0, I8_I8_8)
+#define WO_BEGIN_CASE_cumsubi       WO_VM_BEGIN_CASE_IR8(OPCB, 1, I8_I8_8)
+#define WO_BEGIN_CASE_cummuli       WO_VM_BEGIN_CASE_IR8(OPCB, 2, I8_I8_8)
+#define WO_BEGIN_CASE_cumdivi       WO_VM_BEGIN_CASE_IR8(OPCB, 3, I8_I8_8)
+#define WO_BEGIN_CASE_cumaddr       WO_VM_BEGIN_CASE_IR8(OPCC, 0, I8_I8_8)
+#define WO_BEGIN_CASE_cumsubr       WO_VM_BEGIN_CASE_IR8(OPCC, 1, I8_I8_8)
+#define WO_BEGIN_CASE_cummulr       WO_VM_BEGIN_CASE_IR8(OPCC, 2, I8_I8_8)
+#define WO_BEGIN_CASE_cumdivr       WO_VM_BEGIN_CASE_IR8(OPCC, 3, I8_I8_8)
+#define WO_BEGIN_CASE_cumadds       WO_VM_BEGIN_CASE_IR8(OPCD, 0, I8_I8_8)
+#define WO_BEGIN_CASE_cumaddsf      WO_VM_BEGIN_CASE_IR8(OPCD, 1, I8_I8_8)
+#define WO_BEGIN_CASE_cummodi       WO_VM_BEGIN_CASE_IR8(OPCD, 2, I8_I8_8)
+#define WO_BEGIN_CASE_cummodr       WO_VM_BEGIN_CASE_IR8(OPCD, 3, I8_I8_8)
+#define WO_BEGIN_CASE_cumland       WO_VM_BEGIN_CASE_IR8(OPCE, 0, I8_I8_8)
+#define WO_BEGIN_CASE_cumlor        WO_VM_BEGIN_CASE_IR8(OPCE, 1, I8_I8_8)
+#define WO_BEGIN_CASE_cumnegi       WO_VM_BEGIN_CASE_IR8(OPCE, 2, I8_16)
+#define WO_BEGIN_CASE_cumnegr       WO_VM_BEGIN_CASE_IR8(OPCE, 3, I8_16)
+#define WO_BEGIN_CASE_land          WO_VM_BEGIN_CASE_IR8(OPLA, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_lor           WO_VM_BEGIN_CASE_IR8(OPLA, 1, I8_I8_I8)
+#define WO_BEGIN_CASE_lnot          WO_VM_BEGIN_CASE_IR8(OPLA, 2, I8_I8_8)
+#define WO_BEGIN_CASE_cumlnot       WO_VM_BEGIN_CASE_IR8(OPLA, 3, I8_16)
+#define WO_BEGIN_CASE_idstr         WO_VM_BEGIN_CASE_IR8(IDX, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_idarr         WO_VM_BEGIN_CASE_IR8(IDX, 1, I8_I8_I8)
+#define WO_BEGIN_CASE_iddict        WO_VM_BEGIN_CASE_IR8(IDX, 2, I8_I8_I8)
+#define WO_BEGIN_CASE_idstruct      WO_VM_BEGIN_CASE_IR8(IDX, 3, I8_I8_U8)
+#define WO_BEGIN_CASE_sidarr        WO_VM_BEGIN_CASE_IR8(SIDX, 0, I8_I8_I8)
+#define WO_BEGIN_CASE_siddict       WO_VM_BEGIN_CASE_IR8(SIDX, 1, I8_I8_I8)
+#define WO_BEGIN_CASE_sidmap        WO_VM_BEGIN_CASE_IR8(SIDX, 2, I8_I8_I8)
+#define WO_BEGIN_CASE_sidstruct     WO_VM_BEGIN_CASE_IR8(SIDX, 3, I8_I8_U8)
+#define WO_BEGIN_CASE_idstext       WO_VM_BEGIN_CASE_IR8(IDSTEXT, 0, I8_I8_8_EU32)
+#define WO_BEGIN_CASE_sidstext      WO_VM_BEGIN_CASE_IR8(SIDSTEXT, 0, I8_I8_8_EU32)
+#define WO_BEGIN_CASE_jmp           WO_VM_BEGIN_CASE_IR8(JMP, 0, U24)
+#define WO_BEGIN_CASE_jmpf          WO_VM_BEGIN_CASE_IR8(JMP, 2, U24)
+#define WO_BEGIN_CASE_jmpt          WO_VM_BEGIN_CASE_IR8(JMP, 3, U24)
+#define WO_BEGIN_CASE_jmpgc         WO_VM_BEGIN_CASE_IR8(JMPGC, 0, U24)
+#define WO_BEGIN_CASE_jmpfgc        WO_VM_BEGIN_CASE_IR8(JMPGC, 2, U24)
+#define WO_BEGIN_CASE_jmptgc        WO_VM_BEGIN_CASE_IR8(JMPGC, 3, U24)
+#define WO_BEGIN_CASE_ret           WO_VM_BEGIN_CASE_IR8(RET, 0, 24)
+#define WO_BEGIN_CASE_retn          WO_VM_BEGIN_CASE_IR8(RET, 1, U8_16)
+#define WO_BEGIN_CASE_retn16        WO_VM_BEGIN_CASE_IR8(RET, 2, 8_U16)
+#define WO_BEGIN_CASE_callnwoext    WO_VM_BEGIN_CASE_IR8(CALLN, 0, U24_E32)
+#define WO_BEGIN_CASE_callnjitext   WO_VM_BEGIN_CASE_IR8(CALLN, 1, EU56)
+#define WO_BEGIN_CASE_callnfpext    WO_VM_BEGIN_CASE_IR8(CALLN, 2, EU56)
+#define WO_BEGIN_CASE_call          WO_VM_BEGIN_CASE_IR8(CALL, 0, I8_16)
+#define WO_BEGIN_CASE_mkarr         WO_VM_BEGIN_CASE_IR8(CONS, 0, I8_U16)
+#define WO_BEGIN_CASE_mkmap         WO_VM_BEGIN_CASE_IR8(CONS, 1, I8_U16)
+#define WO_BEGIN_CASE_mkstruct      WO_VM_BEGIN_CASE_IR8(CONS, 2, I8_U16)
+#define WO_BEGIN_CASE_mkarrext      WO_VM_BEGIN_CASE_IR8(CONSEXT, 0, I8_16_EU32)
+#define WO_BEGIN_CASE_mkmapext      WO_VM_BEGIN_CASE_IR8(CONSEXT, 1, I8_16_EU32)
+#define WO_BEGIN_CASE_mkstructext   WO_VM_BEGIN_CASE_IR8(CONSEXT, 2, I8_16_EU32)
+#define WO_BEGIN_CASE_mkcloswoextl  WO_VM_BEGIN_CASE_IR8(MKCLOS, 0, I8_U16_EU32_E32)
+#define WO_BEGIN_CASE_mkclosjitextl WO_VM_BEGIN_CASE_IR8(MKCLOS, 1, I8_U16_EU64)
+#define WO_BEGIN_CASE_unpacksn      WO_VM_BEGIN_CASE_IR8(UNPACK, 0, I8_U16)
+#define WO_BEGIN_CASE_unpacksc      WO_VM_BEGIN_CASE_IR8(UNPACK, 1, I8_U16)
+#define WO_BEGIN_CASE_unpackan      WO_VM_BEGIN_CASE_IR8(UNPACK, 2, I8_U16)
+#define WO_BEGIN_CASE_unpackac      WO_VM_BEGIN_CASE_IR8(UNPACK, 3, I8_U16)
+#define WO_BEGIN_CASE_pack          WO_VM_BEGIN_CASE_IR8(PACK, 0, I8_U8_U8)
+#define WO_BEGIN_CASE_packext       WO_VM_BEGIN_CASE_IR8(PACK, 1, I8_U16_EU32)
+#define WO_BEGIN_CASE_lds           WO_VM_BEGIN_CASE_IR8(LDS, 0, I8_I16)
+#define WO_BEGIN_CASE_ldsext        WO_VM_BEGIN_CASE_IR8(LDS, 1, I8_16_EI32)
+#define WO_BEGIN_CASE_ldsr          WO_VM_BEGIN_CASE_IR8(LDS, 2, I8_I8_8)
+#define WO_BEGIN_CASE_ldscgext      WO_VM_BEGIN_CASE_IR8(LDS, 3, I8_16_EI32)
+#define WO_BEGIN_CASE_sts           WO_VM_BEGIN_CASE_IR8(STS, 0, I8_I16)
+#define WO_BEGIN_CASE_stsext        WO_VM_BEGIN_CASE_IR8(STS, 1, I8_16_EI32)
+#define WO_BEGIN_CASE_stsr          WO_VM_BEGIN_CASE_IR8(STS, 2, I8_I8_8)
+#define WO_BEGIN_CASE_stscgext      WO_VM_BEGIN_CASE_IR8(STS, 3, I8_16_EI32)
+#define WO_BEGIN_CASE_panic         WO_VM_BEGIN_CASE_IR8(PANIC, 0, I8_16)
+#define WO_BEGIN_CASE_paniccg       WO_VM_BEGIN_CASE_IR8(PANIC, 2, I24)
+#define WO_BEGIN_CASE_paniccgext    WO_VM_BEGIN_CASE_IR8(PANIC, 3, 24_EI32)
 
 
 namespace wo
@@ -711,34 +717,49 @@ namespace wo
     // Program Dump and Debug Functions
     //////////////////////////////////////////////////////////////////////////
 
-    // Bytecode disassembly helper class
-    namespace
+    namespace disassembler
     {
-        // Print hexadecimal representation of bytecode
-        void print_hex_bytes(
-            std::ostream& os,
-            const byte_t* begin,
-            const byte_t* end,
-            uint32_t offset) noexcept
+        std::string dump_s_addressing(int32_t v)
         {
-            constexpr int MAX_BYTE_COUNT = 12;
-
-            char buf[16];
-            snprintf(buf, sizeof(buf), "+%04u : ", offset);
-            os << buf;
-
-            int count = 0;
-            for (const byte_t* p = begin; p < end; ++p, ++count)
-            {
-                snprintf(buf, sizeof(buf), "%02X ", static_cast<uint32_t>(*p));
-                os << buf;
-            }
-
-            // Pad with spaces for alignment
-            for (int i = count; i < MAX_BYTE_COUNT; ++i)
-                os << "   ";
+            char buf[32];
+            (void)snprintf(
+                buf,
+                sizeof(buf),
+                "[bp%s%d]",
+                v >= 0 ? "+" : "",
+                (int)v);
+            return buf;
         }
-    } // anonymous namespace
+        std::string dump_r_s_addressing(int8_t v)
+        {
+            if (WO_VM_ADRS_CHECK_S(v))
+                return dump_s_addressing(v);
+            else
+            {
+                const char* cr_names[] = {
+                    "cr", "tc", "er", "ni", "pm", "tp", "[]", "[]",
+                    "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]",
+                    "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+                    "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15",
+                };
+
+                const auto roffset = v - WO_VM_ADRS_R_SHIFT;
+                if (roffset < 0 || roffset >= 32)
+                    return "(bad reg)";
+                return cr_names[roffset];
+            }
+        }
+        std::string dump_offset(uint32_t v)
+        {
+            char buf[16];
+            (void)snprintf(
+                buf,
+                sizeof(buf),
+                "+0x%08X",
+                static_cast<unsigned int>(sizeof(uint32_t) * v));
+            return buf;
+        }
+    }
 
     void vmbase::dump_program_bin(
         const runtime_env* codeholder,
@@ -748,55 +769,103 @@ namespace wo
         std::ostream& os) noexcept
     {
         const auto end_at = std::min(end, codeholder->rt_code_len);
-        for (size_t bi = begin; bi + 4 <= end_at; bi += 4)
+
+        const irv2::ir* dump_end_ip = std::launder(
+            reinterpret_cast<const irv2::ir*>(
+                &codeholder->rt_codes[end_at]));
+
+        const irv2::ir* rt_ip = std::launder(
+            reinterpret_cast<const irv2::ir*>(
+                &codeholder->rt_codes[begin]));
+
+        os << "Offset(BYTE)|   MAIN     EXT      EXT2   | Disassembly" << std::endl;
+
+        while (rt_ip < dump_end_ip)
         {
-            // +XXXXX | XX XX XX XX
-            char command_4bytes[32];
+            const irv2::ir* const dumping_ip = rt_ip;
+            const auto dumped_line = disassemble_instruction(&rt_ip);
 
-            const uint32_t command_line = *std::launder(
-                reinterpret_cast<const uint32_t*>(
-                    &codeholder->rt_codes[bi]));
+            wo_assert(rt_ip != dumping_ip);
 
-            if (0 > snprintf(
-                command_4bytes,
-                sizeof(command_4bytes),
-                "+0x%08zX | %02X %02X %02X %02X ",
-                bi,
-                (command_line & (0xFF << 24)) >> 24,
-                (command_line & (0xFF << 16)) >> 16,
-                (command_line & (0xFF << 8)) >> 8,
-                (command_line & (0xFF << 0)) >> 0))
+            // +0x00000000
+            char diffoffset[12];
+            (void)snprintf(
+                diffoffset,
+                sizeof(diffoffset),
+                "+0x%08X ",
+                static_cast<uint32_t>(
+                    reinterpret_cast<const byte_t*>(dumping_ip) - codeholder->rt_codes));
+
+            os << diffoffset << " | ";
+
+            // Dump command sequence.      
+            const auto* command_u32 = std::launder(reinterpret_cast<const uint32_t*>(dumping_ip));
+            const size_t command_length =
+                reinterpret_cast<const uint32_t*>(rt_ip) -
+                reinterpret_cast<const uint32_t*>(dumping_ip);
+
+            for (size_t i = 0; i < 3; ++i)
             {
-                // Should not happend.
-                wo_error("Failed to format disassemble line.");
+                if (i < command_length)
+                {
+                    char command_value[9];
+                    (void)snprintf(
+                        command_value,
+                        sizeof(command_value),
+                        "%08X",
+                        command_u32[i]);
+                    os << command_value << " ";
+                }
+                else
+                    // Pad with spaces
+                    os << "         ";
             }
 
-            const auto current_ip_offset = static_cast<size_t>(
-                reinterpret_cast<const byte_t*>(focus_runtime_ip) - codeholder->rt_codes);
-
-            const bool is_current_command =
-                current_ip_offset >= bi && current_ip_offset < bi + 4;
-
-            if (is_current_command)
-                os << ANSI_INV;
-
-            os << command_4bytes;
-
-            if (is_current_command)
-                os << ANSI_RST;
-
-            os << "| " << std::endl;
+            os << "| " << dumped_line << std::endl;
         }
     }
 
-    std::string vmbase::disassemble_instruction(bytecode_disassembler& dis) noexcept
+    std::string vmbase::disassemble_instruction(const irv2::ir** in_out_iraddr) noexcept
     {
-        return "";
-    }
+        auto& rt_ip = *in_out_iraddr;
+        std::string result;
 
-    std::string vmbase::disassemble_ext_instruction(bytecode_disassembler& dis) noexcept
-    {
-        return "";
+        switch (WO_IR_OPBYTE(rt_ip))
+        {
+#define WO_VM_DUMP_BIN_FORMAL_24(CODE)          \
+        WO_BEGIN_CASE(CODE)                     \
+        {                                       \
+            result = #CODE;                     \
+        }                                       \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_IP24(CODE)        \
+        WO_BEGIN_CASE(CODE)                     \
+        {                                       \
+             result = #CODE "\t"                \
+                + disassembler::dump_offset(    \
+                    p1_u24);                    \
+        }                                       \
+        WO_VM_END_CASE()
+
+            WO_VM_DUMP_BIN_FORMAL_24(nop);
+            WO_VM_DUMP_BIN_FORMAL_24(end);
+            WO_VM_DUMP_BIN_FORMAL_IP24(jmp);
+            WO_VM_DUMP_BIN_FORMAL_IP24(jmpgc);
+            WO_VM_DUMP_BIN_FORMAL_24(ret);
+            WO_VM_DUMP_BIN_FORMAL_IP24(callnwoext);
+            WO_BEGIN_CASE(panic)
+            {
+                result = "panic\t" + disassembler::dump_r_s_addressing(p1_i8);
+            }
+            WO_VM_END_CASE();
+
+#undef WO_VM_DUMP_BIN_FORMAL_24
+        default:
+            result = "??";
+            rt_ip = WO_VM_FP_SHIFT(rt_ip, 1);
+        }
+
+        return result;
     }
 
     void vmbase::dump_call_stack(
@@ -1890,7 +1959,7 @@ namespace wo
         value* near_static_global = runtime_static_storage;
 
         value* const rt_cr = cr;
-        value* const rt_reg_fast_lookup = register_storage - 0b01100000;
+        value* const rt_reg_fast_lookup = register_storage - WO_VM_ADRS_R_SHIFT;
 
         const irv2::ir* rt_ip = ip;
 
@@ -1930,28 +1999,28 @@ namespace wo
             switch (rtopcode)
             {
                 // NOP
-                WO_VM_BEGIN_CASE_IR8(NOP, 0, 24)
+                WO_BEGIN_CASE(nop)
                 {
                     // Do nothing~
                 }
                 WO_VM_END_CASE();
 
                 // END
-                WO_VM_BEGIN_CASE_IR8(END, 0, 24)
+                WO_BEGIN_CASE(end)
                 {
                     WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
                 }
                 WO_VM_END_CASE();
 
                 // LOAD
-                WO_VM_BEGIN_CASE_IR6(LOAD, I18_I8)
+                WO_BEGIN_CASE(load)
                 {
                     WO_VM_ADRS_R_S(p2_i8)->set_val(WO_VM_ADRS_C_G(p1_i18));
                 }
                 WO_VM_END_CASE();
 
                 // STORE
-                WO_VM_BEGIN_CASE_IR6(STORE, I18_I8)
+                WO_BEGIN_CASE(store)
                 {
                     value* cg = WO_VM_ADRS_C_G(p1_i18);
                     if (gc::gc_is_marking())
@@ -1962,28 +2031,28 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LOADEXT
-                WO_VM_BEGIN_CASE_IR8(LOADEXT, 0, I8_16_EI32)
+                WO_BEGIN_CASE(loadext)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_val(WO_VM_ADRS_C_G(p2_i32));
                 }
                 WO_VM_END_CASE();
 
                 // LOADEXT 16
-                WO_VM_BEGIN_CASE_IR8(LOADEXT, 1, 8_I16_EI32)
+                WO_BEGIN_CASE(loads16ext)
                 {
                     WO_VM_ADRS_S(p1_i16)->set_val(WO_VM_ADRS_C_G(p2_i32));
                 }
                 WO_VM_END_CASE();
 
                 // LOADEXT 24
-                WO_VM_BEGIN_CASE_IR8(LOADEXT, 2, I24_EI32)
+                WO_BEGIN_CASE(loads24ext)
                 {
                     WO_VM_ADRS_S(p1_i24)->set_val(WO_VM_ADRS_C_G(p2_i32));
                 }
                 WO_VM_END_CASE();
 
                 // STOREEXT
-                WO_VM_BEGIN_CASE_IR8(STOREEXT, 0, I8_16_EI32)
+                WO_BEGIN_CASE(storeext)
                 {
                     value* cg = WO_VM_ADRS_C_G(p2_i32);
                     if (gc::gc_is_marking())
@@ -1994,7 +2063,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // STOREEXT 16
-                WO_VM_BEGIN_CASE_IR8(STOREEXT, 1, 8_I16_EI32)
+                WO_BEGIN_CASE(stores16ext)
                 {
                     value* cg = WO_VM_ADRS_C_G(p2_i32);
                     if (gc::gc_is_marking())
@@ -2004,7 +2073,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // STOREEXT 24
-                WO_VM_BEGIN_CASE_IR8(STOREEXT, 2, I24_EI32)
+                WO_BEGIN_CASE(stores24ext)
                 {
                     value* cg = WO_VM_ADRS_C_G(p2_i32);
                     if (gc::gc_is_marking())
@@ -2014,7 +2083,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // PUSH RESERVE STACK COUNT
-                WO_VM_BEGIN_CASE_IR8(PUSH, 0, U24)
+                WO_BEGIN_CASE(pushc)
                 {
                     value* new_sp = sp - p1_u24;
 
@@ -2032,7 +2101,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // PUSH RS
-                WO_VM_BEGIN_CASE_IR8(PUSH, 1, I8_16)
+                WO_BEGIN_CASE(push)
                 {
                     if (sp > stack_storage)
                         (sp--)->set_val(WO_VM_ADRS_R_S(p1_i8));
@@ -2048,7 +2117,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // PUSH CG
-                WO_VM_BEGIN_CASE_IR8(PUSH, 2, I24)
+                WO_BEGIN_CASE(pushcg)
                 {
                     if (sp > stack_storage)
                         (sp--)->set_val(WO_VM_ADRS_C_G(p1_i24));
@@ -2064,7 +2133,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // PUSH CG-EXT
-                WO_VM_BEGIN_CASE_IR8(PUSH, 3, 24_EI32)
+                WO_BEGIN_CASE(pushcgext)
                 {
                     if (sp > stack_storage)
                         (sp--)->set_val(WO_VM_ADRS_C_G(p1_i32));
@@ -2080,21 +2149,21 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // POP TO SHRINK STACK
-                WO_VM_BEGIN_CASE_IR8(POP, 0, U24)
+                WO_BEGIN_CASE(popc)
                 {
                     sp -= p1_u24;
                 }
                 WO_VM_END_CASE();
 
                 // POP RS
-                WO_VM_BEGIN_CASE_IR8(POP, 1, I8_16)
+                WO_BEGIN_CASE(pop)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_val((++sp));
                 }
                 WO_VM_END_CASE();
 
                 // POP CG
-                WO_VM_BEGIN_CASE_IR8(POP, 2, I24)
+                WO_BEGIN_CASE(popcg)
                 {
                     value* cg = WO_VM_ADRS_C_G(p1_i24);
                     if (gc::gc_is_marking())
@@ -2105,7 +2174,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // POP CG-EXT
-                WO_VM_BEGIN_CASE_IR8(POP, 3, 24_EI32)
+                WO_BEGIN_CASE(popcgext)
                 {
                     value* cg = WO_VM_ADRS_C_G(p1_i32);
                     if (gc::gc_is_marking())
@@ -2116,7 +2185,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CASTX
-                WO_VM_BEGIN_CASE_IR8(CAST, 0, I8_I8_U8)
+                WO_BEGIN_CASE(cast)
                 {
                     if (const auto* error_msg = movcast_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -2129,7 +2198,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CASTITOR
-                WO_VM_BEGIN_CASE_IR8(CAST, 1, I8_I8_8)
+                WO_BEGIN_CASE(castitor)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_real(
                         static_cast<wo_real_t>(WO_VM_ADRS_R_S(p2_i8)->m_integer));
@@ -2137,7 +2206,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CASTRTOI
-                WO_VM_BEGIN_CASE_IR8(CAST, 2, I8_I8_8)
+                WO_BEGIN_CASE(castrtoi)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_integer(
                         static_cast<wo_integer_t>(WO_VM_ADRS_R_S(p2_i8)->m_real));
@@ -2145,7 +2214,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // TYPEIS
-                WO_VM_BEGIN_CASE_IR8(TYPECHK, 0, I8_I8_U8)
+                WO_BEGIN_CASE(typeis)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         static_cast<value::valuetype>(
@@ -2154,7 +2223,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // TYPEAS
-                WO_VM_BEGIN_CASE_IR8(TYPECHK, 1, 8_I8_U8)
+                WO_BEGIN_CASE(typeas)
                 {
                     if (static_cast<value::valuetype>(
                         p2_u8) != WO_VM_ADRS_R_S(p1_i8)->m_type)
@@ -2166,7 +2235,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // ADDI
-                WO_VM_BEGIN_CASE_IR8(OPIA, 0, I8_I8_I8)
+                WO_BEGIN_CASE(addi)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_integer(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2175,7 +2244,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // SUBI
-                WO_VM_BEGIN_CASE_IR8(OPIA, 1, I8_I8_I8)
+                WO_BEGIN_CASE(subi)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_integer(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2184,7 +2253,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MULI
-                WO_VM_BEGIN_CASE_IR8(OPIA, 2, I8_I8_I8)
+                WO_BEGIN_CASE(muli)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_integer(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2193,7 +2262,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // DIVI
-                WO_VM_BEGIN_CASE_IR8(OPIA, 3, I8_I8_I8)
+                WO_BEGIN_CASE(divi)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_integer(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2202,7 +2271,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MODI
-                WO_VM_BEGIN_CASE_IR8(OPIB, 0, I8_I8_I8)
+                WO_BEGIN_CASE(modi)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_integer(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2211,7 +2280,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // NEGI
-                WO_VM_BEGIN_CASE_IR8(OPIB, 1, I8_I8_8)
+                WO_BEGIN_CASE(negi)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_integer(
                         -WO_VM_ADRS_R_S(p2_i8)->m_integer);
@@ -2219,7 +2288,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LTI
-                WO_VM_BEGIN_CASE_IR8(OPIB, 2, I8_I8_I8)
+                WO_BEGIN_CASE(lti)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2228,7 +2297,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // GTI
-                WO_VM_BEGIN_CASE_IR8(OPIB, 3, I8_I8_I8)
+                WO_BEGIN_CASE(gti)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2237,7 +2306,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // ELTI
-                WO_VM_BEGIN_CASE_IR8(OPIC, 0, I8_I8_I8)
+                WO_BEGIN_CASE(elti)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2246,7 +2315,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // EGTI
-                WO_VM_BEGIN_CASE_IR8(OPIC, 1, I8_I8_I8)
+                WO_BEGIN_CASE(egti)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2255,7 +2324,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // EQUB
-                WO_VM_BEGIN_CASE_IR8(OPIC, 2, I8_I8_I8)
+                WO_BEGIN_CASE(equb)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2264,7 +2333,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // NEQUB
-                WO_VM_BEGIN_CASE_IR8(OPIC, 3, I8_I8_I8)
+                WO_BEGIN_CASE(nequb)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2273,7 +2342,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // ADDR
-                WO_VM_BEGIN_CASE_IR8(OPRA, 0, I8_I8_I8)
+                WO_BEGIN_CASE(addr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_real(
                         WO_VM_ADRS_R_S(p2_i8)->m_real
@@ -2282,7 +2351,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // SUBR
-                WO_VM_BEGIN_CASE_IR8(OPRA, 1, I8_I8_I8)
+                WO_BEGIN_CASE(subr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_real(
                         WO_VM_ADRS_R_S(p2_i8)->m_real
@@ -2291,7 +2360,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MULR
-                WO_VM_BEGIN_CASE_IR8(OPRA, 2, I8_I8_I8)
+                WO_BEGIN_CASE(mulr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_real(
                         WO_VM_ADRS_R_S(p2_i8)->m_real
@@ -2300,7 +2369,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // DIVR
-                WO_VM_BEGIN_CASE_IR8(OPRA, 3, I8_I8_I8)
+                WO_BEGIN_CASE(divr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_real(
                         WO_VM_ADRS_R_S(p2_i8)->m_real
@@ -2309,7 +2378,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MODR
-                WO_VM_BEGIN_CASE_IR8(OPRB, 0, I8_I8_I8)
+                WO_BEGIN_CASE(modr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_real(
                         std::fmod(
@@ -2319,7 +2388,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // NEGR
-                WO_VM_BEGIN_CASE_IR8(OPRB, 1, I8_I8_8)
+                WO_BEGIN_CASE(negr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_real(
                         -WO_VM_ADRS_R_S(p2_i8)->m_real);
@@ -2327,7 +2396,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LTR
-                WO_VM_BEGIN_CASE_IR8(OPRB, 2, I8_I8_I8)
+                WO_BEGIN_CASE(ltr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_real
@@ -2336,7 +2405,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // GTR
-                WO_VM_BEGIN_CASE_IR8(OPRB, 3, I8_I8_I8)
+                WO_BEGIN_CASE(gtr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_real
@@ -2345,7 +2414,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // ELTR
-                WO_VM_BEGIN_CASE_IR8(OPRC, 0, I8_I8_I8)
+                WO_BEGIN_CASE(eltr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_real
@@ -2354,7 +2423,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // EGTR
-                WO_VM_BEGIN_CASE_IR8(OPRC, 1, I8_I8_I8)
+                WO_BEGIN_CASE(egtr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_real
@@ -2363,7 +2432,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // EQUR
-                WO_VM_BEGIN_CASE_IR8(OPRC, 2, I8_I8_I8)
+                WO_BEGIN_CASE(equr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_real
@@ -2372,7 +2441,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // NEQUR
-                WO_VM_BEGIN_CASE_IR8(OPRC, 3, I8_I8_I8)
+                WO_BEGIN_CASE(nequr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_real
@@ -2381,7 +2450,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // ADDS
-                WO_VM_BEGIN_CASE_IR8(OPSA, 0, I8_I8_I8)
+                WO_BEGIN_CASE(adds)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_gcunit<wo::value::valuetype::string_type>(
                         string_t::gc_new<gcbase::gctype::young>(
@@ -2390,7 +2459,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LTS
-                WO_VM_BEGIN_CASE_IR8(OPSA, 1, I8_I8_I8)
+                WO_BEGIN_CASE(lts)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         *WO_VM_ADRS_R_S(p2_i8)->m_string < *WO_VM_ADRS_R_S(p3_i8)->m_string);
@@ -2398,7 +2467,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // GTS
-                WO_VM_BEGIN_CASE_IR8(OPSA, 2, I8_I8_I8)
+                WO_BEGIN_CASE(gts)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         *WO_VM_ADRS_R_S(p2_i8)->m_string > *WO_VM_ADRS_R_S(p3_i8)->m_string);
@@ -2406,7 +2475,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // ELTS
-                WO_VM_BEGIN_CASE_IR8(OPSA, 3, I8_I8_I8)
+                WO_BEGIN_CASE(elts)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         *WO_VM_ADRS_R_S(p2_i8)->m_string <= *WO_VM_ADRS_R_S(p3_i8)->m_string);
@@ -2414,7 +2483,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // EGTS
-                WO_VM_BEGIN_CASE_IR8(OPSB, 0, I8_I8_I8)
+                WO_BEGIN_CASE(egts)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         *WO_VM_ADRS_R_S(p2_i8)->m_string >= *WO_VM_ADRS_R_S(p3_i8)->m_string);
@@ -2422,7 +2491,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // EQUS
-                WO_VM_BEGIN_CASE_IR8(OPSB, 1, I8_I8_I8)
+                WO_BEGIN_CASE(equs)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         *WO_VM_ADRS_R_S(p2_i8)->m_string == *WO_VM_ADRS_R_S(p3_i8)->m_string);
@@ -2430,7 +2499,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // NEQUS
-                WO_VM_BEGIN_CASE_IR8(OPSB, 2, I8_I8_I8)
+                WO_BEGIN_CASE(nequs)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         *WO_VM_ADRS_R_S(p2_i8)->m_string != *WO_VM_ADRS_R_S(p3_i8)->m_string);
@@ -2438,7 +2507,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CDIVILR
-                WO_VM_BEGIN_CASE_IR8(OPCA, 0, I8_I8_8)
+                WO_BEGIN_CASE(cdivilr)
                 {
                     const wo_integer_t divisor =
                         WO_VM_ADRS_R_S(p2_i8)->m_integer;
@@ -2451,7 +2520,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CDIVIL
-                WO_VM_BEGIN_CASE_IR8(OPCA, 1, I8_16)
+                WO_BEGIN_CASE(cdivil)
                 {
                     if (WO_VM_ADRS_R_S(p1_i8)->m_integer == INT64_MIN)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "Division overflow.");
@@ -2459,7 +2528,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CDIVIR
-                WO_VM_BEGIN_CASE_IR8(OPCA, 2, I8_16)
+                WO_BEGIN_CASE(cdivir)
                 {
                     const wo_integer_t divisor =
                         WO_VM_ADRS_R_S(p1_i8)->m_integer;
@@ -2472,7 +2541,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CDIVIRZ
-                WO_VM_BEGIN_CASE_IR8(OPCA, 3, I8_16)
+                WO_BEGIN_CASE(cdivirz)
                 {
                     if (WO_VM_ADRS_R_S(p1_i8)->m_integer == 0)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
@@ -2480,7 +2549,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMADDI
-                WO_VM_BEGIN_CASE_IR8(OPCB, 0, I8_I8_8)
+                WO_BEGIN_CASE(cumaddi)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->m_integer +=
                         WO_VM_ADRS_R_S(p2_i8)->m_integer;
@@ -2488,7 +2557,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMSUBI
-                WO_VM_BEGIN_CASE_IR8(OPCB, 1, I8_I8_8)
+                WO_BEGIN_CASE(cumsubi)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->m_integer -=
                         WO_VM_ADRS_R_S(p2_i8)->m_integer;
@@ -2496,7 +2565,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMMULI
-                WO_VM_BEGIN_CASE_IR8(OPCB, 2, I8_I8_8)
+                WO_BEGIN_CASE(cummuli)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->m_integer *=
                         WO_VM_ADRS_R_S(p2_i8)->m_integer;
@@ -2504,7 +2573,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMDIVI
-                WO_VM_BEGIN_CASE_IR8(OPCB, 3, I8_I8_8)
+                WO_BEGIN_CASE(cumdivi)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->m_integer /=
                         WO_VM_ADRS_R_S(p2_i8)->m_integer;
@@ -2512,7 +2581,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMADDR
-                WO_VM_BEGIN_CASE_IR8(OPCC, 0, I8_I8_8)
+                WO_BEGIN_CASE(cumaddr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->m_real +=
                         WO_VM_ADRS_R_S(p2_i8)->m_real;
@@ -2520,7 +2589,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMSUBR
-                WO_VM_BEGIN_CASE_IR8(OPCC, 1, I8_I8_8)
+                WO_BEGIN_CASE(cumsubr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->m_real -=
                         WO_VM_ADRS_R_S(p2_i8)->m_real;
@@ -2528,7 +2597,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMMULR
-                WO_VM_BEGIN_CASE_IR8(OPCC, 2, I8_I8_8)
+                WO_BEGIN_CASE(cummulr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->m_real *=
                         WO_VM_ADRS_R_S(p2_i8)->m_real;
@@ -2536,7 +2605,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMDIVR
-                WO_VM_BEGIN_CASE_IR8(OPCC, 3, I8_I8_8)
+                WO_BEGIN_CASE(cumdivr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->m_real /=
                         WO_VM_ADRS_R_S(p2_i8)->m_real;
@@ -2544,7 +2613,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMADDS
-                WO_VM_BEGIN_CASE_IR8(OPCD, 0, I8_I8_8)
+                WO_BEGIN_CASE(cumadds)
                 {
                     value* const string_val = WO_VM_ADRS_R_S(p1_i8);
                     string_val->m_string =
@@ -2555,7 +2624,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMADDSF
-                WO_VM_BEGIN_CASE_IR8(OPCD, 1, I8_I8_8)
+                WO_BEGIN_CASE(cumaddsf)
                 {
                     value* const string_val = WO_VM_ADRS_R_S(p1_i8);
                     string_val->m_string =
@@ -2566,7 +2635,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMMODI
-                WO_VM_BEGIN_CASE_IR8(OPCD, 2, I8_I8_8)
+                WO_BEGIN_CASE(cummodi)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->m_integer %=
                         WO_VM_ADRS_R_S(p2_i8)->m_integer;
@@ -2574,7 +2643,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMMODR
-                WO_VM_BEGIN_CASE_IR8(OPCD, 3, I8_I8_8)
+                WO_BEGIN_CASE(cummodr)
                 {
                     value* const real_val = WO_VM_ADRS_R_S(p1_i8);
                     real_val->m_real =
@@ -2585,7 +2654,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMLAND
-                WO_VM_BEGIN_CASE_IR8(OPCE, 0, I8_I8_8)
+                WO_BEGIN_CASE(cumland)
                 {
                     value* const bool_val = WO_VM_ADRS_R_S(p1_i8);
                     bool_val->m_integer =
@@ -2595,7 +2664,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMLOR
-                WO_VM_BEGIN_CASE_IR8(OPCE, 1, I8_I8_8)
+                WO_BEGIN_CASE(cumlor)
                 {
                     value* const bool_val = WO_VM_ADRS_R_S(p1_i8);
                     bool_val->m_integer =
@@ -2605,7 +2674,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMNEGI
-                WO_VM_BEGIN_CASE_IR8(OPCE, 2, I8_16)
+                WO_BEGIN_CASE(cumnegi)
                 {
                     value* const integer_val = WO_VM_ADRS_R_S(p1_i8);
                     integer_val->m_integer = -integer_val->m_integer;
@@ -2613,7 +2682,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMNEGR
-                WO_VM_BEGIN_CASE_IR8(OPCE, 3, I8_16)
+                WO_BEGIN_CASE(cumnegr)
                 {
                     value* const real_val = WO_VM_ADRS_R_S(p1_i8);
                     real_val->m_real = -real_val->m_real;
@@ -2621,7 +2690,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LAND
-                WO_VM_BEGIN_CASE_IR8(OPLA, 0, I8_I8_I8)
+                WO_BEGIN_CASE(land)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2630,7 +2699,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LOR
-                WO_VM_BEGIN_CASE_IR8(OPLA, 1, I8_I8_I8)
+                WO_BEGIN_CASE(lor)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer
@@ -2639,7 +2708,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LNOT
-                WO_VM_BEGIN_CASE_IR8(OPLA, 2, I8_I8_8)
+                WO_BEGIN_CASE(lnot)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_bool(
                         !WO_VM_ADRS_R_S(p2_i8)->m_integer);
@@ -2647,7 +2716,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CUMLNOT
-                WO_VM_BEGIN_CASE_IR8(OPLA, 3, I8_16)
+                WO_BEGIN_CASE(cumlnot)
                 {
                     value* const bool_val = WO_VM_ADRS_R_S(p1_i8);
                     bool_val->m_integer =
@@ -2656,7 +2725,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // IDSTR
-                WO_VM_BEGIN_CASE_IR8(IDX, 0, I8_I8_I8)
+                WO_BEGIN_CASE(idstr)
                 {
                     const string_t* const indexed_str =
                         WO_VM_ADRS_R_S(p2_i8)->m_string;
@@ -2672,7 +2741,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // IDARR
-                WO_VM_BEGIN_CASE_IR8(IDX, 1, I8_I8_I8)
+                WO_BEGIN_CASE(idarr)
                 {
                     const array_t* const indexed_arr =
                         WO_VM_ADRS_R_S(p2_i8)->m_array;
@@ -2690,7 +2759,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // IDDICT
-                WO_VM_BEGIN_CASE_IR8(IDX, 2, I8_I8_I8)
+                WO_BEGIN_CASE(iddict)
                 {
                     const dictionary_t* const indexed_dict =
                         WO_VM_ADRS_R_S(p2_i8)->m_dictionary;
@@ -2706,7 +2775,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // IDSTRUCT
-                WO_VM_BEGIN_CASE_IR8(IDX, 3, I8_I8_U8)
+                WO_BEGIN_CASE(idstruct)
                 {
                     const structure_t* const indexed_struct =
                         WO_VM_ADRS_R_S(p2_i8)->m_structure;
@@ -2718,7 +2787,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // SIDARR
-                WO_VM_BEGIN_CASE_IR8(SIDX, 0, I8_I8_I8)
+                WO_BEGIN_CASE(sidarr)
                 {
                     array_t* const indexed_arr =
                         WO_VM_ADRS_R_S(p2_i8)->m_array;
@@ -2739,7 +2808,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // SIDDICT
-                WO_VM_BEGIN_CASE_IR8(SIDX, 1, I8_I8_I8)
+                WO_BEGIN_CASE(siddict)
                 {
                     dictionary_t* const indexed_dict =
                         WO_VM_ADRS_R_S(p2_i8)->m_dictionary;
@@ -2760,7 +2829,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // SIDMAP
-                WO_VM_BEGIN_CASE_IR8(SIDX, 2, I8_I8_I8)
+                WO_BEGIN_CASE(sidmap)
                 {
                     dictionary_t* const indexed_dict =
                         WO_VM_ADRS_R_S(p2_i8)->m_dictionary;
@@ -2775,7 +2844,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // SIDSTRUCT
-                WO_VM_BEGIN_CASE_IR8(SIDX, 3, I8_I8_U8)
+                WO_BEGIN_CASE(sidstruct)
                 {
                     structure_t* const indexed_struct =
                         WO_VM_ADRS_R_S(p2_i8)->m_structure;
@@ -2788,7 +2857,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // IDSTEXT
-                WO_VM_BEGIN_CASE_IR8(IDSTEXT, 0, I8_I8_8_EU32)
+                WO_BEGIN_CASE(idstext)
                 {
                     const structure_t* const indexed_struct =
                         WO_VM_ADRS_R_S(p2_i8)->m_structure;
@@ -2800,7 +2869,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // SIDSTEXT
-                WO_VM_BEGIN_CASE_IR8(SIDSTEXT, 0, I8_I8_8_EU32)
+                WO_BEGIN_CASE(sidstext)
                 {
                     structure_t* const indexed_struct =
                         WO_VM_ADRS_R_S(p2_i8)->m_structure;
@@ -2814,7 +2883,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // JMP
-                WO_VM_BEGIN_CASE_IR8(JMP, 0, U24)
+                WO_BEGIN_CASE(jmp)
                 {
                     rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
 
@@ -2824,7 +2893,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // JMPF
-                WO_VM_BEGIN_CASE_IR8(JMP, 2, U24)
+                WO_BEGIN_CASE(jmpf)
                 {
                     if (!rt_cr->m_integer)
                     {
@@ -2837,7 +2906,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // JMPT
-                WO_VM_BEGIN_CASE_IR8(JMP, 3, U24)
+                WO_BEGIN_CASE(jmpt)
                 {
                     if (rt_cr->m_integer)
                     {
@@ -2850,7 +2919,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // JMPGC
-                WO_VM_BEGIN_CASE_IR8(JMPGC, 0, U24)
+                WO_BEGIN_CASE(jmpgc)
                 {
                     rt_ip = WO_VM_FP_SHIFT(near_rtcode_begin, p1_u24);
 
@@ -2862,7 +2931,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // JMPFGC
-                WO_VM_BEGIN_CASE_IR8(JMPGC, 2, U24)
+                WO_BEGIN_CASE(jmpfgc)
                 {
                     if (!rt_cr->m_integer)
                     {
@@ -2877,7 +2946,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // JMPTGC
-                WO_VM_BEGIN_CASE_IR8(JMPGC, 3, U24)
+                WO_BEGIN_CASE(jmptgc)
                 {
                     if (rt_cr->m_integer)
                     {
@@ -2892,7 +2961,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // RET
-                WO_VM_BEGIN_CASE_IR8(RET, 0, 24)
+                WO_BEGIN_CASE(ret)
                 {
                     switch ((++bp)->m_type)
                     {
@@ -2940,7 +3009,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // RETN 8
-                WO_VM_BEGIN_CASE_IR8(RET, 1, U8_16)
+                WO_BEGIN_CASE(retn)
                 {
                     switch ((++bp)->m_type)
                     {
@@ -2991,7 +3060,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // RETN 16
-                WO_VM_BEGIN_CASE_IR8(RET, 2, 8_U16)
+                WO_BEGIN_CASE(retn16)
                 {
                     switch ((++bp)->m_type)
                     {
@@ -3042,7 +3111,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CALLNWO
-                WO_VM_BEGIN_CASE_IR8(CALLN, 0, U24_E32)
+                WO_BEGIN_CASE(callnwoext)
                 {
                     if (sp > stack_storage)
                     {
@@ -3065,7 +3134,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CALLNJIT
-                WO_VM_BEGIN_CASE_IR8(CALLN, 1, EU56)
+                WO_BEGIN_CASE(callnjitext)
                 {
                     if (sp > stack_storage)
                     {
@@ -3116,7 +3185,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CALLNFP
-                WO_VM_BEGIN_CASE_IR8(CALLN, 2, EU56)
+                WO_BEGIN_CASE(callnfpext)
                 {
                     if (sp > stack_storage)
                     {
@@ -3174,7 +3243,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // CALL
-                WO_VM_BEGIN_CASE_IR8(CALL, 0, I8_16)
+                WO_BEGIN_CASE(call)
                 {
                     value* const call_target = WO_VM_ADRS_R_S(p1_i8);
 
@@ -3343,7 +3412,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MKARR
-                WO_VM_BEGIN_CASE_IR8(CONS, 0, I8_U16)
+                WO_BEGIN_CASE(mkarr)
                 {
                     sp = make_array_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -3353,7 +3422,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MKMAP
-                WO_VM_BEGIN_CASE_IR8(CONS, 1, I8_U16)
+                WO_BEGIN_CASE(mkmap)
                 {
                     sp = make_map_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -3363,7 +3432,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MKSTRUCT
-                WO_VM_BEGIN_CASE_IR8(CONS, 2, I8_U16)
+                WO_BEGIN_CASE(mkstruct)
                 {
                     sp = make_struct_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -3373,7 +3442,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MKARREXT
-                WO_VM_BEGIN_CASE_IR8(CONSEXT, 0, I8_16_EU32)
+                WO_BEGIN_CASE(mkarrext)
                 {
                     sp = make_struct_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -3383,7 +3452,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MKMAPEXT
-                WO_VM_BEGIN_CASE_IR8(CONSEXT, 1, I8_16_EU32)
+                WO_BEGIN_CASE(mkmapext)
                 {
                     sp = make_map_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -3393,7 +3462,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MKSTRUCTEXT
-                WO_VM_BEGIN_CASE_IR8(CONSEXT, 2, I8_16_EU32)
+                WO_BEGIN_CASE(mkstructext)
                 {
                     sp = make_struct_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -3403,7 +3472,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MKCLOSWO
-                WO_VM_BEGIN_CASE_IR8(MKCLOS, 0, I8_U16_EU32_E32)
+                WO_BEGIN_CASE(mkcloswoextl)
                 {
                     sp = make_closure_wo_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -3414,7 +3483,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // MKCLOSJIT
-                WO_VM_BEGIN_CASE_IR8(MKCLOS, 1, I8_U16_EU64)
+                WO_BEGIN_CASE(mkclosjitextl)
                 {
                     sp = make_closure_fp_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -3426,7 +3495,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // UNPACKSN
-                WO_VM_BEGIN_CASE_IR8(UNPACK, 0, I8_U16)
+                WO_BEGIN_CASE(unpacksn)
                 {
                     const structure_t* const unpack_struct =
                         WO_VM_ADRS_R_S(p1_i8)->m_structure;
@@ -3462,7 +3531,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // UNPACKSC
-                WO_VM_BEGIN_CASE_IR8(UNPACK, 1, I8_U16)
+                WO_BEGIN_CASE(unpacksc)
                 {
                     const structure_t* const unpack_struct =
                         WO_VM_ADRS_R_S(p1_i8)->m_structure;
@@ -3498,7 +3567,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // UNPACKAN
-                WO_VM_BEGIN_CASE_IR8(UNPACK, 2, I8_U16)
+                WO_BEGIN_CASE(unpackan)
                 {
                     const array_t* const unpack_array =
                         WO_VM_ADRS_R_S(p1_i8)->m_array;
@@ -3535,7 +3604,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // UNPACKAC
-                WO_VM_BEGIN_CASE_IR8(UNPACK, 3, I8_U16)
+                WO_BEGIN_CASE(unpackac)
                 {
                     const array_t* const unpack_array =
                         WO_VM_ADRS_R_S(p1_i8)->m_array;
@@ -3572,7 +3641,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // PACK
-                WO_VM_BEGIN_CASE_IR8(PACK, 0, I8_U8_U8)
+                WO_BEGIN_CASE(pack)
                 {
                     packargs_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -3584,7 +3653,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // PACKEXT
-                WO_VM_BEGIN_CASE_IR8(PACK, 1, I8_U16_EU32)
+                WO_BEGIN_CASE(packext)
                 {
                     packargs_impl(
                         WO_VM_ADRS_R_S(p1_i8),
@@ -3596,7 +3665,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LDSIMM
-                WO_VM_BEGIN_CASE_IR8(LDS, 0, I8_I16)
+                WO_BEGIN_CASE(lds)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_val(
                         WO_VM_ADRS_S(p2_i16));
@@ -3604,7 +3673,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LDSIMMEXT
-                WO_VM_BEGIN_CASE_IR8(LDS, 1, I8_16_EI32)
+                WO_BEGIN_CASE(ldsext)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_val(
                         WO_VM_ADRS_S(p2_i32));
@@ -3612,7 +3681,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LDSIDX
-                WO_VM_BEGIN_CASE_IR8(LDS, 2, I8_I8_8)
+                WO_BEGIN_CASE(ldsr)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_val(
                         WO_VM_ADRS_S(
@@ -3621,7 +3690,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // LDSIDXEXT
-                WO_VM_BEGIN_CASE_IR8(LDS, 3, I8_16_EI32)
+                WO_BEGIN_CASE(ldscgext)
                 {
                     WO_VM_ADRS_R_S(p1_i8)->set_val(
                         WO_VM_ADRS_S(
@@ -3630,7 +3699,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // STSIMM
-                WO_VM_BEGIN_CASE_IR8(STS, 0, I8_I16)
+                WO_BEGIN_CASE(sts)
                 {
                     WO_VM_ADRS_S(p2_i16)->set_val(
                         WO_VM_ADRS_R_S(p1_i8));
@@ -3638,7 +3707,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // STSIMMEXT
-                WO_VM_BEGIN_CASE_IR8(STS, 1, I8_16_EI32)
+                WO_BEGIN_CASE(stsext)
                 {
                     WO_VM_ADRS_S(p2_i32)->set_val(
                         WO_VM_ADRS_R_S(p1_i8));
@@ -3646,7 +3715,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // STSIDX
-                WO_VM_BEGIN_CASE_IR8(STS, 2, I8_I8_8)
+                WO_BEGIN_CASE(stsr)
                 {
                     WO_VM_ADRS_S(
                         WO_VM_ADRS_R_S(p2_i8)->m_integer)->set_val(
@@ -3655,7 +3724,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // STSIDXEXT
-                WO_VM_BEGIN_CASE_IR8(STS, 3, I8_16_EI32)
+                WO_BEGIN_CASE(stscgext)
                 {
                     WO_VM_ADRS_S(
                         WO_VM_ADRS_R_S(p2_i32)->m_integer)->set_val(
@@ -3664,7 +3733,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // PANIC
-                WO_VM_BEGIN_CASE_IR8(PANIC, 0, I8_16)
+                WO_BEGIN_CASE(panic)
                 {
                     WO_VM_FAIL(WO_FAIL_UNEXPECTED,
                         "%s",
@@ -3675,7 +3744,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // PANIC C/G 24
-                WO_VM_BEGIN_CASE_IR8(PANIC, 2, I24)
+                WO_BEGIN_CASE(paniccg)
                 {
                     WO_VM_FAIL(WO_FAIL_UNEXPECTED,
                         "%s",
@@ -3686,7 +3755,7 @@ namespace wo
                 WO_VM_END_CASE();
 
                 // PANIC C/G 32
-                WO_VM_BEGIN_CASE_IR8(PANIC, 3, 24_EI32)
+                WO_BEGIN_CASE(paniccgext)
                 {
                     WO_VM_FAIL(WO_FAIL_UNEXPECTED,
                         "%s",
@@ -3803,9 +3872,9 @@ namespace wo
                 WO_VM_INTERRUPT_CHECKPOINT;
             }
             }
-            }// vm loop end.
+        }// vm loop end.
 
-            WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
+        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
 
 #undef WO_VM_FAIL
 #undef WO_VM_ASSERT
@@ -3813,8 +3882,8 @@ namespace wo
 #undef WO_RSG_ADDRESSING_WRITE_OP1_CASE
 #undef WO_WRITE_CHECK_FOR_GLOBAL
 #undef WO_RSG_ADDRESSING_CASE
-        }
+    }
 
 #undef WO_VM_RETURN
 #undef WO_VM_FAIL
-    }
+}

@@ -626,16 +626,14 @@ namespace wo
         void jmpf(Label* label) noexcept;
         void jmpt(Label* label) noexcept;
 
-        void jmpgc(Label* label) noexcept;
-        void jmpgcf(Label* label) noexcept;
-        void jmpgct(Label* label) noexcept;
-
         void ret() noexcept;
         void retn(fixed_unsigned<16> count_u16) noexcept;
 
         void calln(Label* label) noexcept;
         void callnfp(wo_native_func_t extfunc) noexcept;
         void call(rs_adrsing8 src_rs8) noexcept;
+
+        void panic(std::variant<rs_adrsing8, cg_adrsing<32>> src) noexcept;
 
         ////////////////////////////////////////////////////////
 

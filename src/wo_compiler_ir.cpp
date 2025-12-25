@@ -2742,52 +2742,69 @@ namespace wo
 
     void IRBuilder::jmp(Label* label) noexcept
     {
-        label->apply_to_address(
-            m_code_holder,
-            emit(_WO_EMIT_OP8_CMD(
-                JMP, 0, _WO_CMD24_U24(0))),
-            Label::ApplyAddress::Formal::SHIFT8_U24);
+        if (label->m_bound_ip_offset.has_value())
+        {
+            // This label has been bound already.
+            // Jump back, make a gc-checkpoint.
+
+            label->apply_to_address(
+                m_code_holder,
+                emit(_WO_EMIT_OP8_CMD(
+                    JMPGC, 0, _WO_CMD24_U24(0))),
+                Label::ApplyAddress::Formal::SHIFT8_U24);
+        }
+        else
+        {
+            label->apply_to_address(
+                m_code_holder,
+                emit(_WO_EMIT_OP8_CMD(
+                    JMP, 0, _WO_CMD24_U24(0))),
+                Label::ApplyAddress::Formal::SHIFT8_U24);
+        }
     }
     void IRBuilder::jmpf(Label* label) noexcept
     {
-        label->apply_to_address(
-            m_code_holder,
-            emit(_WO_EMIT_OP8_CMD(
-                JMP, 2, _WO_CMD24_U24(0))),
-            Label::ApplyAddress::Formal::SHIFT8_U24);
+        if (label->m_bound_ip_offset.has_value())
+        {
+            // This label has been bound already.
+            // Jump back, make a gc-checkpoint.
+
+            label->apply_to_address(
+                m_code_holder,
+                emit(_WO_EMIT_OP8_CMD(
+                    JMPGC, 2, _WO_CMD24_U24(0))),
+                Label::ApplyAddress::Formal::SHIFT8_U24);
+        }
+        else
+        {
+            label->apply_to_address(
+                m_code_holder,
+                emit(_WO_EMIT_OP8_CMD(
+                    JMP, 2, _WO_CMD24_U24(0))),
+                Label::ApplyAddress::Formal::SHIFT8_U24);
+        }
     }
     void IRBuilder::jmpt(Label* label) noexcept
     {
-        label->apply_to_address(
-            m_code_holder,
-            emit(_WO_EMIT_OP8_CMD(
-                JMP, 3, _WO_CMD24_U24(0))),
-            Label::ApplyAddress::Formal::SHIFT8_U24);
-    }
+        if (label->m_bound_ip_offset.has_value())
+        {
+            // This label has been bound already.
+            // Jump back, make a gc-checkpoint.
 
-    void IRBuilder::jmpgc(Label* label) noexcept
-    {
-        label->apply_to_address(
-            m_code_holder,
-            emit(_WO_EMIT_OP8_CMD(
-                JMPGC, 0, _WO_CMD24_U24(0))),
-            Label::ApplyAddress::Formal::SHIFT8_U24);
-    }
-    void IRBuilder::jmpgcf(Label* label) noexcept
-    {
-        label->apply_to_address(
-            m_code_holder,
-            emit(_WO_EMIT_OP8_CMD(
-                JMPGC, 2, _WO_CMD24_U24(0))),
-            Label::ApplyAddress::Formal::SHIFT8_U24);
-    }
-    void IRBuilder::jmpgct(Label* label) noexcept
-    {
-        label->apply_to_address(
-            m_code_holder,
-            emit(_WO_EMIT_OP8_CMD(
-                JMPGC, 3, _WO_CMD24_U24(0))),
-            Label::ApplyAddress::Formal::SHIFT8_U24);
+            label->apply_to_address(
+                m_code_holder,
+                emit(_WO_EMIT_OP8_CMD(
+                    JMPGC, 3, _WO_CMD24_U24(0))),
+                Label::ApplyAddress::Formal::SHIFT8_U24);
+        }
+        else
+        {
+            label->apply_to_address(
+                m_code_holder,
+                emit(_WO_EMIT_OP8_CMD(
+                    JMP, 3, _WO_CMD24_U24(0))),
+                Label::ApplyAddress::Formal::SHIFT8_U24);
+        }        
     }
 
     void IRBuilder::ret() noexcept
@@ -2836,6 +2853,28 @@ namespace wo
     {
         emit(_WO_EMIT_OP8_CMD(
             CALL, 0, _WO_CMD24_I8_16(src_rs8.m_val)));
+    }
+
+    void IRBuilder::panic(std::variant<rs_adrsing8, cg_adrsing<32>> src) noexcept
+    {
+        if (rs_adrsing8* src_rs8p = std::get_if<rs_adrsing8>(&src))
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                PANIC, 0, _WO_CMD24_I8_16(src_rs8p->m_val)));
+        }
+        else if (cg_adrsing<32>* src_cg32p = std::get_if<cg_adrsing<32>>(&src))
+        {
+            if (min_width(src_cg32p->m_val) <= 24)
+            {
+                emit(_WO_EMIT_OP8_CMD(
+                    PANIC, 1, _WO_CMD24_U24(src_cg32p->m_val)));
+            }
+            else
+            {
+                emit(_WO_EMIT_OP8_CMD(PANIC, 2, 0));
+                emit(_WO_EMIT_EXT_I32(src_cg32p->m_val));
+            }
+        }
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

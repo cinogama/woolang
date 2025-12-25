@@ -422,8 +422,7 @@ namespace wo
 
     private:
         // Disassemble helper
-        static std::string disassemble_instruction(bytecode_disassembler& dis) noexcept;
-        static std::string disassemble_ext_instruction(bytecode_disassembler& dis) noexcept;
+        static std::string disassemble_instruction(const irv2::ir** in_out_iraddr) noexcept;
 
     public:
         void gc_checkpoint_self_mark() noexcept;
