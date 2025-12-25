@@ -2610,6 +2610,8 @@ void wo_make_vm_weak(wo_vm vm)
     WO_VM(vm)->switch_vm_kind(wo::vmbase::vm_type::WEAK_NORMAL);
 }
 
+WO_API wo_api rslib_std_print(wo_vm vm, wo_value args);
+
 wo::compile_result _wo_compile_impl(
     wo_string_t virtual_src_path,
     const void* src,
@@ -2719,20 +2721,24 @@ wo::compile_result _wo_compile_impl(
 #if 1 /* DEBUG */
             wo::IRBuilder builder;
 
-            auto funcbegin = builder.label();
-            auto funcend = builder.label();
             auto loop = builder.label();
 
-            builder.jmp(funcend);
-            builder.bind(funcbegin);
-            builder.panic(wo::IRBuilder::rs_adrsing8(WO_REG_CR));
-            builder.ret();
-            builder.bind(funcend);
+            auto helloworld = builder.allocate_constant();
+            helloworld.get_value()->set_string_nogc("Hello, Woolang VM JIT!\n");
+
+            auto one = builder.allocate_constant();
+            one.get_value()->set_integer(1);
+
+            // builder.panic(wo::IRBuilder::rs_adrsing8(WO_REG_TC));
 
             builder.bind(loop);
-            builder.calln(funcbegin);
+            builder.push(wo::IRBuilder::cg_adrsing32(helloworld));
+            builder.load(
+                wo::IRBuilder::cg_adrsing32(one),
+                wo::IRBuilder::rs_adrsing8(WO_REG_TC));
+            builder.callnfp(rslib_std_print);
+            builder.pop(wo::IRBuilder::fixed_unsigned<24>(1));
             builder.jmp(loop);
-            builder.end();
             
             compile_env_result.emplace(builder.finish());
 

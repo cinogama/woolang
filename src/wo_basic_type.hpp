@@ -274,6 +274,7 @@ namespace wo
     static_assert(sizeof(std::atomic<byte_t>) == sizeof(byte_t));
     static_assert(std::atomic<byte_t>::is_always_lock_free);
     static_assert(std::is_standard_layout_v<value>);
+    static_assert(std::is_trivial_v<value>);
 
     using wo_extern_native_func_t = wo_native_func_t;
 

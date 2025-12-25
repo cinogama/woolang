@@ -283,10 +283,29 @@ namespace wo
                 uint32_t* baseaddr, 
                 uint32_t ipoffset) noexcept;
         };
+        struct Constant
+        {
+            friend struct IRBuilder;
+
+        protected:
+            const IRBuilder* const m_builder;
+            const size_t m_constant_index;
+
+            Constant(
+                const IRBuilder* builder,
+                size_t constant_index) noexcept;
+
+        public:
+            value* get_value() const noexcept;
+        };
 
         uint32_t* m_code_holder;
         uint32_t m_code_holder_capacity;
         uint32_t m_code_holder_size;
+
+        value* m_constant_storage;
+        uint32_t m_constant_storage_capacity;
+        uint32_t m_constant_storage_size;
 
         std::vector<Label*> m_created_labels;
         std::unordered_map<std::string, Label*> m_named_label;
@@ -361,11 +380,16 @@ namespace wo
             }
         };
 
-        template<size_t width>
-        struct cg_adrsing : fixed_width<int32_t, width>
+        struct cg_adrsing32 : fixed_width<int32_t, 32>
         {
-            explicit cg_adrsing(int32_t val) noexcept
-                : fixed_width<int32_t, width>(val)
+            explicit cg_adrsing32(int32_t val) noexcept
+                : fixed_width<int32_t, 32>(val)
+            {
+            }
+            explicit cg_adrsing32(Constant constant_index) noexcept
+                : cg_adrsing32(
+                    -static_cast<int32_t>(
+                        constant_index.m_constant_index))
             {
             }
         };
@@ -374,6 +398,10 @@ namespace wo
         {
             explicit rs_adrsing8(int32_t val) noexcept
                 : fixed_width<int32_t, 8>(val)
+            {
+            }
+            explicit rs_adrsing8(wo_reg val) noexcept
+                : rs_adrsing8(0b01100000 + val)
             {
             }
         };
@@ -410,20 +438,24 @@ namespace wo
         Label* named_label(const char* name) noexcept;
         void bind(Label* label) noexcept;
 
+        Constant allocate_constant() noexcept;
+
+        ///////////////////////////////////////////////////////////////
+
         void nop() noexcept;
         void end() noexcept;
-        void load(cg_adrsing<32> src_cg32, rs_adrsing8 dst_rs8) noexcept;
-        void store(cg_adrsing<32> dst_cg32, rs_adrsing8 src_rs8) noexcept;
-        void loadext(s_adrsing<24> dst_s24, cg_adrsing<32> src_cg32) noexcept;
-        void storeext(s_adrsing<24> dst_s24, cg_adrsing<32> src_cg32) noexcept;
+        void load(cg_adrsing32 src_cg32, rs_adrsing8 dst_rs8) noexcept;
+        void store(cg_adrsing32 dst_cg32, rs_adrsing8 src_rs8) noexcept;
+        void loadext(s_adrsing<24> dst_s24, cg_adrsing32 src_cg32) noexcept;
+        void storeext(s_adrsing<24> dst_s24, cg_adrsing32 src_cg32) noexcept;
 
         void push(fixed_unsigned<24> count_u24) noexcept;
         void push(rs_adrsing8 src_rs8) noexcept;
-        void push(cg_adrsing<32> src_cg32) noexcept;
+        void push(cg_adrsing32 src_cg32) noexcept;
 
         void pop(fixed_unsigned<24> count_u24) noexcept;
         void pop(rs_adrsing8 dst_rs8) noexcept;
-        void pop(cg_adrsing<32> dst_cg32) noexcept;
+        void pop(cg_adrsing32 dst_cg32) noexcept;
 
         void cast(
             rs_adrsing8 dst_rs8,
@@ -633,7 +665,8 @@ namespace wo
         void callnfp(wo_native_func_t extfunc) noexcept;
         void call(rs_adrsing8 src_rs8) noexcept;
 
-        void panic(std::variant<rs_adrsing8, cg_adrsing<32>> src) noexcept;
+        void panic(rs_adrsing8 src_rs8) noexcept;
+        void panic(cg_adrsing32 src_cg32) noexcept;
 
         ////////////////////////////////////////////////////////
 

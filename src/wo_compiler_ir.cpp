@@ -565,11 +565,13 @@ namespace wo
         if (wo::config::ENABLE_JUST_IN_TIME)
             free_jit(this);
 
-        for (size_t ci = 0; ci < constant_value_count; ++ci)
-            cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
-
         if (constant_and_global_storage)
+        {
+            for (size_t ci = 0; ci < constant_value_count; ++ci)
+                cancel_nogc_mark_for_value(constant_and_global_storage[ci]);
+
             free(constant_and_global_storage);
+        }
 
         if (rt_codes)
             free(const_cast<byte_t*>(rt_codes));
@@ -1821,16 +1823,41 @@ namespace wo
         }
     }
 
+    IRBuilder::Constant::Constant(
+        const IRBuilder* builder,
+        size_t constant_index) noexcept
+        : m_builder(builder)
+        , m_constant_index(constant_index)
+    {
+    }
+
+    value* IRBuilder::Constant::get_value() const noexcept
+    {
+        return m_builder->m_constant_storage
+            + (m_builder->m_constant_storage_size - m_constant_index);
+    }
+
     IRBuilder::IRBuilder()
         : m_code_holder(nullptr)
         , m_code_holder_capacity(0)
         , m_code_holder_size(0)
+        , m_constant_storage(nullptr)
+        , m_constant_storage_capacity(0)
+        , m_constant_storage_size(0)
     {
     }
     IRBuilder::~IRBuilder()
     {
         if (m_code_holder != nullptr)
             free(m_code_holder);
+
+        if (m_constant_storage != nullptr)
+        {
+            for (uint32_t i = 0; i < m_constant_storage_size; ++i)
+                cancel_nogc_mark_for_value(m_constant_storage[i]);
+
+            free(m_constant_storage);
+        }
 
         for (auto* label : m_created_labels)
             delete label;
@@ -1878,6 +1905,36 @@ namespace wo
         label->bind_at_ip_offset(
             m_code_holder,
             m_code_holder_size);
+    }
+
+    IRBuilder::Constant IRBuilder::allocate_constant() noexcept
+    {
+        if (m_constant_storage_size >= m_constant_storage_capacity)
+        {
+            wo_assert(m_constant_storage_size == m_constant_storage_capacity);
+            if (m_constant_storage_capacity == 0)
+            {
+                wo_assert(m_constant_storage == nullptr);
+                m_constant_storage_capacity = 32;
+            }
+
+            auto* new_constant_storage = (value*)malloc(
+                m_constant_storage_capacity * 2 * sizeof(value));
+            wo_assert(new_constant_storage != nullptr);
+
+            if (m_constant_storage != nullptr)
+            {
+                memcpy(
+                    new_constant_storage + m_constant_storage_capacity,
+                    m_constant_storage,
+                    m_constant_storage_capacity * sizeof(value));
+
+                free(m_constant_storage);
+            }
+            m_constant_storage = new_constant_storage;
+            m_constant_storage_capacity *= 2;           
+        }
+        return Constant(this, ++m_constant_storage_size);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1998,7 +2055,7 @@ namespace wo
     {
         emit(_WO_EMIT_OP8_CMD(END, 0, 0));
     }
-    void IRBuilder::load(cg_adrsing<32> src_cg32, rs_adrsing8 dst_rs8) noexcept
+    void IRBuilder::load(cg_adrsing32 src_cg32, rs_adrsing8 dst_rs8) noexcept
     {
         if (min_width(src_cg32.m_val) <= 18)
             emit(_WO_EMIT_OP6_CMD(LOAD, _WO_CMD26_I18_I8(src_cg32.m_val, dst_rs8.m_val)));
@@ -2008,7 +2065,7 @@ namespace wo
             emit(_WO_EMIT_EXT_I32(src_cg32.m_val));
         }
     }
-    void IRBuilder::store(cg_adrsing<32> dst_cg32, rs_adrsing8 src_rs8) noexcept
+    void IRBuilder::store(cg_adrsing32 dst_cg32, rs_adrsing8 src_rs8) noexcept
     {
         if (min_width(dst_cg32.m_val) <= 18)
             emit(_WO_EMIT_OP6_CMD(STORE, _WO_CMD26_I18_I8(dst_cg32.m_val, src_rs8.m_val)));
@@ -2018,7 +2075,7 @@ namespace wo
             emit(_WO_EMIT_EXT_I32(dst_cg32.m_val));
         }
     }
-    void IRBuilder::loadext(s_adrsing<24> dst_s24, cg_adrsing<32> src_cg32) noexcept
+    void IRBuilder::loadext(s_adrsing<24> dst_s24, cg_adrsing32 src_cg32) noexcept
     {
         if (min_width(dst_s24.m_val) <= 16)
         {
@@ -2031,7 +2088,7 @@ namespace wo
             emit(_WO_EMIT_EXT_I32(src_cg32.m_val));
         }
     }
-    void IRBuilder::storeext(s_adrsing<24> src_s24, cg_adrsing<32> cg32) noexcept
+    void IRBuilder::storeext(s_adrsing<24> src_s24, cg_adrsing32 cg32) noexcept
     {
         if (min_width(src_s24.m_val) <= 16)
         {
@@ -2052,7 +2109,7 @@ namespace wo
     {
         emit(_WO_EMIT_OP8_CMD(PUSH, 1, _WO_CMD24_I8_16(src_rs8.m_val)));
     }
-    void IRBuilder::push(cg_adrsing<32> src_cg32) noexcept
+    void IRBuilder::push(cg_adrsing32 src_cg32) noexcept
     {
         if (min_width(src_cg32.m_val) <= 24)
         {
@@ -2072,7 +2129,7 @@ namespace wo
     {
         emit(_WO_EMIT_OP8_CMD(POP, 1, _WO_CMD24_I8_16(dst_rs8.m_val)));
     }
-    void IRBuilder::pop(cg_adrsing<32> dst_cg32) noexcept
+    void IRBuilder::pop(cg_adrsing32 dst_cg32) noexcept
     {
         if (min_width(dst_cg32.m_val) <= 24)
         {
@@ -2804,7 +2861,7 @@ namespace wo
                 emit(_WO_EMIT_OP8_CMD(
                     JMP, 3, _WO_CMD24_U24(0))),
                 Label::ApplyAddress::Formal::SHIFT8_U24);
-        }        
+        }
     }
 
     void IRBuilder::ret() noexcept
@@ -2855,25 +2912,22 @@ namespace wo
             CALL, 0, _WO_CMD24_I8_16(src_rs8.m_val)));
     }
 
-    void IRBuilder::panic(std::variant<rs_adrsing8, cg_adrsing<32>> src) noexcept
+    void IRBuilder::panic(rs_adrsing8 src_rs8) noexcept
     {
-        if (rs_adrsing8* src_rs8p = std::get_if<rs_adrsing8>(&src))
+        emit(_WO_EMIT_OP8_CMD(
+            PANIC, 0, _WO_CMD24_I8_16(src_rs8.m_val)));
+    }
+    void IRBuilder::panic(cg_adrsing32 src_cg32) noexcept
+    {
+        if (min_width(src_cg32.m_val) <= 24)
         {
             emit(_WO_EMIT_OP8_CMD(
-                PANIC, 0, _WO_CMD24_I8_16(src_rs8p->m_val)));
+                PANIC, 1, _WO_CMD24_U24(src_cg32.m_val)));
         }
-        else if (cg_adrsing<32>* src_cg32p = std::get_if<cg_adrsing<32>>(&src))
+        else
         {
-            if (min_width(src_cg32p->m_val) <= 24)
-            {
-                emit(_WO_EMIT_OP8_CMD(
-                    PANIC, 1, _WO_CMD24_U24(src_cg32p->m_val)));
-            }
-            else
-            {
-                emit(_WO_EMIT_OP8_CMD(PANIC, 2, 0));
-                emit(_WO_EMIT_EXT_I32(src_cg32p->m_val));
-            }
+            emit(_WO_EMIT_OP8_CMD(PANIC, 2, 0));
+            emit(_WO_EMIT_EXT_I32(src_cg32.m_val));
         }
     }
 
@@ -2883,21 +2937,33 @@ namespace wo
     {
         shared_pointer<runtime_env> result(new runtime_env());
 
-        result->rt_code_len = 
+        result->rt_code_len =
             sizeof(uint32_t) * m_code_holder_size;
         result->rt_codes =
-            (const byte_t*)realloc(
-                m_code_holder,
-                m_code_holder_size * sizeof(uint32_t));
+            reinterpret_cast<const byte_t*>(
+                realloc(
+                    m_code_holder,
+                    sizeof(uint32_t) * m_code_holder_size));
 
         // TMP IMPL;
-        result->constant_and_global_storage = nullptr; // malloc.
-        result->constant_and_global_value_takeplace_count = 0;
-        result->constant_value_count = 0;
+        result->constant_value_count =
+            static_cast<size_t>(m_constant_storage_size);
+        result->constant_and_global_value_takeplace_count =
+            result->constant_value_count + 1 /* Always keep 0 for reserving */;
+        result->constant_and_global_storage =
+            reinterpret_cast<value*>(
+                realloc(
+                    m_constant_storage,
+                    sizeof(value) * result->constant_and_global_value_takeplace_count));
 
+        // Reset builder state.
         m_code_holder = nullptr;
         m_code_holder_capacity = 0;
         m_code_holder_size = 0;
+
+        m_constant_storage = nullptr;
+        m_constant_storage_capacity = 0;
+        m_constant_storage_size = 0;
 
 #ifndef NDEBUG
         for (auto* label : m_created_labels)

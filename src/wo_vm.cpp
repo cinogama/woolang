@@ -142,8 +142,8 @@
 #define WO_BEGIN_CASE_retn          WO_VM_BEGIN_CASE_IR8(RET, 1, U8_16)
 #define WO_BEGIN_CASE_retn16        WO_VM_BEGIN_CASE_IR8(RET, 2, 8_U16)
 #define WO_BEGIN_CASE_callnwoext    WO_VM_BEGIN_CASE_IR8(CALLN, 0, U24_E32)
-#define WO_BEGIN_CASE_callnjitext   WO_VM_BEGIN_CASE_IR8(CALLN, 1, EU56)
-#define WO_BEGIN_CASE_callnfpext    WO_VM_BEGIN_CASE_IR8(CALLN, 2, EU56)
+#define WO_BEGIN_CASE_callnjitext   WO_VM_BEGIN_CASE_IR8(CALLN, 2, EU56)
+#define WO_BEGIN_CASE_callnfpext    WO_VM_BEGIN_CASE_IR8(CALLN, 3, EU56)
 #define WO_BEGIN_CASE_call          WO_VM_BEGIN_CASE_IR8(CALL, 0, I8_16)
 #define WO_BEGIN_CASE_mkarr         WO_VM_BEGIN_CASE_IR8(CONS, 0, I8_U16)
 #define WO_BEGIN_CASE_mkmap         WO_VM_BEGIN_CASE_IR8(CONS, 1, I8_U16)
@@ -725,9 +725,28 @@ namespace wo
             (void)snprintf(
                 buf,
                 sizeof(buf),
-                "[bp%s%d]",
-                v >= 0 ? "+" : "",
+                "[bp%+d]",
                 (int)v);
+            return buf;
+        }
+        std::string dump_cg_addressing(int32_t v)
+        {
+            char buf[32];
+
+            if (v < 0)
+                // Constant
+                (void)snprintf(
+                    buf,
+                    sizeof(buf),
+                    "<c%+d>",
+                    (int)v);
+            else
+                // Global
+                (void)snprintf(
+                    buf,
+                    sizeof(buf),
+                    "<g%+d>",
+                    (int)v);
             return buf;
         }
         std::string dump_r_s_addressing(int8_t v)
@@ -742,9 +761,11 @@ namespace wo
                     "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
                     "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15",
                 };
+                static_assert(
+                    sizeof(cr_names) / sizeof(const char*) == _WO_TOTAL_REG_COUNT);
 
                 const auto roffset = v - WO_VM_ADRS_R_SHIFT;
-                if (roffset < 0 || roffset >= 32)
+                if (roffset < 0 || roffset >= _WO_TOTAL_REG_COUNT)
                     return "(bad reg)";
                 return cr_names[roffset];
             }
@@ -757,6 +778,61 @@ namespace wo
                 sizeof(buf),
                 "+0x%08X",
                 static_cast<unsigned int>(sizeof(uint32_t) * v));
+            return buf;
+        }
+        std::string dump_pointer(uint64_t v)
+        {
+            char buf[16];
+            (void)snprintf(
+                buf,
+                sizeof(buf),
+                "0x%016X",
+                static_cast<unsigned int>(sizeof(uint32_t) * v));
+            return buf;
+        }
+        std::string dump_ir(
+            const char* a,
+            const std::string& p)
+        {
+            char buf[256];
+            snprintf(
+                buf,
+                sizeof(buf),
+                "%-16s%-10s",
+                a,
+                p.c_str());
+            return buf;
+        }
+        std::string dump_ir(
+            const char* a,
+            const std::string& p1,
+            const std::string& p2)
+        {
+            char buf[256];
+            snprintf(
+                buf,
+                sizeof(buf),
+                "%-16s%-10s%-10s",
+                a,
+                p1.c_str(),
+                p2.c_str());
+            return buf;
+        }
+        std::string dump_ir(
+            const char* a,
+            const std::string& p1,
+            const std::string& p2,
+            const std::string& p3)
+        {
+            char buf[256];
+            snprintf(
+                buf,
+                sizeof(buf),
+                "%-16s%-10s%-10s%-10s",
+                a,
+                p1.c_str(),
+                p2.c_str(),
+                p3.c_str());
             return buf;
         }
     }
@@ -778,7 +854,7 @@ namespace wo
             reinterpret_cast<const irv2::ir*>(
                 &codeholder->rt_codes[begin]));
 
-        os << "Offset(BYTE)|   MAIN     EXT      EXT2   | Disassembly" << std::endl;
+        os << "Offset(BYTE)|   Main     Ext      Ext2   | Disassembly" << std::endl;
 
         while (rt_ip < dump_end_ip)
         {
@@ -832,32 +908,420 @@ namespace wo
 
         switch (WO_IR_OPBYTE(rt_ip))
         {
-#define WO_VM_DUMP_BIN_FORMAL_24(CODE)          \
-        WO_BEGIN_CASE(CODE)                     \
-        {                                       \
-            result = #CODE;                     \
-        }                                       \
+#define WO_VM_DUMP_BIN_FORMAL_24(CODE)              \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+            result = #CODE;                         \
+        }                                           \
         WO_VM_END_CASE()
-#define WO_VM_DUMP_BIN_FORMAL_IP24(CODE)        \
-        WO_BEGIN_CASE(CODE)                     \
-        {                                       \
-             result = #CODE "\t"                \
-                + disassembler::dump_offset(    \
-                    p1_u24);                    \
-        }                                       \
+#define WO_VM_DUMP_BIN_FORMAL_24_EXTCG32(CODE)      \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+            result = disassembler::dump_ir(         \
+                #CODE,                              \
+                disassembler::dump_cg_addressing(   \
+                    p1_i32));                       \
+        }                                           \
         WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_IP24(CODE)            \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_offset(          \
+                    p1_u24));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_ADDR56(CODE)          \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_pointer(         \
+                    p1_u56));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_U24(CODE)             \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                std::to_string(p1_u24));            \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_CG24(CODE)            \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_cg_addressing(   \
+                    p1_i24));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_CG18_R8(CODE)         \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_cg_addressing(   \
+                    p1_i18),                        \
+                disassembler::dump_r_s_addressing(  \
+                    p2_i8));                        \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_U8_16(CODE)           \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                std::to_string(p1_u8));             \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_8_U16(CODE)           \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                std::to_string(p1_u16));            \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_16_EXTCG32(CODE)   \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                disassembler::dump_cg_addressing(   \
+                    p2_i32));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_16_EXTU32(CODE)    \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                std::to_string(                     \
+                    p2_u32));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_R8_8(CODE)         \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                disassembler::dump_r_s_addressing(  \
+                    p2_i8));                        \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_R8_8_EXTU32(CODE)  \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                disassembler::dump_r_s_addressing(  \
+                    p2_i8),                         \
+                std::to_string(                     \
+                    p3_u32));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_R8_TYPE8(CODE)     \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+            result = disassembler::dump_ir(         \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                disassembler::dump_r_s_addressing(  \
+                    p2_i8),                         \
+                wo_type_name(                       \
+                    static_cast<wo_type_t>(         \
+                        p3_u8)));                   \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(CODE)        \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+            result = disassembler::dump_ir(         \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                disassembler::dump_r_s_addressing(  \
+                    p2_i8),                         \
+                disassembler::dump_r_s_addressing(  \
+                    p3_i8));                        \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_U8_U8(CODE)        \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+            result = disassembler::dump_ir(         \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                std::to_string(                     \
+                    p2_u8),                        \
+                std::to_string(                     \
+                    p3_u8));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_R8_U8(CODE)        \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+            result = disassembler::dump_ir(         \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                disassembler::dump_r_s_addressing(  \
+                    p2_i8),                         \
+                std::to_string(                     \
+                    p3_u8));                        \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_8_R8_TYPE8(CODE)      \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+            result = disassembler::dump_ir(         \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                wo_type_name(                       \
+                    static_cast<wo_type_t>(         \
+                        p2_u8)));                   \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_8_S16_EXTCG32(CODE)   \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_s_addressing(    \
+                    p1_i16),                        \
+                disassembler::dump_cg_addressing(   \
+                    p2_i32));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_8_S24_EXTCG32(CODE)   \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_s_addressing(    \
+                    p1_i24),                        \
+                disassembler::dump_cg_addressing(   \
+                    p2_i32));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_16(CODE)           \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8));                        \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_U16(CODE)          \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                std::to_string(p2_u16));            \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_S16(CODE)          \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                disassembler::dump_s_addressing(    \
+                    p2_i16));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_16_EXTS32(CODE)    \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                disassembler::dump_s_addressing(    \
+                    p2_i32));                       \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_U16_EXTU32(CODE)   \
+        WO_BEGIN_CASE(CODE)                         \
+        {                                           \
+             result = disassembler::dump_ir(        \
+                #CODE,                              \
+                disassembler::dump_r_s_addressing(  \
+                    p1_i8),                         \
+                std::to_string(p2_u16),             \
+                std::to_string(p3_u32));            \
+        }                                           \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_U16_EXTIP32_32(CODE)   \
+        WO_BEGIN_CASE(CODE)                             \
+        {                                               \
+             result = disassembler::dump_ir(            \
+                #CODE,                                  \
+                disassembler::dump_r_s_addressing(      \
+                    p1_i8),                             \
+                std::to_string(p2_u16),                 \
+                disassembler::dump_offset(p3_u32));     \
+        }                                               \
+        WO_VM_END_CASE()
+#define WO_VM_DUMP_BIN_FORMAL_R8_U16_EXTADDR64(CODE)    \
+        WO_BEGIN_CASE(CODE)                             \
+        {                                               \
+             result = disassembler::dump_ir(            \
+                #CODE,                                  \
+                disassembler::dump_r_s_addressing(      \
+                    p1_i8),                             \
+                std::to_string(p2_u16),                 \
+                disassembler::dump_pointer(p3_u64));    \
+        }                                               \
+        WO_VM_END_CASE()
+
+            /////////////////////////////////////
 
             WO_VM_DUMP_BIN_FORMAL_24(nop);
             WO_VM_DUMP_BIN_FORMAL_24(end);
+            WO_VM_DUMP_BIN_FORMAL_CG18_R8(load);
+            WO_VM_DUMP_BIN_FORMAL_CG18_R8(store);
+            WO_VM_DUMP_BIN_FORMAL_R8_16_EXTCG32(loadext);
+            WO_VM_DUMP_BIN_FORMAL_8_S16_EXTCG32(loads16ext);
+            WO_VM_DUMP_BIN_FORMAL_8_S24_EXTCG32(loads24ext);
+            WO_VM_DUMP_BIN_FORMAL_R8_16_EXTCG32(storeext);
+            WO_VM_DUMP_BIN_FORMAL_8_S16_EXTCG32(stores16ext);
+            WO_VM_DUMP_BIN_FORMAL_8_S24_EXTCG32(stores24ext);
+            WO_VM_DUMP_BIN_FORMAL_U24(pushc);
+            WO_VM_DUMP_BIN_FORMAL_R8_16(push);
+            WO_VM_DUMP_BIN_FORMAL_CG24(pushcg);
+            WO_VM_DUMP_BIN_FORMAL_24_EXTCG32(pushcgext);
+            WO_VM_DUMP_BIN_FORMAL_U24(popc);
+            WO_VM_DUMP_BIN_FORMAL_R8_16(pop);
+            WO_VM_DUMP_BIN_FORMAL_CG24(popcg);
+            WO_VM_DUMP_BIN_FORMAL_24_EXTCG32(popcgext);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_TYPE8(cast);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(castitor);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(castrtoi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_TYPE8(typeis);
+            WO_VM_DUMP_BIN_FORMAL_8_R8_TYPE8(typeas);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(addi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(subi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(muli);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(divi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(modi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(negi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(lti);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(gti);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(elti);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(egti);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(equb);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(nequb);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(addr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(subr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(mulr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(divr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(modr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(negr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(ltr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(gtr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(eltr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(egtr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(equr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(nequr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(adds);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(lts);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(gts);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(elts);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(egts);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(equs);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(nequs);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cdivilr);
+            WO_VM_DUMP_BIN_FORMAL_R8_16(cdivil);
+            WO_VM_DUMP_BIN_FORMAL_R8_16(cdivir);
+            WO_VM_DUMP_BIN_FORMAL_R8_16(cdivirz);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cumaddi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cumsubi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cummuli);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cumdivi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cumaddr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cumsubr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cummulr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cumdivr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cumadds);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cumaddsf);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cummodi);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cummodr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cumland);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(cumlor);
+            WO_VM_DUMP_BIN_FORMAL_R8_16(cumnegi);
+            WO_VM_DUMP_BIN_FORMAL_R8_16(cumnegr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(land);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(lor);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(lnot);
+            WO_VM_DUMP_BIN_FORMAL_R8_16(cumlnot);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(idstr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(idarr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(iddict);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_U8(idstruct);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(sidarr);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_R8(siddict);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_U8(sidstruct);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8_EXTU32(idstext);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8_EXTU32(sidstext);
             WO_VM_DUMP_BIN_FORMAL_IP24(jmp);
+            WO_VM_DUMP_BIN_FORMAL_IP24(jmpf);
+            WO_VM_DUMP_BIN_FORMAL_IP24(jmpt);
             WO_VM_DUMP_BIN_FORMAL_IP24(jmpgc);
+            WO_VM_DUMP_BIN_FORMAL_IP24(jmpfgc);
+            WO_VM_DUMP_BIN_FORMAL_IP24(jmptgc);
             WO_VM_DUMP_BIN_FORMAL_24(ret);
+            WO_VM_DUMP_BIN_FORMAL_U8_16(retn);
+            WO_VM_DUMP_BIN_FORMAL_8_U16(retn16);
             WO_VM_DUMP_BIN_FORMAL_IP24(callnwoext);
-            WO_BEGIN_CASE(panic)
-            {
-                result = "panic\t" + disassembler::dump_r_s_addressing(p1_i8);
-            }
-            WO_VM_END_CASE();
+            WO_VM_DUMP_BIN_FORMAL_ADDR56(callnjitext);
+            WO_VM_DUMP_BIN_FORMAL_ADDR56(callnfpext);
+            WO_VM_DUMP_BIN_FORMAL_R8_16(call);
+            WO_VM_DUMP_BIN_FORMAL_R8_U16(mkarr);
+            WO_VM_DUMP_BIN_FORMAL_R8_U16(mkmap);
+            WO_VM_DUMP_BIN_FORMAL_R8_U16(mkstruct);
+            WO_VM_DUMP_BIN_FORMAL_R8_16_EXTU32(mkarrext);
+            WO_VM_DUMP_BIN_FORMAL_R8_16_EXTU32(mkmapext);
+            WO_VM_DUMP_BIN_FORMAL_R8_16_EXTU32(mkstructext);
+            WO_VM_DUMP_BIN_FORMAL_R8_U16_EXTIP32_32(mkcloswoextl);
+            WO_VM_DUMP_BIN_FORMAL_R8_U16_EXTADDR64(mkclosjitextl);
+            WO_VM_DUMP_BIN_FORMAL_R8_U16(unpacksn);
+            WO_VM_DUMP_BIN_FORMAL_R8_U16(unpacksc);
+            WO_VM_DUMP_BIN_FORMAL_R8_U16(unpackan);
+            WO_VM_DUMP_BIN_FORMAL_R8_U16(unpackac);
+            WO_VM_DUMP_BIN_FORMAL_R8_U8_U8(pack);
+            WO_VM_DUMP_BIN_FORMAL_R8_U16_EXTU32(packext);
+            WO_VM_DUMP_BIN_FORMAL_R8_S16(lds);
+            WO_VM_DUMP_BIN_FORMAL_R8_16_EXTS32(ldsext);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(ldsr);
+            WO_VM_DUMP_BIN_FORMAL_R8_16_EXTCG32(ldscgext);
+            WO_VM_DUMP_BIN_FORMAL_R8_S16(sts);
+            WO_VM_DUMP_BIN_FORMAL_R8_16_EXTS32(stsext);
+            WO_VM_DUMP_BIN_FORMAL_R8_R8_8(stsr);
+            WO_VM_DUMP_BIN_FORMAL_R8_16_EXTCG32(stscgext);
+            WO_VM_DUMP_BIN_FORMAL_R8_16(panic);
+            WO_VM_DUMP_BIN_FORMAL_CG24(paniccg);
+            WO_VM_DUMP_BIN_FORMAL_24_EXTCG32(paniccgext);
+
+            /////////////////////////////////////
 
 #undef WO_VM_DUMP_BIN_FORMAL_24
         default:
@@ -3207,7 +3671,7 @@ namespace wo
 
                         switch (target_fp(
                             reinterpret_cast<wo_vm>(this),
-                            std::launder(reinterpret_cast<wo_value>(sp + 1))))
+                            std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
                         case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
                             WO_VM_INTERRUPT_CHECKPOINT;
