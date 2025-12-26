@@ -790,6 +790,8 @@ namespace wo
         case instruct::mov:   BINARY_OP("mov");
         case instruct::movicastr:   BINARY_OP("movicastr");
         case instruct::movrcasti:   BINARY_OP("movrcasti");
+        case instruct::negi:  BINARY_OP("negi");
+        case instruct::negr:  BINARY_OP("negr");
         case instruct::addi:  BINARY_OP("addi");
         case instruct::subi:  BINARY_OP("subi");
         case instruct::muli:  BINARY_OP("muli");
@@ -800,8 +802,6 @@ namespace wo
         case instruct::mulr:  BINARY_OP("mulr");
         case instruct::divr:  BINARY_OP("divr");
         case instruct::modr:  BINARY_OP("modr");
-        case instruct::addh:  BINARY_OP("addh");
-        case instruct::subh:  BINARY_OP("subh");
         case instruct::adds:  BINARY_OP("adds");
         case instruct::lds:   BINARY_OP("lds");
         case instruct::sts:   BINARY_OP("sts");
@@ -811,10 +811,10 @@ namespace wo
         case instruct::egti:  BINARY_OP("egti");
         case instruct::land:  BINARY_OP("land");
         case instruct::lor:   BINARY_OP("lor");
-        case instruct::ltx:   BINARY_OP("ltx");
-        case instruct::gtx:   BINARY_OP("gtx");
-        case instruct::eltx:  BINARY_OP("eltx");
-        case instruct::egtx:  BINARY_OP("egtx");
+        case instruct::lts:   BINARY_OP("lts");
+        case instruct::gts:   BINARY_OP("gts");
+        case instruct::elts:  BINARY_OP("elts");
+        case instruct::egts:  BINARY_OP("egts");
         case instruct::ltr:   BINARY_OP("ltr");
         case instruct::gtr:   BINARY_OP("gtr");
         case instruct::eltr:  BINARY_OP("eltr");
@@ -828,7 +828,6 @@ namespace wo
         case instruct::nequr: BINARY_OP("nequr");
         case instruct::equs:  BINARY_OP("equs");
         case instruct::nequs: BINARY_OP("nequs");
-
         case instruct::siddict: TERNARY_OP("siddict");
         case instruct::sidmap:  TERNARY_OP("sidmap");
         case instruct::sidarr:  TERNARY_OP("sidarr");
@@ -1071,6 +1070,42 @@ namespace wo
             case instruct::extern_opcode_page_0::popn:
                 result += "popn\t";
                 result += dis.format_opnum1();
+                break;
+            case instruct::extern_opcode_page_0::addh:
+                result += "addh\t";
+                result += dis.format_opnum1();
+                result += ",\t";
+                result += dis.format_opnum2();
+                break;
+            case instruct::extern_opcode_page_0::subh:
+                result += "subh\t";
+                result += dis.format_opnum1();
+                result += ",\t";
+                result += dis.format_opnum2();
+                break;
+            case instruct::extern_opcode_page_0::lth:
+                result += "lth\t";
+                result += dis.format_opnum1();
+                result += ",\t";
+                result += dis.format_opnum2();
+                break;
+            case instruct::extern_opcode_page_0::gth:
+                result += "gth\t";
+                result += dis.format_opnum1();
+                result += ",\t";
+                result += dis.format_opnum2();
+                break;
+            case instruct::extern_opcode_page_0::elth:
+                result += "elth\t";
+                result += dis.format_opnum1();
+                result += ",\t";
+                result += dis.format_opnum2();
+                break;
+            case instruct::extern_opcode_page_0::egth:
+                result += "egth\t";
+                result += dis.format_opnum1();
+                result += ",\t";
+                result += dis.format_opnum2();
                 break;
             default:
                 result += "??\t";
@@ -2393,7 +2428,7 @@ namespace wo
         instruct::opcode::CODE##gg:         \
             WO_ADDRESSING_G1;               \
             WO_ADDRESSING_G2;               \
-        goto _label_##CODE##_impl;          \
+            goto _label_##CODE##_impl;      \
         case instruct::opcode::CODE##gs:    \
             WO_ADDRESSING_G1;               \
             WO_ADDRESSING_RS2;              \
@@ -2435,7 +2470,7 @@ namespace wo
             WO_ADDRESSING_G1;                   \
             WO_WRITE_CHECK_FOR_GLOBAL(opnum1);  \
             WO_ADDRESSING_G2;                   \
-        goto _label_##CODE##_impl;              \
+            goto _label_##CODE##_impl;          \
         case instruct::opcode::CODE##gs:        \
             WO_ADDRESSING_G1;                   \
             WO_WRITE_CHECK_FOR_GLOBAL(opnum1);  \
@@ -2450,16 +2485,36 @@ namespace wo
             WO_ADDRESSING_RS2;                  \
         _label_##CODE##_impl
 
-#define WO_VM_INTERRUPT_CHECKPOINT          \
-        fast_interrupt_state =              \
-            vm_interrupt.load(std::memory_order_acquire)
+#define WO_RSG_ADDRESSING_EXT_CASE(CODE)                \
+        instruct::extern_opcode_page_0::CODE##gg:       \
+            WO_ADDRESSING_G1;                           \
+            WO_ADDRESSING_G2;                           \
+            goto _label_ext0_##CODE##_impl;             \
+        case instruct::extern_opcode_page_0::CODE##gs:  \
+            WO_ADDRESSING_G1;                           \
+            WO_ADDRESSING_RS2;                          \
+            goto _label_ext0_##CODE##_impl;             \
+        case instruct::extern_opcode_page_0::CODE##sg:  \
+            WO_ADDRESSING_RS1;                          \
+            WO_ADDRESSING_G2;                           \
+            goto _label_ext0_##CODE##_impl;             \
+        case instruct::extern_opcode_page_0::CODE##ss:  \
+            WO_ADDRESSING_RS1;                          \
+            WO_ADDRESSING_RS2;                          \
+        _label_ext0_##CODE##_impl
+
+#define WO_VM_INTERRUPT_CHECKPOINT                          \
+        interrupt_state =                              \
+            vm_interrupt.load(std::memory_order_acquire);   \
+        if (interrupt_state != 0)                      \
+            goto _label_vm_handle_interrupt
 
 #define WO_VM_FAIL(ERRNO, ...)           \
     do {                                    \
         ip = rt_ip;                         \
         wo_fail(ERRNO, __VA_ARGS__);             \
         WO_VM_INTERRUPT_CHECKPOINT;         \
-        goto re_entry_for_failed_command;   \
+        goto _label_vm_re_entry;   \
     } while(0)
 
 #if WO_ENABLE_RUNTIME_CHECK == 0
@@ -2475,14 +2530,8 @@ namespace wo
         uint32_t WO_VM_INTERRUPT_CHECKPOINT;
         for (;;)
         {
-        re_entry_for_failed_command:
-            uint32_t rtopcode = *(rt_ip++);
-
-            if (fast_interrupt_state)
-                rtopcode |= fast_interrupt_state;
-
-        re_entry_for_interrupt:
-            switch (rtopcode)
+        _label_vm_re_entry:
+            switch (*(rt_ip++))
             {
             case instruct::opcode::pshr:
             {
@@ -2612,19 +2661,15 @@ namespace wo
 
                 opnum1->m_real = fmod(opnum1->m_real, opnum2->m_real);
                 break;
-            case WO_RSG_ADDRESSING_CASE(addh):
-                WO_VM_ASSERT(opnum1->m_type == opnum2->m_type
-                    && opnum1->m_type == value::valuetype::handle_type,
-                    "Operand should be handle in 'addh'.");
-
-                opnum1->m_handle += opnum2->m_handle;
+            case WO_RSG_ADDRESSING_CASE(negi):
+                WO_VM_ASSERT(opnum2->m_type == value::valuetype::integer_type,
+                    "Operand should be integer in 'negi'.");
+                opnum1->set_integer(-opnum2->m_integer);
                 break;
-            case WO_RSG_ADDRESSING_CASE(subh):
-                WO_VM_ASSERT(opnum1->m_type == opnum2->m_type
-                    && opnum1->m_type == value::valuetype::handle_type,
-                    "Operand should be handle in 'subh'.");
-
-                opnum1->m_handle -= opnum2->m_handle;
+            case WO_RSG_ADDRESSING_CASE(negr):
+                WO_VM_ASSERT(opnum2->m_type == value::valuetype::real_type,
+                    "Operand should be real in 'negr'.");
+                opnum1->set_real(-opnum2->m_real);
                 break;
             case WO_RSG_ADDRESSING_WRITE_OP1_CASE(adds):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type
@@ -2783,25 +2828,26 @@ namespace wo
 
                 rt_cr->set_bool(opnum1->m_real >= opnum2->m_real);
                 break;
-            case WO_RSG_ADDRESSING_CASE(ltx):
-                WO_VM_ASSERT(opnum1->m_type == opnum2->m_type,
-                    "Operand type should be same in 'ltx'.");
+            case WO_RSG_ADDRESSING_CASE(lts):
+                WO_VM_ASSERT(opnum1->m_type == opnum2->m_type
+                    && opnum1->m_type == value::valuetype::string_type,
+                    "Operand should be string in 'lts'.");
                 ltx_impl(rt_cr, opnum1, opnum2);
                 break;
-            case WO_RSG_ADDRESSING_CASE(gtx):
+            case WO_RSG_ADDRESSING_CASE(gts):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type,
-                    "Operand type should be same in 'gtx'.");
+                    "Operand should be string in 'gtx'.");
                 gtx_impl(rt_cr, opnum1, opnum2);
                 break;
-            case WO_RSG_ADDRESSING_CASE(eltx):
+            case WO_RSG_ADDRESSING_CASE(elts):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type,
-                    "Operand type should be same in 'eltx'.");
+                    "Operand should be string in 'eltx'.");
 
                 eltx_impl(rt_cr, opnum1, opnum2);
                 break;
-            case WO_RSG_ADDRESSING_CASE(egtx):
+            case WO_RSG_ADDRESSING_CASE(egts):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type,
-                    "Operand type should be same in 'egtx'.");
+                    "Operand should be string in 'egtx'.");
 
                 egtx_impl(rt_cr, opnum1, opnum2);
                 break;
@@ -3583,22 +3629,7 @@ namespace wo
                             skip_closure_arg_count);
                         break;
                     }
-                case instruct::extern_opcode_page_0::cdivilrgg:
-                    WO_ADDRESSING_G1;
-                    WO_ADDRESSING_G2;
-                    goto _label_cdivilr_impl;
-                case instruct::extern_opcode_page_0::cdivilrgs:
-                    WO_ADDRESSING_G1;
-                    WO_ADDRESSING_RS2;
-                    goto _label_cdivilr_impl;
-                case instruct::extern_opcode_page_0::cdivilrsg:
-                    WO_ADDRESSING_RS1;
-                    WO_ADDRESSING_G2;
-                    goto _label_cdivilr_impl;
-                case instruct::extern_opcode_page_0::cdivilrss:
-                    WO_ADDRESSING_RS1;
-                    WO_ADDRESSING_RS2;
-                _label_cdivilr_impl:
+                case WO_RSG_ADDRESSING_EXT_CASE(cdivilr):
                     if (opnum2->m_integer == 0)
                         WO_VM_FAIL(WO_FAIL_UNEXPECTED, "The divisor cannot be 0.");
                     else if (opnum2->m_integer == -1 && opnum1->m_integer == INT64_MIN)
@@ -3644,15 +3675,53 @@ namespace wo
                     // Check if stack is overflow.
                     wo_assert(sp <= bp);
                     break;
+                case WO_RSG_ADDRESSING_EXT_CASE(addh):
+                    WO_VM_ASSERT(opnum1->m_type == opnum2->m_type
+                        && opnum1->m_type == value::valuetype::handle_type,
+                        "Operand should be handle in 'addh'.");
+
+                    opnum1->m_handle += opnum2->m_handle;
+                    break;
+                case WO_RSG_ADDRESSING_EXT_CASE(subh):
+                    WO_VM_ASSERT(opnum1->m_type == opnum2->m_type
+                        && opnum1->m_type == value::valuetype::handle_type,
+                        "Operand should be handle in 'subh'.");
+
+                    opnum1->m_handle -= opnum2->m_handle;
+                    break;
+                case WO_RSG_ADDRESSING_EXT_CASE(lth):
+                    WO_VM_ASSERT(opnum1->m_type == value::valuetype::handle_type
+                        && opnum2->m_type == value::valuetype::handle_type,
+                        "Operand should be handle in 'lth'.");
+                    rt_cr->set_bool(opnum1->m_handle < opnum2->m_handle);
+                    break;
+                case WO_RSG_ADDRESSING_EXT_CASE(gth):
+                    WO_VM_ASSERT(opnum1->m_type == value::valuetype::handle_type
+                        && opnum2->m_type == value::valuetype::handle_type,
+                        "Operand should be handle in 'gth'.");
+                    rt_cr->set_bool(opnum1->m_handle > opnum2->m_handle);
+                    break;
+                case WO_RSG_ADDRESSING_EXT_CASE(elth):
+                    WO_VM_ASSERT(opnum1->m_type == value::valuetype::handle_type
+                        && opnum2->m_type == value::valuetype::handle_type,
+                        "Operand should be handle in 'elth'.");
+                    rt_cr->set_bool(opnum1->m_handle <= opnum2->m_handle);
+                    break;
+                case WO_RSG_ADDRESSING_EXT_CASE(egth):
+                    WO_VM_ASSERT(opnum1->m_type == value::valuetype::handle_type
+                        && opnum2->m_type == value::valuetype::handle_type,
+                        "Operand should be handle in 'egth'.");
+                    rt_cr->set_bool(opnum1->m_handle >= opnum2->m_handle);
+                    break;                    
                 default:
-                    wo_error("Unknown instruct.");
+                    wo_unreachable("Bad ir.");
                     break;
                 }
                 break;
             case instruct::opcode::ext1:
             case instruct::opcode::ext2:
             case instruct::opcode::ext3:
-                wo_error("Invalid extern instruct page.");
+                wo_unreachable("Bad ir.");
                 break;
             case instruct::opcode::nop3:
                 ++rt_ip;
@@ -3672,15 +3741,12 @@ namespace wo
                 wo_error("executed 'abrt'.");
                 break;
             default:
+                wo_unreachable("Bad ir.");
+            }
+
+            if (0)
             {
-                --rt_ip;    // Move back one command.
-
-                static_assert(std::is_same_v<decltype(rtopcode), uint32_t>);
-                if ((0xFFFFFF00u & rtopcode) == 0)
-                    wo_error("Unknown instruct.");
-
-                const auto interrupt_state = vm_interrupt.load(std::memory_order_acquire);
-
+            _label_vm_handle_interrupt:
                 if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                 {
                     gc_checkpoint_self_mark();
@@ -3764,9 +3830,8 @@ namespace wo
 
                     // Refetch ip from vm, it may modified by debugger.
                     rt_ip = ip;
-                    rtopcode = *(rt_ip++);
 
-                    goto re_entry_for_interrupt;
+                    goto _label_vm_re_entry;
                 }
                 else
                 {
@@ -3777,7 +3842,6 @@ namespace wo
                 }
 
                 WO_VM_INTERRUPT_CHECKPOINT;
-            }
             }
         }// vm loop end.
 

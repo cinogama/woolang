@@ -1342,14 +1342,14 @@ enum _wo_opcode
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the remainder of `OPNUM1` divided by `OPNUM2`
     //                                      and store the result in `OPNUM1`. Operands should
     //                                      be reals.
-    WO_ADDH = 14,
+    WO_NEGI = 14,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
-    //                                      in `OPNUM1`. Operands should be handles.
-    WO_SUBH = 15,
-    // DRH: Opnum1 desc, DRL: Opnum2 desc
-    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Subtract `OPNUM1` from `OPNUM2` and store the
-    //                                      result in `OPNUM1`. Operands should be handles.
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the negative value of `OPNUM2` and store the result
+    //                                      in `OPNUM1`. Operand should be integer.
+    WO_NEGR = 15,
+    // DRH: Opnum1 desc, DRL: Opnum2 desc   
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Get the negative value of `OPNUM2` and store the result
+    //                                      in `OPNUM1`. Operand should be real.
     WO_ADDS = 16,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Concatenate `OPNUM2` to `OPNUM1` and store the
@@ -1415,26 +1415,26 @@ enum _wo_opcode
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` or `OPNUM2` are true, store true in
     //                                      register(cr), otherwise store false.
-    WO_LTX = 31,
+    WO_LTS = 31,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than `OPNUM2`, store true in
     //                                      register(cr), otherwise store false. The type of `OPNUM1`
-    //                                      and `OPNUM2` should be the same.
-    WO_GTX = 32,
+    //                                      and `OPNUM2` should be string.
+    WO_GTS = 32,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than `OPNUM2`, store true in
     //                                      register(cr), otherwise store false. The type of `OPNUM1`
-    //                                      and `OPNUM2` should be the same.
-    WO_ELTX = 33,
+    //                                      and `OPNUM2` should be string.
+    WO_ELTS = 33,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than or equal to `OPNUM2`, store
     //                                      true in register(cr), otherwise store false. The type of
-    //                                      `OPNUM1` and `OPNUM2` should be the same.
-    WO_EGTX = 34,
+    //                                      `OPNUM1` and `OPNUM2` should be string.
+    WO_EGTS = 34,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than or equal to `OPNUM2`, store
     //                                      true in register(cr), otherwise store false. The type of
-    //                                      `OPNUM1` and `OPNUM2` should be the same.
+    //                                      `OPNUM1` and `OPNUM2` should be string.
     WO_LTR = 35,
     // DRH: Opnum1 desc, DRL: Opnum2 desc
     // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than `OPNUM2`, store true in
@@ -1627,6 +1627,34 @@ enum _wo_opcode_ext0
     // DRH: Opnum1 desc
     // DRL: 0
     // -- No OPNUM --                       Pop N values from stack, N is the value of Opnum1.
+    WO_ADDH = 7,
+    // DRH: Opnum1 desc, DRL: Opnum2 desc
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Add `OPNUM2` to `OPNUM1` and store the result
+    //                                      in `OPNUM1`. Operands should be handles.
+    WO_SUBH = 8,
+    // DRH: Opnum1 desc, DRL: Opnum2 desc
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       Subtract `OPNUM1` from `OPNUM2` and store the
+    //                                      result in `OPNUM1`. Operands should be handles.
+    WO_LTH = 9,
+    // DRH: Opnum1 desc, DRL: Opnum2 desc
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than `OPNUM2`, store true in
+    //                                      register(cr), otherwise store false. Type of `OPNUM1`
+    //                                      & `OPNUM2` should be handle.
+    WO_GTH = 10,
+    // DRH: Opnum1 desc, DRL: Opnum2 desc
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than `OPNUM2`, store true in
+    //                                      register(cr), otherwise store false. Type of `OPNUM1`
+    //                                      & `OPNUM2` should be handle.
+    WO_ELTH = 11,
+    // DRH: Opnum1 desc, DRL: Opnum2 desc
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` less than or equal to `OPNUM2`, store
+    //                                      true in register(cr), otherwise store false. Type of
+    //                                      `OPNUM1` & `OPNUM2` should be handle.
+    WO_EGTH = 12,
+    // DRH: Opnum1 desc, DRL: Opnum2 desc
+    // OPNUM1: RS/GLB  OPNUM2: RS/GLB       If `OPNUM1` greater than or equal to `OPNUM2`, store
+    //                                      true in register(cr), otherwise store false. Type of
+    //                                      `OPNUM1` & `OPNUM2` should be handle.
 };
 
 enum _wo_opcode_ext3

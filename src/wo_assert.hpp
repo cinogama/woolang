@@ -56,3 +56,13 @@ void _wo_warning(
 
 #define wo_error(REASON) ((void)_wo_assert(__FILE__, __LINE__, __func__, "Runtime error:" , REASON))
 #define wo_warning(REASON) ((void)_wo_warning(__FILE__, __LINE__, __func__, "Runtime warning." , REASON))
+
+#ifdef NDEBUG
+#   ifdef _MSC_VER
+#       define wo_unreachable(REASON) __assume(false)
+#   else
+#       define wo_unreachable(REASON) __builtin_unreachable()
+#   endif
+#else
+#   define wo_unreachable wo_error
+#endif

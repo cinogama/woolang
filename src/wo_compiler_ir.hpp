@@ -771,7 +771,30 @@ namespace wo
                 WO_PUT_IR_TO_BUFFER(instruct::opcode::pop, WO_OPNUM(op1));
             }
         }
+        template<typename OP1T, typename OP2T>
+        void negi(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
 
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not add value to immediate.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::negi, WO_OPNUM(op1), WO_OPNUM(op2));
+        }
+        template<typename OP1T, typename OP2T>
+        void negr(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not add value to immediate.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::negr, WO_OPNUM(op1), WO_OPNUM(op2));
+        }
         template<typename OP1T, typename OP2T>
         void addi(const OP1T& op1, const OP2T& op2)
         {
@@ -784,7 +807,6 @@ namespace wo
 
             WO_PUT_IR_TO_BUFFER(instruct::opcode::addi, WO_OPNUM(op1), WO_OPNUM(op2));
         }
-
         template<typename OP1T, typename OP2T>
         void subi(const OP1T& op1, const OP2T& op2)
         {
@@ -945,31 +967,6 @@ namespace wo
         }
 
         template<typename OP1T, typename OP2T>
-        void addh(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not add value to immediate.");
-
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::addh, WO_OPNUM(op1), WO_OPNUM(op2));
-        }
-        template<typename OP1T, typename OP2T>
-        void subh(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not sub value to immediate.");
-
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::subh, WO_OPNUM(op1), WO_OPNUM(op2));
-        }
-
-        template<typename OP1T, typename OP2T>
         void adds(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
@@ -1096,42 +1093,42 @@ namespace wo
         }
 
         template<typename OP1T, typename OP2T>
-        void ltx(const OP1T& op1, const OP2T& op2)
+        void lts(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::ltx, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::lts, WO_OPNUM(op1), WO_OPNUM(op2));
         }
 
         template<typename OP1T, typename OP2T>
-        void gtx(const OP1T& op1, const OP2T& op2)
+        void gts(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::gtx, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::gts, WO_OPNUM(op1), WO_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
-        void eltx(const OP1T& op1, const OP2T& op2)
+        void elts(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::eltx, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::elts, WO_OPNUM(op1), WO_OPNUM(op2));
         }
 
         template<typename OP1T, typename OP2T>
-        void egtx(const OP1T& op1, const OP2T& op2)
+        void egts(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::egtx, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::egts, WO_OPNUM(op1), WO_OPNUM(op2));
         }
 
         template<typename OP1T, typename OP2T>
@@ -1526,6 +1523,73 @@ namespace wo
 
             WO_PUT_IR_TO_BUFFER(
                 instruct::opcode::unpack, WO_OPNUM(op1), nullptr, unpack_count);
+        }
+
+        template<typename OP1T, typename OP2T>
+        void ext_addh(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
+                std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::addh;
+        }
+        template<typename OP1T, typename OP2T>
+        void ext_subh(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
+                std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::subh;
+        }
+        template<typename OP1T, typename OP2T>
+        void ext_lth(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
+                std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::lth;
+        }
+        template<typename OP1T, typename OP2T>
+        void ext_gth(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
+                std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::gth;
+        }
+        template<typename OP1T, typename OP2T>
+        void ext_elth(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
+                std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::elth;
+        }
+        template<typename OP1T, typename OP2T>
+        void ext_egth(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
+                std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::egth;
         }
 
         template<typename OP1T, typename OP2T>

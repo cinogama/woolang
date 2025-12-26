@@ -2256,7 +2256,7 @@ namespace wo
                                 m_ircontext.c().addr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             case lang_TypeInstance::DeterminedType::HANDLE:
-                                m_ircontext.c().addh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                m_ircontext.c().ext_addh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             case lang_TypeInstance::DeterminedType::STRING:
                                 m_ircontext.c().adds(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
@@ -2276,7 +2276,7 @@ namespace wo
                                 m_ircontext.c().subr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             case lang_TypeInstance::DeterminedType::HANDLE:
-                                m_ircontext.c().subh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                m_ircontext.c().ext_subh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2345,8 +2345,10 @@ namespace wo
                                 m_ircontext.c().gtr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             case lang_TypeInstance::DeterminedType::HANDLE:
+                                m_ircontext.c().ext_gth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().gtx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                m_ircontext.c().gts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2363,8 +2365,10 @@ namespace wo
                                 m_ircontext.c().egtr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             case lang_TypeInstance::DeterminedType::HANDLE:
+                                m_ircontext.c().ext_egth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().egtx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                m_ircontext.c().egts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2381,8 +2385,10 @@ namespace wo
                                 m_ircontext.c().ltr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             case lang_TypeInstance::DeterminedType::HANDLE:
+                                m_ircontext.c().ext_lth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().ltx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                m_ircontext.c().lts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2399,8 +2405,10 @@ namespace wo
                                 m_ircontext.c().eltr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             case lang_TypeInstance::DeterminedType::HANDLE:
+                                m_ircontext.c().ext_elth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().eltx(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                m_ircontext.c().elts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2525,37 +2533,19 @@ namespace wo
                     case AstValueUnaryOperator::NEGATIVE:
                     {
                         opnum::opnumbase* target_result_opnum = nullptr;
-
-                        m_ircontext.try_keep_opnum_temporary_register(opnum_to_unary
-                            WO_BORROW_TEMPORARY_FROM_SP(node));
-
-                        if (nullptr == dynamic_cast<opnum::temporary*>(opnum_to_unary))
-                        {
-                            // Is not temporary register, we need keep it.
-                            auto* borrow_reg = m_ircontext.borrow_opnum_temporary_register(
-                                WO_BORROW_TEMPORARY_FROM(node));
-
-                            m_ircontext.c().mov(
-                                WO_OPNUM(borrow_reg),
-                                WO_OPNUM(opnum_to_unary));
-
-                            // Try free the old `opnum_to_unary`, new one will be freed later.
-                            m_ircontext.try_return_opnum_temporary_register(opnum_to_unary);
-
-                            opnum_to_unary = borrow_reg;
-                        }
-
                         if (target_storage.has_value())
                             target_result_opnum = target_storage.value();
                         else
                         {
+                            m_ircontext.try_keep_opnum_temporary_register(opnum_to_unary
+                                WO_BORROW_TEMPORARY_FROM_SP(node));
+
                             target_result_opnum = m_ircontext.borrow_opnum_temporary_register(
                                 WO_BORROW_TEMPORARY_FROM(node));
                             result.set_result(m_ircontext, target_result_opnum);
-                        }
 
-                        // Free it after use.
-                        m_ircontext.try_return_opnum_temporary_register(opnum_to_unary);
+                            m_ircontext.try_return_opnum_temporary_register(opnum_to_unary);
+                        }
 
                         lang_TypeInstance* operand_type_instance =
                             node->m_operand->m_LANG_determined_type.value();
@@ -2566,14 +2556,16 @@ namespace wo
                         {
                         case lang_TypeInstance::DeterminedType::INTEGER:
                         {
-                            m_ircontext.c().mov(WO_OPNUM(target_result_opnum), WO_OPNUM(m_ircontext.opnum_imm_int(0)));
-                            m_ircontext.c().subi(WO_OPNUM(target_result_opnum), WO_OPNUM(opnum_to_unary));
+                            m_ircontext.c().negi(
+                                WO_OPNUM(target_result_opnum), 
+                                WO_OPNUM(opnum_to_unary));
                             break;
                         }
                         case lang_TypeInstance::DeterminedType::REAL:
                         {
-                            m_ircontext.c().mov(WO_OPNUM(target_result_opnum), WO_OPNUM(m_ircontext.opnum_imm_real(0.)));
-                            m_ircontext.c().subr(WO_OPNUM(target_result_opnum), WO_OPNUM(opnum_to_unary));
+                            m_ircontext.c().negr(
+                                WO_OPNUM(target_result_opnum), 
+                                WO_OPNUM(opnum_to_unary));
                             break;
                         }
                         default:
@@ -3242,8 +3234,10 @@ namespace wo
                                     WO_OPNUM(m_ircontext.opnum_imm_int(storage.m_index)));
                             }
 
-                            lang_TypeInstance* assign_type_instance = assign_var->m_variable->m_LANG_determined_type.value();
-                            auto* determined_assign_type = assign_type_instance->get_determined_type().value();
+                            lang_TypeInstance* assign_type_instance = 
+                                assign_var->m_variable->m_LANG_determined_type.value();
+                            auto* determined_assign_type = 
+                                assign_type_instance->get_determined_type().value();
 
                             switch (node->m_assign_type)
                             {
@@ -3261,7 +3255,7 @@ namespace wo
                                         WO_OPNUM(right_value_result));
                                     break;
                                 case lang_TypeInstance::DeterminedType::HANDLE:
-                                    m_ircontext.c().addh(
+                                    m_ircontext.c().ext_addh(
                                         WO_OPNUM(assign_expr_result_opnum),
                                         WO_OPNUM(right_value_result));
                                     break;
@@ -3284,7 +3278,7 @@ namespace wo
                                         WO_OPNUM(right_value_result));
                                     break;
                                 case lang_TypeInstance::DeterminedType::HANDLE:
-                                    m_ircontext.c().subh(
+                                    m_ircontext.c().ext_subh(
                                         WO_OPNUM(assign_expr_result_opnum),
                                         WO_OPNUM(right_value_result));
                                     break;
@@ -3447,7 +3441,7 @@ namespace wo
                                         WO_OPNUM(right_value_result));
                                     break;
                                 case lang_TypeInstance::DeterminedType::HANDLE:
-                                    m_ircontext.c().addh(
+                                    m_ircontext.c().ext_addh(
                                         WO_OPNUM(assign_expr_result_opnum),
                                         WO_OPNUM(right_value_result));
                                     break;
@@ -3470,7 +3464,7 @@ namespace wo
                                         WO_OPNUM(right_value_result));
                                     break;
                                 case lang_TypeInstance::DeterminedType::HANDLE:
-                                    m_ircontext.c().subh(
+                                    m_ircontext.c().ext_subh(
                                         WO_OPNUM(assign_expr_result_opnum),
                                         WO_OPNUM(right_value_result));
                                     break;

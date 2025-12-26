@@ -5,11 +5,11 @@
 #undef FAILED
 
 /*
-ATTENTION: Under no circumstances should you read ip/sp/bp from 
+ATTENTION: Under no circumstances should you read ip/sp/bp from
         the VM instance; these are write-only for JIT.
 
-Since version 1.14.14, all immediate JIT calls are executed via 
-callnjit. These calls do not require updating sp/bp/ip, so reading 
+Since version 1.14.14, all immediate JIT calls are executed via
+callnjit. These calls do not require updating sp/bp/ip, so reading
 these values from the VM often yields incorrect results.
 */
 
@@ -117,9 +117,9 @@ WO_ASMJIT_IR_ITERFACE_DECL(addr);\
 WO_ASMJIT_IR_ITERFACE_DECL(subr);\
 WO_ASMJIT_IR_ITERFACE_DECL(mulr);\
 WO_ASMJIT_IR_ITERFACE_DECL(divr);\
+WO_ASMJIT_IR_ITERFACE_DECL(negi);\
+WO_ASMJIT_IR_ITERFACE_DECL(negr);\
 WO_ASMJIT_IR_ITERFACE_DECL(modr);\
-WO_ASMJIT_IR_ITERFACE_DECL(addh);\
-WO_ASMJIT_IR_ITERFACE_DECL(subh);\
 WO_ASMJIT_IR_ITERFACE_DECL(adds);\
 WO_ASMJIT_IR_ITERFACE_DECL(psh);\
 WO_ASMJIT_IR_ITERFACE_DECL(pop);\
@@ -136,10 +136,10 @@ WO_ASMJIT_IR_ITERFACE_DECL(egti);\
 WO_ASMJIT_IR_ITERFACE_DECL(land);\
 WO_ASMJIT_IR_ITERFACE_DECL(lor);\
 WO_ASMJIT_IR_ITERFACE_DECL(sidmap);\
-WO_ASMJIT_IR_ITERFACE_DECL(ltx);\
-WO_ASMJIT_IR_ITERFACE_DECL(gtx);\
-WO_ASMJIT_IR_ITERFACE_DECL(eltx);\
-WO_ASMJIT_IR_ITERFACE_DECL(egtx);\
+WO_ASMJIT_IR_ITERFACE_DECL(lts);\
+WO_ASMJIT_IR_ITERFACE_DECL(gts);\
+WO_ASMJIT_IR_ITERFACE_DECL(elts);\
+WO_ASMJIT_IR_ITERFACE_DECL(egts);\
 WO_ASMJIT_IR_ITERFACE_DECL(ltr);\
 WO_ASMJIT_IR_ITERFACE_DECL(gtr);\
 WO_ASMJIT_IR_ITERFACE_DECL(eltr);\
@@ -182,6 +182,12 @@ virtual bool ir_##IRNAME(CompileContextT* ctx, unsigned int dr, const byte_t*& r
         virtual bool ir_ext_cdivirz(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_cdivir(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_popn(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_addh(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_subh(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_lth(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_gth(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_elth(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
+        virtual bool ir_ext_egth(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
 
         virtual void ir_make_checkpoint_fastcheck(CompileContextT* ctx, const byte_t*& rt_ip) = 0;
         virtual void ir_make_checkpoint_normalcheck(
@@ -695,7 +701,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
             const wo_result_t func_call_result = call_aim_native_func(
-                reinterpret_cast<wo_vm>(vm), 
+                reinterpret_cast<wo_vm>(vm),
                 std::launder(reinterpret_cast<wo_value>(rt_sp + 2)));
             if (func_call_result == WO_API_RESYNC_JIT_STATE_TO_VM_STATE)
             {
@@ -723,7 +729,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
             const wo_result_t func_call_result = call_aim_native_func(
-                reinterpret_cast<wo_vm>(vm), 
+                reinterpret_cast<wo_vm>(vm),
                 std::launder(reinterpret_cast<wo_value>(rt_sp + 2)));
             if (func_call_result == WO_API_RESYNC_JIT_STATE_TO_VM_STATE)
             {
@@ -1733,38 +1739,6 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             wo_assure(!ctx->c.movsd(asmjit::x86::ptr(op1, offsetof(value, m_real)), real_result));
             return true;
         }
-        virtual bool ir_addh(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
-        {
-            WO_JIT_ADDRESSING_N1;
-            WO_JIT_ADDRESSING_N2;
-
-            if (opnum2.is_constant_h32())
-                wo_assure(!ctx->c.add(
-                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)), opnum2.const_value()->m_handle));
-            else
-            {
-                auto handle_of_op2 = ctx->c.newUInt64();
-                wo_assure(!ctx->c.mov(handle_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_handle))));
-                wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)), handle_of_op2));
-            }
-            return true;
-        }
-        virtual bool ir_subh(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
-        {
-            WO_JIT_ADDRESSING_N1;
-            WO_JIT_ADDRESSING_N2;
-
-            if (opnum2.is_constant_h32())
-                wo_assure(!ctx->c.sub(
-                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)), opnum2.const_value()->m_handle));
-            else
-            {
-                auto handle_of_op2 = ctx->c.newUInt64();
-                wo_assure(!ctx->c.mov(handle_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_handle))));
-                wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)), handle_of_op2));
-            }
-            return true;
-        }
         virtual bool ir_adds(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             WO_JIT_ADDRESSING_N1;
@@ -2104,87 +2078,80 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // <=
-
-            auto x86_cmp_fail = ctx->c.newLabel();
-            auto x86_cmp_end = ctx->c.newLabel();
+            auto result_reg = ctx->c.newInt64();
+            wo_assure(!ctx->c.xor_(result_reg, result_reg));
 
             if (opnum1.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(
-                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)),
-                    opnum1.const_value()->m_integer));
-                ctx->c.jle(x86_cmp_fail);
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(
+                    opnum2.gp_value(), offsetof(value, m_integer)), opnum1.const_value()->m_integer));
+                wo_assure(!ctx->c.setge(result_reg.r8())); // op2 >= const => const <= op2
             }
             else if (opnum2.is_constant_i32())
             {
-                wo_assure(!ctx->c.cmp(
-                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)),
-                    opnum2.const_value()->m_integer));
-                ctx->c.jg(x86_cmp_fail);
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(
+                    opnum1.gp_value(), offsetof(value, m_integer)), opnum2.const_value()->m_integer));
+                wo_assure(!ctx->c.setle(result_reg.r8()));
             }
             else
             {
                 auto int_of_op1 = ctx->c.newInt64();
+
                 wo_assure(!ctx->c.mov(
                     int_of_op1,
                     asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
                 wo_assure(!ctx->c.cmp(
                     int_of_op1,
                     asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
-                ctx->c.jg(x86_cmp_fail);
+                wo_assure(!ctx->c.setle(result_reg.r8()));
             }
 
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 1));
-            ctx->c.jmp(x86_cmp_end);
-            ctx->c.bind(x86_cmp_fail);
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 0));
-            ctx->c.bind(x86_cmp_end);
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type);
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
             return true;
         }
         virtual bool ir_egti(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+
         {
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            // >=
-
-            auto x86_cmp_fail = ctx->c.newLabel();
-            auto x86_cmp_end = ctx->c.newLabel();
+            auto result_reg = ctx->c.newInt64();
+            wo_assure(!ctx->c.xor_(result_reg, result_reg));
 
             if (opnum1.is_constant_i32())
             {
                 wo_assure(!ctx->c.cmp(
                     asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer)),
                     opnum1.const_value()->m_integer));
-                ctx->c.jge(x86_cmp_fail);
+                wo_assure(!ctx->c.setle(result_reg.r8())); // op2 <= const => const >= op2
             }
             else if (opnum2.is_constant_i32())
             {
                 wo_assure(!ctx->c.cmp(
                     asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)),
                     opnum2.const_value()->m_integer));
-                ctx->c.jl(x86_cmp_fail);
+                wo_assure(!ctx->c.setge(result_reg.r8()));
             }
             else
             {
                 auto int_of_op1 = ctx->c.newInt64();
+
                 wo_assure(!ctx->c.mov(
                     int_of_op1,
                     asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
                 wo_assure(!ctx->c.cmp(
                     int_of_op1,
                     asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_integer))));
-                ctx->c.jl(x86_cmp_fail);
+                wo_assure(!ctx->c.setge(result_reg.r8()));
             }
 
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 1));
-            ctx->c.jmp(x86_cmp_end);
-            ctx->c.bind(x86_cmp_fail);
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), 0));
-            ctx->c.bind(x86_cmp_end);
-            ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type);
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer))
+                , result_reg));
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)),
+                (uint8_t)value::valuetype::bool_type));
 
             return true;
         }
@@ -2317,8 +2284,33 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
             return true;
         }
+        virtual bool ir_negi(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
 
-        virtual bool ir_ltx(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+            auto int_of_op1 = ctx->c.newInt64();
+            wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
+            wo_assure(!ctx->c.neg(int_of_op1));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), int_of_op1));
+            return true;
+        }
+        virtual bool ir_negr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto zero = ctx->c.newXmm();
+            wo_assure(!ctx->c.xorpd(zero, zero));
+
+            auto real_of_op2 = ctx->c.newXmm();
+            wo_assure(!ctx->c.movsd(real_of_op2, asmjit::x86::ptr(opnum2.gp_value(), offsetof(value, m_real))));
+            wo_assure(!ctx->c.subsd(zero, real_of_op2));
+
+            wo_assure(!ctx->c.movsd(asmjit::x86::ptr(opnum1.gp_value(), offsetof(value, m_real)), zero));
+            return true;
+        }
+        virtual bool ir_lts(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
@@ -2336,7 +2328,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
             return true;
         }
-        virtual bool ir_gtx(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        virtual bool ir_gts(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
@@ -2354,7 +2346,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
             return true;
         }
-        virtual bool ir_eltx(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        virtual bool ir_elts(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
@@ -2372,7 +2364,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
             return true;
         }
-        virtual bool ir_egtx(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        virtual bool ir_egts(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
         {
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
@@ -2708,7 +2700,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             WO_JIT_ADDRESSING_N2;
 
             write_barrier_for_opnum1_if_write_global(ctx, opnum1, dr);
-            
+
             // Cast opnum2(integer) to real
             auto cast_result = ctx->c.newXmm();
 
@@ -3362,6 +3354,204 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                 asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
             wo_assure(!ctx->c.shl(pop_count, asmjit::Imm(4)));
             wo_assure(!ctx->c.lea(ctx->_vmssp, asmjit::x86::qword_ptr(ctx->_vmssp, pop_count)));
+
+            return true;
+        }
+        virtual bool ir_ext_addh(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            if (opnum2.is_constant_h32())
+                wo_assure(!ctx->c.add(
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)), opnum2.const_value()->m_handle));
+            else
+            {
+                auto handle_of_op2 = ctx->c.newUInt64();
+                wo_assure(!ctx->c.mov(handle_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_handle))));
+                wo_assure(!ctx->c.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)), handle_of_op2));
+            }
+            return true;
+
+        }
+        virtual bool ir_ext_subh(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip) override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            if (opnum2.is_constant_h32())
+                wo_assure(!ctx->c.sub(
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)), opnum2.const_value()->m_handle));
+            else
+            {
+                auto handle_of_op2 = ctx->c.newUInt64();
+                wo_assure(!ctx->c.mov(handle_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_handle))));
+                wo_assure(!ctx->c.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)), handle_of_op2));
+            }
+            return true;
+        }
+        virtual bool ir_ext_lth(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto result_reg = ctx->c.newUInt64();
+            wo_assure(!ctx->c.xor_(result_reg, result_reg));
+
+            if (opnum1.is_constant_h32())
+            {
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(
+                    opnum2.gp_value(), offsetof(value, m_handle)), opnum1.const_value()->m_handle));
+                wo_assure(!ctx->c.seta(result_reg.r8())); // op2 > const => const < op2
+            }
+            else if (opnum2.is_constant_h32())
+            {
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(
+                    opnum1.gp_value(), offsetof(value, m_handle)), opnum2.const_value()->m_handle));
+                wo_assure(!ctx->c.setb(result_reg.r8()));
+            }
+            else
+            {
+                auto int_of_op1 = ctx->c.newInt64();
+
+                wo_assure(!ctx->c.mov(
+                    int_of_op1,
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle))));
+                wo_assure(!ctx->c.cmp(
+                    int_of_op1,
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_handle))));
+                wo_assure(!ctx->c.setb(result_reg.r8()));
+            }
+
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
+            return true;
+        }
+        virtual bool ir_ext_gth(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto result_reg = ctx->c.newInt64();
+            wo_assure(!ctx->c.xor_(result_reg, result_reg));
+
+            if (opnum1.is_constant_i32())
+            {
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_handle)),
+                    opnum1.const_value()->m_handle));
+                wo_assure(!ctx->c.setb(result_reg.r8())); // op2 < const => const > op2
+            }
+            else if (opnum2.is_constant_i32())
+            {
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)),
+                    opnum2.const_value()->m_handle));
+                wo_assure(!ctx->c.seta(result_reg.r8()));
+            }
+            else
+            {
+                auto int_of_op1 = ctx->c.newInt64();
+
+                wo_assure(!ctx->c.mov(
+                    int_of_op1,
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle))));
+                wo_assure(!ctx->c.cmp(
+                    int_of_op1,
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_handle))));
+                wo_assure(!ctx->c.seta(result_reg.r8()));
+            }
+
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer))
+                , result_reg));
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)),
+                (uint8_t)value::valuetype::bool_type));
+
+            return true;
+        }
+        virtual bool ir_ext_elth(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto result_reg = ctx->c.newInt64();
+            wo_assure(!ctx->c.xor_(result_reg, result_reg));
+
+            if (opnum1.is_constant_i32())
+            {
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(
+                    opnum2.gp_value(), offsetof(value, m_handle)), opnum1.const_value()->m_handle));
+                wo_assure(!ctx->c.setae(result_reg.r8())); // op2 >= const => const <= op2
+            }
+            else if (opnum2.is_constant_i32())
+            {
+                wo_assure(!ctx->c.cmp(asmjit::x86::qword_ptr(
+                    opnum1.gp_value(), offsetof(value, m_handle)), opnum2.const_value()->m_handle));
+                wo_assure(!ctx->c.setbe(result_reg.r8()));
+            }
+            else
+            {
+                auto int_of_op1 = ctx->c.newInt64();
+
+                wo_assure(!ctx->c.mov(
+                    int_of_op1,
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle))));
+                wo_assure(!ctx->c.cmp(
+                    int_of_op1,
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_handle))));
+                wo_assure(!ctx->c.setbe(result_reg.r8()));
+            }
+
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer)), result_reg));
+            wo_assure(!ctx->c.mov(asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)), (uint8_t)value::valuetype::bool_type));
+            return true;
+        }
+        virtual bool ir_ext_egth(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
+
+        {
+            WO_JIT_ADDRESSING_N1;
+            WO_JIT_ADDRESSING_N2;
+
+            auto result_reg = ctx->c.newInt64();
+            wo_assure(!ctx->c.xor_(result_reg, result_reg));
+
+            if (opnum1.is_constant_i32())
+            {
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_handle)),
+                    opnum1.const_value()->m_handle));
+                wo_assure(!ctx->c.setbe(result_reg.r8())); // op2 <= const => const >= op2
+            }
+            else if (opnum2.is_constant_i32())
+            {
+                wo_assure(!ctx->c.cmp(
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)),
+                    opnum2.const_value()->m_handle));
+                wo_assure(!ctx->c.setae(result_reg.r8()));
+            }
+            else
+            {
+                auto int_of_op1 = ctx->c.newInt64();
+
+                wo_assure(!ctx->c.mov(
+                    int_of_op1,
+                    asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle))));
+                wo_assure(!ctx->c.cmp(
+                    int_of_op1,
+                    asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_handle))));
+                wo_assure(!ctx->c.setae(result_reg.r8()));
+            }
+
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer))
+                , result_reg));
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)),
+                (uint8_t)value::valuetype::bool_type));
 
             return true;
         }

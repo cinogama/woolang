@@ -2181,6 +2181,16 @@ namespace wo
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
+                case instruct::opcode::negi:
+                    generated_runtime_code_buf.push_back(WO_OPCODE(negi));
+                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    break;
+                case instruct::opcode::negr:
+                    generated_runtime_code_buf.push_back(WO_OPCODE(negr));
+                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                    break;
                 case instruct::opcode::addi:
                     generated_runtime_code_buf.push_back(WO_OPCODE(addi));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
@@ -2255,16 +2265,6 @@ namespace wo
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
-                case instruct::opcode::addh:
-                    generated_runtime_code_buf.push_back(WO_OPCODE(addh));
-                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
-                    WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
-                    break;
-                case instruct::opcode::subh:
-                    generated_runtime_code_buf.push_back(WO_OPCODE(subh));
-                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
-                    WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
-                    break;
                 case instruct::opcode::adds:
                     generated_runtime_code_buf.push_back(WO_OPCODE(adds));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
@@ -2333,23 +2333,23 @@ namespace wo
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
 
-                case instruct::opcode::gtx:
-                    generated_runtime_code_buf.push_back(WO_OPCODE(gtx));
+                case instruct::opcode::gts:
+                    generated_runtime_code_buf.push_back(WO_OPCODE(gts));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
-                case instruct::opcode::ltx:
-                    generated_runtime_code_buf.push_back(WO_OPCODE(ltx));
+                case instruct::opcode::lts:
+                    generated_runtime_code_buf.push_back(WO_OPCODE(lts));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
-                case instruct::opcode::egtx:
-                    generated_runtime_code_buf.push_back(WO_OPCODE(egtx));
+                case instruct::opcode::egts:
+                    generated_runtime_code_buf.push_back(WO_OPCODE(egts));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
-                case instruct::opcode::eltx:
-                    generated_runtime_code_buf.push_back(WO_OPCODE(eltx));
+                case instruct::opcode::elts:
+                    generated_runtime_code_buf.push_back(WO_OPCODE(elts));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
@@ -2667,6 +2667,48 @@ namespace wo
                         {
                             generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(popn));
                             WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::addh:
+                        {
+                            generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(addh));
+                            WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::subh:
+                        {
+                            generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(subh));
+                            WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::lth:
+                        {
+                            generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(lth));
+                            WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::gth:
+                        {
+                            generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(gth));
+                            WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::elth:
+                        {
+                            generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(elth));
+                            WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::egth:
+                        {
+                            generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(egth));
+                            WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
+                            WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
                             break;
                         }
                         default:
