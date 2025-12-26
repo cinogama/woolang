@@ -664,6 +664,7 @@ namespace wo
 
         void ret() noexcept;
         void retn(fixed_unsigned<16> count_u16) noexcept;
+        void loadret(rs_adrsing8 dst_rs8, fixed_unsigned<16> pop_count_u16) noexcept;
 
         void calln(Label* label) noexcept;
         void callnfp(wo_native_func_t extfunc) noexcept;

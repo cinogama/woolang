@@ -1397,10 +1397,10 @@ enum _wo_irv2
     //           10 [  Near wo-code abs addr ] // JMPFGC
     //           11 [  Near wo-code abs addr ] // JMPTGC
     WO_RET,
-    //  RET      00 00000000 00000000 00000000
-    //           01 [PopC8b] 00000000 00000000
-    //           10 00000000 [PopCount 16bits]
-    //           ======== RESERVED ========
+    //  RET      00 00000000 00000000 00000000  // RET
+    //           01 [PopC8b] 00000000 00000000  // RETN
+    //           10 00000000 [PopCount 16bits]  // RETN16
+    //           11 [R/SAds] [PopCount 16bits]  // LOADRET
     WO_CALLN,
     //  CALLN    00 [ Function offset 24bits ] 0                          CALLNWO
     //           01 ======== RESERVED ========

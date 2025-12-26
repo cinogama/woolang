@@ -1976,6 +1976,9 @@ namespace wo
 #define _WO_CMD24_I8_16(I8)                             \
     (_WO_UI8(I8) << 16)
 
+#define _WO_CMD24_I8_U16(I8, U16)                       \
+    ((_WO_UI8(I8) << 16) | _WO_UI16(U16))
+
 #define _WO_CMD24_I8_I8_8(I8A, I8B)                     \
     ((_WO_UI8(I8A) << 16) | (_WO_UI8(I8B) << 8))
 
@@ -2875,6 +2878,20 @@ namespace wo
             emit(_WO_EMIT_OP8_CMD(RET, 2,
                 _WO_CMD24_8_U16(count_u16.m_val)));
         }
+    }
+    void IRBuilder::loadret(rs_adrsing8 dst_rs8, fixed_unsigned<16> pop_count_u16) noexcept
+    {
+        if (pop_count_u16.m_val == 0)
+        {
+            mov(dst_rs8, IRBuilder::rs_adrsing8(WO_REG_CR));
+        }
+        else
+        {
+            emit(_WO_EMIT_OP8_CMD(
+                RET, 3, _WO_CMD24_I8_U16(
+                    dst_rs8.m_val, pop_count_u16.m_val)));
+        }
+
     }
 
     void IRBuilder::calln(Label* label) noexcept
