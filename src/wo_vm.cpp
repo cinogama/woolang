@@ -2457,73 +2457,74 @@ namespace wo
         idstruct,
         mkcontain,
         mkunion,
-        ext0 pack,
+        pack,
 
         Note that instructions like addi and addr do not require write barrier checks
         because they explicitly specify that the operand's type is a primitive type.
         */
-#define WO_WRITE_CHECK_FOR_GLOBAL(VAL)          \
-        if (wo::gc::gc_is_marking())            \
+#define WO_WRITE_CHECK_FOR_GLOBAL(VAL)                          \
+        if (wo::gc::gc_is_marking())                            \
             wo::value::write_barrier(VAL)
-#define WO_RSG_ADDRESSING_WRITE_OP1_CASE(CODE)  \
-        instruct::opcode::CODE##gg:             \
-            WO_ADDRESSING_G1;                   \
-            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);  \
-            WO_ADDRESSING_G2;                   \
-            goto _label_##CODE##_impl;          \
-        case instruct::opcode::CODE##gs:        \
-            WO_ADDRESSING_G1;                   \
-            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);  \
-            WO_ADDRESSING_RS2;                  \
-            goto _label_##CODE##_impl;          \
-        case instruct::opcode::CODE##sg:        \
-            WO_ADDRESSING_RS1;                  \
-            WO_ADDRESSING_G2;                   \
-            goto _label_##CODE##_impl;          \
-        case instruct::opcode::CODE##ss:        \
-            WO_ADDRESSING_RS1;                  \
-            WO_ADDRESSING_RS2;                  \
+
+#define WO_RSG_ADDRESSING_WRITE_OP1_CASE(CODE)                  \
+        instruct::opcode::CODE##gg:                             \
+            WO_ADDRESSING_G1;                                   \
+            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);                  \
+            WO_ADDRESSING_G2;                                   \
+            goto _label_##CODE##_impl;                          \
+        case instruct::opcode::CODE##gs:                        \
+            WO_ADDRESSING_G1;                                   \
+            WO_WRITE_CHECK_FOR_GLOBAL(opnum1);                  \
+            WO_ADDRESSING_RS2;                                  \
+            goto _label_##CODE##_impl;                          \
+        case instruct::opcode::CODE##sg:                        \
+            WO_ADDRESSING_RS1;                                  \
+            WO_ADDRESSING_G2;                                   \
+            goto _label_##CODE##_impl;                          \
+        case instruct::opcode::CODE##ss:                        \
+            WO_ADDRESSING_RS1;                                  \
+            WO_ADDRESSING_RS2;                                  \
         _label_##CODE##_impl
 
-#define WO_RSG_ADDRESSING_EXT_CASE(CODE)                \
-        instruct::extern_opcode_page_0::CODE##gg:       \
-            WO_ADDRESSING_G1;                           \
-            WO_ADDRESSING_G2;                           \
-            goto _label_ext0_##CODE##_impl;             \
-        case instruct::extern_opcode_page_0::CODE##gs:  \
-            WO_ADDRESSING_G1;                           \
-            WO_ADDRESSING_RS2;                          \
-            goto _label_ext0_##CODE##_impl;             \
-        case instruct::extern_opcode_page_0::CODE##sg:  \
-            WO_ADDRESSING_RS1;                          \
-            WO_ADDRESSING_G2;                           \
-            goto _label_ext0_##CODE##_impl;             \
-        case instruct::extern_opcode_page_0::CODE##ss:  \
-            WO_ADDRESSING_RS1;                          \
-            WO_ADDRESSING_RS2;                          \
+#define WO_RSG_ADDRESSING_EXT_CASE(CODE)                        \
+        instruct::extern_opcode_page_0::CODE##gg:               \
+            WO_ADDRESSING_G1;                                   \
+            WO_ADDRESSING_G2;                                   \
+            goto _label_ext0_##CODE##_impl;                     \
+        case instruct::extern_opcode_page_0::CODE##gs:          \
+            WO_ADDRESSING_G1;                                   \
+            WO_ADDRESSING_RS2;                                  \
+            goto _label_ext0_##CODE##_impl;                     \
+        case instruct::extern_opcode_page_0::CODE##sg:          \
+            WO_ADDRESSING_RS1;                                  \
+            WO_ADDRESSING_G2;                                   \
+            goto _label_ext0_##CODE##_impl;                     \
+        case instruct::extern_opcode_page_0::CODE##ss:          \
+            WO_ADDRESSING_RS1;                                  \
+            WO_ADDRESSING_RS2;                                  \
         _label_ext0_##CODE##_impl
 
-#define WO_VM_INTERRUPT_CHECKPOINT                          \
-        interrupt_state =                              \
-            vm_interrupt.load(std::memory_order_acquire);   \
-        if (interrupt_state != 0)                      \
+#define WO_VM_INTERRUPT_CHECKPOINT                              \
+        interrupt_state =                                       \
+            vm_interrupt.load(std::memory_order_acquire);       \
+        if (interrupt_state != 0)                               \
             goto _label_vm_handle_interrupt
 
-#define WO_VM_FAIL(ERRNO, ...)           \
-    do {                                    \
-        ip = rt_ip;                         \
-        wo_fail(ERRNO, __VA_ARGS__);             \
-        WO_VM_INTERRUPT_CHECKPOINT;         \
-        goto _label_vm_re_entry;   \
+#define WO_VM_FAIL(ERRNO, ...)                                  \
+    do {                                                        \
+        ip = rt_ip;                                             \
+        wo_fail(ERRNO, __VA_ARGS__);                            \
+        WO_VM_INTERRUPT_CHECKPOINT;                             \
+        goto _label_vm_re_entry;                                \
     } while(0)
 
 #if WO_ENABLE_RUNTIME_CHECK == 0
 #   define WO_VM_ASSERT(EXPR, REASON) wo_assert(EXPR, REASON)
 #else
-#   define WO_VM_ASSERT(EXPR, ...)                   \
-        do {                                            \
-            if(!(EXPR))                                 \
-                WO_VM_FAIL(WO_FAIL_UNEXPECTED, __VA_ARGS__); \
+#   define WO_VM_ASSERT(EXPR, ...)                              \
+        do {                                                    \
+            if(!(EXPR))                                         \
+                WO_VM_FAIL(WO_FAIL_UNEXPECTED, __VA_ARGS__);    \
         } while(0)
 #endif
 
