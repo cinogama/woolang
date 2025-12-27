@@ -2505,17 +2505,15 @@ namespace wo
         _label_ext0_##CODE##_impl
 
 #define WO_VM_INTERRUPT_CHECKPOINT                              \
-        interrupt_state =                                       \
-            vm_interrupt.load(std::memory_order_relaxed);       \
-        if (0 != interrupt_state)                               \
-            goto _label_vm_interrupt_handler;
+        if (vm_interrupt.load(std::memory_order_relaxed) != 0)  \
+            goto _label_vm_handle_interrupt
 
 #define WO_VM_FAIL(ERRNO, ...)                                  \
     do {                                                        \
         ip = rt_ip;                                             \
         wo_fail(ERRNO, __VA_ARGS__);                            \
         WO_VM_INTERRUPT_CHECKPOINT;                             \
-        goto _label_vm_re_entry_with_interrupt_check;           \
+        goto _label_vm_re_entry;                                \
     } while(0)
 
 #if WO_ENABLE_RUNTIME_CHECK == 0
@@ -2528,10 +2526,12 @@ namespace wo
         } while(0)
 #endif
 
-        uint32_t WO_VM_INTERRUPT_CHECKPOINT;
-    _label_vm_re_entry_with_interrupt_check:
+        bool debuggee_attached = false;
         for (;;)
         {
+            if (debuggee_attached)
+                goto _label_vm_handle_interrupt;
+
         _label_vm_re_entry:
             switch (*(rt_ip++))
             {
@@ -2539,18 +2539,18 @@ namespace wo
             {
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
                 value* new_sp = sp - psh_repeat;
-                if (new_sp >= stack_storage)
-                    sp = new_sp;
-                else
+                if (new_sp < stack_storage)
                 {
                     rt_ip -= 3;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
                     WO_VM_INTERRUPT_CHECKPOINT;
                 }
+                else
+                    sp = new_sp;
                 break;
             }
             case instruct::opcode::pshg:
-                if (sp < stack_storage)
+                if (sp <= stack_storage)
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2560,7 +2560,7 @@ namespace wo
                 WO_ADDRESSING_G1;
                 goto _label_psh_impl;
             case instruct::opcode::pshs:
-                if (sp < stack_storage)
+                if (sp <= stack_storage)
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -3714,7 +3714,7 @@ namespace wo
                         && opnum2->m_type == value::valuetype::handle_type,
                         "Operand should be handle in 'egth'.");
                     rt_cr->set_bool(opnum1->m_handle >= opnum2->m_handle);
-                    break;
+                    break;                    
                 default:
                     wo_unreachable("Bad ir.");
                     break;
@@ -3745,104 +3745,108 @@ namespace wo
             default:
                 wo_unreachable("Bad ir.");
             }
-        }
-        // vm loop end.
-    _label_vm_interrupt_handler:
-        if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
-        {
-            gc_checkpoint_self_mark();
-        }
-        ///////////////////////////////////////////////////////////////////////
-        if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
-        {
-            if (clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
-                hangup();
-        }
-        else if (interrupt_state & vm_interrupt_type::ABORT_INTERRUPT)
-        {
-            // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
-            // CLEAR ABORT_INTERRUPT
-            WO_VM_RETURN(wo_result_t::WO_API_SIM_ABORT);
-        }
-        else if (interrupt_state & vm_interrupt_type::BR_YIELD_INTERRUPT)
-        {
-            wo_assure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
-            WO_VM_RETURN(wo_result_t::WO_API_SIM_YIELD);
-        }
-        else if (interrupt_state & vm_interrupt_type::LEAVE_INTERRUPT)
-        {
-            // That should not be happend...
-            wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
-        }
-        else if (interrupt_state & vm_interrupt_type::PENDING_INTERRUPT)
-        {
-            // That should not be happend...
-            wo_error("Virtual machine handled a PENDING_INTERRUPT.");
-        }
-        else if (interrupt_state & vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
-        {
-            while (check_interrupt(vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
-                wo::gcbase::_shared_spin::spin_loop_hint();
-        }
-        else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
-        {
-            shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, (uint8_t)(shrink_stack_edge + 1));
-            // Force realloc stack buffer.
-            bool r = _reallocate_stack_space(stack_size << 1);
-
-            wo_assure(clear_interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-
-            if (!r)
-                WO_VM_FAIL(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
-        }
-        else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
-        {
-            if (_reallocate_stack_space(stack_size >> 1))
-                shrink_stack_edge = VM_SHRINK_STACK_COUNT;
-
-            wo_assure(clear_interrupt(vm_interrupt_type::SHRINK_STACK_INTERRUPT));
-        }
-        else if (interrupt_state & vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT)
-        {
-            if (!runtime_env::resync_far_state(
-                rt_ip,
-                &near_rtcode_begin,
-                &near_rtcode_end,
-                &near_static_global))
-                WO_VM_FAIL(WO_FAIL_CALL_FAIL, "Unkown function.");
-
-            wo_assure(clear_interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-        }
-        // ATTENTION: it should be last interrupt..
-        else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
-        {
-            static_assert(sizeof(instruct::opcode) == 1);
-
-            ip = rt_ip;
-
-            auto debug_bridge = vm_debuggee_bridge_base::current_global_debuggee_bridge();
-            if (debug_bridge.has_value())
+            if (0)
             {
-                // check debuggee here
-                wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
-                debug_bridge.value()->_vm_invoke_debuggee(this);
-                wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
+            _label_vm_handle_interrupt:
+                const auto interrupt_state = 
+                    vm_interrupt.load(std::memory_order_acquire);
+
+                if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
+                {
+                    gc_checkpoint_self_mark();
+                }
+                ///////////////////////////////////////////////////////////////////////
+                if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
+                {
+                    if (clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                        hangup();
+                }
+                else if (interrupt_state & vm_interrupt_type::ABORT_INTERRUPT)
+                {
+                    // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
+                    // CLEAR ABORT_INTERRUPT
+                    WO_VM_RETURN(wo_result_t::WO_API_SIM_ABORT);
+                }
+                else if (interrupt_state & vm_interrupt_type::BR_YIELD_INTERRUPT)
+                {
+                    wo_assure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
+                    WO_VM_RETURN(wo_result_t::WO_API_SIM_YIELD);
+                }
+                else if (interrupt_state & vm_interrupt_type::LEAVE_INTERRUPT)
+                {
+                    // That should not be happend...
+                    wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
+                }
+                else if (interrupt_state & vm_interrupt_type::PENDING_INTERRUPT)
+                {
+                    // That should not be happend...
+                    wo_error("Virtual machine handled a PENDING_INTERRUPT.");
+                }
+                else if (interrupt_state & vm_interrupt_type::STACK_OCCUPYING_INTERRUPT)
+                {
+                    while (check_interrupt(vm_interrupt_type::STACK_OCCUPYING_INTERRUPT))
+                        wo::gcbase::_shared_spin::spin_loop_hint();
+                }
+                else if (interrupt_state & vm_interrupt_type::STACK_OVERFLOW_INTERRUPT)
+                {
+                    shrink_stack_edge = std::min(VM_SHRINK_STACK_MAX_EDGE, (uint8_t)(shrink_stack_edge + 1));
+                    // Force realloc stack buffer.
+                    bool r = _reallocate_stack_space(stack_size << 1);
+
+                    wo_assure(clear_interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
+
+                    if (!r)
+                        WO_VM_FAIL(WO_FAIL_STACKOVERFLOW, "Stack overflow.");
+                }
+                else if (interrupt_state & vm_interrupt_type::SHRINK_STACK_INTERRUPT)
+                {
+                    if (_reallocate_stack_space(stack_size >> 1))
+                        shrink_stack_edge = VM_SHRINK_STACK_COUNT;
+
+                    wo_assure(clear_interrupt(vm_interrupt_type::SHRINK_STACK_INTERRUPT));
+                }
+                else if (interrupt_state & vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT)
+                {
+                    if (!runtime_env::resync_far_state(
+                        rt_ip,
+                        &near_rtcode_begin,
+                        &near_rtcode_end,
+                        &near_static_global))
+                        WO_VM_FAIL(WO_FAIL_CALL_FAIL, "Unkown function.");
+
+                    wo_assure(clear_interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+                }
+                // ATTENTION: it should be last interrupt..
+                else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
+                {
+                    debuggee_attached = true;
+                    ip = rt_ip;
+
+                    auto debug_bridge = vm_debuggee_bridge_base::current_global_debuggee_bridge();
+                    if (debug_bridge.has_value())
+                    {
+                        // check debuggee here
+                        wo_assure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
+                        debug_bridge.value()->_vm_invoke_debuggee(this);
+                        wo_assure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
+                    }
+
+                    // Refetch ip from vm, it may modified by debugger.
+                    rt_ip = ip;
+
+                    goto _label_vm_re_entry;
+                }
+                else
+                {
+                    // Debugee datached.
+                    debuggee_attached = false;
+                }
+                WO_VM_INTERRUPT_CHECKPOINT;
             }
+        }// vm loop end.
 
-            // Refetch ip from vm, it may modified by debugger.
-            rt_ip = ip;
+        WO_VM_RETURN(wo_result_t::WO_API_NORMAL);
 
-            goto _label_vm_re_entry;
-        }
-        else
-        {
-            wo_unreachable("Unknown interrupt state after vm loop.");
-        }
-
-        WO_VM_INTERRUPT_CHECKPOINT;
-        goto _label_vm_re_entry_with_interrupt_check;
-
-        wo_unreachable("Unreachable code reached in vm loop interrupt handler.");
 #undef WO_VM_FAIL
 #undef WO_VM_ASSERT
 #undef WO_VM_INTERRUPT_CHECKPOINT

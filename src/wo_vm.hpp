@@ -37,6 +37,19 @@ namespace wo
         static std::shared_mutex _global_debuggee_bridge_mx;
         static shared_pointer<vm_debuggee_bridge_base> _global_debuggee_bridge;
 
+        struct debug_trap_bytecodes
+        {
+            debug_trap_bytecodes(const runtime_env* env);
+            ~debug_trap_bytecodes();
+
+            debug_trap_bytecodes(const debug_trap_bytecodes&) = delete;
+            debug_trap_bytecodes(debug_trap_bytecodes&&) = delete;
+            debug_trap_bytecodes& operator=(const debug_trap_bytecodes&) = delete;
+            debug_trap_bytecodes& operator=(debug_trap_bytecodes&&) = delete;
+
+
+        };
+
         std::mutex _debug_entry_guard_block_mx;
 
     public:
