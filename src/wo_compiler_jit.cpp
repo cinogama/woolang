@@ -299,6 +299,36 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                                     break;
                                 else
                                     WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::addh:
+                                if (ir_ext_addh(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::subh:
+                                if (ir_ext_subh(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::lth:
+                                if (ir_ext_lth(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::gth:
+                                if (ir_ext_gth(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::elth:
+                                if (ir_ext_elth(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
+                            case instruct::extern_opcode_page_0::egth:
+                                if (ir_ext_egth(ctx, dr, rt_ip))
+                                    break;
+                                else
+                                    WO_JIT_NOT_SUPPORT;
                             default:
                                 WO_JIT_NOT_SUPPORT;
                             }
@@ -2065,8 +2095,10 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             }
 
             wo_assure(!ctx->c.mov(
-                asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer))
-                , result_reg));
+                asmjit::x86::qword_ptr(
+                    ctx->_vmcr, 
+                    offsetof(value, m_integer)), 
+                result_reg));
             wo_assure(!ctx->c.mov(
                 asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)),
                 (uint8_t)value::valuetype::bool_type));
@@ -2147,8 +2179,10 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             }
 
             wo_assure(!ctx->c.mov(
-                asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer))
-                , result_reg));
+                asmjit::x86::qword_ptr(
+                    ctx->_vmcr, 
+                    offsetof(value, m_integer)),
+                result_reg));
             wo_assure(!ctx->c.mov(
                 asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)),
                 (uint8_t)value::valuetype::bool_type));
@@ -2289,10 +2323,18 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            auto int_of_op1 = ctx->c.newInt64();
-            wo_assure(!ctx->c.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer))));
-            wo_assure(!ctx->c.neg(int_of_op1));
-            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_integer)), int_of_op1));
+            auto int_of_op2 = ctx->c.newInt64();
+            wo_assure(!ctx->c.mov(
+                int_of_op2, 
+                asmjit::x86::qword_ptr(
+                    opnum2.gp_value(), 
+                    offsetof(value, m_integer))));
+            wo_assure(!ctx->c.neg(int_of_op2));
+            wo_assure(!ctx->c.mov(
+                asmjit::x86::qword_ptr(
+                    opnum1.gp_value(), 
+                    offsetof(value, m_integer)), 
+                int_of_op2));
             return true;
         }
         virtual bool ir_negr(X64CompileContext* ctx, unsigned int dr, const byte_t*& rt_ip)override
@@ -3362,7 +3404,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            if (opnum2.is_constant_h32())
+            if (opnum2.is_constant_i32())
                 wo_assure(!ctx->c.add(
                     asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)), opnum2.const_value()->m_handle));
             else
@@ -3379,7 +3421,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             WO_JIT_ADDRESSING_N1;
             WO_JIT_ADDRESSING_N2;
 
-            if (opnum2.is_constant_h32())
+            if (opnum2.is_constant_i32())
                 wo_assure(!ctx->c.sub(
                     asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_handle)), opnum2.const_value()->m_handle));
             else
@@ -3465,8 +3507,10 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             }
 
             wo_assure(!ctx->c.mov(
-                asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer))
-                , result_reg));
+                asmjit::x86::qword_ptr(
+                    ctx->_vmcr, 
+                    offsetof(value, m_integer)), 
+                result_reg));
             wo_assure(!ctx->c.mov(
                 asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)),
                 (uint8_t)value::valuetype::bool_type));
@@ -3547,8 +3591,10 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             }
 
             wo_assure(!ctx->c.mov(
-                asmjit::x86::qword_ptr(ctx->_vmcr, offsetof(value, m_integer))
-                , result_reg));
+                asmjit::x86::qword_ptr(
+                    ctx->_vmcr, 
+                    offsetof(value, m_integer)),
+                result_reg));
             wo_assure(!ctx->c.mov(
                 asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)),
                 (uint8_t)value::valuetype::bool_type));
