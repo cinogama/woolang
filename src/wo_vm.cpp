@@ -238,30 +238,6 @@ namespace wo
     //////////////////////////////////////////////////////////////////////////
     // Interrupt Management
     //////////////////////////////////////////////////////////////////////////
-
-    bool vmbase::is_aborted() const noexcept
-    {
-        return vm_interrupt.load(std::memory_order::memory_order_acquire)
-            & vm_interrupt_type::ABORT_INTERRUPT;
-    }
-
-    bool vmbase::interrupt(vm_interrupt_type type) noexcept
-    {
-        return !(type & vm_interrupt.fetch_or(
-            type, std::memory_order::memory_order_acq_rel));
-    }
-
-    bool vmbase::clear_interrupt(vm_interrupt_type type) noexcept
-    {
-        return type & vm_interrupt.fetch_and(
-            ~type, std::memory_order::memory_order_acq_rel);
-    }
-
-    bool vmbase::check_interrupt(vm_interrupt_type type) noexcept
-    {
-        return 0 != (vm_interrupt.load(std::memory_order_acquire) & type);
-    }
-
     vmbase::interrupt_wait_result vmbase::wait_interrupt(
         vm_interrupt_type type,
         bool force_wait) noexcept
@@ -2504,16 +2480,21 @@ namespace wo
             WO_ADDRESSING_RS2;                                  \
         _label_ext0_##CODE##_impl
 
+#define WO_VM_GOTO_HANDLE_INTERRUPT                             \
+    goto _label_vm_handle_interrupt
+
+#define WO_VM_CHECK_INTERRUPT                                   \
+    (vm_interrupt_type::NOTHING != vm_interrupt.load(std::memory_order_relaxed))
+
 #define WO_VM_INTERRUPT_CHECKPOINT                              \
-        if (vm_interrupt.load(std::memory_order_relaxed) != 0)  \
-            goto _label_vm_handle_interrupt
+        if (WO_VM_CHECK_INTERRUPT)                              \
+            WO_VM_GOTO_HANDLE_INTERRUPT
 
 #define WO_VM_FAIL(ERRNO, ...)                                  \
     do {                                                        \
         ip = rt_ip;                                             \
         wo_fail(ERRNO, __VA_ARGS__);                            \
-        WO_VM_INTERRUPT_CHECKPOINT;                             \
-        goto _label_vm_re_entry;                                \
+        WO_VM_GOTO_HANDLE_INTERRUPT;                            \
     } while(0)
 
 #if WO_ENABLE_RUNTIME_CHECK == 0
@@ -2526,7 +2507,7 @@ namespace wo
         } while(0)
 #endif
 
-        bool debuggee_attached = false;
+        bool debuggee_attached = WO_VM_CHECK_INTERRUPT;
         for (;;)
         {
             if (debuggee_attached)
@@ -2543,7 +2524,7 @@ namespace wo
                 {
                     rt_ip -= 3;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-                    WO_VM_INTERRUPT_CHECKPOINT;
+                    WO_VM_GOTO_HANDLE_INTERRUPT;
                 }
                 else
                     sp = new_sp;
@@ -2554,7 +2535,7 @@ namespace wo
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-                    WO_VM_INTERRUPT_CHECKPOINT;
+                    WO_VM_GOTO_HANDLE_INTERRUPT;
                     break;
                 }
                 WO_ADDRESSING_G1;
@@ -2564,7 +2545,7 @@ namespace wo
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-                    WO_VM_INTERRUPT_CHECKPOINT;
+                    WO_VM_GOTO_HANDLE_INTERRUPT;
                     break;
                 }
                 WO_ADDRESSING_RS1;
@@ -2888,7 +2869,7 @@ namespace wo
                     if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
                     {
                         wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-                        WO_VM_INTERRUPT_CHECKPOINT;
+                        WO_VM_GOTO_HANDLE_INTERRUPT;
                     }
                     break;
                 }
@@ -2932,7 +2913,7 @@ namespace wo
                     if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
                     {
                         wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-                        WO_VM_INTERRUPT_CHECKPOINT;
+                        WO_VM_GOTO_HANDLE_INTERRUPT;
                     }
                     break;
                 }
@@ -2966,7 +2947,7 @@ namespace wo
                         {
                             rt_ip = ip_for_rollback;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-                            WO_VM_INTERRUPT_CHECKPOINT;
+                            WO_VM_GOTO_HANDLE_INTERRUPT;
                             break;
                         }
 
@@ -2979,7 +2960,7 @@ namespace wo
                         {
                             rt_ip = ip_for_rollback;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-                            WO_VM_INTERRUPT_CHECKPOINT;
+                            WO_VM_GOTO_HANDLE_INTERRUPT;
                             break;
                         }
                     }
@@ -3021,8 +3002,12 @@ namespace wo
                         case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
                             rt_ip = this->ip;
                             if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                            {
                                 wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-                            WO_VM_INTERRUPT_CHECKPOINT;
+                                WO_VM_GOTO_HANDLE_INTERRUPT;
+                            }
+                            else
+                                WO_VM_INTERRUPT_CHECKPOINT;
                             break;
                         default:
 #if WO_ENABLE_RUNTIME_CHECK
@@ -3043,6 +3028,9 @@ namespace wo
                             sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
                             bp = --sp;
                             wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+
+                            rt_ip = aim_function_addr;
+                            WO_VM_GOTO_HANDLE_INTERRUPT;
                         }
                         else
                         {
@@ -3050,11 +3038,10 @@ namespace wo
                             sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
                             sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
                             bp = --sp;
+
+                            rt_ip = aim_function_addr;
+                            WO_VM_INTERRUPT_CHECKPOINT;
                         }
-
-                        rt_ip = aim_function_addr;
-                        WO_VM_INTERRUPT_CHECKPOINT;
-
                         break;
                     }
                     case value::valuetype::closure_type:
@@ -3094,8 +3081,12 @@ namespace wo
                             {
                                 rt_ip = this->ip;
                                 if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                                {
                                     wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
-                                WO_VM_INTERRUPT_CHECKPOINT;
+                                    WO_VM_GOTO_HANDLE_INTERRUPT;
+                                }
+                                else
+                                    WO_VM_INTERRUPT_CHECKPOINT;
                                 break;
                             }
                             default:
@@ -3115,6 +3106,9 @@ namespace wo
                                 sp->m_ext_farcallstack_bp = (uint32_t)(sb - bp);
                                 bp = --sp;
                                 wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
+
+                                rt_ip = aim_function_addr;
+                                WO_VM_GOTO_HANDLE_INTERRUPT;
                             }
                             else
                             {
@@ -3122,11 +3116,11 @@ namespace wo
                                 sp->m_vmcallstack.ret_ip = (uint32_t)(rt_ip - near_rtcode_begin);
                                 sp->m_vmcallstack.bp = (uint32_t)(sb - bp);
                                 bp = --sp;
-                            }
-                            rt_ip = aim_function_addr;
-                            WO_VM_INTERRUPT_CHECKPOINT;
-                        }
 
+                                rt_ip = aim_function_addr;
+                                WO_VM_INTERRUPT_CHECKPOINT;
+                            }
+                        }
                         break;
                     }
                     default:
@@ -3139,7 +3133,7 @@ namespace wo
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-                    WO_VM_INTERRUPT_CHECKPOINT;
+                    WO_VM_GOTO_HANDLE_INTERRUPT;
                 }
                 else
                 {
@@ -3205,7 +3199,7 @@ namespace wo
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-                    WO_VM_INTERRUPT_CHECKPOINT;
+                    WO_VM_GOTO_HANDLE_INTERRUPT;
                 }
                 else
                 {
@@ -3592,7 +3586,7 @@ namespace wo
                     {
                         // STACK_OVERFLOW_INTERRUPT set, rollback and handle the interrupt.
                         rt_ip = ip_for_rollback;
-                        WO_VM_INTERRUPT_CHECKPOINT;
+                        WO_VM_GOTO_HANDLE_INTERRUPT;
                     }
                     else
                         sp = new_sp;
@@ -3714,7 +3708,7 @@ namespace wo
                         && opnum2->m_type == value::valuetype::handle_type,
                         "Operand should be handle in 'egth'.");
                     rt_cr->set_bool(opnum1->m_handle >= opnum2->m_handle);
-                    break;                    
+                    break;
                 default:
                     wo_unreachable("Bad ir.");
                     break;
@@ -3748,8 +3742,17 @@ namespace wo
             if (0)
             {
             _label_vm_handle_interrupt:
-                const auto interrupt_state = 
+                const auto interrupt_state =
                     vm_interrupt.load(std::memory_order_acquire);
+
+                if (vm_interrupt_type::NOTHING == interrupt_state)
+                {
+                    // Debugee datached.
+                    debuggee_attached = false;
+                    goto _label_vm_re_entry;
+                }
+
+                ///////////////////////////////////////////////////////////////////////
 
                 if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                 {
@@ -3838,9 +3841,9 @@ namespace wo
                 }
                 else
                 {
-                    // Debugee datached.
-                    debuggee_attached = false;
+                    wo_unreachable("Unknown interrupt.");
                 }
+
                 WO_VM_INTERRUPT_CHECKPOINT;
             }
         }// vm loop end.
@@ -3850,6 +3853,7 @@ namespace wo
 #undef WO_VM_FAIL
 #undef WO_VM_ASSERT
 #undef WO_VM_INTERRUPT_CHECKPOINT
+#undef WO_VM_GOTO_HANDLE_INTERRUPT
 #undef WO_RSG_ADDRESSING_WRITE_OP1_CASE
 #undef WO_WRITE_CHECK_FOR_GLOBAL
 #undef WO_RSG_ADDRESSING_CASE

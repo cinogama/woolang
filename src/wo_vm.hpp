@@ -37,19 +37,6 @@ namespace wo
         static std::shared_mutex _global_debuggee_bridge_mx;
         static shared_pointer<vm_debuggee_bridge_base> _global_debuggee_bridge;
 
-        struct debug_trap_bytecodes
-        {
-            debug_trap_bytecodes(const runtime_env* env);
-            ~debug_trap_bytecodes();
-
-            debug_trap_bytecodes(const debug_trap_bytecodes&) = delete;
-            debug_trap_bytecodes(debug_trap_bytecodes&&) = delete;
-            debug_trap_bytecodes& operator=(const debug_trap_bytecodes&) = delete;
-            debug_trap_bytecodes& operator=(debug_trap_bytecodes&&) = delete;
-
-
-        };
-
         std::mutex _debug_entry_guard_block_mx;
 
     public:
@@ -386,10 +373,25 @@ namespace wo
         std::atomic_size_t* inc_destructable_instance_count() noexcept;
         static void attach_debuggee(
             const std::optional<shared_pointer<vm_debuggee_bridge_base>>& dbg) noexcept;
-        bool is_aborted() const noexcept;
-        bool interrupt(vm_interrupt_type type) noexcept;
-        bool clear_interrupt(vm_interrupt_type type) noexcept;
-        bool check_interrupt(vm_interrupt_type type) noexcept;
+        WO_FORCE_INLINE bool is_aborted() const noexcept
+        {
+            return vm_interrupt.load(std::memory_order::memory_order_acquire)
+                & vm_interrupt_type::ABORT_INTERRUPT;
+        }
+        WO_FORCE_INLINE bool interrupt(vm_interrupt_type type) noexcept
+        {
+            return !(type & vm_interrupt.fetch_or(
+                type, std::memory_order::memory_order_acq_rel));
+        }
+        WO_FORCE_INLINE bool clear_interrupt(vm_interrupt_type type) noexcept
+        {
+            return type & vm_interrupt.fetch_and(
+                ~type, std::memory_order::memory_order_acq_rel);
+        }
+        WO_FORCE_INLINE bool check_interrupt(vm_interrupt_type type) noexcept
+        {
+            return 0 != (vm_interrupt.load(std::memory_order_acquire) & type);
+        }
         interrupt_wait_result wait_interrupt(vm_interrupt_type type, bool force_wait) noexcept;
         void block_interrupt(vm_interrupt_type type) noexcept;
 

@@ -189,6 +189,7 @@ virtual bool ir_##IRNAME(CompileContextT* ctx, unsigned int dr, const byte_t*& r
         virtual bool ir_ext_elth(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
         virtual bool ir_ext_egth(CompileContextT* ctx, unsigned int dr, const byte_t*& rt_ip) = 0;
 
+        virtual void ir_make_fast_vm_resync(CompileContextT* ctx, const byte_t*& rt_ip) = 0;
         virtual void ir_make_checkpoint_fastcheck(CompileContextT* ctx, const byte_t*& rt_ip) = 0;
         virtual void ir_make_checkpoint_normalcheck(
             CompileContextT* ctx, const byte_t*& rt_ip, const std::optional<asmjit::Label>& label) = 0;
@@ -1101,6 +1102,18 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                 }
             }
         }
+        virtual void ir_make_fast_vm_resync(X64CompileContext* ctx, const byte_t*& rt_ip)
+        {
+            auto ipaddr = ctx->c.newIntPtr();
+            wo_assure(!ctx->c.mov(ipaddr, asmjit::Imm((intptr_t)rt_ip)));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, ip)), ipaddr));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, sp)), ctx->_vmssp));
+            wo_assure(!ctx->c.mov(asmjit::x86::qword_ptr(ctx->_vmbase, offsetof(vmbase, bp)), ctx->_vmsbp));
+
+            auto resync = ctx->c.newInt32();
+            wo_assure(!ctx->c.mov(resync, asmjit::Imm(wo_result_t::WO_API_SYNC_CHANGED_VM_STATE)));
+            wo_assure(!ctx->c.ret(resync));
+        }
         virtual void ir_make_checkpoint_normalcheck(
             X64CompileContext* ctx, const byte_t*& rt_ip, const std::optional<asmjit::Label>& label) override
         {
@@ -1822,7 +1835,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                 wo_assure(!ctx->c.bind(stack_overflow_label));
 
                 ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
-                ir_make_checkpoint_normalcheck(ctx, rollback_ip, std::nullopt);
+                ir_make_fast_vm_resync(ctx, rollback_ip);
 
                 wo_assure(!ctx->c.int3()); // Cannot be here.
                 wo_assure(!ctx->c.bind(finish_psh_label));
@@ -1845,7 +1858,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
                     wo_assure(!ctx->c.add(ctx->_vmssp, asmjit::Imm(psh_repeat * sizeof(wo::value))));
                     ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
-                    ir_make_checkpoint_normalcheck(ctx, rollback_ip, std::nullopt);
+                    ir_make_fast_vm_resync(ctx, rollback_ip);
 
                     wo_assure(!ctx->c.int3()); // Cannot be here.
                     wo_assure(!ctx->c.bind(stackenough_label));
@@ -2588,7 +2601,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             wo_assure(!ctx->c.ja(stackenough_label));
 
             ir_make_interrupt(ctx, wo::vmbase::vm_interrupt_type::STACK_OVERFLOW_INTERRUPT);
-            ir_make_checkpoint_normalcheck(ctx, rollback_ip, std::nullopt);
+            ir_make_fast_vm_resync(ctx, rollback_ip);
 
             wo_assure(!ctx->c.int3()); // Cannot be here.
             wo_assure(!ctx->c.bind(stackenough_label));
