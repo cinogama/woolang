@@ -573,8 +573,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                     vmm->sp = rt_sp;
                     vmm->gc_checkpoint_self_mark();
                 }
-                ///////////////////////////////////////////////////////////////////////
-                if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
+                else if (interrupt_state & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
                 {
                     vmm->sp = rt_sp;
                     if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
@@ -640,10 +639,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
                 }
                 else
                 {
-                    // a vm_interrupt is invalid now, just roll back one byte and continue~
-                    // so here do nothing
-                    wo_assert(interrupt_state == 0
-                        || interrupt_state == wo::vmbase::vm_interrupt_type::GC_INTERRUPT);
+                    wo_unreachable("Unknown interrupt.");
                 }
             }
             return wo_result_t::WO_API_NORMAL;

@@ -3753,13 +3753,11 @@ namespace wo
                 }
 
                 ///////////////////////////////////////////////////////////////////////
-
                 if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                 {
                     gc_checkpoint_self_mark();
                 }
-                ///////////////////////////////////////////////////////////////////////
-                if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
+                else if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
                 {
                     if (clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
                         hangup();
