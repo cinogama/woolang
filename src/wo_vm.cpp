@@ -2391,8 +2391,10 @@ namespace wo
     (vm_interrupt_type::NOTHING != vm_interrupt.load(std::memory_order_relaxed))
 
 #define WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT    \
+    do {                                                        \
         if (WO_VM_CHECK_INTERRUPT)                              \
-            WO_VM_GOTO_HANDLE_INTERRUPT
+            WO_VM_GOTO_HANDLE_INTERRUPT;                        \
+    } while (0)
 
 #define WO_VM_FAIL(ERRNO, ...)                                  \
     do {                                                        \
