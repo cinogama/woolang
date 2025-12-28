@@ -1947,102 +1947,6 @@ namespace wo
         opnum3 = WO_ADDRESSING_RS
 
     //////////////////////////////////////////////////////////////////////////
-    // Comparison Operation Implementations
-    //////////////////////////////////////////////////////////////////////////
-
-    void vmbase::ltx_impl(value* result, value* opnum1, value* opnum2) noexcept
-    {
-        switch (opnum1->m_type)
-        {
-        case value::valuetype::integer_type:
-            result->set_bool(opnum1->m_integer < opnum2->m_integer);
-            break;
-        case value::valuetype::handle_type:
-            result->set_bool(opnum1->m_handle < opnum2->m_handle);
-            break;
-        case value::valuetype::real_type:
-            result->set_bool(opnum1->m_real < opnum2->m_real);
-            break;
-        case value::valuetype::string_type:
-            result->set_bool(*opnum1->m_string < *opnum2->m_string);
-            break;
-        default:
-            result->set_bool(false);
-            wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-            break;
-        }
-    }
-
-    void vmbase::eltx_impl(value* result, value* opnum1, value* opnum2) noexcept
-    {
-        switch (opnum1->m_type)
-        {
-        case value::valuetype::integer_type:
-            result->set_bool(opnum1->m_integer <= opnum2->m_integer);
-            break;
-        case value::valuetype::handle_type:
-            result->set_bool(opnum1->m_handle <= opnum2->m_handle);
-            break;
-        case value::valuetype::real_type:
-            result->set_bool(opnum1->m_real <= opnum2->m_real);
-            break;
-        case value::valuetype::string_type:
-            result->set_bool(*opnum1->m_string <= *opnum2->m_string);
-            break;
-        default:
-            result->set_bool(false);
-            wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-            break;
-        }
-    }
-
-    void vmbase::gtx_impl(value* result, value* opnum1, value* opnum2) noexcept
-    {
-        switch (opnum1->m_type)
-        {
-        case value::valuetype::integer_type:
-            result->set_bool(opnum1->m_integer > opnum2->m_integer);
-            break;
-        case value::valuetype::handle_type:
-            result->set_bool(opnum1->m_handle > opnum2->m_handle);
-            break;
-        case value::valuetype::real_type:
-            result->set_bool(opnum1->m_real > opnum2->m_real);
-            break;
-        case value::valuetype::string_type:
-            result->set_bool(*opnum1->m_string > *opnum2->m_string);
-            break;
-        default:
-            result->set_bool(false);
-            wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-            break;
-        }
-    }
-
-    void vmbase::egtx_impl(value* result, value* opnum1, value* opnum2) noexcept
-    {
-        switch (opnum1->m_type)
-        {
-        case value::valuetype::integer_type:
-            result->set_bool(opnum1->m_integer >= opnum2->m_integer);
-            break;
-        case value::valuetype::handle_type:
-            result->set_bool(opnum1->m_handle >= opnum2->m_handle);
-            break;
-        case value::valuetype::real_type:
-            result->set_bool(opnum1->m_real >= opnum2->m_real);
-            break;
-        case value::valuetype::string_type:
-            result->set_bool(*opnum1->m_string >= *opnum2->m_string);
-            break;
-        default:
-            result->set_bool(false);
-            wo_fail(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-            break;
-        }
-    }
-
-    //////////////////////////////////////////////////////////////////////////
     // Value Construction Implementations
     //////////////////////////////////////////////////////////////////////////
 
@@ -2486,7 +2390,7 @@ namespace wo
 #define WO_VM_CHECK_INTERRUPT                                   \
     (vm_interrupt_type::NOTHING != vm_interrupt.load(std::memory_order_relaxed))
 
-#define WO_VM_INTERRUPT_CHECKPOINT                              \
+#define WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT    \
         if (WO_VM_CHECK_INTERRUPT)                              \
             WO_VM_GOTO_HANDLE_INTERRUPT
 
@@ -2815,24 +2719,26 @@ namespace wo
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type
                     && opnum1->m_type == value::valuetype::string_type,
                     "Operand should be string in 'lts'.");
-                ltx_impl(rt_cr, opnum1, opnum2);
+
+                rt_cr->set_bool(*opnum1->m_string < *opnum2->m_string);
                 break;
             case WO_RSG_ADDRESSING_CASE(gts):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type,
                     "Operand should be string in 'gtx'.");
-                gtx_impl(rt_cr, opnum1, opnum2);
+
+                rt_cr->set_bool(*opnum1->m_string > *opnum2->m_string);
                 break;
             case WO_RSG_ADDRESSING_CASE(elts):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type,
                     "Operand should be string in 'eltx'.");
 
-                eltx_impl(rt_cr, opnum1, opnum2);
+                rt_cr->set_bool(*opnum1->m_string <= *opnum2->m_string);
                 break;
             case WO_RSG_ADDRESSING_CASE(egts):
                 WO_VM_ASSERT(opnum1->m_type == opnum2->m_type,
                     "Operand should be string in 'egtx'.");
 
-                egtx_impl(rt_cr, opnum1, opnum2);
+                rt_cr->set_bool(*opnum1->m_string >= *opnum2->m_string);
                 break;
             case instruct::opcode::retn:
             {
@@ -2985,16 +2891,31 @@ namespace wo
                             std::launder(reinterpret_cast<wo_value>(sp + 2))))
                         {
                         case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
-                            WO_VM_INTERRUPT_CHECKPOINT;
-                            /* FALLTHROUGH */
-                            [[fallthrough]];
+                        {
+                            bp = sb - rt_bp;
+
+                            WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
+                                "Found broken stack in 'call'.");
+
+                            value* const stored_bp =
+                                sb - (++bp)->m_ext_farcallstack_bp;
+
+                            sp = bp;
+                            bp = stored_bp;
+
+                            WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
+                            break;
+                        }
                         case wo_result_t::WO_API_NORMAL:
                         {
                             bp = sb - rt_bp;
 
                             WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
                                 "Found broken stack in 'call'.");
-                            value* stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
+
+                            value* const stored_bp =
+                                sb - (++bp)->m_ext_farcallstack_bp;
+
                             sp = bp;
                             bp = stored_bp;
                             break;
@@ -3007,7 +2928,7 @@ namespace wo
                                 WO_VM_GOTO_HANDLE_INTERRUPT;
                             }
                             else
-                                WO_VM_INTERRUPT_CHECKPOINT;
+                                WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                             break;
                         default:
 #if WO_ENABLE_RUNTIME_CHECK
@@ -3040,7 +2961,7 @@ namespace wo
                             bp = --sp;
 
                             rt_ip = aim_function_addr;
-                            WO_VM_INTERRUPT_CHECKPOINT;
+                            WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                         }
                         break;
                     }
@@ -3061,16 +2982,29 @@ namespace wo
                                 std::launder((reinterpret_cast<wo_value>(sp + 2)))))
                             {
                             case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
-                                WO_VM_INTERRUPT_CHECKPOINT;
-                                /* FALLTHROUGH */
-                                [[fallthrough]];
+                            {
+                                bp = sb - rt_bp;
+
+                                WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
+                                    "Found broken stack in 'call'.");
+
+                                value* const stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
+                                // Here to invoke jit closure, jit function cannot pop captured arguments,
+                                // So we pop them here.
+                                sp = bp + closure->m_closure_args_count;
+                                bp = stored_bp;
+
+                                WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
+                                break;
+                            }
                             case wo_result_t::WO_API_NORMAL:
                             {
                                 bp = sb - rt_bp;
 
                                 WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
                                     "Found broken stack in 'call'.");
-                                value* stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
+
+                                value* const stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
                                 // Here to invoke jit closure, jit function cannot pop captured arguments,
                                 // So we pop them here.
                                 sp = bp + closure->m_closure_args_count;
@@ -3086,7 +3020,7 @@ namespace wo
                                     WO_VM_GOTO_HANDLE_INTERRUPT;
                                 }
                                 else
-                                    WO_VM_INTERRUPT_CHECKPOINT;
+                                    WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                                 break;
                             }
                             default:
@@ -3118,7 +3052,7 @@ namespace wo
                                 bp = --sp;
 
                                 rt_ip = aim_function_addr;
-                                WO_VM_INTERRUPT_CHECKPOINT;
+                                WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                             }
                         }
                         break;
@@ -3145,7 +3079,7 @@ namespace wo
                     bp = --sp;
 
                     rt_ip = aimplace;
-                    WO_VM_INTERRUPT_CHECKPOINT;
+                    WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                 }
                 break;
             case instruct::opcode::callnjit:
@@ -3153,7 +3087,7 @@ namespace wo
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
-                    WO_VM_INTERRUPT_CHECKPOINT;
+                    WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                 }
                 else
                 {
@@ -3184,7 +3118,7 @@ namespace wo
                     }
                     case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
                         rt_ip = this->ip;
-                        WO_VM_INTERRUPT_CHECKPOINT;
+                        WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                         break;
                     default:
 #if WO_ENABLE_RUNTIME_CHECK
@@ -3218,31 +3152,25 @@ namespace wo
                     auto rt_bp = sb - bp;
                     ip = reinterpret_cast<const byte_t*>(call_aim_native_func);
 
-                    switch (call_aim_native_func(
-                        reinterpret_cast<wo_vm>(this),
-                        std::launder(reinterpret_cast<wo_value>(sp + 2))))
-                    {
-                    case wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE:
-                        WO_VM_INTERRUPT_CHECKPOINT;
-                        /* FALLTHROUGH */
-                        [[fallthrough]];
-                    case wo_result_t::WO_API_NORMAL:
-                    {
-                        bp = sb - rt_bp;
+                    const auto extern_func_result =
+                        call_aim_native_func(
+                            reinterpret_cast<wo_vm>(this),
+                            std::launder(reinterpret_cast<wo_value>(sp + 2)));
 
-                        WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
-                            "Found broken stack in 'callnfp'.");
-                        value* stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
-                        sp = bp;
-                        bp = stored_bp;
-                        break;
-                    }
-                    default:
+                    bp = sb - rt_bp;
+
+                    WO_VM_ASSERT((bp + 1)->m_type == value::valuetype::far_callstack,
+                        "Found broken stack in 'callnfp'.");
+                    value* stored_bp = sb - (++bp)->m_ext_farcallstack_bp;
+                    sp = bp;
+                    bp = stored_bp;
+
+                    if (extern_func_result == wo_result_t::WO_API_RESYNC_JIT_STATE_TO_VM_STATE)
+                        WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
 #if WO_ENABLE_RUNTIME_CHECK
+                    else if (extern_func_result != wo_result_t::WO_API_NORMAL)
                         WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Bad native function sync state.");
 #endif
-                        break;
-                    }
                 }
                 break;
             case instruct::opcode::jmp:
@@ -3266,7 +3194,7 @@ namespace wo
             }
             case instruct::opcode::jmpgc:
                 rt_ip = near_rtcode_begin + WO_IPVAL_MOVE_4;
-                WO_VM_INTERRUPT_CHECKPOINT;
+                WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                 break;
             case instruct::opcode::jmpgct:
             {
@@ -3274,7 +3202,7 @@ namespace wo
                 if (rt_cr->m_value_field)
                 {
                     rt_ip = near_rtcode_begin + aimplace;
-                    WO_VM_INTERRUPT_CHECKPOINT;
+                    WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                 }
                 break;
             }
@@ -3284,7 +3212,7 @@ namespace wo
                 if (!rt_cr->m_value_field)
                 {
                     rt_ip = near_rtcode_begin + aimplace;
-                    WO_VM_INTERRUPT_CHECKPOINT;
+                    WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                 }
                 break;
             }
@@ -3336,7 +3264,7 @@ namespace wo
                     if (opnum1->m_integer != rt_cr->m_integer)
                     {
                         rt_ip = near_rtcode_begin + offset;
-                        WO_VM_INTERRUPT_CHECKPOINT;
+                        WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
                     }
                     break;
                 }
@@ -3842,7 +3770,7 @@ namespace wo
                     wo_unreachable("Unknown interrupt.");
                 }
 
-                WO_VM_INTERRUPT_CHECKPOINT;
+                WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT;
             }
         }// vm loop end.
 
@@ -3850,7 +3778,7 @@ namespace wo
 
 #undef WO_VM_FAIL
 #undef WO_VM_ASSERT
-#undef WO_VM_INTERRUPT_CHECKPOINT
+#undef WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT
 #undef WO_VM_GOTO_HANDLE_INTERRUPT
 #undef WO_RSG_ADDRESSING_WRITE_OP1_CASE
 #undef WO_WRITE_CHECK_FOR_GLOBAL

@@ -450,11 +450,6 @@ namespace wo
         value* invoke_closure(closure_t* wo_func_closure, wo_int_t argc) noexcept;
         void switch_vm_kind(vm_type new_type) noexcept;
     public:
-        // Operate support:
-        static void ltx_impl(value* result, value* opnum1, value* opnum2) noexcept;
-        static void eltx_impl(value* result, value* opnum1, value* opnum2) noexcept;
-        static void gtx_impl(value* result, value* opnum1, value* opnum2) noexcept;
-        static void egtx_impl(value* result, value* opnum1, value* opnum2) noexcept;
         static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id) noexcept;
         // static value* make_closure_fast_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;
         // static value* make_closure_safe_impl(value* opnum1, const byte_t* rt_ip, value* rt_sp) noexcept;

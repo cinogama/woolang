@@ -828,6 +828,22 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             opnum1->set_gcunit<wo::value::valuetype::string_type>(
                 string_t::gc_new<gcbase::gctype::young>(*opnum1->m_string + *opnum2));
         }
+        static void _vmjitcall_lts(wo::value* cr, wo::string_t* opnum1, wo::string_t* opnum2)
+        {
+            cr->set_bool(*opnum1 < *opnum2);
+        }
+        static void _vmjitcall_gts(wo::value* cr, wo::string_t* opnum1, wo::string_t* opnum2)
+        {
+            cr->set_bool(*opnum1 > *opnum2);
+        }
+        static void _vmjitcall_elts(wo::value* cr, wo::string_t* opnum1, wo::string_t* opnum2)
+        {
+            cr->set_bool(*opnum1 <= *opnum2);
+        }
+        static void _vmjitcall_egts(wo::value* cr, wo::string_t* opnum1, wo::string_t* opnum2)
+        {
+            cr->set_bool(*opnum1 >= *opnum2);
+        }
         static void _vmjitcall_write_barrier(wo::value* opnum1)
         {
             wo::value::write_barrier(opnum1);
@@ -2105,8 +2121,8 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
             wo_assure(!ctx->c.mov(
                 asmjit::x86::qword_ptr(
-                    ctx->_vmcr, 
-                    offsetof(value, m_integer)), 
+                    ctx->_vmcr,
+                    offsetof(value, m_integer)),
                 result_reg));
             wo_assure(!ctx->c.mov(
                 asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)),
@@ -2189,7 +2205,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
             wo_assure(!ctx->c.mov(
                 asmjit::x86::qword_ptr(
-                    ctx->_vmcr, 
+                    ctx->_vmcr,
                     offsetof(value, m_integer)),
                 result_reg));
             wo_assure(!ctx->c.mov(
@@ -2334,15 +2350,15 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
             auto int_of_op2 = ctx->c.newInt64();
             wo_assure(!ctx->c.mov(
-                int_of_op2, 
+                int_of_op2,
                 asmjit::x86::qword_ptr(
-                    opnum2.gp_value(), 
+                    opnum2.gp_value(),
                     offsetof(value, m_integer))));
             wo_assure(!ctx->c.neg(int_of_op2));
             wo_assure(!ctx->c.mov(
                 asmjit::x86::qword_ptr(
-                    opnum1.gp_value(), 
-                    offsetof(value, m_integer)), 
+                    opnum1.gp_value(),
+                    offsetof(value, m_integer)),
                 int_of_op2));
             return true;
         }
@@ -2369,13 +2385,21 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
 
+            auto op1_string = ctx->c.newIntPtr();
+            auto op2_string = ctx->c.newIntPtr();
+
+            wo_assure(!ctx->c.mov(
+                op1_string, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_string))));
+            wo_assure(!ctx->c.mov(
+                op2_string, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_string))));
+
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::ltx_impl,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_lts,
+                asmjit::FuncSignatureT< void, wo::value*, wo::string_t*, wo::string_t*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
-            invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, op2);
+            invoke_node->setArg(1, op1_string);
+            invoke_node->setArg(2, op2_string);
 
             return true;
         }
@@ -2387,13 +2411,21 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
 
+            auto op1_string = ctx->c.newIntPtr();
+            auto op2_string = ctx->c.newIntPtr();
+
+            wo_assure(!ctx->c.mov(
+                op1_string, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_string))));
+            wo_assure(!ctx->c.mov(
+                op2_string, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_string))));
+
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::gtx_impl,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_gts,
+                asmjit::FuncSignatureT< void, wo::value*, wo::string_t*, wo::string_t*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
-            invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, op2);
+            invoke_node->setArg(1, op1_string);
+            invoke_node->setArg(2, op2_string);
 
             return true;
         }
@@ -2405,13 +2437,21 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
 
+            auto op1_string = ctx->c.newIntPtr();
+            auto op2_string = ctx->c.newIntPtr();
+
+            wo_assure(!ctx->c.mov(
+                op1_string, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_string))));
+            wo_assure(!ctx->c.mov(
+                op2_string, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_string))));
+
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::eltx_impl,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_elts,
+                asmjit::FuncSignatureT< void, wo::value*, wo::string_t*, wo::string_t*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
-            invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, op2);
+            invoke_node->setArg(1, op1_string);
+            invoke_node->setArg(2, op2_string);
 
             return true;
         }
@@ -2423,13 +2463,21 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
             auto op1 = opnum1.gp_value();
             auto op2 = opnum2.gp_value();
 
+            auto op1_string = ctx->c.newIntPtr();
+            auto op2_string = ctx->c.newIntPtr();
+
+            wo_assure(!ctx->c.mov(
+                op1_string, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, m_string))));
+            wo_assure(!ctx->c.mov(
+                op2_string, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, m_string))));
+
             asmjit::InvokeNode* invoke_node;
-            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&vmbase::egtx_impl,
-                asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>()));
+            wo_assure(!ctx->c.invoke(&invoke_node, (intptr_t)&_vmjitcall_egts,
+                asmjit::FuncSignatureT< void, wo::value*, wo::string_t*, wo::string_t*>()));
 
             invoke_node->setArg(0, ctx->_vmcr);
-            invoke_node->setArg(1, op1);
-            invoke_node->setArg(2, op2);
+            invoke_node->setArg(1, op1_string);
+            invoke_node->setArg(2, op2_string);
 
             return true;
         }
@@ -3517,8 +3565,8 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
             wo_assure(!ctx->c.mov(
                 asmjit::x86::qword_ptr(
-                    ctx->_vmcr, 
-                    offsetof(value, m_integer)), 
+                    ctx->_vmcr,
+                    offsetof(value, m_integer)),
                 result_reg));
             wo_assure(!ctx->c.mov(
                 asmjit::x86::byte_ptr(ctx->_vmcr, offsetof(value, m_type)),
@@ -3601,7 +3649,7 @@ case instruct::opcode::IRNAME:{if (ir_##IRNAME(ctx, dr, rt_ip)) break; else WO_J
 
             wo_assure(!ctx->c.mov(
                 asmjit::x86::qword_ptr(
-                    ctx->_vmcr, 
+                    ctx->_vmcr,
                     offsetof(value, m_integer)),
                 result_reg));
             wo_assure(!ctx->c.mov(
