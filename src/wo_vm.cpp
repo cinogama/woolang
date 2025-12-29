@@ -2413,10 +2413,10 @@ namespace wo
         } while(0)
 #endif
 
-        bool debuggee_attached = WO_VM_CHECK_INTERRUPT;
+        bool breakdown_for_interrupt_check = WO_VM_CHECK_INTERRUPT;
         for (;;)
         {
-            if (debuggee_attached)
+            if (breakdown_for_interrupt_check)
                 goto _label_vm_handle_interrupt;
 
         _label_vm_re_entry:
@@ -3678,7 +3678,7 @@ namespace wo
                 if (vm_interrupt_type::NOTHING == interrupt_state)
                 {
                     // Debugee datached.
-                    debuggee_attached = false;
+                    breakdown_for_interrupt_check = false;
                     goto _label_vm_re_entry;
                 }
 
@@ -3750,7 +3750,7 @@ namespace wo
                 // ATTENTION: it should be last interrupt..
                 else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
                 {
-                    debuggee_attached = true;
+                    breakdown_for_interrupt_check = true;
                     ip = rt_ip;
 
                     auto debug_bridge = vm_debuggee_bridge_base::current_global_debuggee_bridge();
