@@ -620,19 +620,24 @@ namespace wo
 
         std::string format_register(byte_t reg) const noexcept
         {
-            if (reg <= 15)
-                return "t" + std::to_string(reg);
-            if (reg <= 31)
-                return "r" + std::to_string(reg - 16);
+            static_assert(
+                WO_REG_T0 == 0 
+                && WO_REG_R0 == 16 
+                && WO_REG_CR == 32);
+
+            if (reg <= WO_REG_T0)
+                return "t" + std::to_string(reg - WO_REG_T0);
+            if (reg <= WO_REG_R0)
+                return "r" + std::to_string(reg - WO_REG_R0);
 
             switch (reg)
             {
-            case 32: return "cr";
-            case 33: return "tc";
-            case 34: return "er";
-            case 35: return "nil";
-            case 36: return "pm";
-            case 37: return "tp";
+            case WO_REG_CR: return "cr";
+            case WO_REG_TC: return "tc";
+            case WO_REG_ER: return "er";
+            case WO_REG_NI: return "nil";
+            case WO_REG_PM: return "pm";
+            case WO_REG_TP: return "tp";
             default: return "reg(" + std::to_string(reg) + ")";
             }
         }
