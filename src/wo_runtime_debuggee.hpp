@@ -843,60 +843,43 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             {
                 wo_stdout
                     << ANSI_HIG
-                    << target_vm->env->real_register_count
+                    << vmbase::VM_REGISTER_COUNT
                     << ANSI_HIY " register(s) in total:" ANSI_RST
                     << wo_endl;
                 printf("%-15s%-20s%-20s\n", "RegisterID", "Name", "Value");
-                for (size_t reg_idx = 0; reg_idx < target_vm->env->real_register_count; ++reg_idx)
+                for (size_t reg_idx = 0; reg_idx < vmbase::VM_REGISTER_COUNT; ++reg_idx)
                 {
                     printf("%-15zu", reg_idx);
                     switch (reg_idx)
                     {
-                    case wo::opnum::reg::spreg::r0:
-                    case wo::opnum::reg::spreg::r1:
-                    case wo::opnum::reg::spreg::r2:
-                    case wo::opnum::reg::spreg::r3:
-                    case wo::opnum::reg::spreg::r4:
-                    case wo::opnum::reg::spreg::r5:
-                    case wo::opnum::reg::spreg::r6:
-                    case wo::opnum::reg::spreg::r7:
-                    case wo::opnum::reg::spreg::r8:
-                    case wo::opnum::reg::spreg::r9:
-                    case wo::opnum::reg::spreg::r10:
-                    case wo::opnum::reg::spreg::r11:
-                    case wo::opnum::reg::spreg::r12:
-                    case wo::opnum::reg::spreg::r13:
-                    case wo::opnum::reg::spreg::r14:
-                    case wo::opnum::reg::spreg::r15:
-                        printf("%-20s", ("R" + std::to_string(reg_idx - wo::opnum::reg::spreg::r0)).c_str()); break;
-                    case wo::opnum::reg::spreg::t0:
-                    case wo::opnum::reg::spreg::t1:
-                    case wo::opnum::reg::spreg::t2:
-                    case wo::opnum::reg::spreg::t3:
-                    case wo::opnum::reg::spreg::t4:
-                    case wo::opnum::reg::spreg::t5:
-                    case wo::opnum::reg::spreg::t6:
-                    case wo::opnum::reg::spreg::t7:
-                    case wo::opnum::reg::spreg::t8:
-                    case wo::opnum::reg::spreg::t9:
-                    case wo::opnum::reg::spreg::t10:
-                    case wo::opnum::reg::spreg::t11:
-                    case wo::opnum::reg::spreg::t12:
-                    case wo::opnum::reg::spreg::t13:
-                    case wo::opnum::reg::spreg::t14:
-                    case wo::opnum::reg::spreg::t15:
-                        printf("%-20s", ("T" + std::to_string(reg_idx - wo::opnum::reg::spreg::t0)).c_str()); break;
-                    case wo::opnum::reg::spreg::cr:
+                    case WO_REG_T0:
+                    case WO_REG_T1:
+                    case WO_REG_T2:
+                    case WO_REG_T3:
+                    case WO_REG_T4:
+                    case WO_REG_T5:
+                    case WO_REG_T6:
+                    case WO_REG_T7:
+                    case WO_REG_T8:
+                    case WO_REG_T9:
+                    case WO_REG_T10:
+                    case WO_REG_T11:
+                    case WO_REG_T12:
+                    case WO_REG_T13:
+                    case WO_REG_T14:
+                    case WO_REG_T15:
+                        printf("%-20s", ("T" + std::to_string(reg_idx - WO_REG_T0)).c_str()); break;
+                    case WO_REG_CR:
                         printf("%-20s", "OpTraceResult(CR)"); break;
-                    case wo::opnum::reg::spreg::tc:
+                    case WO_REG_TC:
                         printf("%-20s", "ArgumentCount(TC)"); break;
-                    case wo::opnum::reg::spreg::er:
+                    case WO_REG_ER:
                         printf("%-20s", "ExceptionInfo(ER)"); break;
-                    case wo::opnum::reg::spreg::ni:
+                    case WO_REG_NI:
                         printf("%-20s", "NilConstant(NI)"); break;
-                    case wo::opnum::reg::spreg::pm:
+                    case WO_REG_PM:
                         printf("%-20s", "PatternMatch(PM)"); break;
-                    case wo::opnum::reg::spreg::tp:
+                    case WO_REG_TP:
                         printf("%-20s", "Temporary(TP)"); break;
                     default:
                         printf("%-20s", "---"); break;

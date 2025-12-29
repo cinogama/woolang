@@ -160,7 +160,7 @@ namespace wo
         std::optional<lang_TypeInstance*> m_determined_type;
 
         lang_AliasInstance(
-            lang_Symbol* symbol, 
+            lang_Symbol* symbol,
             const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
         lang_AliasInstance(const lang_AliasInstance&) = delete;
         lang_AliasInstance(lang_AliasInstance&&) = delete;
@@ -182,19 +182,19 @@ namespace wo
             int32_t     m_index;
         };
 
-        lang_Symbol*    m_symbol;
+        lang_Symbol* m_symbol;
         bool            m_mutable;
 
-        std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>> 
-                        m_instance_template_arguments;
+        std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>
+            m_instance_template_arguments;
         std::optional<ast::ConstantValue>
-                        m_determined_constant_or_function;
+            m_determined_constant_or_function;
         std::optional<lang_TypeInstance*> m_determined_type;
 
 
         std::optional<Storage> m_IR_storage;
         std::optional<ast::AstValueFunction*>
-                               m_IR_normal_function;
+            m_IR_normal_function;
 
         void try_determine_function_may_constant(ast::AstValueFunction* func);
         void try_determine_const_value(ast::AstValueBase* init_val);
@@ -227,13 +227,13 @@ namespace wo
             FAILED,
         };
         state               m_state;
-        ast::AstBase*       m_ast;
-        lang_Symbol*        m_symbol;
+        ast::AstBase* m_ast;
+        lang_Symbol* m_symbol;
         std::vector<ast::AstIdentifier::TemplateArgumentInstance>
-                            m_template_arguments;
+            m_template_arguments;
 
         std::optional<std::vector<lexer::compiler_message_t>>
-                            m_failed_error_for_this_instance;
+            m_failed_error_for_this_instance;
 
         lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast);
 
@@ -271,7 +271,7 @@ namespace wo
 
     struct lang_Symbol
     {
-        enum class kind: uint8_t
+        enum class kind : uint8_t
         {
             VARIABLE,
             TYPE,
@@ -359,11 +359,11 @@ namespace wo
         bool                            m_is_global;
         wo_pstring_t                    m_name;
         std::optional<ast::AstDeclareAttribue*>
-                                        m_declare_attribute;
+            m_declare_attribute;
         lang_Scope* m_belongs_to_scope;
         std::optional<ast::AstBase*>    m_symbol_declare_ast;
         std::optional<ast::AstBase::source_location_t>
-                                        m_symbol_declare_location;
+            m_symbol_declare_location;
         bool                            m_is_builtin;
         size_t                          m_symbol_edge;
 
@@ -472,8 +472,8 @@ namespace wo
     struct lang_Macro
     {
         wo_pstring_t    m_name;
-        ast::AstBase::source_location_t 
-                        m_location;
+        ast::AstBase::source_location_t
+            m_location;
 
         lang_Macro(const wo::macro& macro_instance);
     };
@@ -515,8 +515,11 @@ namespace wo
             wo_pstring_t,
             std::unique_ptr<opnum::tag>>  m_opnum_cache_tag;
         std::unordered_map<
-            uint8_t,
-            std::unique_ptr<opnum::reg>> m_opnum_cache_reg_and_stack_offset;
+            wo_reg,
+            std::unique_ptr<opnum::reg>> m_opnum_cache_reg;
+        std::unordered_map<
+            int8_t,
+            std::unique_ptr<opnum::bpoffset>> m_opnum_cache_stack_offset;
         std::unordered_map<
             int32_t,
             std::unique_ptr<opnum::temporary>> m_opnum_cache_temporarys;
@@ -582,7 +585,7 @@ namespace wo
             wo_pstring_t m_continue_label;
         };
         std::vector<LoopContent> m_loop_content_stack;
-        
+
         int32_t m_global_storage_allocating;
 
         // Functions
@@ -625,8 +628,8 @@ namespace wo
         opnum::imm_extfunc* opnum_imm_extfunc(ast::AstValueFunction* value) noexcept;
         opnum::opnumbase* opnum_func(ast::AstValueFunction* func) noexcept;
         opnum::tag* opnum_tag(wo_pstring_t value) noexcept;
-        opnum::reg* opnum_spreg(opnum::reg::spreg value) noexcept;
-        opnum::reg* opnum_stack_offset(int8_t value) noexcept;
+        opnum::reg* opnum_spreg(wo_reg value) noexcept;
+        opnum::bpoffset* opnum_stack_offset(int8_t value) noexcept;
         opnum::temporary* opnum_temporary(uint32_t id) noexcept;
 
 #ifdef NDEBUG
@@ -661,7 +664,7 @@ namespace wo
     struct LangContext
     {
         // Symbol & definition.
-        enum pass_behavior: uint8_t
+        enum pass_behavior : uint8_t
         {
             UNPROCESSED,            // Not processed yet.
 
@@ -818,10 +821,10 @@ namespace wo
         std::unique_ptr<lang_Namespace> m_root_namespace;
         std::stack<lang_Scope*>         m_scope_stack;
         std::unordered_map<lang_TypeInstance*, std::unique_ptr<lang_TypeInstance>>
-                                        m_mutable_type_instance_cache;
+            m_mutable_type_instance_cache;
         // NOTE: For LSPv2 only.
         std::vector<std::unique_ptr< lang_Macro>>
-                                        m_macros;   
+            m_macros;
 
         // Used for make sure template instance will never see the symbol declared after them.
         size_t                          m_created_symbol_edge;
@@ -1047,7 +1050,7 @@ namespace wo
 
         template<typename ... ArgTs>
         bool define_symbol_in_current_scope(
-            lang_Symbol**  out_defined_or_exist_symbol,
+            lang_Symbol** out_defined_or_exist_symbol,
             wo_pstring_t name,
             const std::optional<ast::AstDeclareAttribue*>& attr,
             std::optional<ast::AstBase*> symbol_declare_ast,
@@ -1065,7 +1068,7 @@ namespace wo
                 return false;
             }
 
-            wo_assert(!src_location.has_value() 
+            wo_assert(!src_location.has_value()
                 || src_location.value().source_file != nullptr);
 
             auto new_symbol = std::make_unique<lang_Symbol>(
@@ -1104,7 +1107,7 @@ namespace wo
             const std::optional<uint16_t>& tuple_member_offset);
         bool update_pattern_storage_and_code_gen_passir(
             lexer& lex,
-            ast::AstPatternBase* pattern, 
+            ast::AstPatternBase* pattern,
             opnum::opnumbase* opnumval,
             const std::optional<uint16_t>& tuple_member_offset);
 
@@ -1158,8 +1161,8 @@ namespace wo
                 TEMPLATE_MUTABLE,
             };
             action                          m_state;
-            lang_TypeInstance*              m_result;
-            lang_TemplateAstEvalStateType*  m_template_instance;
+            lang_TypeInstance* m_result;
+            lang_TemplateAstEvalStateType* m_template_instance;
         };
 
         TypeMixtureResult easy_mixture_types(
@@ -1245,9 +1248,9 @@ namespace wo
             wo_pstring_t path);
         bool check_symbol_is_reachable_in_current_scope(
             lexer& lex,
-            ast::AstBase* node, 
-            lang_Symbol* symbol_instance, 
-            wo_pstring_t path, 
+            ast::AstBase* node,
+            lang_Symbol* symbol_instance,
+            wo_pstring_t path,
             bool need_import_check);
 
         bool check_struct_field_is_reachable_in_current_scope(

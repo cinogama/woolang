@@ -1470,12 +1470,12 @@ namespace wo
             ...
         */
         m_ircontext.c().mov(
-            *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::cr),
+            *(opnum::opnumbase*)m_ircontext.opnum_spreg(WO_REG_CR),
             *(opnum::opnumbase*)m_ircontext.opnum_imm_int(0));
         m_ircontext.c().movicas(
             *(opnum::opnumbase*)m_ircontext.opnum_global(0),
             *(opnum::opnumbase*)m_ircontext.opnum_imm_int(1),
-            opnum::reg(opnum::reg::cr));
+            opnum::reg(WO_REG_CR));
         m_ircontext.c().jt(opnum::tag(WO_PSTR(_0_checked)));
         m_ircontext.c().ext_panic(opnum::imm_string(
             "Address 0 is reserved for initialization check. "
@@ -1528,7 +1528,7 @@ namespace wo
         } while (0);
 
         // Generate default return 0 for global block.
-        m_ircontext.c().mov(opnum::reg(opnum::reg::spreg::cr), opnum::imm_int(0));  // mov cr, 0
+        m_ircontext.c().mov(opnum::reg(WO_REG_CR), opnum::imm_int(0));  // mov cr, 0
         m_ircontext.c().jmp(opnum::tag(WO_PSTR(label_woolang_program_end)));    // jmp #woolang_program_end
 
         // final.2 Finalize function codes.
@@ -1702,10 +1702,10 @@ namespace wo
                 if (eval_function->m_is_variadic)
                 {
                     m_ircontext.c().psh(
-                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp));
+                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(WO_REG_TP));
                     m_ircontext.c().mov(
-                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp),
-                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tc));
+                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(WO_REG_TP),
+                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(WO_REG_TC));
                 }
 
                 // 4. Generate for function body.
@@ -1721,7 +1721,7 @@ namespace wo
                 {
                     m_ircontext.c().tag(IR_function_label_ret(eval_function));
                     m_ircontext.c().pop(
-                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(opnum::reg::spreg::tp));
+                        *(opnum::opnumbase*)m_ircontext.opnum_spreg(WO_REG_TP));
                 }
 
                 // 1) The function does not end with a return statement but ends naturally
@@ -3068,7 +3068,7 @@ namespace wo
         switch (val.m_type)
         {
         case ast::ConstantValue::Type::NIL:
-            return opnum_spreg(opnum::reg::spreg::ni);
+            return opnum_spreg(WO_REG_NI);
         case ast::ConstantValue::Type::INTEGER:
             return opnum_imm_int(val.value_integer());
         case ast::ConstantValue::Type::REAL:
@@ -3126,26 +3126,24 @@ namespace wo
             std::make_pair(value, std::make_unique<opnum::tag>(value)))
             .first->second.get();
     }
-    opnum::reg* BytecodeGenerateContext::opnum_spreg(opnum::reg::spreg value) noexcept
+    opnum::reg* BytecodeGenerateContext::opnum_spreg(wo_reg value) noexcept
     {
-        uint8_t regid = static_cast<uint8_t>(value);
-        auto fnd = m_opnum_cache_reg_and_stack_offset.find(regid);
-        if (fnd != m_opnum_cache_reg_and_stack_offset.end())
+        auto fnd = m_opnum_cache_reg.find(value);
+        if (fnd != m_opnum_cache_reg.end())
             return fnd->second.get();
 
-        return m_opnum_cache_reg_and_stack_offset.insert(
-            std::make_pair(regid, std::make_unique<opnum::reg>(value)))
+        return m_opnum_cache_reg.insert(
+            std::make_pair(value, std::make_unique<opnum::reg>(value)))
             .first->second.get();
     }
-    opnum::reg* BytecodeGenerateContext::opnum_stack_offset(int8_t value) noexcept
+    opnum::bpoffset* BytecodeGenerateContext::opnum_stack_offset(int8_t value) noexcept
     {
-        uint8_t regid = opnum::reg::bp_offset(value);
-        auto fnd = m_opnum_cache_reg_and_stack_offset.find(regid);
-        if (fnd != m_opnum_cache_reg_and_stack_offset.end())
+        auto fnd = m_opnum_cache_stack_offset.find(value);
+        if (fnd != m_opnum_cache_stack_offset.end())
             return fnd->second.get();
 
-        return m_opnum_cache_reg_and_stack_offset.insert(
-            std::make_pair(regid, std::make_unique<opnum::reg>(regid)))
+        return m_opnum_cache_stack_offset.insert(
+            std::make_pair(value, std::make_unique<opnum::bpoffset>(value)))
             .first->second.get();
     }
     opnum::temporary* BytecodeGenerateContext::opnum_temporary(uint32_t id) noexcept
@@ -3268,13 +3266,11 @@ namespace wo
         {
             auto* reg = dynamic_cast<opnum::reg*>(result);
             if (reg != nullptr
-                && reg->id >= opnum::reg::spreg::cr
-                && reg->id <= opnum::reg::spreg::last_special_register
-                && reg->id != opnum::reg::spreg::ni)
+                && reg->id >= WO_REG_CR
+                && reg->id != WO_REG_NI)
             {
                 auto* borrowed_reg = ctx.borrow_opnum_temporary_register(
-                    WO_BORROW_TEMPORARY_FROM(nullptr)
-                );
+                    WO_BORROW_TEMPORARY_FROM(nullptr));
 
                 ctx.c().mov(
                     *(opnum::opnumbase*)borrowed_reg,

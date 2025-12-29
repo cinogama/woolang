@@ -1683,7 +1683,7 @@ WO_API void wo_ir_handle(wo_ir_compiler compiler, wo_handle_t val);
 WO_API void wo_ir_string(wo_ir_compiler compiler, wo_string_t val);
 WO_API void wo_ir_bool(wo_ir_compiler compiler, wo_bool_t val);
 WO_API void wo_ir_glb(wo_ir_compiler compiler, int32_t offset);
-WO_API void wo_ir_reg(wo_ir_compiler compiler, uint8_t regid);
+WO_API void wo_ir_reg(wo_ir_compiler compiler, wo_reg regid);
 WO_API void wo_ir_bp(wo_ir_compiler compiler, int8_t offset);
 WO_API void wo_ir_tag(wo_ir_compiler compiler, wo_string_t name);
 

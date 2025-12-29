@@ -410,9 +410,9 @@ namespace wo
         register_storage = std::launder(
             reinterpret_cast<value*>(calloc(regcount, sizeof(wo::value))));
 
-        cr = register_storage + opnum::reg::spreg::cr;
-        tc = register_storage + opnum::reg::spreg::tc;
-        tp = register_storage + opnum::reg::spreg::tp;
+        cr = &register_storage[WO_REG_CR];
+        tc = &register_storage[WO_REG_TC];
+        tp = &register_storage[WO_REG_TP];
     }
 
     void vmbase::_allocate_stack_space(size_t stacksz) noexcept
@@ -497,7 +497,7 @@ namespace wo
         runtime_static_storage = env->constant_and_global_storage;
 
         _allocate_stack_space(VM_DEFAULT_STACK_SIZE);
-        _allocate_register_space(env->real_register_count);
+        _allocate_register_space(VM_REGISTER_COUNT);
 
         do
         {
@@ -1928,23 +1928,23 @@ namespace wo
 
     // VM Operate
 #define WO_VM_RETURN(V) do{ ip = rt_ip; return (V); }while(0)
-#define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
+#define WO_SIGNED_SHIFT(VAL) (static_cast<int8_t>(((VAL) << 1)) >> 1)
 
 #define WO_ADDRESSING_RS \
-    ((WO_IPVAL & (1 << 7)) ? (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1)) : (WO_IPVAL_MOVE_1 + reg_begin))
-#define WO_ADDRESSING_G \
+    ((static_cast<int8_t>(WO_IPVAL) < 0 ? bp : reg_begin) + WO_SIGNED_SHIFT(WO_IPVAL))
+#define WO_ADDRESSING_G_AND_MOVE4 \
     (WO_IPVAL_MOVE_4 + near_static_global)
 
 #define WO_ADDRESSING_RS1 \
-        opnum1 = WO_ADDRESSING_RS
+        opnum1 = WO_ADDRESSING_RS; ++rt_ip
 #define WO_ADDRESSING_G1 \
-        opnum1 = WO_ADDRESSING_G
+        opnum1 = WO_ADDRESSING_G_AND_MOVE4
 #define WO_ADDRESSING_RS2 \
-        opnum2 = WO_ADDRESSING_RS
+        opnum2 = WO_ADDRESSING_RS; ++rt_ip
 #define WO_ADDRESSING_G2 \
-        opnum2 = WO_ADDRESSING_G
+        opnum2 = WO_ADDRESSING_G_AND_MOVE4
 #define WO_ADDRESSING_RS3 \
-        opnum3 = WO_ADDRESSING_RS
+        opnum3 = WO_ADDRESSING_RS; ++rt_ip
 
     //////////////////////////////////////////////////////////////////////////
     // Value Construction Implementations

@@ -401,7 +401,7 @@ namespace wo
             }
             else
             {
-                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(WO_REG_CR), std::nullopt);
                 if (!pass_final_value(lex, node->m_condition))
                     return FAILED;
 
@@ -459,7 +459,7 @@ namespace wo
 
             if (!dead_loop)
             {
-                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(WO_REG_CR), std::nullopt);
                 if (!pass_final_value(lex, node->m_condition))
                     return FAILED;
 
@@ -561,7 +561,7 @@ namespace wo
                 {
                     m_ircontext.c().tag(_generate_label("#for_cond_", node));
 
-                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
+                    m_ircontext.eval_to(m_ircontext.opnum_spreg(WO_REG_CR), std::nullopt);
                     if (!pass_final_value(lex, node->m_condition.value()))
                         return FAILED;
 
@@ -615,7 +615,7 @@ namespace wo
             // Loop has been checked in pass1.
 
             WO_GENERATE_PDI_FOR(node);
-            m_ircontext.c().jmp(loop.value()->m_break_label);
+            m_ircontext.c().jmp(opnum::tag(loop.value()->m_break_label));
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -632,7 +632,7 @@ namespace wo
             // Loop has been checked in pass1.
 
             WO_GENERATE_PDI_FOR(node);
-            m_ircontext.c().jmp(loop.value()->m_continue_label);
+            m_ircontext.c().jmp(opnum::tag(loop.value()->m_continue_label));
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -646,7 +646,7 @@ namespace wo
 
             auto* matching_value = m_ircontext.get_eval_result();
             m_ircontext.c().idstruct(
-                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::spreg::cr)),
+                WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)),
                 WO_OPNUM(matching_value),
                 0);
 
@@ -709,7 +709,7 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            m_ircontext.c().jmp(_generate_label("#match_end_", node->m_IR_match.value()));
+            m_ircontext.c().jmp(opnum::tag(_generate_label("#match_end_", node->m_IR_match.value())));
             m_ircontext.c().tag(_generate_label("#match_case_end_", node));
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -762,24 +762,24 @@ namespace wo
                 */
 
                 m_ircontext.c().mov(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_TP)),
                     WO_OPNUM(m_ircontext.opnum_imm_int(0)));
 
                 m_ircontext.c().movicas(
                     WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
                     WO_OPNUM(m_ircontext.opnum_imm_int(1)),
-                    opnum::reg(opnum::reg::tp));
+                    opnum::reg(WO_REG_TP));
 
                 m_ircontext.c().jt(opnum::tag(_generate_label("#static_job_", node)));
                 m_ircontext.c().tag(_generate_label("#static_wait_", node));
 
                 m_ircontext.c().movicas(
                     WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
-                    opnum::reg(opnum::reg::tp));
+                    WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_TP)),
+                    opnum::reg(WO_REG_TP));
 
                 m_ircontext.c().equb(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_TP)),
                     WO_OPNUM(m_ircontext.opnum_imm_int(2)));
 
                 m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
@@ -797,12 +797,12 @@ namespace wo
             if (node->m_IR_static_init_flag_global_offset.has_value())
             {
                 m_ircontext.c().mov(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_TP)),
                     WO_OPNUM(m_ircontext.opnum_imm_int(1)));
                 m_ircontext.c().movicas(
                     WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
                     WO_OPNUM(m_ircontext.opnum_imm_int(2)),
-                    opnum::reg(opnum::reg::tp));
+                    opnum::reg(WO_REG_TP));
 
 #ifndef NDEBUG  
                 m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
@@ -1041,7 +1041,7 @@ namespace wo
             if (node->m_value.has_value())
             {
                 if (node->m_LANG_defer_instances.empty())
-                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
+                    m_ircontext.eval_to(m_ircontext.opnum_spreg(WO_REG_CR), std::nullopt);
                 else
                     m_ircontext.eval_push();
 
@@ -1060,7 +1060,7 @@ namespace wo
             WO_GENERATE_PDI_FOR(node);
 
             if (node->m_value.has_value() && !node->m_LANG_defer_instances.empty())
-                m_ircontext.c().pop(opnum::reg(opnum::reg::cr));
+                m_ircontext.c().pop(opnum::reg(WO_REG_CR));
 
             if (node->m_LANG_belong_function_may_null_if_outside.has_value())
             {
@@ -1081,7 +1081,7 @@ namespace wo
                 if (!node->m_value.has_value())
                     // If return void outside function, treat as return 0;
                     m_ircontext.c().mov(
-                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)),
+                        WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)),
                         WO_OPNUM(m_ircontext.opnum_imm_int(0)));
 
                 m_ircontext.c().jmp(opnum::tag(WO_PSTR(label_woolang_program_end)));
@@ -1170,11 +1170,11 @@ namespace wo
                     {
                         m_ircontext.return_opnum_temporary_register(borrowed_opnum);
                         if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                            target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                            target_reg == nullptr || target_reg->id != WO_REG_CR)
                         {
                             m_ircontext.c().mov(
                                 WO_OPNUM(target_storage.value()),
-                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)));
                             // Or do nothing, target is same.
                         }
                     }
@@ -1182,7 +1182,7 @@ namespace wo
                     {
                         m_ircontext.c().mov(
                             WO_OPNUM(borrowed_opnum),
-                            WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                            WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)));
 
                         result.set_result(m_ircontext, borrowed_opnum);
                     }
@@ -1414,9 +1414,9 @@ namespace wo
 
             if (node->m_LANG_invoking_variadic_function)
             {
-                m_ircontext.c().psh(WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+                m_ircontext.c().psh(WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_TC)));
                 m_ircontext.c().mov(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)),
+                    WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_TC)),
                     WO_OPNUM(m_ircontext.opnum_imm_int(node->m_LANG_certenly_function_argument_count)));
             }
 
@@ -1461,11 +1461,11 @@ namespace wo
                         node->m_LANG_certenly_function_argument_count);
                 else
                     m_ircontext.c().ext_popn(
-                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+                        WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_TC)));
 
                 if (node->m_LANG_invoking_variadic_function)
                     m_ircontext.c().pop(
-                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+                        WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_TC)));
 
                 // Ok, invoke finished.
                 m_ircontext.apply_eval_result(
@@ -1475,17 +1475,17 @@ namespace wo
                         if (target_storage.has_value())
                         {
                             if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                                target_reg == nullptr || target_reg->id != WO_REG_CR)
                             {
                                 m_ircontext.c().mov(
                                     WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                    WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)));
                             }
                             // Or do nothing, target is same.
                         }
                         else
                             result.set_result(
-                                m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
+                                m_ircontext, m_ircontext.opnum_spreg(WO_REG_CR));
                     });
 
                 break;
@@ -1763,18 +1763,18 @@ namespace wo
                     if (target_storage.has_value())
                     {
                         if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                            target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                            target_reg == nullptr || target_reg->id != WO_REG_CR)
                         {
                             m_ircontext.c().mov(
                                 WO_OPNUM(target_storage.value()),
-                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)));
                         }
                         // Or do nothing, target is same.
                     }
                     else
                     {
                         result.set_result(
-                            m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                            m_ircontext, m_ircontext.opnum_spreg(WO_REG_CR));
                     }
                 });
         }
@@ -1889,7 +1889,7 @@ namespace wo
                             {
                                 // Return a junk value.
                                 result.set_result(
-                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
+                                    m_ircontext, m_ircontext.opnum_spreg(WO_REG_NI));
                             }
                             return;
                         }
@@ -1987,7 +1987,7 @@ namespace wo
                     {
                         // Return a junk value.
                         result.set_result(
-                            m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
+                            m_ircontext, m_ircontext.opnum_spreg(WO_REG_NI));
                     }
                 });
         }
@@ -2127,7 +2127,7 @@ namespace wo
                 || node->m_operator == AstValueBinaryOperator::LOGICAL_OR)
             {
                 // Need short cut, 
-                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(WO_REG_CR), std::nullopt);
                 WO_CONTINUE_PROCESS(node->m_left);
 
                 node->m_LANG_hold_state = AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_LEFT_SHORT_CUT;
@@ -2168,7 +2168,7 @@ namespace wo
                 }
 
                 if (!m_ircontext.eval_result_ignored())
-                    m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
+                    m_ircontext.eval_to(m_ircontext.opnum_spreg(WO_REG_CR), std::nullopt);
                 else
                     m_ircontext.eval_ignore();
 
@@ -2190,18 +2190,18 @@ namespace wo
                         if (target_storage.has_value())
                         {
                             if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                                target_reg == nullptr || target_reg->id != WO_REG_CR)
                             {
                                 m_ircontext.c().mov(
                                     WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                    WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)));
                             }
                             // Or do nothing, target is same.
                         }
                         else
                         {
                             result.set_result(
-                                m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                                m_ircontext, m_ircontext.opnum_spreg(WO_REG_CR));
                         }
                     }
                 );
@@ -2481,18 +2481,18 @@ namespace wo
                             if (target_storage.has_value())
                             {
                                 if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                    target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                                    target_reg == nullptr || target_reg->id != WO_REG_CR)
                                 {
                                     m_ircontext.c().mov(
                                         WO_OPNUM(target_storage.value()),
-                                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                        WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)));
                                 }
                                 // Or do nothing, target is same.
                             }
                             else
                             {
                                 result.set_result(
-                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
+                                    m_ircontext, m_ircontext.opnum_spreg(WO_REG_CR));
                             }
                         }
                     });
@@ -2578,23 +2578,23 @@ namespace wo
                     {
                         m_ircontext.c().equb(
                             WO_OPNUM(opnum_to_unary),
-                            WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::ni)));
+                            WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_NI)));
 
                         if (target_storage.has_value())
                         {
                             if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                                target_reg == nullptr || target_reg->id != WO_REG_CR)
                             {
                                 m_ircontext.c().mov(
                                     WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                    WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)));
                             }
                             // Or do nothing, target is same.
                         }
                         else
                         {
                             result.set_result(
-                                m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
+                                m_ircontext, m_ircontext.opnum_spreg(WO_REG_CR));
                         }
                         break;
                     }
@@ -2624,7 +2624,7 @@ namespace wo
             }
             else
             {
-                m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::spreg::cr), std::nullopt);
+                m_ircontext.eval_to(m_ircontext.opnum_spreg(WO_REG_CR), std::nullopt);
                 WO_CONTINUE_PROCESS(node->m_condition);
 
                 node->m_LANG_hold_state = AstValueTribleOperator::IR_HOLD_FOR_COND_EVAL;
@@ -2640,7 +2640,7 @@ namespace wo
                 m_ircontext.c().jf(opnum::tag(_generate_label("#cond_false_", node)));
 
                 m_ircontext.eval_to_if_not_ignore(
-                    m_ircontext.opnum_spreg(opnum::reg::spreg::cr), std::nullopt);
+                    m_ircontext.opnum_spreg(WO_REG_CR), std::nullopt);
 
                 WO_CONTINUE_PROCESS(node->m_true_value);
 
@@ -2653,7 +2653,7 @@ namespace wo
                 m_ircontext.c().tag(_generate_label("#cond_false_", node));
 
                 m_ircontext.eval_to_if_not_ignore(
-                    m_ircontext.opnum_spreg(opnum::reg::spreg::cr), std::nullopt);
+                    m_ircontext.opnum_spreg(WO_REG_CR), std::nullopt);
 
                 WO_CONTINUE_PROCESS(node->m_false_value);
 
@@ -2676,18 +2676,18 @@ namespace wo
                         if (target_storage.has_value())
                         {
                             if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                                target_reg == nullptr || target_reg->id != WO_REG_CR)
                             {
                                 m_ircontext.c().mov(
                                     WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                    WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)));
                             }
                             // Or do nothing, target is same.
                         }
                         else
                         {
                             result.set_result(
-                                m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                                m_ircontext, m_ircontext.opnum_spreg(WO_REG_CR));
                         }
                     }
                 );
@@ -2800,17 +2800,17 @@ namespace wo
                             if (target_storage.has_value())
                             {
                                 if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                    target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                                    target_reg == nullptr || target_reg->id != WO_REG_CR)
                                 {
                                     m_ircontext.c().mov(
                                         WO_OPNUM(target_storage.value()),
-                                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                        WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_CR)));
                                 }
                             }
                             else
                             {
                                 result.set_result(
-                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                                    m_ircontext, m_ircontext.opnum_spreg(WO_REG_CR));
                             }
                             break;
                         }
@@ -2976,7 +2976,7 @@ namespace wo
                         {
                             m_ircontext.c().mkunion(
                                 WO_OPNUM(target_storage.value()),
-                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::spreg::ni)),
+                                WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_NI)),
                                 (uint16_t)node->m_index);
                         }
                         else
@@ -2985,7 +2985,7 @@ namespace wo
                                 WO_BORROW_TEMPORARY_FROM(node));
                             m_ircontext.c().mkunion(
                                 WO_OPNUM(borrowed_reg),
-                                WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::spreg::ni)),
+                                WO_OPNUM(m_ircontext.opnum_spreg(WO_REG_NI)),
                                 (uint16_t)node->m_index);
                             result.set_result(m_ircontext, borrowed_reg);
                         }
@@ -3661,7 +3661,7 @@ namespace wo
                             else
                                 // Give a junk value.
                                 result.set_result(
-                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
+                                    m_ircontext, m_ircontext.opnum_spreg(WO_REG_NI));
                         }
                     }
                 );
