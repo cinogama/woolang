@@ -38,7 +38,7 @@ namespace wo
             int32_t offset;
             int32_t real_offset_const_glb;
 
-            global(int32_t _offset) noexcept
+            explicit global(int32_t _offset) noexcept
                 :offset(_offset)
                 , real_offset_const_glb(0xFFFFFFFF)
             {
@@ -60,82 +60,117 @@ namespace wo
         struct temporary : virtual opnumbase
         {
             uint32_t m_id;
-            temporary(uint32_t id) noexcept
+            explicit temporary(uint32_t id) noexcept
                 : m_id(id)
             {
             }
         };
         struct reg :virtual opnumbase
         {
-            // REGID
-            // 0B | 1    |         1           |000000
-            //    |isreg?|stacksign(if not reg)|offset
-
-            uint8_t id;
-
-            static constexpr uint32_t T_REGISTER_COUNT = 16;
-            static constexpr uint32_t ALL_REGISTER_COUNT = 32;
-
-            enum spreg : uint8_t
-            {
-                // special regist
-                op_trace_result = _wo_reg::WO_REG_CR,
-                cr = op_trace_result,
-
-                argument_count,
-                tc = argument_count,
-
-                exception_inform,
-                er = exception_inform,
-
-                nil_constant,
-                ni = nil_constant,
-
-                pattern_match,
-                pm = pattern_match,
-
-                temporary,
-                tp = temporary,
-
-                last_special_register = 15,
-
-                // normal regist
-                t0 = _wo_reg::WO_REG_T0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15,
-            };
-
-            reg(uint8_t _id) noexcept
+            wo_reg id;
+            explicit reg(wo_reg _id) noexcept
                 :id(_id)
             {
             }
-
-            static constexpr uint8_t bp_offset(int8_t offset)
-            {
-                wo_assert(offset >= -64 && offset <= 63);
-                return static_cast<uint8_t>(
-                    (uint8_t)0b10000000 | static_cast<uint8_t>(offset));
-            }
-            bool is_bp_offset() const
-            {
-                return id & (uint8_t)0b10000000;
-            }
-            int8_t get_bp_offset() const
-            {
-                wo_assert(is_bp_offset());
-#define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
-                return WO_SIGNED_SHIFT(id);
-#undef WO_SIGNED_SHIFT
-            }
             size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const override
             {
-                buffer.push_back(id);
+                buffer.push_back(
+                    static_cast<byte_t>(
+                        static_cast<uint8_t>(0b01100000u)
+                        + static_cast<uint8_t>(id)));
                 return 1;
             }
         };
+        struct bpoffset :virtual opnumbase
+        {
+            int8_t offset;
+            explicit bpoffset(int8_t _offset) noexcept
+                : offset(_offset)
+            {
+                wo_assert(offset < static_cast<int8_t>(0b01100000));
+            }
+            size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const override
+            {
+                buffer.push_back(static_cast<byte_t>(offset));
+                return 1;
+            }
+        };
+
+        // Used for 32-bit opnum placeholder.
+        struct opnum32
+        {
+            enum class type : uint8_t
+            {
+                TEMPORARY_REGISTER = 0b00000000u,
+                REGISTER = 0b10000000u,
+                BP_OFFSET = 0b11000000u,
+            };
+
+            type          m_type;
+            uint32_t       m_value;
+
+            explicit opnum32(const temporary& tmp)
+                : m_type(type::TEMPORARY_REGISTER)
+                , m_value(static_cast<uint32_t>(tmp.m_id))
+            {
+                // Sign flag will be 0, so max temporary id is INT32_MAX.
+                wo_assert(tmp.m_id < INT32_MAX);
+            }
+            explicit opnum32(const reg& r)
+                : m_type(type::REGISTER)
+                , m_value(static_cast<uint8_t>(r.id))
+            {
+            }
+            explicit opnum32(const bpoffset& bpoff)
+                : m_type(type::BP_OFFSET)
+                , m_value(
+                    static_cast<uint8_t>(
+                        static_cast<int8_t>(
+                            bpoff.offset)))
+            {
+            }
+            explicit opnum32(int32_t val)
+            {
+                if (val < 0)
+                {
+                    m_type = static_cast<type>(
+                        (0xFF00'0000u & static_cast<uint32_t>(val)) >> 24);
+                    m_value = val & 0xFFu;
+                }
+                else
+                {
+                    m_type = type::TEMPORARY_REGISTER;
+                    m_value = val;
+                }
+            }
+
+            int32_t to_i32() const
+            {
+                return static_cast<int32_t>(
+                    (static_cast<uint8_t>(m_type) << 24) | m_value);
+            }
+            size_t generate_opnum_to_buffer(std::vector<byte_t>& buffer) const
+            {
+                switch (m_type)
+                {
+                case type::TEMPORARY_REGISTER:
+                    wo_error("Unexpected opnum type when generate binary.");
+                case type::REGISTER:
+                    return reg(static_cast<wo_reg>(m_value)).generate_opnum_to_buffer(buffer);
+                case type::BP_OFFSET:
+                    return bpoffset(static_cast<int8_t>(m_value)).generate_opnum_to_buffer(buffer);
+                default:
+                    wo_error("Unknown opnum type.");
+                }
+                wo_unreachable("Never reach here.");
+            }
+        };
+
         struct tag :virtual opnumbase
         {
             wo_pstring_t name;
 
-            tag(wo_pstring_t _name)
+            explicit tag(wo_pstring_t _name)
                 : name(_name)
             {
             }
@@ -592,7 +627,10 @@ namespace wo
             ir_command& operator = (const ir_command&) = default;
             ir_command& operator = (ir_command&&) = default;
 
-#define WO_IS_REG(OPNUM)(dynamic_cast<const opnum::reg*>(OPNUM))
+#define WO_IS_REG(OPNUM) (                                      \
+    nullptr != dynamic_cast<const opnum::bpoffset*>(OPNUM)      \
+        || nullptr != dynamic_cast<const opnum::reg*>(OPNUM))
+
             uint8_t dr()
             {
                 return (WO_IS_REG(op1) ? (uint8_t)0b00000010 : (uint8_t)0)
@@ -1211,13 +1249,15 @@ namespace wo
                 "Argument(s) should be opnum.");
 
             static_assert(std::is_same<OP3T, opnum::reg>::value
-                || std::is_same<OP3T, opnum::temporary>::value,
-                "Argument r should be reg or temporary.");
+                || std::is_same<OP3T, opnum::temporary>::value
+                || std::is_same<OP3T, opnum::bpoffset>::value,
+                "Argument r should be reg, bpoffset or temporary.");
 
-            if constexpr (std::is_same<OP3T, opnum::reg>::value)
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::movicas, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
-            else
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::movicas, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::movicas,
+                WO_OPNUM(op1),
+                WO_OPNUM(op2),
+                opnum::opnum32(r).to_i32());
         }
         template<typename OP1T>
         void call(const OP1T& op1)
@@ -1378,9 +1418,9 @@ namespace wo
                 "Can not set value to immediate.");
 
             WO_PUT_IR_TO_BUFFER(
-                instruct::opcode::mkcontain, 
-                WO_OPNUM(op1), 
-                nullptr, 
+                instruct::opcode::mkcontain,
+                WO_OPNUM(op1),
+                nullptr,
                 (int32_t)size,
                 (int32_t)0);
         }
@@ -1394,9 +1434,9 @@ namespace wo
                 "Can not set value to immediate.");
 
             WO_PUT_IR_TO_BUFFER(
-                instruct::opcode::mkcontain, 
-                WO_OPNUM(op1), 
-                nullptr, 
+                instruct::opcode::mkcontain,
+                WO_OPNUM(op1),
+                nullptr,
                 (int32_t)size,
                 (int32_t)1);
         }
@@ -1426,13 +1466,15 @@ namespace wo
                 "Argument(s) should be opnum.");
 
             static_assert(std::is_same<OP3T, opnum::reg>::value
-                || std::is_same<OP3T, opnum::temporary>::value,
-                "Argument r should be reg or temporary.");
+                || std::is_same<OP3T, opnum::temporary>::value
+                || std::is_same<OP3T, opnum::bpoffset>::value,
+                "Argument r should be reg, bpoffset or temporary.");
 
-            if constexpr (std::is_same<OP3T, opnum::reg>::value)
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::siddict, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
-            else
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::siddict, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::siddict,
+                WO_OPNUM(op1),
+                WO_OPNUM(op2),
+                opnum::opnum32(r).to_i32());
         }
         template<typename OP1T, typename OP2T, typename OP3T>
         void sidmap(const OP1T& op1, const OP2T& op2, const OP3T& r)
@@ -1442,13 +1484,15 @@ namespace wo
                 "Argument(s) should be opnum.");
 
             static_assert(std::is_same<OP3T, opnum::reg>::value
-                || std::is_same<OP3T, opnum::temporary>::value,
-                "Argument r should be reg or temporary.");
+                || std::is_same<OP3T, opnum::temporary>::value
+                || std::is_same<OP3T, opnum::bpoffset>::value,
+                "Argument r should be reg, bpoffset or temporary.");
 
-            if constexpr (std::is_same<OP3T, opnum::reg>::value)
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
-            else
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::sidmap,
+                WO_OPNUM(op1),
+                WO_OPNUM(op2),
+                opnum::opnum32(r).to_i32());
         }
         template<typename OP1T, typename OP2T, typename OP3T>
         void sidarr(const OP1T& op1, const OP2T& op2, const OP3T& r)
@@ -1458,13 +1502,15 @@ namespace wo
                 "Argument(s) should be opnum.");
 
             static_assert(std::is_same<OP3T, opnum::reg>::value
-                || std::is_same<OP3T, opnum::temporary>::value,
-                "Argument r should be reg or temporary.");
+                || std::is_same<OP3T, opnum::temporary>::value
+                || std::is_same<OP3T, opnum::bpoffset>::value,
+                "Argument r should be reg, bpoffset or temporary.");
 
-            if constexpr (std::is_same<OP3T, opnum::reg>::value)
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
-            else
-                WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), -(int32_t)(r.m_id + 1));
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::sidarr,
+                WO_OPNUM(op1),
+                WO_OPNUM(op2),
+                opnum::opnum32(r).to_i32());
         }
         template<typename OP1T, typename OP2T>
         void sidstruct(const OP1T& op1, const OP2T& op2, uint16_t offset)
@@ -1473,7 +1519,10 @@ namespace wo
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidstruct, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)offset);
+            WO_PUT_IR_TO_BUFFER(
+                instruct::opcode::sidstruct, WO_OPNUM(op1), 
+                WO_OPNUM(op2), 
+                (int32_t)offset);
         }
 
         template<typename OP1T, typename OP2T>

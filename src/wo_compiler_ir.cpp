@@ -178,7 +178,7 @@ namespace wo
 
             auto& location_list_of_file =
                 _general_src_data_buf_a[*ast_node->source_location.source_file];
-            
+
             location_list_of_file.push_back(loc);
             _general_src_data_buf_b[compiler->get_now_ip()] = loc;
         }
@@ -245,18 +245,21 @@ namespace wo
                 }
                 switch (ircmbuf.opcode & 0b11111100)
                 {
+                case instruct::opcode::movicas:
                 case instruct::opcode::sidarr:
                 case instruct::opcode::sidmap:
                 case instruct::opcode::siddict:
-                    if (ircmbuf.opinteger1 < 0
-                        && tr_regist_mapping.find(
-                            (uint32_t)(-(ircmbuf.opinteger1 + 1))) == tr_regist_mapping.end())
+                {
+                    opnum::opnum32 op3(ircmbuf.opinteger1);
+                    if (op3.m_type == opnum::opnum32::type::TEMPORARY_REGISTER
+                        && tr_regist_mapping.find(static_cast<uint32_t>(op3.m_value)) == tr_regist_mapping.end())
                     {
                         // is temp reg 
                         size_t stack_idx = tr_regist_mapping.size();
-                        tr_regist_mapping[(uint32_t)(-(ircmbuf.opinteger1 + 1))] = (int32_t)stack_idx;
+                        tr_regist_mapping[static_cast<uint32_t>(op3.m_value)] = (int32_t)stack_idx;
                     }
                     break;
+                }
                 default:
                     break;
                 }
@@ -299,10 +302,10 @@ namespace wo
                 {
                     stack_offset = -(int32_t)tr_regist_mapping[op1tmp->m_id];
                 }
-                else if (auto* op1reg = dynamic_cast<const opnum::reg*>(opnum1);
-                    op1reg != nullptr && op1reg->is_bp_offset() && op1reg->get_bp_offset() <= 0)
+                else if (auto* op1reg = dynamic_cast<const opnum::bpoffset*>(opnum1);
+                    op1reg != nullptr && op1reg->offset <= 0)
                 {
-                    stack_offset = (int32_t)op1reg->get_bp_offset() - (int32_t)maxim_offset;
+                    stack_offset = (int32_t)op1reg->offset - (int32_t)maxim_offset;
                 }
 
                 if (stack_offset.has_value())
@@ -312,7 +315,7 @@ namespace wo
                         opnum1 = ctx->opnum_stack_offset(static_cast<int8_t>(stack_offset_val));
                     else
                     {
-                        auto* reg_r0 = ctx->opnum_spreg(opnum::reg::t0);
+                        auto* reg_r0 = ctx->opnum_spreg(WO_REG_T0);
                         auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
 
                         // out of bt_offset range, make lds ldsr
@@ -341,10 +344,10 @@ namespace wo
                 {
                     stack_offset = -(int32_t)tr_regist_mapping[op2tmp->m_id];
                 }
-                else if (auto* op2reg = dynamic_cast<const opnum::reg*>(opnum2);
-                    op2reg != nullptr && op2reg->is_bp_offset() && op2reg->get_bp_offset() <= 0)
+                else if (auto* op2bpoffset = dynamic_cast<const opnum::bpoffset*>(opnum2);
+                    op2bpoffset != nullptr && op2bpoffset->offset <= 0)
                 {
-                    stack_offset = (int32_t)op2reg->get_bp_offset() - (int32_t)maxim_offset;
+                    stack_offset = (int32_t)op2bpoffset->offset - (int32_t)maxim_offset;
                 }
 
                 if (stack_offset.has_value())
@@ -356,7 +359,7 @@ namespace wo
                     {
                         wo_assert(ir_command_buffer[i].opcode != instruct::call);
 
-                        auto* reg_r1 = ctx->opnum_spreg(opnum::reg::t1);
+                        auto* reg_r1 = ctx->opnum_spreg(WO_REG_T1);
                         auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
 
                         // out of bt_offset range, make lds ldsr
@@ -373,50 +376,58 @@ namespace wo
 
             switch (ir_command_buffer[i].opcode & 0b11111100)
             {
+            case instruct::opcode::movicas:
             case instruct::opcode::sidarr:
             case instruct::opcode::sidmap:
             case instruct::opcode::siddict:
             {
                 std::optional<int32_t> stack_offset = std::nullopt;
-                if (ir_command_buffer[i].opinteger1 < 0)
-                {
-                    stack_offset = -(int32_t)tr_regist_mapping[(uint32_t)(-(ir_command_buffer[i].opinteger1 + 1))];
-                }
-                else
-                {
-                    opnum::reg op3((uint8_t)ir_command_buffer[i].opinteger1);
-                    if (op3.is_bp_offset() && op3.get_bp_offset() <= 0)
-                    {
-                        stack_offset = (int32_t)op3.get_bp_offset() - (int32_t)maxim_offset;
-                    }
-                }
 
+                opnum::opnum32 op3(ir_command_buffer[i].opinteger1);
+
+                switch (op3.m_type)
+                {
+                case opnum::opnum32::type::TEMPORARY_REGISTER:
+                    stack_offset = -(int32_t)tr_regist_mapping[op3.m_value];
+                    break;
+                case opnum::opnum32::type::BP_OFFSET:
+                {
+                    const int8_t bp_offset = static_cast<int8_t>(static_cast<uint8_t>(op3.m_value));
+                    if (bp_offset <= 0)
+                    {
+                        stack_offset =
+                            static_cast<int32_t>(bp_offset) - maxim_offset;
+                    }
+                    break;
+                }
+                default:
+                    break;
+                }
+     
                 if (stack_offset.has_value())
                 {
                     auto stack_offset_val = stack_offset.value();
                     if (stack_offset_val >= -64)
                     {
-                        opnum::reg op3(opnum::reg::bp_offset(static_cast<int8_t>(stack_offset_val)));
-                        ir_command_buffer[i].opinteger1 = (int32_t)op3.id;
+                        opnum::opnum32 op3(opnum::bpoffset(static_cast<int8_t>(stack_offset_val)));
+                        ir_command_buffer[i].opinteger1 = op3.to_i32();
                     }
                     else
                     {
-                        auto* reg_r2 = ctx->opnum_spreg(opnum::reg::t2);
+                        auto* reg_r2 = ctx->opnum_spreg(WO_REG_T2);
                         auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
 
                         // out of bt_offset range, make lds ldsr
                         ir_command_buffer.insert(ir_command_buffer.begin() + i,
                             ir_command{ instruct::lds, reg_r2, imm_offset });         // lds r2, imm(real_offset)
 
-                        opnum::reg op3(opnum::reg::t2);
+                        opnum::reg op3(WO_REG_T2);
                         ++i;
 
                         // No opcode will update opnum3, so here no need for update.
                         ir_command_buffer[i].opinteger1 = (int32_t)op3.id;
                     }
                 }
-
-
                 break;
             }
             default:
@@ -2406,19 +2417,19 @@ namespace wo
                     generated_runtime_code_buf.push_back(WO_OPCODE(siddict));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
-                    opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
+                    opnum::opnum32(WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
                 case instruct::opcode::sidmap:
                     generated_runtime_code_buf.push_back(WO_OPCODE(sidmap));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
-                    opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
+                    opnum::opnum32(WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
                 case instruct::opcode::sidarr:
                     generated_runtime_code_buf.push_back(WO_OPCODE(sidarr));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
-                    opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
+                    opnum::opnum32(WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
                 case instruct::opcode::sidstruct:
                 {
@@ -2468,7 +2479,8 @@ namespace wo
                     generated_runtime_code_buf.push_back(WO_OPCODE(movicas));
                     WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(generated_runtime_code_buf);
-                    opnum::reg((uint8_t)WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
+
+                    opnum::opnum32(WO_IR.opinteger1).generate_opnum_to_buffer(generated_runtime_code_buf);
                     break;
                 case instruct::opcode::call:
                     generated_runtime_code_buf.push_back(WO_OPCODE(call));

@@ -410,9 +410,9 @@ namespace wo
         register_storage = std::launder(
             reinterpret_cast<value*>(calloc(regcount, sizeof(wo::value))));
 
-        cr = register_storage + opnum::reg::spreg::cr;
-        tc = register_storage + opnum::reg::spreg::tc;
-        tp = register_storage + opnum::reg::spreg::tp;
+        cr = &register_storage[WO_REG_CR];
+        tc = &register_storage[WO_REG_TC];
+        tp = &register_storage[WO_REG_TP];
     }
 
     void vmbase::_allocate_stack_space(size_t stacksz) noexcept
@@ -567,9 +567,9 @@ namespace wo
         std::string format_reg_or_bpoffset() noexcept
         {
             byte_t data = read<byte_t>();
-            if (data & (1 << 7))
-                return format_bp_offset(data);
-            return format_register(data);
+            if (static_cast<int8_t>(data) < static_cast<int8_t>(0b01100000))
+                return format_bp_offset(static_cast<int8_t>(data));
+            return format_register(static_cast<wo_reg>(data));
         }
 
         // Format global/static value
@@ -605,7 +605,7 @@ namespace wo
                     static_cast<unsigned char>(val) << 1)) >> 1;
         }
 
-        std::string format_bp_offset(byte_t data) const noexcept
+        std::string format_bp_offset(int8_t data) const noexcept
         {
             int offset = SIGNED_SHIFT(data);
             std::string result = "[bp";
@@ -618,21 +618,19 @@ namespace wo
             return result + "]";
         }
 
-        std::string format_register(byte_t reg) const noexcept
+        std::string format_register(wo_reg reg) const noexcept
         {
-            if (reg <= 15)
-                return "t" + std::to_string(reg);
-            if (reg <= 31)
-                return "r" + std::to_string(reg - 16);
+            if (reg >= WO_REG_T0)
+                return "t" + std::to_string(reg - WO_REG_T0);
 
             switch (reg)
             {
-            case 32: return "cr";
-            case 33: return "tc";
-            case 34: return "er";
-            case 35: return "nil";
-            case 36: return "pm";
-            case 37: return "tp";
+            case WO_REG_CR: return "cr";
+            case WO_REG_TC: return "tc";
+            case WO_REG_ER: return "er";
+            case WO_REG_NI: return "nil";
+            case WO_REG_PM: return "pm";
+            case WO_REG_TP: return "tp";
             default: return "reg(" + std::to_string(reg) + ")";
             }
         }
@@ -1928,10 +1926,12 @@ namespace wo
 
     // VM Operate
 #define WO_VM_RETURN(V) do{ ip = rt_ip; return (V); }while(0)
-#define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
-#define WO_ADDRESSING_RS \
-    ((WO_IPVAL & (1 << 7)) ? (bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1)) : (WO_IPVAL_MOVE_1 + reg_begin))
+#define WO_ADDRESSING_RS                                                \
+    (((WO_IPVAL & static_cast<uint8_t>(0b11100000u)) != static_cast<uint8_t>(0b01100000u))  \
+        ? (bp + static_cast<int8_t>(WO_IPVAL_MOVE_1))                   \
+        : (shifted_reg_begin + WO_IPVAL_MOVE_1))
+
 #define WO_ADDRESSING_G \
     (WO_IPVAL_MOVE_4 + near_static_global)
 
@@ -2297,7 +2297,7 @@ namespace wo
         value* near_static_global = runtime_static_storage;
 
         value* const rt_cr = cr;
-        value* const reg_begin = register_storage;
+        value* const shifted_reg_begin = register_storage - 0b01100000;
 
         value* opnum1, * opnum2, * opnum3;
 

@@ -1733,7 +1733,7 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reasonfmt, ...)
     va_start(v, reasonfmt);
 
     wo::vmbase* vmbase = WO_VM(vm);
-    auto& er_reg = vmbase->register_storage[wo::opnum::reg::er];
+    auto& er_reg = vmbase->register_storage[WO_REG_ER];
 
     er_reg.set_string(
         _wo_vformat(reasonfmt, v).data());
@@ -3094,7 +3094,8 @@ wo_string_t wo_get_compile_error(wo_vm vm, wo_inform_style_t style)
 
 wo_string_t wo_get_runtime_error(wo_vm vm)
 {
-    return wo_cast_string(CS_VAL(&WO_VM(vm)->register_storage[wo::opnum::reg::er]));
+    return wo_cast_string(
+        CS_VAL(&WO_VM(vm)->register_storage[WO_REG_ER]));
 }
 
 wo_value wo_register(wo_vm vm, wo_reg regid)
@@ -4243,10 +4244,10 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, wo_size_t layer)
     std::stringstream sstream;
     vmm->dump_call_stack(layer, true, sstream);
 
-    wo_set_string(CS_VAL(&vmm->register_storage[wo::opnum::reg::er]), sstream.str().c_str());
-    wo_assert(vmm->register_storage[wo::opnum::reg::er].m_type == wo::value::valuetype::string_type);
+    auto& er_reg = vmm->register_storage[WO_REG_ER];
+    wo_set_string(CS_VAL(&er_reg), sstream.str().c_str());
 
-    return vmm->register_storage[wo::opnum::reg::er].m_string->c_str();
+    return er_reg.m_string->c_str();
 }
 
 wo_dylib_handle_t wo_fake_lib(
@@ -4541,7 +4542,7 @@ void wo_ir_glb(wo_ir_compiler compiler, int32_t offset)
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
     c->ir_opnum(wo::opnum::global(offset));
 }
-void wo_ir_reg(wo_ir_compiler compiler, uint8_t regid)
+void wo_ir_reg(wo_ir_compiler compiler, wo_reg regid)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
     c->ir_opnum(wo::opnum::reg(regid));
@@ -4549,7 +4550,7 @@ void wo_ir_reg(wo_ir_compiler compiler, uint8_t regid)
 void wo_ir_bp(wo_ir_compiler compiler, int8_t offset)
 {
     auto* c = std::launder(reinterpret_cast<wo::ir_compiler*>(compiler));
-    c->ir_opnum(wo::opnum::reg(wo::opnum::reg::bp_offset(offset)));
+    c->ir_opnum(wo::opnum::bpoffset(offset));
 }
 void wo_ir_tag(wo_ir_compiler compiler, wo_string_t name)
 {
