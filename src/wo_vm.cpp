@@ -2393,7 +2393,7 @@ namespace wo
     goto _label_vm_handle_interrupt
 
 #define WO_VM_CHECK_INTERRUPT                                   \
-    (vm_interrupt_type::NOTHING != vm_interrupt.load(std::memory_order_relaxed))
+    (vm_interrupt_type::NOTHING != vm_interrupt.load(std::memory_order_acquire))
 
 #define WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT    \
     do {                                                        \
