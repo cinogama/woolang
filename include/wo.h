@@ -126,7 +126,14 @@ typedef enum _wo_value_type_t
 
 typedef enum _wo_reg
 {
-    WO_REG_T0,
+    WO_REG_CR = 0,
+    WO_REG_TC,
+    WO_REG_ER,
+    WO_REG_NI,
+    WO_REG_PM,
+    WO_REG_TP,
+
+    WO_REG_T0 = 16,
     WO_REG_T1,
     WO_REG_T2,
     WO_REG_T3,
@@ -142,30 +149,6 @@ typedef enum _wo_reg
     WO_REG_T13,
     WO_REG_T14,
     WO_REG_T15,
-
-    WO_REG_R0,
-    WO_REG_R1,
-    WO_REG_R2,
-    WO_REG_R3,
-    WO_REG_R4,
-    WO_REG_R5,
-    WO_REG_R6,
-    WO_REG_R7,
-    WO_REG_R8,
-    WO_REG_R9,
-    WO_REG_R10,
-    WO_REG_R11,
-    WO_REG_R12,
-    WO_REG_R13,
-    WO_REG_R14,
-    WO_REG_R15,
-
-    WO_REG_CR,
-    WO_REG_TC,
-    WO_REG_ER,
-    WO_REG_NI,
-    WO_REG_PM,
-    WO_REG_TP,
 } wo_reg;
 
 #ifdef WO_STRICTLY_BOOL

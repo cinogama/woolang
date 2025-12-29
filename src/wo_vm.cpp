@@ -497,7 +497,7 @@ namespace wo
         runtime_static_storage = env->constant_and_global_storage;
 
         _allocate_stack_space(VM_DEFAULT_STACK_SIZE);
-        _allocate_register_space(env->real_register_count);
+        _allocate_register_space(VM_REGISTER_COUNT);
 
         do
         {

@@ -1153,7 +1153,7 @@ namespace wo
 
             // walk thorgh regs.
             for (size_t reg_index = 0;
-                reg_index < env->real_register_count;
+                reg_index < vmbase::VM_REGISTER_COUNT;
                 reg_index++)
             {
                 auto self_reg_walker = marking_vm->register_storage + reg_index;

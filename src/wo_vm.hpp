@@ -288,6 +288,7 @@ namespace wo
 
     public:
         inline static constexpr size_t VM_DEFAULT_STACK_SIZE = 32;
+        inline static constexpr size_t VM_REGISTER_COUNT = 32;
         inline static constexpr size_t VM_MAX_STACK_SIZE = 128 * 1024 * 1024;
         inline static constexpr uint8_t VM_SHRINK_STACK_COUNT = 3;
         inline static constexpr uint8_t VM_SHRINK_STACK_MAX_EDGE = 16;

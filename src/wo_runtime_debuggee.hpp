@@ -843,32 +843,15 @@ whereis                         <ipoffset>    Find the function that the ipoffse
             {
                 wo_stdout
                     << ANSI_HIG
-                    << target_vm->env->real_register_count
+                    << vmbase::VM_REGISTER_COUNT
                     << ANSI_HIY " register(s) in total:" ANSI_RST
                     << wo_endl;
                 printf("%-15s%-20s%-20s\n", "RegisterID", "Name", "Value");
-                for (size_t reg_idx = 0; reg_idx < target_vm->env->real_register_count; ++reg_idx)
+                for (size_t reg_idx = 0; reg_idx < vmbase::VM_REGISTER_COUNT; ++reg_idx)
                 {
                     printf("%-15zu", reg_idx);
                     switch (reg_idx)
                     {
-                    case wo::opnum::reg::spreg::r0:
-                    case wo::opnum::reg::spreg::r1:
-                    case wo::opnum::reg::spreg::r2:
-                    case wo::opnum::reg::spreg::r3:
-                    case wo::opnum::reg::spreg::r4:
-                    case wo::opnum::reg::spreg::r5:
-                    case wo::opnum::reg::spreg::r6:
-                    case wo::opnum::reg::spreg::r7:
-                    case wo::opnum::reg::spreg::r8:
-                    case wo::opnum::reg::spreg::r9:
-                    case wo::opnum::reg::spreg::r10:
-                    case wo::opnum::reg::spreg::r11:
-                    case wo::opnum::reg::spreg::r12:
-                    case wo::opnum::reg::spreg::r13:
-                    case wo::opnum::reg::spreg::r14:
-                    case wo::opnum::reg::spreg::r15:
-                        printf("%-20s", ("R" + std::to_string(reg_idx - wo::opnum::reg::spreg::r0)).c_str()); break;
                     case wo::opnum::reg::spreg::t0:
                     case wo::opnum::reg::spreg::t1:
                     case wo::opnum::reg::spreg::t2:

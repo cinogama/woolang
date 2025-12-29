@@ -74,15 +74,10 @@ namespace wo
             uint8_t id;
 
             static constexpr uint32_t T_REGISTER_COUNT = 16;
-            static constexpr uint32_t R_REGISTER_COUNT = 16;
-            static constexpr uint32_t ALL_REGISTER_COUNT = 64;
+            static constexpr uint32_t ALL_REGISTER_COUNT = 32;
 
             enum spreg : uint8_t
             {
-                // normal regist
-                t0 = _wo_reg::WO_REG_T0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15,
-                r0 = _wo_reg::WO_REG_R0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
-
                 // special regist
                 op_trace_result = _wo_reg::WO_REG_CR,
                 cr = op_trace_result,
@@ -102,7 +97,10 @@ namespace wo
                 temporary,
                 tp = temporary,
 
-                last_special_register = 0b00111111,
+                last_special_register = 15,
+
+                // normal regist
+                t0 = _wo_reg::WO_REG_T0, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15,
             };
 
             reg(uint8_t _id) noexcept
@@ -487,7 +485,6 @@ namespace wo
         value* constant_and_global_storage = nullptr;
         size_t constant_and_global_value_takeplace_count = 0;
         size_t constant_value_count = 0;
-        size_t real_register_count = 0;
 
         const byte_t* rt_codes = nullptr;
         size_t rt_code_len = 0;

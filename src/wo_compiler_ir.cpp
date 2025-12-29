@@ -312,7 +312,7 @@ namespace wo
                         opnum1 = ctx->opnum_stack_offset(static_cast<int8_t>(stack_offset_val));
                     else
                     {
-                        auto* reg_r0 = ctx->opnum_spreg(opnum::reg::r0);
+                        auto* reg_r0 = ctx->opnum_spreg(opnum::reg::t0);
                         auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
 
                         // out of bt_offset range, make lds ldsr
@@ -356,7 +356,7 @@ namespace wo
                     {
                         wo_assert(ir_command_buffer[i].opcode != instruct::call);
 
-                        auto* reg_r1 = ctx->opnum_spreg(opnum::reg::r1);
+                        auto* reg_r1 = ctx->opnum_spreg(opnum::reg::t1);
                         auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
 
                         // out of bt_offset range, make lds ldsr
@@ -401,14 +401,14 @@ namespace wo
                     }
                     else
                     {
-                        auto* reg_r2 = ctx->opnum_spreg(opnum::reg::r2);
+                        auto* reg_r2 = ctx->opnum_spreg(opnum::reg::t2);
                         auto* imm_offset = _check_and_add_const(ctx->opnum_imm_int(stack_offset_val));
 
                         // out of bt_offset range, make lds ldsr
                         ir_command_buffer.insert(ir_command_buffer.begin() + i,
                             ir_command{ instruct::lds, reg_r2, imm_offset });         // lds r2, imm(real_offset)
 
-                        opnum::reg op3(opnum::reg::r2);
+                        opnum::reg op3(opnum::reg::t2);
                         ++i;
 
                         // No opcode will update opnum3, so here no need for update.
@@ -550,7 +550,6 @@ namespace wo
         : constant_and_global_storage(nullptr)
         , constant_and_global_value_takeplace_count(0)
         , constant_value_count(0)
-        , real_register_count(0)
         , rt_codes(nullptr)
         , rt_code_len(0)
         , _running_on_vm_count(0)
@@ -643,10 +642,6 @@ namespace wo
         write_binary_to_buffer(
             (uint64_t)(this->constant_and_global_value_takeplace_count
                 - this->constant_value_count), 8);
-
-        // 2.2 Default register size
-        write_binary_to_buffer(
-            (uint64_t)this->real_register_count, 8);
 
         // 3.1 Code data
         //  3.1.1 Code data length
@@ -957,11 +952,6 @@ namespace wo
         if (!stream->read_elem(&global_value_count))
             WO_LOAD_BIN_FAILED("Failed to restore global value count.");
 
-        // 2.2 Default register size
-        uint64_t register_count;
-        if (!stream->read_elem(&register_count))
-            WO_LOAD_BIN_FAILED("Failed to restore register count.");
-
         // 3.1 Code data
         //  3.1.1 Code data length
         uint64_t rt_code_with_padding_length;
@@ -985,7 +975,6 @@ namespace wo
 
         created_env->rt_codes = code_buf;
         created_env->rt_code_len = (size_t)rt_code_with_padding_length * sizeof(byte_t);
-        created_env->real_register_count = (size_t)register_count;
         created_env->constant_and_global_value_takeplace_count =
             (size_t)(constant_value_count + 1 + global_value_count + 1);
         created_env->constant_value_count = (size_t)constant_value_count;
@@ -1945,8 +1934,6 @@ namespace wo
             global_value_count = std::max(global_value_count, (size_t)global_opnum->offset + 1);
         }
 
-        const size_t real_register_count = 64;     // t0-t15 r0-r15 (32) special reg (32)
-
         const size_t preserve_memory_size =
             constant_value_count
             + 1
@@ -2805,7 +2792,6 @@ namespace wo
         env->constant_value_count = constant_value_count;
         env->constant_and_global_value_takeplace_count = preserve_memory_size;
 
-        env->real_register_count = real_register_count;
         env->rt_code_len = generated_runtime_code_buf.size();
 
         byte_t* code_buf = (byte_t*)malloc(
