@@ -137,6 +137,8 @@ namespace wo
                     m_type = static_cast<type>(
                         (0xFF00'0000u & static_cast<uint32_t>(val)) >> 24);
                     m_value = val & 0xFFu;
+
+                    wo_assert(m_type == type::BP_OFFSET || m_type == type::REGISTER);
                 }
                 else
                 {
