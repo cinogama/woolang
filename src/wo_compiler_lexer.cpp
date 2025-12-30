@@ -1348,7 +1348,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                                 msglevel_t::error,
                                 WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE,
                                 defined_macro_instance->macro_name.c_str());
-
+                            
                             char describe[256] = {};
                             snprintf(describe, 256,
                                 WO_INFO_SYMBOL_NAMED_DEFINED_HERE,

@@ -1702,8 +1702,8 @@ WO_API wo_api rslib_std_dynamic_deserialize(wo_vm vm, wo_value args)
 #   include <TargetConditionals.h>
 #endif
 
-const char* wo_stdlib_src_path = u8"woo/std.wo";
-const char* wo_stdlib_src_data = {
+const char8_t* wo_stdlib_src_path = u8"woo/std.wo";
+const char8_t* wo_stdlib_src_data = {
 u8R"(// Woolang standard library.
 namespace std
 {
@@ -3125,8 +3125,8 @@ WO_API wo_api rslib_std_debug_empty_func(wo_vm vm, wo_value args)
     return wo_ret_void(vm);
 }
 
-const char* wo_stdlib_debug_src_path = u8"woo/debug.wo";
-const char* wo_stdlib_debug_src_data = {
+const char8_t* wo_stdlib_debug_src_path = u8"woo/debug.wo";
+const char8_t* wo_stdlib_debug_src_data = {
 u8R"(
 namespace std
 {
@@ -3266,8 +3266,8 @@ WO_API wo_api rslib_std_macro_lexer_current_location(wo_vm vm, wo_value args)
     return wo_ret_val(vm, result);
 }
 
-const char* wo_stdlib_macro_src_path = u8"woo/macro.wo";
-const char* wo_stdlib_macro_src_data = {
+const char8_t* wo_stdlib_macro_src_path = u8"woo/macro.wo";
+const char8_t* wo_stdlib_macro_src_data = {
 u8R"(
 import woo::std;
 
@@ -3500,8 +3500,8 @@ WO_API wo_api rslib_std_shell(wo_vm vm, wo_value args)
             "trying to restart without '--enable-shell 1'.");
 }
 
-const char* wo_stdlib_shell_src_path = u8"woo/shell.wo";
-const char* wo_stdlib_shell_src_data = {
+const char8_t* wo_stdlib_shell_src_path = u8"woo/shell.wo";
+const char8_t* wo_stdlib_shell_src_data = {
 u8R"(
 import woo::std;
 namespace std

@@ -651,11 +651,23 @@ void wo_init(int argc, char** argv)
 
     if (enable_std_package)
     {
-        wo_virtual_source(wo_stdlib_src_path, wo_stdlib_src_data, WO_FALSE);
-        wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, WO_FALSE);
-        wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, WO_FALSE);
+        wo_virtual_source(
+            reinterpret_cast<const char*>(wo_stdlib_src_path),
+            reinterpret_cast<const char*>(wo_stdlib_src_data),
+            WO_FALSE);
+        wo_virtual_source(
+            reinterpret_cast<const char*>(wo_stdlib_debug_src_path),
+            reinterpret_cast<const char*>(wo_stdlib_debug_src_data),
+            WO_FALSE);
+        wo_virtual_source(
+            reinterpret_cast<const char*>(wo_stdlib_macro_src_path),
+            reinterpret_cast<const char*>(wo_stdlib_macro_src_data),
+            WO_FALSE);
         if (wo::config::ENABLE_SHELL_PACKAGE)
-            wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, WO_FALSE);
+            wo_virtual_source(
+                reinterpret_cast<const char*>(wo_stdlib_shell_src_path),
+                reinterpret_cast<const char*>(wo_stdlib_shell_src_data),
+                WO_FALSE);
     }
 
     if (enable_ctrl_c_to_debug)
@@ -2922,7 +2934,8 @@ std::string _dump_src_info(
                     append_result +=
                         std::string("~\\")
                         + ANSI_UNDERLNE
-                        + " " WO_HERE
+                        + " "
+                        + WO_HERE
                         + ANSI_NUNDERLNE
                         + "_";
 
@@ -3023,7 +3036,10 @@ std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style
     {
         if (err_info.m_layer != 0)
         {
-            auto see_also = last_depth >= err_info.m_layer ? WO_SEE_ALSO : WO_SEE_HERE;
+            auto see_also = last_depth >= err_info.m_layer
+                ? WO_SEE_ALSO
+                : WO_SEE_HERE;
+
             if (style == WO_NEED_COLOR)
                 _vm_compile_errors
                 += std::string(err_info.m_layer, ' ')

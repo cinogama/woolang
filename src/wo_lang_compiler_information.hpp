@@ -11,154 +11,154 @@
 #   define WO_USED_LANGUAGE WO_LANG_ZH_CN
 #endif
 
-#define WO_HERE u8"此处"
-#define WO_SEE_HERE u8"参见"
-#define WO_SEE_ALSO u8"另见"
-#define WO_TERM_EXCEPTED u8"应当是"
+#define WO_HERE reinterpret_cast<const char*>(u8"此处")
+#define WO_SEE_HERE reinterpret_cast<const char*>(u8"参见")
+#define WO_SEE_ALSO reinterpret_cast<const char*>(u8"另见")
+#define WO_TERM_EXCEPTED reinterpret_cast<const char*>(u8"应当是")
 
-#define WO_TOO_MANY_ERROR(count) u8"错误数量过多(已达上限), 仅显示前 " + std::to_string(count) +  u8" 条错误, 编译终止"
+#define WO_TOO_MANY_ERROR(count) reinterpret_cast<const char*>(u8"错误数量过多(已达上限), 仅显示前 ") + std::to_string(count) +  reinterpret_cast<const char*>(u8" 条错误, 编译终止")
 
 // PASS LEXER
-#define WO_ERR_MISMATCH_ANNO_SYM u8"注释符号不匹配"
-#define WO_ERR_UNEXCEPT_CH_AFTER_CH u8"在字符 `%c` 后出现了意外的字符 `%c`"
-#define WO_ERR_UNEXCEPT_EOF u8"意外的文件结束"
-#define WO_ERR_UNEXCEPT_TOKEN u8"意外的符号: "
-#define WO_ERR_ILLEGAL_LITERAL u8"非法的字面量格式"
-#define WO_ERR_UNKNOW_OPERATOR_STR u8"未知的运算符: `%s`"
-#define WO_ERR_UNEXCEPTED_EOL_IN_CHAR u8"字符常量中不允许换行符"
-#define WO_ERR_NO_CHAR_IN_CHAR u8"字符常量至少要有一个字符"
-#define WO_ERR_TOO_MANY_CHAR_IN_CHAR u8"字符常量只能包含一个字符"
-#define WO_ERR_UNEXCEPTED_EOL_IN_STRING u8"字符串常量中不允许换行符"
-#define WO_ERR_MACRO_NAME_SHOULD_BE_IDENTIFIER u8"宏名称必须是有效的标识符"
-#define WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE u8"重复定义的宏: `%s`"
-#define WO_ERR_UNKNOWN_PRAGMA_COMMAND u8"未知的预处理指令: `%s`"
-#define WO_ERR_LINE_NEED_STRING_AS_PATH u8"此处需要提供字符串字面量作为文件路径"
-#define WO_ERR_LINE_NEED_INTEGER_AS_ROW u8"此处需要提供整数字面量作为行号"
-#define WO_ERR_LINE_NEED_INTEGER_AS_COL u8"此处需要提供整数字面量作为列号"
-#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR u8"宏编译失败"
-#define WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR u8"执行宏 `%s` 时出错: %s"
-#define WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH u8"未知的转义序列: `\\%c`"
-#define WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR u8"宏 `%s` 生成了非法的词法标记"
-#define WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID u8"不允许嵌套的格式化字符串"
-#define WO_ERR_HERE_SHOULD_HAVE u8"此处缺少 `%s`"
-#define WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE u8"词法错误: 未知的数字进制"
-#define WO_ERR_SOURCE_CANNOT_BE_EMPTY u8"不能编译空的源代码"
-#define WO_ERR_UNABLE_RECOVER_FROM_ERR u8"无法从当前错误恢复, 编译终止"
+#define WO_ERR_MISMATCH_ANNO_SYM reinterpret_cast<const char*>(u8"注释符号不匹配")
+#define WO_ERR_UNEXCEPT_CH_AFTER_CH reinterpret_cast<const char*>(u8"在字符 `%c` 后出现了意外的字符 `%c`")
+#define WO_ERR_UNEXCEPT_EOF reinterpret_cast<const char*>(u8"意外的文件结束")
+#define WO_ERR_UNEXCEPT_TOKEN reinterpret_cast<const char*>(u8"意外的符号: ")
+#define WO_ERR_ILLEGAL_LITERAL reinterpret_cast<const char*>(u8"非法的字面量格式")
+#define WO_ERR_UNKNOW_OPERATOR_STR reinterpret_cast<const char*>(u8"未知的运算符: `%s`")
+#define WO_ERR_UNEXCEPTED_EOL_IN_CHAR reinterpret_cast<const char*>(u8"字符常量中不允许换行符")
+#define WO_ERR_NO_CHAR_IN_CHAR reinterpret_cast<const char*>(u8"字符常量至少要有一个字符")
+#define WO_ERR_TOO_MANY_CHAR_IN_CHAR reinterpret_cast<const char*>(u8"字符常量只能包含一个字符")
+#define WO_ERR_UNEXCEPTED_EOL_IN_STRING reinterpret_cast<const char*>(u8"字符串常量中不允许换行符")
+#define WO_ERR_MACRO_NAME_SHOULD_BE_IDENTIFIER reinterpret_cast<const char*>(u8"宏名称必须是有效的标识符")
+#define WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE reinterpret_cast<const char*>(u8"重复定义的宏: `%s`")
+#define WO_ERR_UNKNOWN_PRAGMA_COMMAND reinterpret_cast<const char*>(u8"未知的预处理指令: `%s`")
+#define WO_ERR_LINE_NEED_STRING_AS_PATH reinterpret_cast<const char*>(u8"此处需要提供字符串字面量作为文件路径")
+#define WO_ERR_LINE_NEED_INTEGER_AS_ROW reinterpret_cast<const char*>(u8"此处需要提供整数字面量作为行号")
+#define WO_ERR_LINE_NEED_INTEGER_AS_COL reinterpret_cast<const char*>(u8"此处需要提供整数字面量作为列号")
+#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR reinterpret_cast<const char*>(u8"宏编译失败")
+#define WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR reinterpret_cast<const char*>(u8"执行宏 `%s` 时出错: %s")
+#define WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH reinterpret_cast<const char*>(u8"未知的转义序列: `\\%c`")
+#define WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR reinterpret_cast<const char*>(u8"宏 `%s` 生成了非法的词法标记")
+#define WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID reinterpret_cast<const char*>(u8"不允许嵌套的格式化字符串")
+#define WO_ERR_HERE_SHOULD_HAVE reinterpret_cast<const char*>(u8"此处缺少 `%s`")
+#define WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE reinterpret_cast<const char*>(u8"词法错误: 未知的数字进制")
+#define WO_ERR_SOURCE_CANNOT_BE_EMPTY reinterpret_cast<const char*>(u8"不能编译空的源代码")
+#define WO_ERR_UNABLE_RECOVER_FROM_ERR reinterpret_cast<const char*>(u8"无法从当前错误恢复, 编译终止")
 
 // PASS AST BUILDER
-#define WO_ERR_UNEXCEPT_TOKEN_2 u8"意外的符号: `%s`"
-#define WO_ERR_CANNOT_OPEN_FILE u8"无法打开文件 `%s`"
-#define WO_ERR_ARG_DEFINE_AFTER_VARIADIC u8"可变参数 `...` 必须作为最后一个参数, 其后不能有其他参数定义"
-#define WO_ERR_ARG_DEFINE_AFTER_EXPAND_VECARR u8"数组展开后不能再定义其他参数"
-#define WO_ERR_UNKNOWN_TYPE u8"未知类型或类型定义不完整"
-#define WO_ERR_REDEFINED u8"名称 `%s` 在当前作用域中已被定义"
-#define WO_ERR_REPEAT_MEMBER_NAME u8"成员名称 `%s` 重复"
-#define WO_ERR_REPEAT_ATTRIBUTE u8"属性重复定义"
-#define WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG u8"元组类型中不能使用可变参数 `...`"
-#define WO_ERR_INVALID_KEY_EXPR u8"映射键必须是有效的常量表达式"
-#define WO_ERR_UNKNOWN_MACRO_NAMED u8"未定义或未完成的宏 `%s`"
-#define WO_ERR_UNKNOWN_EXTERN_ATTRIB u8"不支持的外部函数属性 `%s`"
-#define WO_ERR_COMPILER_DISABLED u8"当前编译器功能未启用"
-#define WO_ERR_CANNOT_START_NAMESPACE u8"当前位置不允许定义命名空间"
-#define WO_ERR_CANNOT_USING_UNSAFE u8"出于安全考虑, 不能直接使用 `unsafe` 命名空间"
+#define WO_ERR_UNEXCEPT_TOKEN_2 reinterpret_cast<const char*>(u8"意外的符号: `%s`")
+#define WO_ERR_CANNOT_OPEN_FILE reinterpret_cast<const char*>(u8"无法打开文件 `%s`")
+#define WO_ERR_ARG_DEFINE_AFTER_VARIADIC reinterpret_cast<const char*>(u8"可变参数 `...` 必须作为最后一个参数, 其后不能有其他参数定义")
+#define WO_ERR_ARG_DEFINE_AFTER_EXPAND_VECARR reinterpret_cast<const char*>(u8"数组展开后不能再定义其他参数")
+#define WO_ERR_UNKNOWN_TYPE reinterpret_cast<const char*>(u8"未知类型或类型定义不完整")
+#define WO_ERR_REDEFINED reinterpret_cast<const char*>(u8"名称 `%s` 在当前作用域中已被定义")
+#define WO_ERR_REPEAT_MEMBER_NAME reinterpret_cast<const char*>(u8"成员名称 `%s` 重复")
+#define WO_ERR_REPEAT_ATTRIBUTE reinterpret_cast<const char*>(u8"属性重复定义")
+#define WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG reinterpret_cast<const char*>(u8"元组类型中不能使用可变参数 `...`")
+#define WO_ERR_INVALID_KEY_EXPR reinterpret_cast<const char*>(u8"映射键必须是有效的常量表达式")
+#define WO_ERR_UNKNOWN_MACRO_NAMED reinterpret_cast<const char*>(u8"未定义或未完成的宏 `%s`")
+#define WO_ERR_UNKNOWN_EXTERN_ATTRIB reinterpret_cast<const char*>(u8"不支持的外部函数属性 `%s`")
+#define WO_ERR_COMPILER_DISABLED reinterpret_cast<const char*>(u8"当前编译器功能未启用")
+#define WO_ERR_CANNOT_START_NAMESPACE reinterpret_cast<const char*>(u8"当前位置不允许定义命名空间")
+#define WO_ERR_CANNOT_USING_UNSAFE reinterpret_cast<const char*>(u8"出于安全考虑, 不能直接使用 `unsafe` 命名空间")
 
 // PASS0_1 TYPE CHECK PARSE
-#define WO_ERR_UNFOUND_TYPE_NAMED u8"未找到类型 `%s`"
-#define WO_ERR_UNFOUND_VARIABLE_NAMED u8"未找到变量、常量或函数 `%s`"
-#define WO_ERR_UNEXPECTED_TEMPLATE_COUNT u8"需要 %zu 个泛型参数, 但提供了 %zu 个"
-#define WO_ERR_EXPECTED_TEMPLATE_ARGUMENT u8"`%s` 需要指定泛型参数"
-#define WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT u8"`%s` 不是泛型目标, 不需要泛型参数"
-#define WO_ERR_UNEXPECTED_MATCH_TYPE_FOR_TUPLE u8"匹配操作需要元组类型"
-#define WO_ERR_UNEXPECTED_MATCH_COUNT_FOR_TUPLE u8"需要 %zu 个元素的元组, 但提供了 %zu 个元素"
-#define WO_ERR_VALUE_TYPE_DETERMINED_FAILED u8"无法确定表达式类型"
-#define WO_ERR_TYPE_DETERMINED_FAILED u8"无法确定类型"
-#define WO_ERR_TYPE_NAMED_DETERMINED_FAILED u8"类型 `%s` 尚未完全确定, 无法进行类型检查"
-#define WO_ERR_RECURSIVE_TEMPLATE_INSTANCE u8"类型推断循环依赖：泛型实例递归地依赖自身"
-#define WO_ERR_RECURSIVE_EVAL_PASS1 u8"递归依赖：表达式依赖自身"
-#define WO_ERR_CONSTRAINT_SHOULD_BE_CONST u8"约束条件必须是常量表达式"
-#define WO_ERR_CONSTRAINT_SHOULD_BE_BOOL u8"约束条件表达式必须是布尔类型"
-#define WO_ERR_CONSTRAINT_FAILED u8"约束条件不满足"
-#define WO_ERR_NOT_IN_REIFICATION_TEMPLATE_FUNC u8"无法在缺少泛型上下文的情况下实例化匿名泛型函数"
-#define WO_ERR_UNMATCHED_RETURN_TYPE_NAMED u8"返回类型不匹配：实际返回 `%s`, 但声明或推导为 `%s`"
-#define WO_ERR_UNMATCHED_ARRAY_ELEMENT_TYPE_NAMED u8"数组元素类型不匹配：当前为 `%s`, 但预期为 `%s`"
-#define WO_ERR_UNMATCHED_DICT_KEY_TYPE_NAMED u8"字典键类型不匹配：当前为 `%s`, 但预期为 `%s`"
-#define WO_ERR_UNMATCHED_DICT_VALUE_TYPE_NAMED u8"字典值类型不匹配：当前为 `%s`, 但预期为 `%s`"
-#define WO_ERR_UNINDEXABLE_TYPE_NAMED u8"类型 `%s` 不支持索引操作"
-#define WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE u8"类型 `%s` 不支持使用 `%s` 类型作为索引"
-#define WO_ERR_CANNOT_INDEX_STRUCT_WITH_NON_CONST u8"结构体索引必须是常量"
-#define WO_ERR_CANNOT_INDEX_TUPLE_WITH_NON_CONST u8"元组索引必须是常量"
-#define WO_ERR_ONLY_EXPAND_ARRAY_VEC_AND_TUPLE u8"只能展开数组、向量或元组, 当前类型为 `%s`"
-#define WO_ERR_ONLY_EXPAND_TUPLE u8"只能展开元组, 当前尝试展开 `%s`"
-#define WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED u8"结构体 `%s` 没有成员 `%s`"
-#define WO_ERR_TUPLE_INDEX_OUT_OF_RANGE u8"元组 `%s` 只有 %zu 个元素, 索引 %lld 越界"
-#define WO_ERR_PATTERN_VARIABLE_SHOULD_BE_MUTABLE u8"赋值目标必须是可变变量"
-#define WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE u8"索引结果不可变, 不能对此赋值"
-#define WO_ERR_CANNOT_CAST_TYPE_TO_TYPE u8"类型转换失败: 无法从类型 `%s` 转换为 `%s`"
-#define WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE u8"泛型参数自动推导失败: 无法确定合适的类型参数"
-#define WO_ERR_FAILED_TO_DEDUCE_NOT_FUNC_PARAM_TYPE u8"泛型函数类型匹配失败: 期望函数类型但实际为 `%s`"
-#define WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED u8"泛型参数不完整: 参数 <%s> 无法自动推导"
-#define WO_ERR_TARGET_TYPE_IS_NOT_A_FUNCTION u8"调用目标类型错误: `%s` 不是函数类型"
-#define WO_ERR_ARGUMENT_TOO_MUCH u8"函数调用错误: 提供的参数数量超过声明"
-#define WO_ERR_ARGUMENT_TOO_LESS u8"函数调用错误: 提供的参数数量不足"
-#define WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED u8"类型不匹配: 不接受 `%s` 类型 (期望 `%s`)"
-#define WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC u8"运行时类型转换失败: 无法从动态类型确认 `%s` 类型"
-#define WO_ERR_TYPE_NAMED_IS_NOT_STRUCT u8"类型错误: `%s` 不是结构体类型"
-#define WO_ERR_REPEATED_FIELD_NAMED u8"结构体字段重复: 字段名 `%s` 已被使用"
-#define WO_ERR_NOT_ALL_FIELD_INITIALIZED u8"结构体初始化不完整: 存在未初始化的字段"
-#define WO_ERR_TOO_MUCH_FIELD_INITIALIZED u8"结构体初始化错误: 提供的初始值过多"
-#define WO_ERR_AMBIGUOUS_TARGET_NAMED u8"引用不明确: `%s` 可能指代多个目标 (已选择 `%s`)"
-#define WO_ERR_DIFFERENT_TYPE_IN_BINARY u8"二元运算类型错误: 运算符两侧类型不匹配"
-#define WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE u8"运算类型错误: `%s` 类型不支持此操作"
-#define WO_ERR_UNACCEPTABLE_TYPE_IN_COND u8"条件表达式错误: 必须是布尔类型 (当前为 `%s`)"
-#define WO_ERR_UNEXPECTED_PACKEDARGS u8"变长参数使用错误: 只能在变长参数函数内部使用"
-#define WO_ERR_UNEXPECTED_MACTHING_TYPE u8"匹配类型错误: match 语句只支持共用体类型 (当前为 `%s`)"
-#define WO_ERR_TAKEPLACE_PATTERN_MATCHED u8"匹配顺序错误: 占位模式(`_`)必须放在最后"
-#define WO_ERR_ALL_CASES_SHOULD_BE_MATCHED u8"匹配不完整: 必须覆盖所有可能的分支"
-#define WO_ERR_UNEXISTS_CASE_NAMED_IN_MATCH u8"匹配项不存在: `%s` 不是有效的匹配项"
-#define WO_ERR_EXISTS_CASE_NAMED_IN_MATCH u8"匹配项重复: `%s` 已经存在于匹配语句中"
-#define WO_ERR_HAVE_NOT_VALUE_CASE_IN_MATCH u8"匹配类型 `%s` 时，匹配项 `%s` 必须包含值参数"
-#define WO_ERR_HAVE_VALUE_CASE_IN_MATCH u8"匹配类型 `%s` 时，匹配项 `%s` 不应包含值参数"
-#define WO_ERR_FAILED_REIFICATION_CAUSED_BY u8"泛型实例化失败: 无法使用参数 <%s> 实例化泛型类型 `%s`"
-#define WO_ERR_UNABLE_CAPTURE_IN_RECURSIVE_FUNC u8"递归函数中不允许捕获外部变量"
-#define WO_ERR_STRING_INDEX_OUT_OF_RANGE u8"字符串索引越界"
-#define WO_ERR_SYMBOL_IS_PRIVATE u8"符号 `%s` 是私有的，只能在 `%s` 内访问"
-#define WO_ERR_SYMBOL_IS_PROTECTED u8"符号 `%s` 是受保护的，只能在命名空间 `%s` 内访问"
-#define WO_ERR_SOURCE_MUST_BE_IMPORTED u8"无法访问 `%s`，需要先导入脚本 `%s`"
-#define WO_ERR_STRUCT_FIELD_IS_PRIVATE u8"结构体字段 `%s` 是私有的，只能在 `%s` 内访问"
-#define WO_ERR_STRUCT_FIELD_IS_PROTECTED u8"结构体字段 `%s` 是受保护的，只能在命名空间 `%s` 内访问"
-#define WO_ERR_UNABLE_TO_MIX_TYPES u8"类型冲突: 无法同时兼容 `%s` 和 `%s` 类型"
-#define WO_ERR_UNACCEPTABLE_MUTABLE u8"类型不匹配: 需要不可变类型，但实际为 `%s`"
-#define WO_ERR_CANNOT_USE_BUILTIN_TYPENAME_HERE u8"错误: 内置类型名 `%s` 不能直接使用"
-#define WO_ERR_BAD_DIV_ZERO u8"数学错误: 除数为零"
-#define WO_ERR_BAD_DIV_OVERFLOW u8"数学错误: 除法运算溢出"
-#define WO_ERR_VALUE_SHOULD_BE_CONST_FOR_TEMPLATE_ARG u8"泛型参数错误: 必须使用常量值作为参数"
-#define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE u8"泛型参数错误: 此处需要一个类型参数"
-#define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST u8"泛型参数错误: 此处需要一个常量参数"
-#define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_NOT_BE_NOTHING u8"泛型参数错误: 不能使用 `nothing` 类型的常量作为值参数"
-#define WO_ERR_DEFER_CANNOT_BE_HERE u8"`defer` 语句不能位于此处"
-#define WO_ERR_BAD_BREAK u8"`break` 语句只能在循环中使用"
-#define WO_ERR_BAD_CONTINUE u8"`continue` 语句只能在循环中使用"
-#define WO_ERR_BAD_LABEL_NAMED u8"找不到标签为 `%s` 的循环"
-#define WO_ERR_BAD_FLOW_CTRL_IN_DEFER u8"不能在 `defer` 语句中执行 `%s`"
-#define WO_ERR_CANNOT_DEFINE_STATIC_VAR_IN_DEFER u8"不能在 `defer` 语句中定义静态变量"
-#define WO_ERR_FUNCTION_MAY_NO_RETURN_VALUE u8"函数存在未返回的分支"
+#define WO_ERR_UNFOUND_TYPE_NAMED reinterpret_cast<const char*>(u8"未找到类型 `%s`")
+#define WO_ERR_UNFOUND_VARIABLE_NAMED reinterpret_cast<const char*>(u8"未找到变量、常量或函数 `%s`")
+#define WO_ERR_UNEXPECTED_TEMPLATE_COUNT reinterpret_cast<const char*>(u8"需要 %zu 个泛型参数, 但提供了 %zu 个")
+#define WO_ERR_EXPECTED_TEMPLATE_ARGUMENT reinterpret_cast<const char*>(u8"`%s` 需要指定泛型参数")
+#define WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT reinterpret_cast<const char*>(u8"`%s` 不是泛型目标, 不需要泛型参数")
+#define WO_ERR_UNEXPECTED_MATCH_TYPE_FOR_TUPLE reinterpret_cast<const char*>(u8"匹配操作需要元组类型")
+#define WO_ERR_UNEXPECTED_MATCH_COUNT_FOR_TUPLE reinterpret_cast<const char*>(u8"需要 %zu 个元素的元组, 但提供了 %zu 个元素")
+#define WO_ERR_VALUE_TYPE_DETERMINED_FAILED reinterpret_cast<const char*>(u8"无法确定表达式类型")
+#define WO_ERR_TYPE_DETERMINED_FAILED reinterpret_cast<const char*>(u8"无法确定类型")
+#define WO_ERR_TYPE_NAMED_DETERMINED_FAILED reinterpret_cast<const char*>(u8"类型 `%s` 尚未完全确定, 无法进行类型检查")
+#define WO_ERR_RECURSIVE_TEMPLATE_INSTANCE reinterpret_cast<const char*>(u8"类型推断循环依赖：泛型实例递归地依赖自身")
+#define WO_ERR_RECURSIVE_EVAL_PASS1 reinterpret_cast<const char*>(u8"递归依赖：表达式依赖自身")
+#define WO_ERR_CONSTRAINT_SHOULD_BE_CONST reinterpret_cast<const char*>(u8"约束条件必须是常量表达式")
+#define WO_ERR_CONSTRAINT_SHOULD_BE_BOOL reinterpret_cast<const char*>(u8"约束条件表达式必须是布尔类型")
+#define WO_ERR_CONSTRAINT_FAILED reinterpret_cast<const char*>(u8"约束条件不满足")
+#define WO_ERR_NOT_IN_REIFICATION_TEMPLATE_FUNC reinterpret_cast<const char*>(u8"无法在缺少泛型上下文的情况下实例化匿名泛型函数")
+#define WO_ERR_UNMATCHED_RETURN_TYPE_NAMED reinterpret_cast<const char*>(u8"返回类型不匹配：实际返回 `%s`, 但声明或推导为 `%s`")
+#define WO_ERR_UNMATCHED_ARRAY_ELEMENT_TYPE_NAMED reinterpret_cast<const char*>(u8"数组元素类型不匹配：当前为 `%s`, 但预期为 `%s`")
+#define WO_ERR_UNMATCHED_DICT_KEY_TYPE_NAMED reinterpret_cast<const char*>(u8"字典键类型不匹配：当前为 `%s`, 但预期为 `%s`")
+#define WO_ERR_UNMATCHED_DICT_VALUE_TYPE_NAMED reinterpret_cast<const char*>(u8"字典值类型不匹配：当前为 `%s`, 但预期为 `%s`")
+#define WO_ERR_UNINDEXABLE_TYPE_NAMED reinterpret_cast<const char*>(u8"类型 `%s` 不支持索引操作")
+#define WO_ERR_CANNOT_INDEX_TYPE_WITH_TYPE reinterpret_cast<const char*>(u8"类型 `%s` 不支持使用 `%s` 类型作为索引")
+#define WO_ERR_CANNOT_INDEX_STRUCT_WITH_NON_CONST reinterpret_cast<const char*>(u8"结构体索引必须是常量")
+#define WO_ERR_CANNOT_INDEX_TUPLE_WITH_NON_CONST reinterpret_cast<const char*>(u8"元组索引必须是常量")
+#define WO_ERR_ONLY_EXPAND_ARRAY_VEC_AND_TUPLE reinterpret_cast<const char*>(u8"只能展开数组、向量或元组, 当前类型为 `%s`")
+#define WO_ERR_ONLY_EXPAND_TUPLE reinterpret_cast<const char*>(u8"只能展开元组, 当前尝试展开 `%s`")
+#define WO_ERR_STRUCT_DONOT_HAVE_MAMBER_NAMED reinterpret_cast<const char*>(u8"结构体 `%s` 没有成员 `%s`")
+#define WO_ERR_TUPLE_INDEX_OUT_OF_RANGE reinterpret_cast<const char*>(u8"元组 `%s` 只有 %zu 个元素, 索引 %lld 越界")
+#define WO_ERR_PATTERN_VARIABLE_SHOULD_BE_MUTABLE reinterpret_cast<const char*>(u8"赋值目标必须是可变变量")
+#define WO_ERR_PATTERN_INDEX_SHOULD_BE_MUTABLE_TYPE reinterpret_cast<const char*>(u8"索引结果不可变, 不能对此赋值")
+#define WO_ERR_CANNOT_CAST_TYPE_TO_TYPE reinterpret_cast<const char*>(u8"类型转换失败: 无法从类型 `%s` 转换为 `%s`")
+#define WO_ERR_FAILED_TO_DEDUCE_TEMPLATE_TYPE reinterpret_cast<const char*>(u8"泛型参数自动推导失败: 无法确定合适的类型参数")
+#define WO_ERR_FAILED_TO_DEDUCE_NOT_FUNC_PARAM_TYPE reinterpret_cast<const char*>(u8"泛型函数类型匹配失败: 期望函数类型但实际为 `%s`")
+#define WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED reinterpret_cast<const char*>(u8"泛型参数不完整: 参数 <%s> 无法自动推导")
+#define WO_ERR_TARGET_TYPE_IS_NOT_A_FUNCTION reinterpret_cast<const char*>(u8"调用目标类型错误: `%s` 不是函数类型")
+#define WO_ERR_ARGUMENT_TOO_MUCH reinterpret_cast<const char*>(u8"函数调用错误: 提供的参数数量超过声明")
+#define WO_ERR_ARGUMENT_TOO_LESS reinterpret_cast<const char*>(u8"函数调用错误: 提供的参数数量不足")
+#define WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED reinterpret_cast<const char*>(u8"类型不匹配: 不接受 `%s` 类型 (期望 `%s`)")
+#define WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC reinterpret_cast<const char*>(u8"运行时类型转换失败: 无法从动态类型确认 `%s` 类型")
+#define WO_ERR_TYPE_NAMED_IS_NOT_STRUCT reinterpret_cast<const char*>(u8"类型错误: `%s` 不是结构体类型")
+#define WO_ERR_REPEATED_FIELD_NAMED reinterpret_cast<const char*>(u8"结构体字段重复: 字段名 `%s` 已被使用")
+#define WO_ERR_NOT_ALL_FIELD_INITIALIZED reinterpret_cast<const char*>(u8"结构体初始化不完整: 存在未初始化的字段")
+#define WO_ERR_TOO_MUCH_FIELD_INITIALIZED reinterpret_cast<const char*>(u8"结构体初始化错误: 提供的初始值过多")
+#define WO_ERR_AMBIGUOUS_TARGET_NAMED reinterpret_cast<const char*>(u8"引用不明确: `%s` 可能指代多个目标 (已选择 `%s`)")
+#define WO_ERR_DIFFERENT_TYPE_IN_BINARY reinterpret_cast<const char*>(u8"二元运算类型错误: 运算符两侧类型不匹配")
+#define WO_ERR_UNACCEPTABLE_TYPE_IN_OPERATE reinterpret_cast<const char*>(u8"运算类型错误: `%s` 类型不支持此操作")
+#define WO_ERR_UNACCEPTABLE_TYPE_IN_COND reinterpret_cast<const char*>(u8"条件表达式错误: 必须是布尔类型 (当前为 `%s`)")
+#define WO_ERR_UNEXPECTED_PACKEDARGS reinterpret_cast<const char*>(u8"变长参数使用错误: 只能在变长参数函数内部使用")
+#define WO_ERR_UNEXPECTED_MACTHING_TYPE reinterpret_cast<const char*>(u8"匹配类型错误: match 语句只支持共用体类型 (当前为 `%s`)")
+#define WO_ERR_TAKEPLACE_PATTERN_MATCHED reinterpret_cast<const char*>(u8"匹配顺序错误: 占位模式(`_`)必须放在最后")
+#define WO_ERR_ALL_CASES_SHOULD_BE_MATCHED reinterpret_cast<const char*>(u8"匹配不完整: 必须覆盖所有可能的分支")
+#define WO_ERR_UNEXISTS_CASE_NAMED_IN_MATCH reinterpret_cast<const char*>(u8"匹配项不存在: `%s` 不是有效的匹配项")
+#define WO_ERR_EXISTS_CASE_NAMED_IN_MATCH reinterpret_cast<const char*>(u8"匹配项重复: `%s` 已经存在于匹配语句中")
+#define WO_ERR_HAVE_NOT_VALUE_CASE_IN_MATCH reinterpret_cast<const char*>(u8"匹配类型 `%s` 时，匹配项 `%s` 必须包含值参数")
+#define WO_ERR_HAVE_VALUE_CASE_IN_MATCH reinterpret_cast<const char*>(u8"匹配类型 `%s` 时，匹配项 `%s` 不应包含值参数")
+#define WO_ERR_FAILED_REIFICATION_CAUSED_BY reinterpret_cast<const char*>(u8"泛型实例化失败: 无法使用参数 <%s> 实例化泛型类型 `%s`")
+#define WO_ERR_UNABLE_CAPTURE_IN_RECURSIVE_FUNC reinterpret_cast<const char*>(u8"递归函数中不允许捕获外部变量")
+#define WO_ERR_STRING_INDEX_OUT_OF_RANGE reinterpret_cast<const char*>(u8"字符串索引越界")
+#define WO_ERR_SYMBOL_IS_PRIVATE reinterpret_cast<const char*>(u8"符号 `%s` 是私有的，只能在 `%s` 内访问")
+#define WO_ERR_SYMBOL_IS_PROTECTED reinterpret_cast<const char*>(u8"符号 `%s` 是受保护的，只能在命名空间 `%s` 内访问")
+#define WO_ERR_SOURCE_MUST_BE_IMPORTED reinterpret_cast<const char*>(u8"无法访问 `%s`，需要先导入脚本 `%s`")
+#define WO_ERR_STRUCT_FIELD_IS_PRIVATE reinterpret_cast<const char*>(u8"结构体字段 `%s` 是私有的，只能在 `%s` 内访问")
+#define WO_ERR_STRUCT_FIELD_IS_PROTECTED reinterpret_cast<const char*>(u8"结构体字段 `%s` 是受保护的，只能在命名空间 `%s` 内访问")
+#define WO_ERR_UNABLE_TO_MIX_TYPES reinterpret_cast<const char*>(u8"类型冲突: 无法同时兼容 `%s` 和 `%s` 类型")
+#define WO_ERR_UNACCEPTABLE_MUTABLE reinterpret_cast<const char*>(u8"类型不匹配: 需要不可变类型，但实际为 `%s`")
+#define WO_ERR_CANNOT_USE_BUILTIN_TYPENAME_HERE reinterpret_cast<const char*>(u8"错误: 内置类型名 `%s` 不能直接使用")
+#define WO_ERR_BAD_DIV_ZERO reinterpret_cast<const char*>(u8"数学错误: 除数为零")
+#define WO_ERR_BAD_DIV_OVERFLOW reinterpret_cast<const char*>(u8"数学错误: 除法运算溢出")
+#define WO_ERR_VALUE_SHOULD_BE_CONST_FOR_TEMPLATE_ARG reinterpret_cast<const char*>(u8"泛型参数错误: 必须使用常量值作为参数")
+#define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE reinterpret_cast<const char*>(u8"泛型参数错误: 此处需要一个类型参数")
+#define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST reinterpret_cast<const char*>(u8"泛型参数错误: 此处需要一个常量参数")
+#define WO_ERR_THIS_TEMPLATE_ARG_SHOULD_NOT_BE_NOTHING reinterpret_cast<const char*>(u8"泛型参数错误: 不能使用 `nothing` 类型的常量作为值参数")
+#define WO_ERR_DEFER_CANNOT_BE_HERE reinterpret_cast<const char*>(u8"`defer` 语句不能位于此处")
+#define WO_ERR_BAD_BREAK reinterpret_cast<const char*>(u8"`break` 语句只能在循环中使用")
+#define WO_ERR_BAD_CONTINUE reinterpret_cast<const char*>(u8"`continue` 语句只能在循环中使用")
+#define WO_ERR_BAD_LABEL_NAMED reinterpret_cast<const char*>(u8"找不到标签为 `%s` 的循环")
+#define WO_ERR_BAD_FLOW_CTRL_IN_DEFER reinterpret_cast<const char*>(u8"不能在 `defer` 语句中执行 `%s`")
+#define WO_ERR_CANNOT_DEFINE_STATIC_VAR_IN_DEFER reinterpret_cast<const char*>(u8"不能在 `defer` 语句中定义静态变量")
+#define WO_ERR_FUNCTION_MAY_NO_RETURN_VALUE reinterpret_cast<const char*>(u8"函数存在未返回的分支")
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
-#define WO_INFO_MAYBE_NAMED_DEFINED_HERE u8"可能是此处定义的 `%s`"
-#define WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER u8"可能是编译器内置的 `%s`"
-#define WO_INFO_SYMBOL_NAMED_DEFINED_HERE u8"符号 `%s` 在此定义"
-#define WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN u8"第一个参数为 `%s` 类型"
-#define WO_INFO_THIS_VALUE_IS_TYPE_NAMED u8"当前表达式类型为 `%s`"
-#define WO_INFO_CAPTURED_VARIABLE_USED_HERE u8"引用了外部变量 `%s`"
-#define WO_INFO_TRYING_REFILL_TEMPLATE_ARGUMENT u8"正在为类型 `%s`(通过别名 `%s` 引用) 重新指定泛型参数"
-#define WO_INFO_OLD_FUNCTION_RETURN_TYPE_IS u8"函数先前返回类型被推断为 `%s`"
+#define WO_INFO_MAYBE_NAMED_DEFINED_HERE reinterpret_cast<const char*>(u8"可能是此处定义的 `%s`")
+#define WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER reinterpret_cast<const char*>(u8"可能是编译器内置的 `%s`")
+#define WO_INFO_SYMBOL_NAMED_DEFINED_HERE reinterpret_cast<const char*>(u8"符号 `%s` 在此定义")
+#define WO_INFO_TYPE_NAMED_BEFORE_DIRECT_SIGN reinterpret_cast<const char*>(u8"第一个参数为 `%s` 类型")
+#define WO_INFO_THIS_VALUE_IS_TYPE_NAMED reinterpret_cast<const char*>(u8"当前表达式类型为 `%s`")
+#define WO_INFO_CAPTURED_VARIABLE_USED_HERE reinterpret_cast<const char*>(u8"引用了外部变量 `%s`")
+#define WO_INFO_TRYING_REFILL_TEMPLATE_ARGUMENT reinterpret_cast<const char*>(u8"正在为类型 `%s`(通过别名 `%s` 引用) 重新指定泛型参数")
+#define WO_INFO_OLD_FUNCTION_RETURN_TYPE_IS reinterpret_cast<const char*>(u8"函数先前返回类型被推断为 `%s`")
 
 // PASSIR BYTECODE GENERATOR
-#define WO_ERR_NON_VOID_TYPE_EXPR_AS_STMT u8"非 void 类型的表达式(当前为 `%s`)不能单独作为语句，可能导致结果被忽略"
-#define WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED u8"引用了未完成初始化的变量 `%s`"
-#define WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION u8"在库 `%s` 中找不到外部函数 `%s`"
-#define WO_ERR_CANNOT_UNPACK_HERE u8"参数包展开只能在函数参数列表或元组元素列表中使用"
-#define WO_ERR_UNSED_VARIABLE u8"局部变量 `%s` 已声明但未使用"
+#define WO_ERR_NON_VOID_TYPE_EXPR_AS_STMT reinterpret_cast<const char*>(u8"非 void 类型的表达式(当前为 `%s`)不能单独作为语句，可能导致结果被忽略")
+#define WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED reinterpret_cast<const char*>(u8"引用了未完成初始化的变量 `%s`")
+#define WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION reinterpret_cast<const char*>(u8"在库 `%s` 中找不到外部函数 `%s`")
+#define WO_ERR_CANNOT_UNPACK_HERE reinterpret_cast<const char*>(u8"参数包展开只能在函数参数列表或元组元素列表中使用")
+#define WO_ERR_UNSED_VARIABLE reinterpret_cast<const char*>(u8"局部变量 `%s` 已声明但未使用")
 
 // PASSIR BYTECODE GENERATOR(INFO)
-#define WO_INFO_IN_FUNCTION_NAMED u8"位于函数 `%s` 中"
+#define WO_INFO_IN_FUNCTION_NAMED reinterpret_cast<const char*>(u8"位于函数 `%s` 中")

@@ -1318,7 +1318,7 @@ namespace wo
                         && rip < callenv->rt_codes + callenv->rt_code_len)
                     || runtime_env::fetch_far_runtime_env(rip, &callenv))
                 {
-                    if (callenv == env)
+                    if (callenv == env.get())
                         callway = call_way::NEAR;
                     else
                         callway = call_way::FAR;
@@ -2397,7 +2397,7 @@ namespace wo
 
 #define WO_VM_INTERRUPT_CHECKPOINT_AND_GOTO_HANDLE_INTERRUPT    \
     do {                                                        \
-        if (WO_VM_CHECK_INTERRUPT)                              \
+        if (WO_VM_CHECK_INTERRUPT) [[unlikely]]                 \
             WO_VM_GOTO_HANDLE_INTERRUPT;                        \
     } while (0)
 
@@ -2421,17 +2421,17 @@ namespace wo
         bool debuggee_attached = WO_VM_CHECK_INTERRUPT;
         for (;;)
         {
-            if (debuggee_attached)
+            if (debuggee_attached) [[unlikely]]
                 goto _label_vm_handle_interrupt;
 
         _label_vm_re_entry:
-            switch (*(rt_ip++))
+            switch (WO_IPVAL_MOVE_1)
             {
             case instruct::opcode::pshr:
             {
                 uint16_t psh_repeat = WO_IPVAL_MOVE_2;
                 value* new_sp = sp - psh_repeat;
-                if (new_sp < stack_storage)
+                if (new_sp < stack_storage) [[unlikely]]
                 {
                     rt_ip -= 3;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2442,7 +2442,7 @@ namespace wo
                 break;
             }
             case instruct::opcode::pshg:
-                if (sp <= stack_storage)
+                if (sp <= stack_storage) [[unlikely]]
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2452,7 +2452,7 @@ namespace wo
                 WO_ADDRESSING_G1;
                 goto _label_psh_impl;
             case instruct::opcode::pshs:
-                if (sp <= stack_storage)
+                if (sp <= stack_storage) [[unlikely]]
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2779,7 +2779,7 @@ namespace wo
                     sp = bp;
                     bp = stored_bp;
 
-                    if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                    if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end) [[unlikely]]
                     {
                         wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                         WO_VM_GOTO_HANDLE_INTERRUPT;
@@ -2823,7 +2823,7 @@ namespace wo
                     sp = bp;
                     bp = stored_bp;
 
-                    if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                    if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end) [[unlikely]]
                     {
                         wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                         WO_VM_GOTO_HANDLE_INTERRUPT;
@@ -2856,7 +2856,7 @@ namespace wo
                         // 
                         // NOTE: Closure arguments should be poped by closure function it self.
                         //       Can use ret(n) to pop arguments when call.
-                        if (sp - opnum1->m_closure->m_closure_args_count < stack_storage)
+                        if (sp - opnum1->m_closure->m_closure_args_count < stack_storage) [[unlikely]]
                         {
                             rt_ip = ip_for_rollback;
                             wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -2929,7 +2929,7 @@ namespace wo
                         }
                         case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
                             rt_ip = this->ip;
-                            if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                            if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end) [[unlikely]]
                             {
                                 wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                                 WO_VM_GOTO_HANDLE_INTERRUPT;
@@ -2949,7 +2949,7 @@ namespace wo
                     case value::valuetype::script_func_type:
                     {
                         const auto* aim_function_addr = opnum1->m_script_func;
-                        if (aim_function_addr < near_rtcode_begin || aim_function_addr >= near_rtcode_end)
+                        if (aim_function_addr < near_rtcode_begin || aim_function_addr >= near_rtcode_end) [[unlikely]]
                         {
                             sp->m_type = value::valuetype::far_callstack;
                             sp->m_farcallstack = rt_ip;
@@ -3021,7 +3021,7 @@ namespace wo
                             case wo_result_t::WO_API_SYNC_CHANGED_VM_STATE:
                             {
                                 rt_ip = this->ip;
-                                if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end)
+                                if (rt_ip < near_rtcode_begin || rt_ip >= near_rtcode_end) [[unlikely]]
                                 {
                                     wo_assure(interrupt(vm_interrupt_type::CALL_FAR_RESYNC_VM_STATE_INTERRUPT));
                                     WO_VM_GOTO_HANDLE_INTERRUPT;
@@ -3040,7 +3040,7 @@ namespace wo
                         else
                         {
                             const auto* aim_function_addr = closure->m_vm_func;
-                            if (aim_function_addr < near_rtcode_begin || aim_function_addr >= near_rtcode_end)
+                            if (aim_function_addr < near_rtcode_begin || aim_function_addr >= near_rtcode_end) [[unlikely]]
                             {
                                 sp->m_type = value::valuetype::far_callstack;
                                 sp->m_farcallstack = rt_ip;
@@ -3070,7 +3070,7 @@ namespace wo
                 } while (0);
                 break;
             case instruct::opcode::callnwo:
-                if (sp <= stack_storage)
+                if (sp <= stack_storage) [[unlikely]]
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -3136,7 +3136,7 @@ namespace wo
                 }
                 break;
             case instruct::opcode::callnfp:
-                if (sp <= stack_storage)
+                if (sp <= stack_storage) [[unlikely]]
                 {
                     --rt_ip;
                     wo_assure(interrupt(vm_interrupt_type::STACK_OVERFLOW_INTERRUPT));
@@ -3517,7 +3517,7 @@ namespace wo
                         *reinterpret_cast<const int32_t*>(&unpack_argc_unsigned),
                         tc, rt_ip, sp, bp);
 
-                    if (new_sp == nullptr)
+                    if (new_sp == nullptr) [[unlikely]]
                     {
                         // STACK_OVERFLOW_INTERRUPT set, rollback and handle the interrupt.
                         rt_ip = ip_for_rollback;
