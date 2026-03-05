@@ -12,34 +12,14 @@ namespace wo
     }
     value* value::set_val_with_compile_time_check(const value* val)
     {
-        if (val->is_gcunit())
-        {
-            auto* attrib = val->fast_get_attrib_for_assert_check();
-            wo_test(attrib != nullptr && attrib->m_nogc != 0);
-        }
+        // TODO: 
+        //if (val->is_gcunit())
+        //{
+        //    auto* attrib = val->fast_get_attrib_for_assert_check();
+        //    wo_test(attrib != nullptr && attrib->m_nogc != 0);
+        //}
         return set_val(val);
     }
-
-    // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
-    //          after get_gcunit_and_attrib_ref.
-    gcbase* value::get_gcunit_and_attrib_ref(gc::unit_attrib** attrib) const
-    {
-        if (m_type & valuetype::need_gc_flag)
-            return std::launder(reinterpret_cast<gcbase*>(
-                womem_verify(m_gcunit, std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
-        return nullptr;
-    }
-
-    // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
-    //          after get_gcunit_and_attrib_ref.
-    gc::unit_attrib* value::fast_get_attrib_for_assert_check() const
-    {
-        gc::unit_attrib* r;
-        if (nullptr != get_gcunit_and_attrib_ref(&r))
-            return r;
-        return nullptr;
-    }
-
     std::string value::get_type_name() const
     {
         switch (m_type)

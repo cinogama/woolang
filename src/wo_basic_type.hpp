@@ -3,7 +3,7 @@
 #define WO_IMPL
 #include "wo.h"
 
-#include "wo_gc.hpp"
+#include "wo_gc_unit_base.hpp"
 #include "wo_assert.hpp"
 
 #include <cstdint>
@@ -227,13 +227,6 @@ namespace wo
             return this;
         }
 
-        // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
-        //          after get_gcunit_and_attrib_ref.
-        gcbase* get_gcunit_and_attrib_ref(gc::unit_attrib * *attrib) const;
-
-        // ATTENTION: Only work for gc-work-thread & no_gc unit. gc-unit might be freed
-        //          after get_gcunit_and_attrib_ref.
-        gc::unit_attrib* fast_get_attrib_for_assert_check() const;
         WO_FORCE_INLINE bool is_gcunit() const
         {
             return m_type & valuetype::need_gc_flag;
@@ -250,12 +243,8 @@ namespace wo
 
         WO_FORCE_INLINE static void write_barrier(const value * val)
         {
-            gc::unit_attrib* attr;
-            if (auto* unit = val->get_gcunit_and_attrib_ref(&attr))
-            {
-                if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
-                    gc::m_memo_mark_gray_list.add_one(gc::memo_unit::acquire_memo_unit(unit, attr));
-            }
+            // TODO;
+            abort();
         }
 
         // Used for storing key-value when deserilizing a map.

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "wo_vm.hpp"
-#include "wo_gc.hpp"
+#include "wo_gc_unit_base.hpp"
 
 #include <forward_list>
 #include <unordered_map>
