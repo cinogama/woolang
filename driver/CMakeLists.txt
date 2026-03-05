@@ -2,8 +2,6 @@
 
 cmake_minimum_required (VERSION 3.10)
 
-include_directories("../include")
-
 set(WOOLANG_DRIVER_SOURCES wo_driver.cpp)
 if (MSVC)
     list(APPEND WOOLANG_DRIVER_SOURCES resources.rc)
@@ -13,7 +11,12 @@ add_executable(woodriver ${WOOLANG_DRIVER_SOURCES} ../include/wo.h)
 
 target_link_libraries(woodriver
     PRIVATE woolang_options
-    PRIVATE woolang)
+    PRIVATE woolang
+    PRIVATE woomem)
+
+target_include_directories(woodriver
+    PRIVATE "../include"
+    PRIVATE "../3rd/woomem/include")
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set_target_properties(woodriver PROPERTIES RELEASE_POSTFIX "")

@@ -49,6 +49,8 @@ if (WO_SUPPORT_ASMJIT)
     endif()
 endif()
 
+add_subdirectory("3rd/woomem")
+
 add_library(woolang_options INTERFACE)
 target_compile_features(woolang_options INTERFACE cxx_std_17)
 

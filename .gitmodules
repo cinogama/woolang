@@ -6,3 +6,7 @@
 	path = 3rd/mingw-std-threads
 	url = https://git.cinogama.net/mr_cino/mingw-std-threads
 	branch = master
+[submodule "3rd/woomem"]
+	path = 3rd/woomem
+	url = https://git.cinogama.net/cinogamaproject/woomem.git
+	branch = master
