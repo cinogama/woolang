@@ -6,6 +6,5 @@
 
 namespace wo
 {
-    void* alloc64(size_t memsz);
-    void free64(void* ptr);
+    void* gc_alloc(size_t memsz);
 }

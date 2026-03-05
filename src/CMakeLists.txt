@@ -2,10 +2,6 @@
 
 cmake_minimum_required (VERSION 3.10)
 
-include_directories("../include")
-include_directories("../3rd/asmjit/src")
-include_directories("../3rd/mingw-std-threads")
-
 set(GIT_COMMIT_HASH "Unavailable")
 find_package(Git)
 if(GIT_FOUND)
@@ -70,7 +66,14 @@ target_precompile_headers(woolang PRIVATE wo_afx.hpp)
 target_link_libraries(woolang 
     PRIVATE woolang_options
     PRIVATE woolang_library_options
+    PRIVATE woomem
     PRIVATE ${woo_system_libs})
+
+target_include_directories(woolang
+    PRIVATE "../include"
+    PRIVATE "../3rd/asmjit/src"
+    PRIVATE "../3rd/woomem/include"
+    PRIVATE "../3rd/mingw-std-threads")
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set_target_properties(woolang PROPERTIES RELEASE_POSTFIX "")
