@@ -141,8 +141,6 @@ namespace wo
     static_assert((int)lex_type::l_eof == WO_LSPV2_TOKEN_EOF);
     static_assert((int)lex_type::l_unknown_token == WO_LSPV2_TOKEN_UNKNOWN_TOKEN);
 
-    class macro;
-
     class lexer
     {
         friend class macro;
@@ -185,8 +183,6 @@ namespace wo
             size_t          m_token_end[2];
         };
     private:
-        using declared_macro_map_t =
-            std::unordered_map<std::string, std::optional<std::unique_ptr<macro>>>;
         using imported_source_path_set_t =
             std::unordered_set<wo_pstring_t>;
         using who_import_me_map_t =
@@ -250,7 +246,6 @@ namespace wo
         struct SharedContext
         {
             std::vector<compiler_message_list_t> m_error_frame;
-            declared_macro_map_t m_declared_macro_list;
 
             // NOTE: Following wo_pstring_t only used in pass1.
             imported_source_path_set_t m_linked_script_path_set;
@@ -461,8 +456,6 @@ namespace wo
         wo_pstring_t get_source_path() const;
         [[nodiscard]]
         size_t get_error_frame_count_for_debug() const;
-        [[nodiscard]]
-        const declared_macro_map_t& get_declared_macro_list_for_debug() const;
 
         void begin_trying_block();
         void end_trying_block();

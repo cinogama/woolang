@@ -268,182 +268,8 @@ namespace wo
     {
         wo_assert(state == UNPROCESSED);
 
-        switch (node->m_pattern->node_type)
-        {
-        case AstBase::AST_PATTERN_TAKEPLACE:
-            m_ircontext.eval_ignore();
-            if (!pass_final_value(lex, node->m_init_value))
-                // Failed 
-                return FAILED;
-
-            return OKAY;
-        case AstBase::AST_PATTERN_SINGLE:
-        {
-            // Might be constant, template.
-            AstPatternSingle* pattern_single = static_cast<AstPatternSingle*>(node->m_pattern);
-            lang_Symbol* pattern_symbol = pattern_single->m_LANG_declared_symbol.value();
-            wo_assert(pattern_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
-
-            if (pattern_symbol->m_is_template)
-            {
-                // Is template, walk through all the template instance;
-                for (auto* template_instance :
-                    pattern_symbol->m_template_value_instances->m_finished_instance_list)
-                {
-                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::state::EVALUATED);
-
-                    lang_ValueInstance* template_value_instance = template_instance->m_value_instance.get();
-                    if (template_instance->m_constant_template_argument_have_unfinished_function)
-                    {
-                        bool bad_template_instance = false;
-
-                        // Template argument may have non-constant-function, recheck here.
-                        for (auto& argument : template_value_instance->m_instance_template_arguments.value())
-                        {
-                            if (!argument.m_constant.has_value())
-                                continue;
-
-                            auto constant = argument.m_constant.value().value_try_function();
-                            if (!constant.has_value())
-                                continue;
-
-                            auto& captured_context = constant.value()->m_LANG_captured_context;
-                            if (!captured_context.m_finished
-                                || !captured_context.m_captured_variables.empty())
-                            {
-                                bad_template_instance = true;
-                                break;
-                            }
-                        }
-
-                        if (bad_template_instance)
-                            // Skip bad instance.
-                            continue;
-                    }
-                    if (!template_value_instance->IR_need_storage())
-                    {
-                        // No need storage.
-                        auto function = template_value_instance->m_determined_constant_or_function
-                            .value().value_try_function();
-
-                        if (function.has_value())
-                        {
-                            // We still eval the function to let compiler know the function.
-                            m_ircontext.eval_ignore();
-                            if (!pass_final_value(lex, function.value()))
-                                // Failed 
-                                return FAILED;
-                        }
-                    }
-                    else
-                    {
-                        // Need storage and initialize.
-                        const bool fast_eval = template_value_instance->m_IR_storage.has_value()
-                            && (_is_storage_can_addressing(template_value_instance->m_IR_storage.value()));
-                        if (fast_eval)
-                            m_ircontext.eval_to(
-                                m_ircontext.get_storage_place(
-                                    template_value_instance->m_IR_storage.value()), node);
-                        else
-                            m_ircontext.eval();
-                        if (!pass_final_value(lex, static_cast<AstValueBase*>(template_instance->m_ast)))
-                            // Failed 
-                            return FAILED;
-
-                        auto* result_opnum = m_ircontext.get_eval_result();
-
-                        if (fast_eval)
-                            (void)result_opnum;
-                        else
-                        {
-                            WO_GENERATE_PDI_FOR(node);
-
-                            if (!update_instance_storage_and_code_gen_passir(
-                                template_value_instance, result_opnum, std::nullopt))
-                                return FAILED;
-                        }
-                    }
-                }
-            }
-            else if (!pattern_symbol->m_value_instance->IR_need_storage())
-            {
-                // No need storage.
-                auto function = pattern_symbol->m_value_instance->m_determined_constant_or_function
-                    .value().value_try_function();
-
-                if (function.has_value())
-                {
-                    m_ircontext.eval_ignore();
-                    if (!pass_final_value(lex, function.value()))
-                        // Failed 
-                        return FAILED;
-                }
-            }
-            else
-            {
-                // Not template, but need storage.
-                const bool fast_eval = pattern_symbol->m_value_instance->m_IR_storage.has_value()
-                    && _is_storage_can_addressing(pattern_symbol->m_value_instance->m_IR_storage.value());
-
-                if (fast_eval)
-                    m_ircontext.eval_to(
-                        m_ircontext.get_storage_place(
-                            pattern_symbol->m_value_instance->m_IR_storage.value()), node);
-                else
-                    m_ircontext.eval();
-
-                if (!pass_final_value(lex, node->m_init_value))
-                    // Failed 
-                    return FAILED;
-
-                auto* result_opnum = m_ircontext.get_eval_result();
-
-                if (fast_eval)
-                    (void)result_opnum;
-                else
-                {
-                    WO_GENERATE_PDI_FOR(node);
-
-                    if (!update_instance_storage_and_code_gen_passir(
-                        pattern_symbol->m_value_instance, result_opnum, std::nullopt))
-                        return FAILED;
-                }
-            }
-            return OKAY;
-        }
-        case AstBase::AST_PATTERN_TUPLE:
-        {
-            AstPatternTuple* pattern_tuple = static_cast<AstPatternTuple*>(node->m_pattern);
-            if (_check_pattern_all_no_need_storage(pattern_tuple))
-            {
-                m_ircontext.eval_ignore();
-                if (!pass_final_value(lex, node->m_init_value))
-                    // Failed 
-                    return FAILED;
-            }
-            else
-            {
-                m_ircontext.eval_keep();
-                if (!pass_final_value(lex, node->m_init_value))
-                    // Failed 
-                    return FAILED;
-
-                auto* result_opnum = m_ircontext.get_eval_result();
-
-                bool update_result = update_pattern_storage_and_code_gen_passir(
-                    lex, node->m_pattern, result_opnum, std::nullopt);
-
-                m_ircontext.try_return_opnum_temporary_register(result_opnum);
-
-                if (!update_result)
-                    return FAILED;
-            }
-            return OKAY;
-        }
-        default:
-            wo_error("Unknown pattern type.");
-            return FAILED; // Unknown pattern type.
-        }
+        abort();
+        return OKAY;
     }
     WO_PASS_PROCESSER(AstReturn)
     {
@@ -542,35 +368,8 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueDoAsVoid)
     {
-        if (state == UNPROCESSED)
-        {
-            // Cast to void, just ignore it.
-            m_ircontext.eval_ignore();
-            WO_CONTINUE_PROCESS(node->m_do_value);
-
-            return HOLD;
-        }
-        else if (state == HOLD)
-        {
-            m_ircontext.apply_eval_result(
-                [&](BytecodeGenerateContext::EvalResult& result)
-                {
-                    const auto& target_storage = result.get_assign_target();
-
-                    if (target_storage.has_value())
-                    {
-                        // NO NEED TO DO ANYTHING.
-                        // VOID VALUE IS PURE JUNK VALUE.
-                    }
-                    else
-                    {
-                        // Return a junk value.
-                        result.set_result(
-                            m_ircontext, m_ircontext.opnum_spreg(WO_REG_NI));
-                    }
-                });
-        }
-        return WO_EXCEPT_ERROR(state, OKAY);
+        abort();
+        return OKAY;
     }
 
     void check_and_generate_check_ir_for_divi_and_modi(
@@ -580,37 +379,37 @@ namespace wo
         opnum::opnumbase* left_opnum,
         opnum::opnumbase* right_opnum)
     {
-        if (!config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION)
-            // Skip runtime check if disabled.
-            return;
+        //if (!config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION)
+        //    // Skip runtime check if disabled.
+        //    return;
 
-        if (right->m_evaled_const_value.has_value())
-        {
-            wo_integer_t right_value = right->m_evaled_const_value.value().value_integer();
-            wo_assert(right_value != 0);
-            wo_assert(!left.has_value() || !left.value()->m_evaled_const_value.has_value());
+        //if (right->m_evaled_const_value.has_value())
+        //{
+        //    wo_integer_t right_value = right->m_evaled_const_value.value().value_integer();
+        //    wo_assert(right_value != 0);
+        //    wo_assert(!left.has_value() || !left.value()->m_evaled_const_value.has_value());
 
-            if (right_value == -1)
-                // Need check l
-                bgc.c().ext_cdivil(*left_opnum);
+        //    if (right_value == -1)
+        //        // Need check l
+        //        bgc.c().ext_cdivil(*left_opnum);
 
-            // Otherwise, no need to check.
-        }
-        else if (left.has_value() && left.value()->m_evaled_const_value.has_value())
-        {
-            wo_integer_t left_value = left.value()->m_evaled_const_value.value().value_integer();
-            if (left_value == INT64_MIN)
-                // Need check r
-                bgc.c().ext_cdivir(*right_opnum);
-            else
-                // Need check rz
-                bgc.c().ext_cdivirz(*right_opnum);
-        }
-        else
-        {
-            // Left & right both not constant.
-            bgc.c().ext_cdivilr(*left_opnum, *right_opnum);
-        }
+        //    // Otherwise, no need to check.
+        //}
+        //else if (left.has_value() && left.value()->m_evaled_const_value.has_value())
+        //{
+        //    wo_integer_t left_value = left.value()->m_evaled_const_value.value().value_integer();
+        //    if (left_value == INT64_MIN)
+        //        // Need check r
+        //        bgc.c().ext_cdivir(*right_opnum);
+        //    else
+        //        // Need check rz
+        //        bgc.c().ext_cdivirz(*right_opnum);
+        //}
+        //else
+        //{
+        //    // Left & right both not constant.
+        //    bgc.c().ext_cdivilr(*left_opnum, *right_opnum);
+        //}
     }
 
     WO_PASS_PROCESSER(AstFakeValueUnpack)
@@ -719,8 +518,6 @@ namespace wo
         AstValueBase* ast_value = static_cast<AstValueBase*>(node_state.m_ast_node);
         if (ast_value->m_evaled_const_value.has_value())
         {
-            WO_GENERATE_PDI_FOR(ast_value);
-
             auto& constant_value = ast_value->m_evaled_const_value.value();
 
             // NOTE: We need to let compiler know this constant function.
@@ -730,14 +527,16 @@ namespace wo
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
-                    opnum::opnumbase* immediately_value =
-                        m_ircontext.opnum_imm_value(constant_value);
+                    abort();
 
-                    const auto& asigned_target = result.get_assign_target();
-                    if (asigned_target.has_value())
-                        m_ircontext.c().mov(WO_OPNUM(asigned_target.value()), WO_OPNUM(immediately_value));
-                    else
-                        result.set_result(m_ircontext, immediately_value);
+                    //opnum::opnumbase* immediately_value =
+                    //    m_ircontext.opnum_imm_value(constant_value);
+
+                    //const auto& asigned_target = result.get_assign_target();
+                    //if (asigned_target.has_value())
+                    //    m_ircontext.c().mov(WO_OPNUM(asigned_target.value()), WO_OPNUM(immediately_value));
+                    //else
+                    //    result.set_result(m_ircontext, immediately_value);
                 });
             return OKAY;
         }

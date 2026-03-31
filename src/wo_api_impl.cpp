@@ -114,11 +114,11 @@ void wo_init(int argc, char** argv)
 
     if (enable_std_package)
     {
-        wo_virtual_source(wo_stdlib_src_path, wo_stdlib_src_data, WO_FALSE);
-        wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, WO_FALSE);
-        wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, WO_FALSE);
-        if (wo::config::ENABLE_SHELL_PACKAGE)
-            wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, WO_FALSE);
+        //wo_virtual_source(wo_stdlib_src_path, wo_stdlib_src_data, WO_FALSE);
+        //wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, WO_FALSE);
+        //wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, WO_FALSE);
+        //if (wo::config::ENABLE_SHELL_PACKAGE)
+        //    wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, WO_FALSE);
     }
 
     wo::lexer::init_char_lookup_table();

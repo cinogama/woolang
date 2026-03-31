@@ -188,137 +188,6 @@ namespace wo
                 m_cache_buffer[m_readed_size]));
     }
 
-    macro::macro(lexer& lex, lexer::peeked_token_t* peeked_token)
-        : _macro_action_vm(nullptr)
-        , filename(lex.m_source_path.value())
-    {
-        /*
-        #macro PRINT_HELLOWORLD
-        {
-            return @"std::println("Helloworld")"@;
-        }
-
-        PRINT_HELLOWORLD!;
-        */
-        macro_name = peeked_token->m_token_text;
-        begin_row = peeked_token->m_token_begin[0];
-        begin_col = peeked_token->m_token_begin[1];
-        end_col = peeked_token->m_token_end[1];
-        end_row = peeked_token->m_token_end[0];
-
-        lex.move_forward(true);
-
-        size_t scope_count = 1;
-        if (lex.peek(true)->m_lex_type != lex_type::l_left_curly_braces)
-        {
-            lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_HERE_SHOULD_HAVE, "{");
-            return;
-        }
-
-        auto macro_begin_place = lex.m_source_stream->tellg();
-
-        lex.consume_forward();
-
-        auto source_path = *lex.m_source_path.value();
-        std::string line_mark = "#line "
-            + wo::u8enstring(source_path.data(), source_path.size(), false)
-            + " "
-            + std::to_string(lex._m_row_counter + 1)
-            + " "
-            + std::to_string(lex._m_col_counter - 1);
-
-        std::string macro_anylzing_src = line_mark + R"(
-import woo::std;
-import woo::macro;
-extern func macro_entry(lexer: std::lexer)=> string
-{
-    do lexer;
-)" + line_mark + "{";
-
-        bool meet_eof = false;
-        do
-        {
-            auto* readed_token = lex.peek(true);
-
-            if (readed_token->m_lex_type == lex_type::l_right_curly_braces)
-                scope_count--;
-            else if (readed_token->m_lex_type == lex_type::l_left_curly_braces)
-                scope_count++;
-            else if (readed_token->m_lex_type == lex_type::l_eof)
-            {
-                scope_count = 0;
-                meet_eof = true;
-            }
-            lex.consume_forward();
-
-        } while (scope_count);
-
-        if (meet_eof)
-            lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
-        else
-        {
-            auto macro_end_place = lex.m_source_stream->tellg();
-            lex.m_source_stream->seekg(macro_begin_place);
-
-            std::vector<char> macro_content;
-
-            while (lex.m_source_stream->tellg() < macro_end_place)
-            {
-                int ch = lex.m_source_stream->read_char();
-                if (ch == EOF)
-                    break;
-                macro_content.push_back(static_cast<char>(ch));
-            }
-            macro_content.push_back('\0');
-
-            _macro_action_vm = wo_create_vm();
-            auto macro_virtual_file_src = lex.m_shared_context->register_temp_virtual_file(
-                (macro_anylzing_src + macro_content.data() + "\nreturn \"\";}").c_str());
-
-            lexer::imported_source_path_set_t origin_linked_sources;
-            lexer::who_import_me_map_t origin_import_relationships;
-            lexer::export_import_map_t origin_export_imports;
-
-            origin_linked_sources.swap(lex.m_shared_context->m_linked_script_path_set);
-            origin_import_relationships.swap(lex.m_shared_context->m_who_import_me_map_tree);
-            origin_export_imports.swap(lex.m_shared_context->m_export_import_map);
-
-            lex.begin_trying_block();
-            if (!_wo_load_source(_macro_action_vm, macro_virtual_file_src, nullptr, 0, &lex))
-            {
-                auto macro_error_frame = std::move(lex.get_current_error_frame());
-                lex.end_trying_block();
-
-                lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR);
-                for (auto& error_message : macro_error_frame)
-                {
-                    auto layer = error_message.m_layer;
-                    lex.record_message(std::move(error_message)).m_layer = layer;
-                }
-
-                wo_close_vm(_macro_action_vm);
-                _macro_action_vm = nullptr;
-            }
-            else
-            {
-                lex.end_trying_block();
-
-                // Donot jit to make debug friendly.
-                if (nullptr == wo_bootup(_macro_action_vm, WO_FALSE))
-                {
-                    lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
-                        macro_name.c_str(),
-                        wo_get_runtime_error(_macro_action_vm));
-                }
-            }
-
-            // Restore states.
-            origin_linked_sources.swap(lex.m_shared_context->m_linked_script_path_set);
-            origin_import_relationships.swap(lex.m_shared_context->m_who_import_me_map_tree);
-            origin_export_imports.swap(lex.m_shared_context->m_export_import_map);
-        }
-    }
-
     std::string lexer::compiler_message_t::to_string(bool need_ansi_describe)
     {
         using namespace std;
@@ -937,10 +806,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         *out_row = _m_row_counter;
         *out_col = _m_col_counter;
     }
-    const lexer::declared_macro_map_t& lexer::get_declared_macro_list_for_debug() const
-    {
-        return m_shared_context->m_declared_macro_list;
-    }
+
     void lexer::begin_trying_block()
     {
         m_shared_context->m_error_frame.emplace_back();
@@ -1312,97 +1178,8 @@ extern func macro_entry(lexer: std::lexer)=> string
 
             if (pragma_name == "macro")
             {
-                // OK FINISH PRAGMA, CONTINUE
-                auto* peeked_macro_name_token = peek(true);
-
-                if (peeked_macro_name_token->m_lex_type != lex_type::l_identifier)
-                {
-                    produce_lexer_error(
-                        msglevel_t::error,
-                        WO_ERR_MACRO_NAME_SHOULD_BE_IDENTIFIER);
-                }
-
-                auto insert_result = m_shared_context->m_declared_macro_list.insert(
-                    std::make_pair(peeked_macro_name_token->m_token_text, std::nullopt));
-
-                if (insert_result.second)
-                {
-                    // Insert successfully, create macro instance.
-                    auto macro_instance = std::make_unique<macro>(*this, peeked_macro_name_token);
-
-                    // Ok, apply macro instance.
-                    if (macro_instance->_macro_action_vm != nullptr)
-                        insert_result.first->second = std::move(macro_instance);
-                }
-                else
-                {
-                    // Macro define already exist.
-                    auto& defined_macro = insert_result.first->second;
-                    if (defined_macro.has_value())
-                    {
-                        auto& defined_macro_instance = defined_macro.value();
-
-                        if (defined_macro_instance->filename != this->m_source_path)
-                        {
-                            produce_lexer_error(
-                                msglevel_t::error,
-                                WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE,
-                                defined_macro_instance->macro_name.c_str());
-
-                            char describe[256] = {};
-                            snprintf(describe, 256,
-                                WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                                defined_macro_instance->macro_name.c_str());
-                            (void)record_message(
-                                compiler_message_t{
-                                    msglevel_t::infom,
-                                    { defined_macro_instance->begin_row, defined_macro_instance->begin_col },
-                                    { defined_macro_instance->end_row, defined_macro_instance->end_col },
-                                    *defined_macro_instance->filename,
-                                    describe,
-                                });
-                        }
-                        // else:
-                        // 
-                        // NOTE: This script has been imported in another macro, and
-                        //  the macro define has been inherted, just ignore and skip.
-                    }
-                    // Recursive import macro define or failed macro, skip.
-
-                    // NOTE: This could also be another macro with the same name encountering the current unfinished macro;
-                    // we assume this situation is harmless.
-
-                    // Move & skip identifier
-                    consume_forward();
-
-                    if (peek(true)->m_lex_type != lex_type::l_left_curly_braces)
-                        produce_lexer_error(lexer::msglevel_t::error, WO_ERR_HERE_SHOULD_HAVE, "{");
-                    else
-                    {
-                        consume_forward();
-
-                        size_t scope_count = 1;
-                        for (;;)
-                        {
-                            auto peeked_token_type = peek(true)->m_lex_type;
-                            consume_forward();
-                            if (peeked_token_type == lex_type::l_left_curly_braces)
-                                ++scope_count;
-                            else if (peeked_token_type == lex_type::l_right_curly_braces)
-                            {
-                                if (--scope_count == 0)
-                                    break;
-                            }
-                            else if (peeked_token_type == lex_type::l_eof)
-                            {
-                                produce_lexer_error(lexer::msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
-                                break;
-                            }
-                        }
-                        // Skip macro body.
-                    }
-                }
-                return;
+                // TODO;
+                abort();
             }
             else if (pragma_name == "line")
             {
@@ -1829,6 +1606,7 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     bool lexer::try_handle_macro(const std::string& macro_name)
     {
+#if 0
         size_t macro_pre_begin_row = _m_this_token_pre_begin_row;
         size_t macro_pre_begin_col = _m_this_token_pre_begin_col;
         const size_t macro_begin_row = _m_this_token_begin_row;
@@ -1964,7 +1742,9 @@ extern func macro_entry(lexer: std::lexer)=> string
             else
                 tmp_lex.end_trying_block();
         }
-
+#endif
+        // TODO
+        abort();
         return true;
     }
     void lexer::drop_source_stream_for_lspv2()

@@ -467,13 +467,96 @@ namespace wo
         lang_Namespace& operator=(const lang_Scope&) = delete;
         lang_Namespace& operator=(lang_Scope&&) = delete;
     };
-    struct lang_Macro
-    {
-        wo_pstring_t    m_name;
-        ast::AstBase::source_location_t
-            m_location;
 
-        lang_Macro(const wo::macro& macro_instance);
+    struct BytecodeGenerateContext
+    {
+        // Processing and processed function instances
+        std::unordered_set<ast::AstValueFunction*> m_processed_function_instance;
+        std::unordered_set<ast::AstValueFunction*> m_being_used_function_instance;
+
+        // Mutable context
+        struct EvalResult
+        {
+            enum Request
+            {
+                // Request to assign the result to a specified opnum
+                ASSIGN_TO_SPECIFIED_OPNUM,
+                // Only get the opnum that stores the result, 
+                // if the result cannot be directly represented as an opnum, 
+                // a temporary opnum will be allocated
+                // NOTE: temporary opnum will be released after `get_eval_result`.
+                GET_RESULT_OPNUM_ONLY,
+                // Just like GET_RESULT_OPNUM_ONLY, but keep the result opnum, and if:
+                //  1) Result opnum is spreg(such as cr)
+                // GET_RESULT_OPNUM_AND_KEEP will borrow a temporary register to store the result.
+                GET_RESULT_OPNUM_AND_KEEP,
+                // Push the result opnum into stack, then ignore the result.
+                PUSH_RESULT_AND_IGNORE_RESULT,
+                // Donot eval for this request, get last one.
+                // EVAL_FOR_UPPER,
+                // Like IGNORE_RESULT, but still in eval. no result will be apply.
+                EVAL_PURE_ACTION,
+                // Simply ignore the result
+                IGNORE_RESULT,
+            };
+            Request      m_request;
+
+            // NOTE: If ASSIGN_TO_SPECIFIED_OPNUM, m_result will store target opnum.
+            //  If GET_RESULT_OPNUM, m_result will store the result opnum.
+            //  Or m_result will be empty.
+            std::optional<opnum::opnumbase* > m_result;
+
+            // The pdinode used for generate debug info.
+            std::optional<ast::AstBase*> m_pdi_node;
+
+            const std::optional<opnum::opnumbase*>& get_assign_target() noexcept;
+            void set_result(BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept;
+        };
+        std::stack<EvalResult> m_eval_result_storage_target;
+        std::stack<EvalResult> m_evaled_result_storage;
+
+        struct LoopContent
+        {
+            std::optional<wo_pstring_t> m_label;
+            wo_pstring_t m_break_label;
+            wo_pstring_t m_continue_label;
+        };
+        std::vector<LoopContent> m_loop_content_stack;
+
+        // Functions
+        void eval();
+        void eval_action();
+        void eval_for_upper();
+        void cleanup_for_eval_upper();
+        void eval_keep();
+        void eval_push();
+        void eval_to(opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode);
+        void eval_ignore();
+        void eval_to_if_not_ignore(opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode);
+        void eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)());
+
+        void begin_loop_while(ast::AstWhile* ast);
+        void begin_loop_for(ast::AstFor* ast);
+
+        void end_loop();
+
+        std::optional<LoopContent*> find_nearest_loop_content_label(
+            const std::optional<wo_pstring_t>& label);
+
+        // NOTE: get_eval_result will invoke `return_opnum_temporary_register`
+        //  to release temporary opnum if GET_RESULT_OPNUM_ONLY.
+        opnum::opnumbase* get_eval_result();
+        bool eval_result_ignored() noexcept;
+
+        // Apply and assign the value into specify 
+        void apply_eval_result(const std::function<void(EvalResult&)>& bind_func) noexcept;
+        void failed_eval_result() noexcept;
+
+        BytecodeGenerateContext() noexcept;
+        BytecodeGenerateContext(const BytecodeGenerateContext&) = delete;
+        BytecodeGenerateContext(BytecodeGenerateContext&&) = delete;
+        BytecodeGenerateContext& operator=(const BytecodeGenerateContext&) = delete;
+        BytecodeGenerateContext& operator=(BytecodeGenerateContext&&) = delete;
     };
 
     struct LangContext
@@ -637,9 +720,6 @@ namespace wo
         std::stack<lang_Scope*>         m_scope_stack;
         std::unordered_map<lang_TypeInstance*, std::unique_ptr<lang_TypeInstance>>
             m_mutable_type_instance_cache;
-        // NOTE: For LSPv2 only.
-        std::vector<std::unique_ptr< lang_Macro>>
-            m_macros;
 
         // Used for make sure template instance will never see the symbol declared after them.
         size_t                          m_created_symbol_edge;
@@ -653,6 +733,9 @@ namespace wo
             m_value_name_cache;
         std::unordered_map<ast::AstValueFunction*, std::string>
             m_function_name_cache;
+
+        // Used for bytecode generation
+        BytecodeGenerateContext m_ircontext;
 
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;

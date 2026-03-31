@@ -1,6 +1,9 @@
 #include "wo_afx.hpp"
 
-WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args);
+WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args)
+{
+    return WO_API_NORMAL;
+}
 
 namespace wo
 {
@@ -6435,7 +6438,9 @@ namespace wo
         auto* function_instance = get_current_function().value();
 
         wo_native_func_t extern_function;
-
+#if 1
+        extern_function = rslib_std_bad_function;
+#else
         if (node->m_extern_from_library.has_value())
         {
             extern_function = rslib_extern_symbols::get_lib_symbol(
@@ -6454,7 +6459,7 @@ namespace wo
                 rslib_extern_symbols::get_global_symbol(
                     node->m_extern_symbol->c_str());
         }
-
+#endif
         if (extern_function != nullptr)
             node->m_IR_externed_function = extern_function;
         else

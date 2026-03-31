@@ -3,7 +3,7 @@
 //
 // Here will have woolang c api;
 //
-#define WO_VERSION WO_VERSION_WRAP(1, 14, 14, 1)
+#define WO_VERSION WO_VERSION_WRAP(1, 15, 0, 0)
 
 /*
             GC-Friendly External Function Development Rules
@@ -323,6 +323,48 @@ WO_API void wo_init(int argc, char** argv);
         setlocale(LC_CTYPE, wo_locale_name()); \
     } while (0)
 WO_API void wo_finish(void (*do_after_shutdown)(void*), void* custom_data);
+
+WO_API wo_bool_t wo_virtual_binary(
+    wo_string_t filepath,
+    const void* data,
+    wo_size_t len,
+    wo_bool_t enable_modify);
+WO_API wo_bool_t wo_virtual_source(
+    wo_string_t filepath,
+    wo_string_t data,
+    wo_bool_t enable_modify);
+
+WO_API wo_virtual_file_t wo_open_virtual_file(wo_string_t filepath);
+WO_API wo_string_t wo_virtual_file_path(wo_virtual_file_t file);
+WO_API const void* wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
+WO_API void wo_close_virtual_file(wo_virtual_file_t file);
+
+WO_API wo_virtual_file_iter_t wo_open_virtual_file_iter(void);
+WO_API wo_string_t /* may null */ wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
+WO_API void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
+
+WO_API wo_bool_t wo_remove_virtual_file(wo_string_t filepath);
+
+WO_API wo_size_t wo_str_char_len(wo_value value);
+WO_API wo_size_t wo_str_byte_len(wo_value value);
+
+WO_API wo_wchar_t wo_str_get_char(wo_string_t str, wo_size_t index);
+WO_API wo_wchar_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index);
+
+WO_API const wchar_t* wo_str_to_wstr(wo_string_t str);
+WO_API const wchar_t* wo_strn_to_wstr(wo_string_t str, wo_size_t size);
+WO_API wo_string_t wo_wstr_to_str(const wchar_t* str);
+WO_API wo_string_t wo_wstrn_to_str(const wchar_t* str, wo_size_t size);
+
+WO_API const char16_t* wo_str_to_u16str(wo_string_t str);
+WO_API const char16_t* wo_strn_to_u16str(wo_string_t str, wo_size_t size);
+WO_API wo_string_t wo_u16str_to_str(const char16_t* str);
+WO_API wo_string_t wo_u16strn_to_str(const char16_t* str, wo_size_t size);
+
+WO_API wo_wstring_t wo_str_to_u32str(wo_string_t str);
+WO_API wo_wstring_t wo_strn_to_u32str(wo_string_t str, wo_size_t size);
+WO_API wo_string_t wo_u32str_to_str(wo_wstring_t str);
+WO_API wo_string_t wo_u32strn_to_str(wo_wstring_t str, wo_size_t size);
 
 WO_API wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc);
 WO_API wo_integer_t wo_crc64_str(wo_string_t text);
