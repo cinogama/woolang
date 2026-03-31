@@ -1,6 +1,5 @@
 #pragma once
 #include "wo_compiler_parser.hpp"
-#include "wo_basic_type.hpp"
 
 #include <optional>
 #include <list>

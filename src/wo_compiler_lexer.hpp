@@ -474,26 +474,26 @@ namespace wo
         void drop_source_stream_for_lspv2();
     };
 
-    class macro
-    {
-    public:
-        std::string macro_name;
-        wo_vm _macro_action_vm;
+    //class macro
+    //{
+    //public:
+    //    std::string macro_name;
+    //    wo_vm _macro_action_vm;
 
-        size_t   begin_row;
-        size_t   begin_col;
-        size_t   end_row;
-        size_t   end_col;
-        wo_pstring_t filename;
+    //    size_t   begin_row;
+    //    size_t   begin_col;
+    //    size_t   end_row;
+    //    size_t   end_col;
+    //    wo_pstring_t filename;
 
-        macro(lexer& lex, lexer::peeked_token_t* peeked_token);
+    //    macro(lexer& lex, lexer::peeked_token_t* peeked_token);
 
-        ~macro()
-        {
-            if (_macro_action_vm)
-                wo_close_vm(_macro_action_vm);
-        }
-    };
+    //    ~macro()
+    //    {
+    //        if (_macro_action_vm)
+    //            wo_close_vm(_macro_action_vm);
+    //    }
+    //};
 }
 
 #ifdef ANSI_WIDE_CHAR_SIGN

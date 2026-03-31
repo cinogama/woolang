@@ -11,14 +11,14 @@ wo_size_t wo_lspv2_sub_version(void)
     return WO_LSPV2_SUB_VERSION;
 }
 
-wo::compile_result _wo_compile_impl(
-    wo_string_t virtual_src_path,
-    const void* src,
-    size_t      len,
-    const std::optional<wo::lexer*>& parent_lexer,
-    std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
-    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed,
-    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_pass_grammar);
+//wo::compile_result _wo_compile_impl(
+//    wo_string_t virtual_src_path,
+//    const void* src,
+//    size_t      len,
+//    const std::optional<wo::lexer*>& parent_lexer,
+//    std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
+//    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed,
+//    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_pass_grammar);
 
 struct _wo_lspv2_source_meta
 {
@@ -26,7 +26,7 @@ struct _wo_lspv2_source_meta
 
     wo::ast::AstAllocator m_origin_astbase_list;
 
-    std::optional<wo::shared_pointer<wo::runtime_env>> m_env_if_success;
+    // std::optional<wo::shared_pointer<wo::runtime_env>> m_env_if_success;
     std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_grammar;
     std::optional<std::unique_ptr<wo::lexer>> m_lexer_if_failed;
 
@@ -64,14 +64,14 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
         wo::ast::AstBase::exchange_this_thread_ast(
             old_ast_list);
 
-    meta->m_step = _wo_compile_impl(
-        virtual_src_path,
-        src,
-        src == nullptr ? 0 : strlen(src),
-        std::nullopt,
-        &meta->m_env_if_success,
-        &meta->m_lexer_if_failed,
-        &meta->m_langcontext_if_passed_grammar);
+    //meta->m_step = _wo_compile_impl(
+    //    virtual_src_path,
+    //    src,
+    //    src == nullptr ? 0 : strlen(src),
+    //    std::nullopt,
+    //    &meta->m_env_if_success,
+    //    &meta->m_lexer_if_failed,
+    //    &meta->m_langcontext_if_passed_grammar);
 
     wo::ast::AstBase::exchange_this_thread_ast(meta->m_origin_astbase_list);
 

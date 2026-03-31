@@ -4,7 +4,6 @@
 #pragma once
 
 #include "wo_assert.hpp"
-#include "wo_instruct.hpp"
 #include "wo_lang.hpp"
 #include "wo_utf8.hpp"
 #include "wo_lang_ast.hpp"
