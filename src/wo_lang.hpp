@@ -2,7 +2,6 @@
 
 #include "wo_basic_type.hpp"
 #include "wo_lang_ast.hpp"
-#include "wo_compiler_ir.hpp"
 
 #include <memory>
 #include <unordered_map>

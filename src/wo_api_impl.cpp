@@ -5,9 +5,7 @@
 #include "wo_compiler_parser.hpp"
 #include "wo_stdlib.hpp"
 #include "wo_lang_grammar_loader.hpp"
-#include "wo_runtime_debuggee.hpp"
 #include "wo_crc_64.hpp"
-#include "wo_vm_pool.hpp"
 
 [[noreturn]]
 void _wo_assert(

@@ -5,10 +5,8 @@
 
 #include "wo_assert.hpp"
 #include "wo_instruct.hpp"
-#include "wo_vm.hpp"
 #include "wo_lang.hpp"
 #include "wo_utf8.hpp"
-#include "wo_compiler_ir.hpp"
 #include "wo_lang_ast.hpp"
 #include "wo_os_api.hpp"
 #include "wo_global_setting.hpp"
