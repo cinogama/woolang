@@ -654,8 +654,6 @@ namespace wo
         std::unordered_map<ast::AstValueFunction*, std::string>
             m_function_name_cache;
 
-        // Used for bytecode generation
-
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
         static ProcessAstJobs* m_passir_A_processers;
@@ -913,18 +911,7 @@ namespace wo
             // NOTE: If template pattern, init_value_type will not able to be determined.
             // So here is optional.
             const std::optional<lang_TypeInstance*>& init_value_type);
-        void update_allocate_global_instance_storage_passir(
-            lang_ValueInstance* instance);
-        bool update_instance_storage_and_code_gen_passir(
-            lang_ValueInstance* instance,
-            opnum::opnumbase* opnumval,
-            const std::optional<uint16_t>& tuple_member_offset);
-        bool update_pattern_storage_and_code_gen_passir(
-            lexer& lex,
-            ast::AstPatternBase* pattern,
-            opnum::opnumbase* opnumval,
-            const std::optional<uint16_t>& tuple_member_offset);
-
+  
         lang_TypeInstance* mutable_type(lang_TypeInstance* origin_type);
         lang_TypeInstance* immutable_type(lang_TypeInstance* origin_type);
 
