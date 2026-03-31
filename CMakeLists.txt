@@ -41,6 +41,8 @@ else()
 endif()
 set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 
+add_subdirectory("3rd/woort")
+
 if (WO_SUPPORT_ASMJIT)
     set(ASMJIT_STATIC ON CACHE BOOL "Build static-linked asmjit" FORCE)
     add_subdirectory("3rd/asmjit")

@@ -70,6 +70,7 @@ target_precompile_headers(woolang PRIVATE wo_afx.hpp)
 target_link_libraries(woolang 
     PRIVATE woolang_options
     PRIVATE woolang_library_options
+    PRIVATE woort
     PRIVATE ${woo_system_libs})
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
