@@ -82,7 +82,7 @@ namespace wo
         return result;
     }
 
-    woort_IRValue* IRFunction::alloc_value()
+    woort_IRValue* IRFunction::new_value()
     {
         if (m_ircompiler->is_abondoned())
             return nullptr;
@@ -92,5 +92,47 @@ namespace wo
             m_ircompiler->abondon();
 
         return result;
+    }
+
+    woort_IRValue* IRFunction::argument(uint32_t aidx)
+    {
+        if (m_ircompiler->is_abondoned())
+            return nullptr;
+
+        woort_IRValue* const result = woort_IRFunction_get_argument(m_irfunction, aidx);
+        if (result == nullptr)
+            m_ircompiler->abondon();
+
+        return result;
+    }
+
+    woort_IRLabel* IRFunction::new_label()
+    {
+        if (m_ircompiler->is_abondoned())
+            return nullptr;
+
+        woort_IRLabel* const result = woort_IRFunction_new_label(m_irfunction);
+        if (result == nullptr)
+            m_ircompiler->abondon();
+
+        return result;
+    }
+
+    void IRFunction::mov(woort_IRValue* dst, woort_IRValue* src)
+    {
+        if (m_ircompiler->is_abondoned())
+            return;
+
+        if (!woort_IR_MOV(m_irfunction, dst, src))
+            m_ircompiler->abondon();
+    }
+
+    void IRFunction::load(woort_IRValue* dst, woort_IRStaticIndex src)
+    {
+        if (m_ircompiler->is_abondoned())
+            return;
+
+        if (!woort_IR_LOAD(m_irfunction, dst, src))
+            m_ircompiler->abondon();
     }
 }
