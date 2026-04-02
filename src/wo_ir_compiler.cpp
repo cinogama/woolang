@@ -20,7 +20,7 @@ namespace wo
     IRCompiler::~IRCompiler()
     {
         if (m_ircompiler != nullptr)
-            abondon();        
+            abondon();
     }
 
     void IRCompiler::abondon()
@@ -29,5 +29,68 @@ namespace wo
 
         woort_IRCompiler_close(m_ircompiler);
         m_ircompiler = nullptr;
+    }
+
+    bool IRCompiler::is_abondoned() const
+    {
+        return m_ircompiler == nullptr;
+    }
+
+    IRFunction IRCompiler::add_function(uint32_t param_count)
+    {
+        if (m_ircompiler == nullptr)
+            // IR 系列接口的设计原则是：压制内存申请失败，如同一切正常——直到最终提交代码时
+            // 以失败结束
+            return IRFunction(this, nullptr);
+
+        woort_IRFunction* irfunc;
+        if (!woort_IRCompiler_add_function(m_ircompiler, param_count, &irfunc))
+        {
+            abondon();
+            return IRFunction(this, nullptr);
+        }
+        return IRFunction(this, irfunc);
+    }
+
+    woort_IRConstantIndex IRCompiler::alloc_constant()
+    {
+        if (m_ircompiler == nullptr)
+            return 0;
+
+        return woort_IRCompiler_add_constant(m_ircompiler);
+    }
+
+    woort_IRStaticIndex IRCompiler::alloc_static()
+    {
+        if (m_ircompiler == nullptr)
+            return 0;
+
+        return woort_IRCompiler_add_static(m_ircompiler);
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    woort_IRValue* IRFunction::load_constant(woort_IRConstantIndex cidx)
+    {
+        if (m_ircompiler->is_abondoned())
+            return nullptr;
+
+        woort_IRValue* const result = woort_IRFunction_load_const(m_irfunction, cidx);
+        if (result == nullptr)
+            m_ircompiler->abondon();
+        
+        return result;
+    }
+
+    woort_IRValue* IRFunction::alloc_value()
+    {
+        if (m_ircompiler->is_abondoned())
+            return nullptr;
+
+        woort_IRValue* const result = woort_IRFunction_new_vreg(m_irfunction);
+        if (result == nullptr)
+            m_ircompiler->abondon();
+
+        return result;
     }
 }

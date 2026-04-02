@@ -23,7 +23,12 @@ namespace wo
         IRFunction& operator =(IRFunction&&) = default;
 
     public:
-
+        /*
+        NOTE: 不可将值写入 load_constant 返回的 woort_IRValue 中
+        */
+        woort_IRValue* load_constant(woort_IRConstantIndex cidx);
+        woort_IRValue* alloc_value();
+        woort_IRValue* argument(uint32_t aidx);
     };
 
     class IRCompiler
@@ -40,5 +45,13 @@ namespace wo
         ~IRCompiler();
 
         void abondon();
+
+    public:
+        bool is_abondoned() const;
+
+        IRFunction add_function(uint32_t param_count);
+
+        woort_IRConstantIndex alloc_constant();
+        woort_IRStaticIndex alloc_static();
     };
 } 
