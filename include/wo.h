@@ -315,6 +315,8 @@ WO_API wo_string_t wo_compile_date(void);
 WO_API wo_string_t wo_version(void);
 WO_API wo_integer_t wo_version_int(void);
 
+WO_API wo_string_t wo_locale_name(void);
+
 WO_API void wo_init(int argc, char** argv);
 #define wo_init(argc, argv)                    \
     do                                         \

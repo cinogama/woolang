@@ -13,7 +13,7 @@ int main(int argc, char** argv)
 
     if (argc >= 2)
     {
-        wo_vm vmm = wo_create_vm();
+       /* wo_vm vmm = wo_create_vm();
         bool compile_successful_flag = wo_load_file(vmm, argv[1]);
 
         if (compile_successful_flag)
@@ -68,7 +68,7 @@ int main(int argc, char** argv)
             ret = -2;
         }
 
-        wo_close_vm(vmm);
+        wo_close_vm(vmm);*/
     }
     else
     {

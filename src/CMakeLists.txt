@@ -2,10 +2,6 @@
 
 cmake_minimum_required (VERSION 3.10)
 
-include_directories("../include")
-include_directories("../3rd/asmjit/src")
-include_directories("../3rd/mingw-std-threads")
-
 set(GIT_COMMIT_HASH "Unavailable")
 find_package(Git)
 if(GIT_FOUND)
@@ -33,6 +29,12 @@ endif()
 
 add_library(woolang_library_options INTERFACE)
 target_compile_definitions(woolang_library_options INTERFACE -DWO_SRC_PATH="${PROJECT_SOURCE_DIR}")
+
+target_include_directories(woolang_library_options 
+    INTERFACE "../include"
+    INTERFACE "../3rd/asmjit/src"
+    INTERFACE "../3rd/mingw-std-threads"
+    INTERFACE "../3rd/woort/include")
 
 if (WO_SUPPORT_ASMJIT)
     target_compile_definitions(woolang_library_options INTERFACE -DWO_JIT_SUPPORT_ASMJIT=1) 

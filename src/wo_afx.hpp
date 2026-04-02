@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "woort.h"
+
 #include "wo_assert.hpp"
 #include "wo_lang.hpp"
 #include "wo_utf8.hpp"
