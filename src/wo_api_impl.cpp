@@ -7,6 +7,8 @@
 #include "wo_lang_grammar_loader.hpp"
 #include "wo_crc_64.hpp"
 
+#include "wo_ir_compiler.hpp"
+
 [[noreturn]]
 void _wo_assert(
     const char* file,
@@ -45,6 +47,8 @@ void _wo_warning(
 
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
+    woort_shutdown();
+
     // Ready to shutdown.
     if (do_after_shutdown != nullptr)
         do_after_shutdown(custom_data);
@@ -58,6 +62,12 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     wo::LangContext::shutdown_lang_processers();
     wo::shutdown_woolang_grammar();
 #endif
+}
+
+woort_api helloworld(woort_VMRuntime* vm, woort_value* args)
+{
+    printf("Helloworld");
+    return WOORT_VM_CALL_STATUS_NORMAL;
 }
 
 void wo_init(int argc, char** argv)
@@ -127,6 +137,27 @@ void wo_init(int argc, char** argv)
     wo::init_woolang_grammar(); // Create grammar when init.
     wo::LangContext::init_lang_processers();
 #endif
+
+    // Start up WooRT.
+    woort_init();
+
+    wo::IRCompiler c;
+   
+    auto debug_fp = c.alloc_constant();
+
+    auto main = c.add_function(0);
+    main.callnfp(debug_fp, 0, nullptr);
+    main.ret_void();
+
+    auto* code_env = c.commit().value();
+    {
+        //auto vm = woort_VMRuntime_create();
+
+        //woort_VMRuntime_invoke(vm, );
+    }
+    woort_CodeEnv_drop(code_env);
+    
+
 }
 
 #define WO_VAL(v) std::launder(reinterpret_cast<wo::value*>(v))
