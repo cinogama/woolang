@@ -35,6 +35,169 @@ namespace wo
         // IR commands.
         void mov(woort_IRValue* dst, woort_IRValue* src);
         void load(woort_IRValue* dst, woort_IRStaticIndex src);
+        void store(woort_IRStaticIndex dst, woort_IRValue* src);
+        void pushchk(woort_IRValue* src);
+        void popr(uint32_t count);
+        void poprs(woort_IRValue* count_src);
+
+        /* --- Type Conversions --- */
+        void itor(woort_IRValue* dst, woort_IRValue* src);
+        void itos(woort_IRValue* dst, woort_IRValue* src);
+        void rtoi(woort_IRValue* dst, woort_IRValue* src);
+        void rtos(woort_IRValue* dst, woort_IRValue* src);
+        void stoi(woort_IRValue* dst, woort_IRValue* src);
+        void stor(woort_IRValue* dst, woort_IRValue* src);
+
+        /* --- Function Calls --- */
+        void callnwo(woort_IRConstantIndex target, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
+        void callnfp(woort_IRConstantIndex target, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
+        void callnjit(woort_IRConstantIndex target, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
+        void call(woort_IRValue* func_val, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
+
+        /* --- Closures / Containers --- */
+        void mkclosure(woort_IRValue* dst, uint32_t elem_count, woort_IRConstantIndex func_idx);
+        void mkvec(woort_IRValue* dst, uint32_t elem_count);
+        void mkmap(woort_IRValue* dst, uint32_t kvpair_count);
+        void mkstruct(woort_IRValue* dst, uint32_t elem_count);
+
+        /* --- Dynamic Typing --- */
+        void boxdyn(woort_IRValue* dst, uint8_t typ, woort_IRValue* src);
+        void unboxdyn(woort_IRValue* dst, uint8_t typ, woort_IRValue* src);
+        void checkdyn(woort_IRValue* dst, uint8_t typ, woort_IRValue* src);
+        void pushboxdyn(uint8_t typ, woort_IRValue* src);
+
+        /* --- Integer Arithmetic --- */
+        void addi(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void subi(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void muli(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void divi(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void modi(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void negi(woort_IRValue* dst, woort_IRValue* src);
+
+        /* --- Integer Comparison --- */
+        void lti(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void gti(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void lei(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void gei(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void eqi(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void nei(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+
+        /* --- Real Arithmetic --- */
+        void addr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void subr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void mulr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void divr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void modr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void negr(woort_IRValue* dst, woort_IRValue* src);
+
+        /* --- Real Comparison --- */
+        void ltr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void gtr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void ler(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void ger(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void eqr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void ner(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+
+        /* --- String --- */
+        void adds(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void lts(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void gts(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void les(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void ges(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void eqs(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void nes(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+
+        /* --- Logical --- */
+        void land(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void lor(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b);
+        void lnot(woort_IRValue* dst, woort_IRValue* src);
+
+        /* --- Index Load --- */
+        void ldidxvec(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx);
+        void ldidxvecx(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx);
+        void ldidxstruct(woort_IRValue* dst, woort_IRValue* container, uint32_t idx);
+        void ldidxstring(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx);
+        void ldidxdicti(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx);
+        void ldidxdictr(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx);
+        void ldidxdictb(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx);
+        void ldidxdictx(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx);
+
+        /* --- Index Store --- */
+        void sdidxveci(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxvecr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxvecb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxvecx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+
+        void sdidxdictii(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictir(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictib(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictix(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictri(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictrr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictrb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictrx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictbi(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictbr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictbb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictbx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictxi(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictxr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictxb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxdictxx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapii(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapir(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapib(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapix(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapri(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmaprr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmaprb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmaprx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapbi(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapbr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapbb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapbx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapxi(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapxr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapxb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxmapxx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val);
+        void sdidxstruct(woort_IRValue* c, uint32_t idx, woort_IRValue* val);
+
+        /* --- Unpacking --- */
+        void unpackstruct(woort_IRValue* src);
+        void unpackvec(woort_IRValue* dst, woort_IRValue* src);
+        void unpackvecx(woort_IRValue* dst, woort_IRValue* src);
+
+        /* --- Struct Field Push to Stack --- */
+        void pushidxstruct(woort_IRValue* src, uint32_t idx);
+        void pushidxstboxi(woort_IRValue* src, uint32_t idx);
+        void pushidxstboxr(woort_IRValue* src, uint32_t idx);
+        void pushidxstboxb(woort_IRValue* src, uint32_t idx);
+        void pushidxstboxx(woort_IRValue* src, uint32_t idx);
+
+        /* --- Control Flow --- */
+        void bind(woort_IRLabel* label);
+        void jmp(woort_IRLabel* target);
+        void jcc(woort_IRValue* cond, woort_IRLabel* target);
+        void jccz(woort_IRValue* cond, woort_IRLabel* target);
+        void jcc_lt(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target);
+        void jcc_le(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target);
+        void jcc_eq(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target);
+        void jcc_gt(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target);
+        void jcc_ge(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target);
+        void jcc_ne(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target);
+
+        /* --- Return --- */
+        void ret(woort_IRValue* val);
+        void ret_void();
+
+        /* --- Source Location --- */
+        void push_srcloc(
+            /* OPTIONAL */ const char* filepath,
+            uint32_t begin_line,
+            uint32_t begin_column,
+            uint32_t end_line,
+            uint32_t end_column);
+        void pop_srcloc();
     };
 
     class IRCompiler
@@ -60,4 +223,4 @@ namespace wo
         woort_IRConstantIndex alloc_constant();
         woort_IRStaticIndex alloc_static();
     };
-} 
+}
