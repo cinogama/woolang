@@ -70,12 +70,12 @@ namespace wo
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    woort_IRValue* IRFunction::load_constant(woort_IRConstantIndex cidx)
+    const woort_IRValue* IRFunction::load_constant(woort_IRConstantIndex cidx)
     {
         if (m_ircompiler->is_abondoned())
             return nullptr;
 
-        woort_IRValue* const result = woort_IRFunction_load_const(m_irfunction, cidx);
+        const woort_IRValue* const result = woort_IRFunction_load_const(m_irfunction, cidx);
         if (result == nullptr)
             m_ircompiler->abondon();
 
@@ -94,7 +94,7 @@ namespace wo
         return result;
     }
 
-    woort_IRValue* IRFunction::argument(uint32_t aidx)
+    const woort_IRValue* IRFunction::argument(uint32_t aidx)
     {
         if (m_ircompiler->is_abondoned())
             return nullptr;
@@ -118,7 +118,7 @@ namespace wo
         return result;
     }
 
-    void IRFunction::mov(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::mov(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -136,7 +136,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::store(woort_IRStaticIndex dst, woort_IRValue* src)
+    void IRFunction::store(woort_IRStaticIndex dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -145,7 +145,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::pushchk(woort_IRValue* src)
+    void IRFunction::pushchk(const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -163,7 +163,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::poprs(woort_IRValue* count_src)
+    void IRFunction::poprs(const woort_IRValue* count_src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -172,7 +172,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::itor(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::itor(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -181,7 +181,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::itos(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::itos(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -190,7 +190,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::rtoi(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::rtoi(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -199,7 +199,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::rtos(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::rtos(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -208,7 +208,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::stoi(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::stoi(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -217,7 +217,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::stor(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::stor(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -253,7 +253,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::call(woort_IRValue* func_val, uint32_t argc, woort_IRValue* dst)
+    void IRFunction::call(const woort_IRValue* func_val, uint32_t argc, woort_IRValue* dst)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -298,7 +298,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::boxdyn(woort_IRValue* dst, uint8_t typ, woort_IRValue* src)
+    void IRFunction::boxdyn(woort_IRValue* dst, uint8_t typ, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -307,7 +307,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::unboxdyn(woort_IRValue* dst, uint8_t typ, woort_IRValue* src)
+    void IRFunction::unboxdyn(woort_IRValue* dst, uint8_t typ, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -316,7 +316,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::checkdyn(woort_IRValue* dst, uint8_t typ, woort_IRValue* src)
+    void IRFunction::checkdyn(woort_IRValue* dst, uint8_t typ, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -325,7 +325,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::pushboxdyn(uint8_t typ, woort_IRValue* src)
+    void IRFunction::pushboxdyn(uint8_t typ, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -334,7 +334,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::addi(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::addi(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -343,7 +343,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::subi(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::subi(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -352,7 +352,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::muli(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::muli(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -361,7 +361,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::divi(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::divi(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -370,7 +370,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::modi(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::modi(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -379,7 +379,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::negi(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::negi(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -388,7 +388,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::lti(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::lti(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -397,7 +397,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::gti(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::gti(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -406,7 +406,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::lei(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::lei(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -415,7 +415,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::gei(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::gei(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -424,7 +424,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::eqi(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::eqi(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -433,7 +433,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::nei(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::nei(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -442,7 +442,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::addr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::addr(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -451,7 +451,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::subr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::subr(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -460,7 +460,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::mulr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::mulr(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -469,7 +469,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::divr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::divr(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -478,7 +478,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::modr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::modr(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -487,7 +487,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::negr(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::negr(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -496,7 +496,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ltr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::ltr(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -505,7 +505,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::gtr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::gtr(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -514,7 +514,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ler(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::ler(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -523,7 +523,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ger(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::ger(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -532,7 +532,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::eqr(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::eqr(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -541,7 +541,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ner(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::ner(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -550,7 +550,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::adds(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::adds(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -559,7 +559,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::lts(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::lts(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -568,7 +568,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::gts(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::gts(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -577,7 +577,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::les(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::les(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -586,7 +586,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ges(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::ges(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -595,7 +595,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::eqs(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::eqs(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -604,7 +604,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::nes(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::nes(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -613,7 +613,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::land(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::land(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -622,7 +622,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::lor(woort_IRValue* dst, woort_IRValue* a, woort_IRValue* b)
+    void IRFunction::lor(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -631,7 +631,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::lnot(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::lnot(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -640,7 +640,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ldidxvec(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx)
+    void IRFunction::ldidxvec(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -649,7 +649,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ldidxvecx(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx)
+    void IRFunction::ldidxvecx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -658,7 +658,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ldidxstruct(woort_IRValue* dst, woort_IRValue* container, uint32_t idx)
+    void IRFunction::ldidxstruct(woort_IRValue* dst, const woort_IRValue* container, uint32_t idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -667,7 +667,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ldidxstring(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx)
+    void IRFunction::ldidxstring(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -676,7 +676,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ldidxdicti(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx)
+    void IRFunction::ldidxdicti(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -685,7 +685,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ldidxdictr(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx)
+    void IRFunction::ldidxdictr(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -694,7 +694,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ldidxdictb(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx)
+    void IRFunction::ldidxdictb(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -703,7 +703,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ldidxdictx(woort_IRValue* dst, woort_IRValue* container, woort_IRValue* idx)
+    void IRFunction::ldidxdictx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -712,7 +712,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxveci(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxveci(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -721,7 +721,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxvecr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxvecr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -730,7 +730,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxvecb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxvecb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -739,7 +739,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxvecx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxvecx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -748,7 +748,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictii(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictii(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -757,7 +757,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictir(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictir(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -766,7 +766,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictib(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictib(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -775,7 +775,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictix(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictix(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -784,7 +784,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictri(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictri(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -793,7 +793,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictrr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictrr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -802,7 +802,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictrb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictrb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -811,7 +811,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictrx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictrx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -820,7 +820,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictbi(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictbi(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -829,7 +829,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictbr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictbr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -838,7 +838,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictbb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictbb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -847,7 +847,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictbx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictbx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -856,7 +856,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictxi(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictxi(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -865,7 +865,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictxr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictxr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -874,7 +874,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictxb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictxb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -883,7 +883,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxdictxx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxdictxx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -892,7 +892,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapii(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapii(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -901,7 +901,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapir(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapir(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -910,7 +910,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapib(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapib(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -919,7 +919,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapix(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapix(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -928,7 +928,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapri(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapri(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -937,7 +937,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmaprr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmaprr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -946,7 +946,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmaprb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmaprb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -955,7 +955,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmaprx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmaprx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -964,7 +964,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapbi(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapbi(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -973,7 +973,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapbr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapbr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -982,7 +982,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapbb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapbb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -991,7 +991,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapbx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapbx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1000,7 +1000,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapxi(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapxi(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1009,7 +1009,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapxr(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapxr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1018,7 +1018,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapxb(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapxb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1027,7 +1027,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxmapxx(woort_IRValue* c, woort_IRValue* idx, woort_IRValue* val)
+    void IRFunction::sdidxmapxx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1036,7 +1036,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::sdidxstruct(woort_IRValue* c, uint32_t idx, woort_IRValue* val)
+    void IRFunction::sdidxstruct(woort_IRValue* c, uint32_t idx, const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1045,7 +1045,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::unpackstruct(woort_IRValue* src)
+    void IRFunction::unpackstruct(const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1054,7 +1054,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::unpackvec(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::unpackvec(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1063,7 +1063,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::unpackvecx(woort_IRValue* dst, woort_IRValue* src)
+    void IRFunction::unpackvecx(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1072,7 +1072,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::pushidxstruct(woort_IRValue* src, uint32_t idx)
+    void IRFunction::pushidxstruct(const woort_IRValue* src, uint32_t idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1081,7 +1081,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::pushidxstboxi(woort_IRValue* src, uint32_t idx)
+    void IRFunction::pushidxstboxi(const woort_IRValue* src, uint32_t idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1090,7 +1090,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::pushidxstboxr(woort_IRValue* src, uint32_t idx)
+    void IRFunction::pushidxstboxr(const woort_IRValue* src, uint32_t idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1099,7 +1099,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::pushidxstboxb(woort_IRValue* src, uint32_t idx)
+    void IRFunction::pushidxstboxb(const woort_IRValue* src, uint32_t idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1108,7 +1108,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::pushidxstboxx(woort_IRValue* src, uint32_t idx)
+    void IRFunction::pushidxstboxx(const woort_IRValue* src, uint32_t idx)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1135,7 +1135,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::jcc(woort_IRValue* cond, woort_IRLabel* target)
+    void IRFunction::jcc(const woort_IRValue* cond, woort_IRLabel* target)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1144,7 +1144,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::jccz(woort_IRValue* cond, woort_IRLabel* target)
+    void IRFunction::jccz(const woort_IRValue* cond, woort_IRLabel* target)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1153,7 +1153,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::jcc_lt(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target)
+    void IRFunction::jcc_lt(const woort_IRValue* a, const woort_IRValue* b, woort_IRLabel* target)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1162,7 +1162,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::jcc_le(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target)
+    void IRFunction::jcc_le(const woort_IRValue* a, const woort_IRValue* b, woort_IRLabel* target)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1171,7 +1171,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::jcc_eq(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target)
+    void IRFunction::jcc_eq(const woort_IRValue* a, const woort_IRValue* b, woort_IRLabel* target)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1180,7 +1180,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::jcc_gt(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target)
+    void IRFunction::jcc_gt(const woort_IRValue* a, const woort_IRValue* b, woort_IRLabel* target)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1189,7 +1189,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::jcc_ge(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target)
+    void IRFunction::jcc_ge(const woort_IRValue* a, const woort_IRValue* b, woort_IRLabel* target)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1198,7 +1198,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::jcc_ne(woort_IRValue* a, woort_IRValue* b, woort_IRLabel* target)
+    void IRFunction::jcc_ne(const woort_IRValue* a, const woort_IRValue* b, woort_IRLabel* target)
     {
         if (m_ircompiler->is_abondoned())
             return;
@@ -1207,7 +1207,7 @@ namespace wo
             m_ircompiler->abondon();
     }
 
-    void IRFunction::ret(woort_IRValue* val)
+    void IRFunction::ret(const woort_IRValue* val)
     {
         if (m_ircompiler->is_abondoned())
             return;
