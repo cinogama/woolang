@@ -154,13 +154,20 @@ void wo_init(int argc, char** argv)
     auto* cv1 = main.load_constant(s1);
     auto* cv2 = main.load_constant(s2);
     auto* v0 = main.new_value();
+    auto* v1 = main.new_value();
+    auto* v2 = main.new_value();
+    auto* v3 = main.new_value();
 
     auto* label = main.new_label();
 
     main.bind(label);
-    main.adds(v0, cv1, cv2);
-    main.pushchk(v0);
+    main.adds(v0, cv2, cv1);
+    main.adds(v1, v0, v0);
+    main.adds(v2, v1, v1);
+    main.adds(v3, v2, v2);
+    main.pushchk(v3);
     main.callnfp(debug_fp, 1, nullptr);
+
     main.jmp(label);
     main.ret_void();
 
