@@ -140,74 +140,7 @@ void wo_init(int argc, char** argv)
 
     // Start up WooRT.
     woort_init();
-
-    wo::IRCompiler c;
-   
-    auto debug_fp = c.alloc_constant();
-    auto main_clo = c.alloc_constant();
-        
-    auto s1 = c.alloc_constant();
-    auto s2 = c.alloc_constant();
-
-    auto main = c.add_function(0);
-
-    auto* cv1 = main.load_constant(s1);
-    auto* cv2 = main.load_constant(s2);
-    auto* v0 = main.new_value();
-    auto* v1 = main.new_value();
-    auto* v2 = main.new_value();
-    auto* v3 = main.new_value();
-
-    auto* label = main.new_label();
-
-    main.bind(label);
-    main.adds(v0, cv2, cv1);
-    main.adds(v1, v0, v0);
-    main.adds(v2, v1, v1);
-    main.adds(v3, v2, v2);
-    main.pushchk(v3);
-    main.callnfp(debug_fp, 1, nullptr);
-
-    main.jmp(label);
-    main.ret_void();
-
-    auto* code_env = c.commit().value();
-    {
-        woort_CodeEnv_set_const_string(code_env, s1, "hello");
-        woort_CodeEnv_set_const_string(code_env, s2, "world");
-        woort_CodeEnv_set_const_extern_function(code_env, debug_fp, helloworld);
-        woort_CodeEnv_set_const_script_closure(code_env, main_clo, c.get_function(code_env, main));
-
-        woort_VMRuntime* vm;
-        (void)woort_VMRuntime_create(&vm);
-
-        woort_VMRuntime* const last = woort_VMRuntime_swap(vm);
-        {
-           /* woort_StackValue sv;
-            (void)woort_push_reserve(2, &sv);
-
-            woort_load_const(sv + 0, code_env, main_clo);
-            woort_invoke(sv + 1, sv + 0);
-
-            woort_pop(2);*/
-        }
-        (void)woort_VMRuntime_swap(last);
-    }
-    woort_CodeEnv_drop(code_env);
-    
-
 }
-
-#define WO_VAL(v) std::launder(reinterpret_cast<wo::value*>(v))
-#define CS_VAL(v) std::launder(reinterpret_cast<wo_value>(v))
-
-#define WO_VM(v) reinterpret_cast<wo::vmbase*>(v)
-#define CS_VM(v) reinterpret_cast<wo_vm>(v)
-
-#define WO_API_STATE_OF_VM(v) (                                 \
-    v->extern_state_stack_update                                \
-        ? (v->extern_state_stack_update = false, WO_API_RESYNC_JIT_STATE_TO_VM_STATE) \
-        : WO_API_NORMAL)
 
 wo_string_t wo_locale_name(void)
 {
@@ -446,3 +379,191 @@ void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter)
 {
     delete iter;
 }
+
+wo::compile_result _wo_compile_impl(
+    wo_string_t virtual_src_path,
+    const void* src,
+    size_t      len,
+    const std::optional<wo::lexer*>& parent_lexer,
+    std::optional<woort_CodeEnv*>* out_env_if_success,
+    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed
+#ifndef WO_DISABLE_COMPILER
+    , std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_pass_grammar
+#endif
+)
+{
+    // 0. Try load binary
+    const char* load_binary_failed_reason = nullptr;
+    bool is_valid_binary = false;
+
+    wo::compile_result compile_result = wo::compile_result::PROCESS_FAILED;
+
+    std::optional<woort_CodeEnv*> compile_env_result = std::nullopt;
+        //wo::runtime_env::load_create_env_from_binary(
+        //    virtual_src_path, src, len,
+        //    &load_binary_failed_reason,
+        //    &is_valid_binary);
+    std::unique_ptr<wo::lexer> compile_lexer;
+
+    if (!compile_env_result.has_value())
+    {
+        std::string wvspath = virtual_src_path;
+        if (is_valid_binary)
+        {
+            // Is Woolang format binary, but failed to load.
+            // Failed to load binary, maybe broken or version missing.
+            wo_assert(load_binary_failed_reason != nullptr);
+
+            compile_lexer = std::make_unique<wo::lexer>(
+                parent_lexer,
+                wo::wstring_pool::get_pstr(wvspath),
+                std::make_unique<std::istringstream>(std::string()));
+
+            (void)compile_lexer->record_parser_error(
+                wo::lexer::msglevel_t::error,
+                load_binary_failed_reason);
+        }
+        else
+        {
+            // 1. Prepare lexer..
+            if (src != nullptr)
+            {
+                // Load from virtual source.
+                wo::normalize_path(&wvspath);
+
+                compile_lexer = std::make_unique<wo::lexer>(
+                    parent_lexer,
+                    wo::wstring_pool::get_pstr(wvspath),
+                    std::make_unique<std::istringstream>(std::string((const char*)src, len)));
+            }
+            else
+            {
+                // Load from real file.
+                std::string real_file_path;
+
+                std::optional<std::unique_ptr<std::istream>> content_stream =
+                    std::nullopt;
+
+                if (wo::check_virtual_file_path(
+                    wvspath,
+                    std::nullopt,
+                    &real_file_path))
+                {
+                    content_stream =
+                        wo::open_virtual_file_stream(real_file_path);
+                }
+
+                compile_lexer = std::make_unique<wo::lexer>(
+                    parent_lexer,
+                    wo::wstring_pool::get_pstr(real_file_path),
+                    std::move(content_stream));
+            }
+
+#ifndef WO_DISABLE_COMPILER
+            if (!compile_lexer->has_error())
+            {
+                // 2. Lexer will create ast_tree;
+                auto* result = wo::get_grammar_instance()->gen(*compile_lexer);
+                if (result != nullptr)
+                {
+                    compile_result =
+                        wo::compile_result::PROCESS_FAILED_BUT_GRAMMAR_OK;
+
+                    std::unique_ptr<wo::LangContext> lang_context =
+                        std::make_unique<wo::LangContext>();
+
+                    compile_result = lang_context->process(*compile_lexer, result);
+                    if (wo::compile_result::PROCESS_OK == compile_result)
+                    {
+                        // Finish!, finalize the compiler.
+                        compile_env_result =
+                            lang_context->m_ircontext.c().finalize();
+                    }
+
+                    if (out_langcontext_if_pass_grammar != nullptr)
+                        *out_langcontext_if_pass_grammar = std::move(lang_context);
+                }
+            }
+#else
+            (void)compile_lexer->record_parser_error(
+                wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
+#endif
+        }
+    }
+    else
+        // Load binary success. 
+        compile_result = wo::compile_result::PROCESS_OK;
+
+    // Compile finished.
+    if (compile_env_result.has_value())
+    {
+        // Success
+        wo_assert(compile_result == wo::compile_result::PROCESS_OK);
+
+        if (out_env_if_success != nullptr)
+            *out_env_if_success = std::move(compile_env_result.value());
+    }
+    else
+    {
+        // Failed
+        wo_assert((bool)compile_lexer);
+        wo_assert(compile_result != wo::compile_result::PROCESS_OK);
+
+        if (out_lexer_if_failed != nullptr)
+            *out_lexer_if_failed = std::move(compile_lexer);
+    }
+    return compile_result;
+}
+//
+//wo_bool_t _wo_load_source(
+//    wo_vm vm,
+//    wo_string_t virtual_src_path,
+//    const void* src,
+//    size_t len,
+//    const std::optional<wo::lexer*>& parent_lexer)
+//{
+//    wo::start_string_pool_guard sg;
+//
+//    std::optional<woort_CodeEnv*> _env_if_success;
+//    std::optional<std::unique_ptr<wo::lexer>> _lexer_if_failed;
+//
+//#ifndef WO_DISABLE_COMPILER
+//    wo::ast::AstAllocator m_last_context;
+//    bool need_exchange_back =
+//        wo::ast::AstBase::exchange_this_thread_ast(m_last_context);
+//#endif
+//
+//    auto compile_result =
+//        _wo_compile_impl(
+//            virtual_src_path,
+//            src,
+//            len,
+//            parent_lexer,
+//            &_env_if_success,
+//            &_lexer_if_failed
+//#ifndef WO_DISABLE_COMPILER
+//            , nullptr
+//#endif
+//        );
+//
+//#ifndef WO_DISABLE_COMPILER
+//    wo::ast::AstBase::clean_this_thread_ast();
+//
+//    if (need_exchange_back)
+//        wo::ast::AstBase::exchange_this_thread_ast(
+//            m_last_context);
+//#endif
+//
+//    if (compile_result == wo::compile_result::PROCESS_OK)
+//    {
+//        WO_VM(vm)->init_main_vm(_env_if_success.value());
+//        return WO_TRUE;
+//    }
+//    else
+//    {
+//        wo_assert(_lexer_if_failed.has_value() && _lexer_if_failed.value()->has_error());
+//
+//        WO_VM(vm)->compile_failed_state = std::move(_lexer_if_failed);
+//        return WO_FALSE;
+//    }
+//}

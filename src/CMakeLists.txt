@@ -33,8 +33,7 @@ target_compile_definitions(woolang_library_options INTERFACE -DWO_SRC_PATH="${PR
 target_include_directories(woolang_library_options 
     INTERFACE "../include"
     INTERFACE "../3rd/asmjit/src"
-    INTERFACE "../3rd/mingw-std-threads"
-    INTERFACE "../3rd/woort/include")
+    INTERFACE "../3rd/mingw-std-threads")
 
 if (WO_SUPPORT_ASMJIT)
     target_compile_definitions(woolang_library_options INTERFACE -DWO_JIT_SUPPORT_ASMJIT=1) 
@@ -68,6 +67,9 @@ if(WO_SUPPORT_ASMJIT)
 endif()
 
 target_precompile_headers(woolang PRIVATE wo_afx.hpp)
+
+target_include_directories(woolang
+    PUBLIC "../3rd/woort/include")
 
 target_link_libraries(woolang 
     PRIVATE woolang_options

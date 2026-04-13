@@ -35,6 +35,8 @@
 
 #ifndef WO_MSVC_RC_INCLUDE
 
+#include "woort.h"
+
 #ifdef __cplusplus
 #include <cstdint>
 #include <cstddef>

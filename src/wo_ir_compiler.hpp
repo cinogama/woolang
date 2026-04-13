@@ -1,7 +1,5 @@
 #pragma once
 
-#include "woort.h"
-
 #include <optional>
 
 namespace wo
