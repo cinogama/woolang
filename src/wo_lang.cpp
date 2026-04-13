@@ -868,7 +868,7 @@ namespace wo
 
             desc.m_struct = new lang_TypeInstance::DeterminedType::Struct();
 
-            wo_integer_t index = 0;
+            int64_t index = 0;
             for (auto& [access, field, type] : member_types)
             {
                 auto& field_detail = desc.m_struct->m_member_types[field];
@@ -903,7 +903,7 @@ namespace wo
 
             desc.m_union = new lang_TypeInstance::DeterminedType::Union();
 
-            wo_integer_t index = 0;
+            int64_t index = 0;
             for (auto& [_access, field, type] : member_types_no_optional)
             {
                 (void)_access;
@@ -2487,6 +2487,12 @@ namespace wo
         m_evaled_result_storage.pop();
         return result_opnum;
 #endif
+    }
+
+
+    std::optional<woort_CodeEnv*> BytecodeGenerateContext::finalize()
+    {
+        return c().commit();
     }
 
     BytecodeGenerateContext::BytecodeGenerateContext() noexcept

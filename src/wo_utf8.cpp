@@ -32,7 +32,7 @@ namespace wo
         }
         return 0;
     }
-    size_t u8strnlen(wo_string_t u8str, size_t bytelen)
+    size_t u8strnlen(const char* u8str, size_t bytelen)
     {
         size_t result = 0;
         while (bytelen)
@@ -46,7 +46,7 @@ namespace wo
         }
         return result;
     }
-    bool u8strnchar(wo_string_t u8str, size_t bytelen, size_t* out_charsz)
+    bool u8strnchar(const char* u8str, size_t bytelen, size_t* out_charsz)
     {
         if (1 == (*out_charsz = u8charnlen(u8str, bytelen)))
         {
@@ -55,7 +55,7 @@ namespace wo
         }
         return true;
     }
-    wo_string_t u8substr(wo_string_t u8str, size_t bytelen, size_t from, size_t* out_len)
+    const char* u8substr(const char* u8str, size_t bytelen, size_t from, size_t* out_len)
     {
         const char* p = u8str;
         for (; from != 0 && bytelen != 0; --from)
@@ -67,7 +67,7 @@ namespace wo
         *out_len = bytelen;
         return p;
     }
-    wo_string_t u8substrn(wo_string_t u8str, size_t bytelen, size_t from, size_t length, size_t* out_len)
+    const char* u8substrn(const char* u8str, size_t bytelen, size_t from, size_t length, size_t* out_len)
     {
         size_t step_a_len;
         const char* p = u8substr(u8str, bytelen, from, &step_a_len);
@@ -76,7 +76,7 @@ namespace wo
         *out_len = p_end - p;
         return p;
     }
-    wo_string_t u8substrr(wo_string_t u8str, size_t bytelen, size_t from, size_t tail, size_t* out_len)
+    const char* u8substrr(const char* u8str, size_t bytelen, size_t from, size_t tail, size_t* out_len)
     {
         return u8substrn(u8str, bytelen, from, tail >= from ? (tail - from) + 1 : 0, out_len);
     }
@@ -248,7 +248,7 @@ namespace wo
         return 1;
     }
 
-    std::string u8enstring(wo_string_t u8str, size_t bytelen, bool force_unicode)
+    std::string u8enstring(const char* u8str, size_t bytelen, bool force_unicode)
     {
         std::string result;
 
@@ -335,7 +335,7 @@ namespace wo
 
         return '\"' + result + '\"';
     }
-    std::string u8destring(wo_string_t enu8str_zero_term)
+    std::string u8destring(const char* enu8str_zero_term)
     {
         std::string result;
 
@@ -503,7 +503,7 @@ namespace wo
         return result;
     }
 
-    std::u32string u8strtou32(wo_string_t u8str, size_t bytelen)
+    std::u32string u8strtou32(const char* u8str, size_t bytelen)
     {
         std::u32string result;
         while (bytelen != 0)
@@ -534,7 +534,7 @@ namespace wo
         }
         return result;
     }
-    std::u16string u8strtou16(wo_string_t u8str, size_t bytelen)
+    std::u16string u8strtou16(const char* u8str, size_t bytelen)
     {
         std::u16string result;
         while (bytelen != 0)

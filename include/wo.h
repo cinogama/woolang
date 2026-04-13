@@ -5,34 +5,6 @@
 //
 #define WO_VERSION WO_VERSION_WRAP(1, 15, 0, 0)
 
-/*
-            GC-Friendly External Function Development Rules
-
-    When writing external functions and interacting with Woolang using the C-API,
-    follow these rules:
-
-    1. Within the GC scope, long-term blocking without executing `wo_gc_checkpoint`
-        is not allowed. If an operation indeed requires long-term blocking, you
-        should use `wo_leave_gcguard` to leave the GC scope; after the blocking
-        operation is completed, use `wo_enter_gcguard` to re-enter the GC scope.
-        During the period of leaving the GC scope, constructing, assigning, or
-        moving any GC reference type objects is not allowed (read-only operations
-        are permitted).
-
-    2. If attempting to write values to a VM, you must use `wo_enter_gcguard`
-        and `wo_leave_gcguard` to ensure the write operation is completed within
-        the target virtual machine's GC scope. If you are already in the GC scope 
-        of one VM, you must exit it before entering the GC scope of another VM; or 
-        use `wo_swap_gcguard` to simplify this process.
-
-    3. When writing data to custom GC-Structs, you need to use
-        `wo_set_val_with_write_barrier` for assignment operations to ensure the
-        write barrier.
-
-                                                        Rewritten for 1.14.13 on:
-                                                                2025.11.19.
-*/
-
 #ifndef WO_MSVC_RC_INCLUDE
 
 #include "woort.h"
@@ -80,176 +52,16 @@
 
 WO_FORCE_CAPI
 
-typedef int64_t wo_integer_t, wo_int_t;
-typedef uint64_t wo_handle_t;
-typedef void* wo_ptr_t;
-typedef char32_t wo_wchar_t;
-typedef const char* wo_string_t;
-typedef const wo_wchar_t* wo_wstring_t;
-typedef double wo_real_t;
-typedef size_t wo_size_t;
-
 #define WO_STRUCT_TAKE_PLACE(BYTECOUNT) uint8_t _take_palce_[BYTECOUNT]
 
-typedef struct _wo_vm* wo_vm;
-typedef struct _wo_value
-{ /* reserved, and prevent from type casting. */
-    WO_DECLARE_ALIGNAS(8)
-        WO_STRUCT_TAKE_PLACE(16);
-}
-wo_unref_value, * wo_value;
-
-typedef enum _wo_value_type_t
-{
-    WO_INVALID_TYPE = 0,
-
-    WO_NEED_GC_FLAG = 1 << 7,
-
-    WO_INTEGER_TYPE = 1,
-    WO_REAL_TYPE = 2,
-    WO_HANDLE_TYPE = 3,
-    WO_BOOL_TYPE = 4,
-
-    WO_SCRIPT_FUNC_TYPE = 5,
-    WO_NATIVE_FUNC_TYPE = 6,
-
-    WO_CALLSTACK_TYPE = 7,
-    WO_FAR_CALLSTACK_TYPE = 8,
-    WO_NATIVE_CALLSTACK_TYPE = 9,
-    WO_YIELD_CHECK_POINT_TYPE = 10,
-
-    WO_STRING_TYPE = WO_NEED_GC_FLAG | 1,
-    WO_MAPPING_TYPE = WO_NEED_GC_FLAG | 2,
-    WO_ARRAY_TYPE = WO_NEED_GC_FLAG | 3,
-    WO_GCHANDLE_TYPE = WO_NEED_GC_FLAG | 4,
-    WO_CLOSURE_TYPE = WO_NEED_GC_FLAG | 5,
-    WO_STRUCT_TYPE = WO_NEED_GC_FLAG | 6,
-} wo_type_t;
-
-typedef enum _wo_reg
-{
-    WO_REG_T0,
-    WO_REG_T1,
-    WO_REG_T2,
-    WO_REG_T3,
-    WO_REG_T4,
-    WO_REG_T5,
-    WO_REG_T6,
-    WO_REG_T7,
-    WO_REG_T8,
-    WO_REG_T9,
-    WO_REG_T10,
-    WO_REG_T11,
-    WO_REG_T12,
-    WO_REG_T13,
-    WO_REG_T14,
-    WO_REG_T15,
-
-    WO_REG_R0,
-    WO_REG_R1,
-    WO_REG_R2,
-    WO_REG_R3,
-    WO_REG_R4,
-    WO_REG_R5,
-    WO_REG_R6,
-    WO_REG_R7,
-    WO_REG_R8,
-    WO_REG_R9,
-    WO_REG_R10,
-    WO_REG_R11,
-    WO_REG_R12,
-    WO_REG_R13,
-    WO_REG_R14,
-    WO_REG_R15,
-
-    WO_REG_CR,
-    WO_REG_TC,
-    WO_REG_ER,
-    WO_REG_NI,
-    WO_REG_PM,
-    WO_REG_TP,
-} wo_reg;
-
-#ifdef WO_STRICTLY_BOOL
-typedef enum _wo_bool
-{
-    WO_FALSE = 0,
-    WO_TRUE = 1,
-} wo_bool_t;
-#else
-typedef int wo_bool_t;
-#define WO_FALSE (0)
-#define WO_TRUE (1)
-#endif
-
-#define WO_CBOOL(EXPR) ((EXPR) ? WO_TRUE : WO_FALSE)
-
-typedef enum _wo_api
-{
-    // [Returned by both VM, JIT and EXTERN function]
-    //  Normal end.
-    // 
-    // Nothing todo.
-    WO_API_NORMAL = 0,
-
-    // [Returned by VM]
-    //  Program ended by abort flag.
-    // 
-    // Nothing todo.
-    WO_API_SIM_ABORT = 1,
-
-    // [Returned by VM]
-    //  Program yield break, can be dispatched later.
-    // 
-    // Nothing todo.
-    WO_API_SIM_YIELD = 2,
-
-    // [Returned by EXTERN function]
-    //  External functions change the state of the virtual machine, 
-    // which needs to be synchronized immediately
-    //
-    // If JIT received this: 
-    //  Store current ip(extern function return place) into vm state, 
-    // sp and bp abs-address might be changed during extern function,
-    // so need to store new-sp and new-bp into vm state.
-    //  Then, return WO_API_SYNC_CHANGED_VM_STATE to roll back all JIT
-    // call stacks.
-    // 
-    // If VM received this: 
-    //  Fetch interrupt state, handle it later, then continue running.
-    WO_API_RESYNC_JIT_STATE_TO_VM_STATE = 3,
-
-    // [Returned by JIT function]
-    //  When the JIT function encounters an interrupt request that it
-    // cannot handle, and the JIT call reaches the maximum call depth,
-    // the JIT can no longer manage the virtual machine state. Therefore,
-    // the JIT will ensure the virtual machine's operational state and 
-    // then return WO_API_SYNC_CHANGED_VM_STATE layer by layer until it 
-    // falls back to interpretation. All virtual machine states will be 
-    // properly handled during interpretation, and execution will continue 
-    // in the interpreter.
-    //
-    // If JIT received this: 
-    //  Return WO_API_SYNC_CHANGED_VM_STATE immediately.
-    // 
-    // If VM received this: 
-    //  Refetch ip from vm state, Fetch interrupt state, handle it later, 
-    // then continue running.
-    WO_API_SYNC_CHANGED_VM_STATE = 4,
-
-} wo_api,
-wo_result_t;
-
-typedef wo_result_t(*wo_native_func_t)(wo_vm, wo_value);
-
 // Return WO_FALSE to abort vm.
-typedef wo_bool_t (*wo_fail_handler_t)(
-    wo_vm vm_may_null,
-    wo_string_t src_file,
+typedef bool (*wo_fail_handler_t)(
+    /* OPTIONAL */ woort_VMRuntime* vm_may_null,
+    const char* src_file,
     uint32_t lineno,
-    wo_string_t functionname,
+    const char* functionname,
     uint32_t rterrcode,
-    wo_string_t reason);
+    const char* reason);
 
 typedef void* wo_dylib_handle_t;
 
@@ -279,32 +91,16 @@ typedef enum _wo_inform_style_t
 
 } wo_inform_style_t;
 
-typedef void (*wo_dylib_entry_func_t)(wo_dylib_handle_t);
-typedef void (*wo_dylib_exit_func_t)(void);
-
-typedef struct _wo_gc_work_context_t* wo_gc_work_context_t;
-
-typedef void (*wo_gchandle_close_func_t)(wo_ptr_t);
-typedef void (*wo_gcstruct_mark_func_t)(wo_gc_work_context_t, wo_ptr_t);
-
-typedef void (*wo_debuggee_callback_func_t)(wo_vm, void*);
-
 typedef struct _wo_extern_lib_func_pair
 {
-    wo_string_t m_name;
+    const char* m_name;
     void* m_func_addr;
 } wo_extern_lib_func_t;
 
 typedef struct _wo_virtual_file* wo_virtual_file_t;
 typedef struct _wo_virtual_file_iter* wo_virtual_file_iter_t;
 
-typedef void (*wo_execute_callback_ft)(wo_value, void*);
-
-typedef struct _wo_debuggee_handle* wo_debuggee;
-typedef void (*wo_debuggee_handler_func)(wo_debuggee, wo_vm, void*);
-
 typedef struct _wo_pin_value* wo_pin_value;
-
 typedef struct _wo_weak_ref* wo_weak_ref;
 
 #define WO_EXTERN_LIB_FUNC_END \
@@ -312,12 +108,12 @@ typedef struct _wo_weak_ref* wo_weak_ref;
 #define wo_fail(ERRID, ...) abort()
 #define wo_execute_fail(VM, ERRID, REASON) abort()
 
-WO_API wo_string_t wo_commit_sha(void);
-WO_API wo_string_t wo_compile_date(void);
-WO_API wo_string_t wo_version(void);
-WO_API wo_integer_t wo_version_int(void);
+WO_API const char* wo_commit_sha(void);
+WO_API const char* wo_compile_date(void);
+WO_API const char* wo_version(void);
+WO_API uint64_t wo_version_int(void);
 
-WO_API wo_string_t wo_locale_name(void);
+WO_API const char* wo_locale_name(void);
 
 WO_API void wo_init(int argc, char** argv);
 #define wo_init(argc, argv)                    \
@@ -328,51 +124,48 @@ WO_API void wo_init(int argc, char** argv);
     } while (0)
 WO_API void wo_finish(void (*do_after_shutdown)(void*), void* custom_data);
 
-WO_API wo_bool_t wo_virtual_binary(
-    wo_string_t filepath,
+WO_API bool wo_virtual_binary(
+    const char* filepath,
     const void* data,
-    wo_size_t len,
-    wo_bool_t enable_modify);
-WO_API wo_bool_t wo_virtual_source(
-    wo_string_t filepath,
-    wo_string_t data,
-    wo_bool_t enable_modify);
+    size_t len,
+    bool enable_modify);
+WO_API bool wo_virtual_source(
+    const char* filepath,
+    const char* data,
+    bool enable_modify);
 
-WO_API wo_virtual_file_t wo_open_virtual_file(wo_string_t filepath);
-WO_API wo_string_t wo_virtual_file_path(wo_virtual_file_t file);
+WO_API wo_virtual_file_t wo_open_virtual_file(const char* filepath);
+WO_API const char* wo_virtual_file_path(wo_virtual_file_t file);
 WO_API const void* wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
 WO_API void wo_close_virtual_file(wo_virtual_file_t file);
 
 WO_API wo_virtual_file_iter_t wo_open_virtual_file_iter(void);
-WO_API wo_string_t /* may null */ wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
+WO_API const char* /* may null */ wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
 WO_API void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
 
-WO_API wo_bool_t wo_remove_virtual_file(wo_string_t filepath);
+WO_API bool wo_remove_virtual_file(const char* filepath);
 
-WO_API wo_size_t wo_str_char_len(wo_value value);
-WO_API wo_size_t wo_str_byte_len(wo_value value);
+WO_API char32_t wo_str_get_char(const char* str, size_t index);
+WO_API char32_t wo_strn_get_char(const char* str, size_t size, size_t index);
 
-WO_API wo_wchar_t wo_str_get_char(wo_string_t str, wo_size_t index);
-WO_API wo_wchar_t wo_strn_get_char(wo_string_t str, wo_size_t size, wo_size_t index);
+WO_API const wchar_t* wo_str_to_wstr(const char* str);
+WO_API const wchar_t* wo_strn_to_wstr(const char* str, size_t size);
+WO_API const char* wo_wstr_to_str(const wchar_t* str);
+WO_API const char* wo_wstrn_to_str(const wchar_t* str, size_t size);
 
-WO_API const wchar_t* wo_str_to_wstr(wo_string_t str);
-WO_API const wchar_t* wo_strn_to_wstr(wo_string_t str, wo_size_t size);
-WO_API wo_string_t wo_wstr_to_str(const wchar_t* str);
-WO_API wo_string_t wo_wstrn_to_str(const wchar_t* str, wo_size_t size);
+WO_API const char16_t* wo_str_to_u16str(const char* str);
+WO_API const char16_t* wo_strn_to_u16str(const char* str, size_t size);
+WO_API const char* wo_u16str_to_str(const char16_t* str);
+WO_API const char* wo_u16strn_to_str(const char16_t* str, size_t size);
 
-WO_API const char16_t* wo_str_to_u16str(wo_string_t str);
-WO_API const char16_t* wo_strn_to_u16str(wo_string_t str, wo_size_t size);
-WO_API wo_string_t wo_u16str_to_str(const char16_t* str);
-WO_API wo_string_t wo_u16strn_to_str(const char16_t* str, wo_size_t size);
+WO_API const char32_t* wo_str_to_u32str(const char* str);
+WO_API const char32_t* wo_strn_to_u32str(const char* str, size_t size);
+WO_API const char* wo_u32str_to_str(const char32_t* str);
+WO_API const char* wo_u32strn_to_str(const char32_t* str, size_t size);
 
-WO_API wo_wstring_t wo_str_to_u32str(wo_string_t str);
-WO_API wo_wstring_t wo_strn_to_u32str(wo_string_t str, wo_size_t size);
-WO_API wo_string_t wo_u32str_to_str(wo_wstring_t str);
-WO_API wo_string_t wo_u32strn_to_str(wo_wstring_t str, wo_size_t size);
-
-WO_API wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc);
-WO_API wo_integer_t wo_crc64_str(wo_string_t text);
-WO_API wo_integer_t wo_crc64_file(wo_string_t filepath);
+WO_API int64_t wo_crc64_u8(uint8_t byte, int64_t crc);
+WO_API int64_t wo_crc64_str(const char* text);
+WO_API int64_t wo_crc64_file(const char* filepath);
 
 #if defined(WO_IMPL)
 #define WO_NEED_ERROR_CODES 1
@@ -395,8 +188,8 @@ typedef enum _wo_lsp_error_level
 typedef struct _wo_lspv2_location
 {
     const char* m_file_name;
-    wo_size_t m_begin_location[2]; // An array stores row & col
-    wo_size_t m_end_location[2];   // An array stores row & col
+    size_t m_begin_location[2]; // An array stores row & col
+    size_t m_end_location[2];   // An array stores row & col
 } wo_lspv2_location;
 
 typedef struct _wo_lspv2_source_meta wo_lspv2_source_meta;
@@ -408,7 +201,7 @@ typedef struct _wo_lspv2_symbol_iter wo_lspv2_symbol_iter;
 typedef struct _wo_lspv2_scope_info
 {
     const char* m_name; // null if not namespace
-    wo_bool_t m_has_location;
+    bool m_has_location;
     wo_lspv2_location m_location;
 } wo_lspv2_scope_info;
 
@@ -455,9 +248,9 @@ typedef struct _wo_lspv2_symbol_info
 {
     wo_lspv2_symbol_kind m_type;
     const char* m_name;
-    wo_size_t m_template_params_count;
+    size_t m_template_params_count;
     const _wo_lspv2_template_param* m_template_params;
-    wo_bool_t m_has_location;
+    bool m_has_location;
     wo_lspv2_location m_location;
 } wo_lspv2_symbol_info;
 
@@ -465,7 +258,7 @@ typedef struct _wo_lspv2_error_iter wo_lspv2_error_iter;
 typedef struct _wo_lspv2_error_info
 {
     wo_lsp_error_level m_level;
-    wo_size_t m_depth;
+    size_t m_depth;
     const char* m_describe;
     wo_lspv2_location m_location;
 
@@ -493,7 +286,7 @@ typedef struct _wo_lspv2_expr_info
     wo_lspv2_type* m_type;
     wo_lspv2_location m_location;
     wo_lspv2_symbol* m_symbol_may_null;
-    wo_bool_t m_is_value_expr;       // false if type.
+    bool m_is_value_expr;       // false if type.
     wo_lspv2_constant* m_const_value_may_null; // null if not const or is type.
     size_t m_template_arguments_count;
     const wo_lspv2_template_argument* m_template_arguments; // null if not template instance.
@@ -501,7 +294,7 @@ typedef struct _wo_lspv2_expr_info
 
 typedef struct _wo_lspv2_type_struct_info
 {
-    wo_size_t m_member_count;
+    size_t m_member_count;
     const char** m_member_names;
     wo_lspv2_type** m_member_types;
 
@@ -634,11 +427,11 @@ typedef struct _wo_lspv2_token_info
 
 } wo_lspv2_token_info;
 
-WO_API wo_size_t wo_lspv2_sub_version(void);
+WO_API size_t wo_lspv2_sub_version(void);
 
 WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
-    wo_string_t virtual_src_path,
-    wo_string_t src);
+    const char* virtual_src_path,
+    const char* src);
 WO_API void wo_lspv2_meta_free(wo_lspv2_source_meta* meta);
 
 WO_API wo_lspv2_error_iter* /* null if not exist */wo_lspv2_compile_err_iter(
@@ -682,10 +475,10 @@ WO_API wo_lspv2_expr_collection_info* wo_lspv2_expr_collection_get_info(
 WO_API void wo_lspv2_expr_collection_info_free(wo_lspv2_expr_collection_info* collection);
 WO_API wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_range(
     wo_lspv2_expr_collection* collection,
-    wo_size_t begin_row,
-    wo_size_t begin_col,
-    wo_size_t end_row,
-    wo_size_t end_col);
+    size_t begin_row,
+    size_t begin_col,
+    size_t end_row,
+    size_t end_col);
 WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* iter);
 WO_API wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr);
 WO_API void wo_lspv2_expr_info_free(wo_lspv2_expr_info*);

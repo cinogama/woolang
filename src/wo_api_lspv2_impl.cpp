@@ -4,21 +4,21 @@
 
 static_assert(WO_NEED_LSP_API);
 
-constexpr wo_size_t WO_LSPV2_SUB_VERSION = 4;
+constexpr size_t WO_LSPV2_SUB_VERSION = 4;
 
-wo_size_t wo_lspv2_sub_version(void)
+size_t wo_lspv2_sub_version(void)
 {
     return WO_LSPV2_SUB_VERSION;
 }
 
-//wo::compile_result _wo_compile_impl(
-//    wo_string_t virtual_src_path,
-//    const void* src,
-//    size_t      len,
-//    const std::optional<wo::lexer*>& parent_lexer,
-//    std::optional<wo::shared_pointer<wo::runtime_env>>* out_env_if_success,
-//    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed,
-//    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_pass_grammar);
+wo::compile_result _wo_compile_impl(
+    const char* virtual_src_path,
+    /* OPTIONAL */ const void* src_may_null,
+    size_t src_len,
+    const std::optional<wo::lexer*>& append_macro_define_to_this_lexer,
+    std::optional<woort_CodeEnv*>* out_env_if_success,
+    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed,
+    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_pass_grammar);
 
 struct _wo_lspv2_source_meta
 {
@@ -26,7 +26,7 @@ struct _wo_lspv2_source_meta
 
     wo::ast::AstAllocator m_origin_astbase_list;
 
-    // std::optional<wo::shared_pointer<wo::runtime_env>> m_env_if_success;
+    std::optional<woort_CodeEnv*> m_env_if_success;
     std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_grammar;
     std::optional<std::unique_ptr<wo::lexer>> m_lexer_if_failed;
 
@@ -50,10 +50,9 @@ const char* _wo_strdup(const char* str)
     return _wo_strdupn(str, strlen(str));
 }
 
-
 wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
-    wo_string_t virtual_src_path,
-    wo_string_t src)
+    const char* virtual_src_path,
+    const char* src)
 {
     wo::wstring_pool::begin_new_pool();
 
@@ -64,14 +63,14 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
         wo::ast::AstBase::exchange_this_thread_ast(
             old_ast_list);
 
-    //meta->m_step = _wo_compile_impl(
-    //    virtual_src_path,
-    //    src,
-    //    src == nullptr ? 0 : strlen(src),
-    //    std::nullopt,
-    //    &meta->m_env_if_success,
-    //    &meta->m_lexer_if_failed,
-    //    &meta->m_langcontext_if_passed_grammar);
+    meta->m_step = _wo_compile_impl(
+        virtual_src_path,
+        src,
+        src == nullptr ? 0 : strlen(src),
+        std::nullopt,
+        &meta->m_env_if_success,
+        &meta->m_lexer_if_failed,
+        &meta->m_langcontext_if_passed_grammar);
 
     wo::ast::AstBase::exchange_this_thread_ast(meta->m_origin_astbase_list);
 
@@ -140,6 +139,12 @@ void wo_lspv2_meta_free(wo_lspv2_source_meta* meta)
 
         if (need_exchange_back)
             wo::ast::AstBase::exchange_this_thread_ast(old_ast_list);
+    }
+
+    if (meta->m_env_if_success.has_value())
+    {
+        // Drop to let env free by GC.
+        woort_CodeEnv_drop(meta->m_env_if_success.value());
     }
 
     delete meta;
@@ -263,7 +268,7 @@ wo_lspv2_scope_info* wo_lspv2_scope_get_info(wo_lspv2_scope* scope)
         lang_scope->is_namespace_scope()
             ? _wo_strdup(lang_scope->m_belongs_to_namespace->m_name->c_str())
             : nullptr,
-        lang_scope->m_scope_location.has_value() ? WO_TRUE : WO_FALSE,
+        lang_scope->m_scope_location.has_value(),
         {},
     };
 
@@ -318,7 +323,7 @@ wo_lspv2_symbol* wo_lspv2_scope_symbol_next(wo_lspv2_symbol_iter* iter)
 wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
 {
     wo_lspv2_symbol_kind symbol_kind;
-    wo_size_t template_param_count = 0;
+    size_t template_param_count = 0;
     wo_lspv2_template_param* template_params = nullptr;
 
     wo::lang_Symbol* lang_symbol =
@@ -398,7 +403,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
         _wo_strdup(lang_symbol->m_name->c_str()),
         template_param_count,
         template_params,
-        lang_symbol->m_symbol_declare_location.has_value() ? WO_TRUE : WO_FALSE,
+        lang_symbol->m_symbol_declare_location.has_value(),
         {},
     };
     if (result->m_has_location)
@@ -495,10 +500,10 @@ void wo_lspv2_expr_collection_info_free(wo_lspv2_expr_collection_info* collectio
 }
 wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_range(
     wo_lspv2_expr_collection* collection,
-    wo_size_t begin_row,
-    wo_size_t begin_col,
-    wo_size_t end_row,
-    wo_size_t end_col)
+    size_t begin_row,
+    size_t begin_col,
+    size_t end_row,
+    size_t end_col)
 {
     wo::ast::AstBase::location_t begin_location{ begin_row, begin_col };
     wo::ast::AstBase::location_t end_location{ end_row, end_col };
@@ -554,7 +559,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     wo::ast::AstBase* ast_base = std::launder(reinterpret_cast<wo::ast::AstBase*>(expr));
     wo::lang_TypeInstance* type_instance = nullptr;
     wo::lang_Symbol* variable_or_type_symbol = nullptr;
-    wo_bool_t is_value = WO_TRUE;
+    bool is_value = true;
     wo_lspv2_constant* const_value = nullptr;
 
     std::vector<wo::ast::AstIdentifier::TemplateArgumentInstance>* template_instance_argument_list
@@ -564,7 +569,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     {
         wo::ast::AstTypeHolder* type_holder = static_cast<wo::ast::AstTypeHolder*>(ast_base);
 
-        is_value = WO_FALSE;
+        is_value = false;
         type_instance = type_holder->m_LANG_determined_type.value();
 
         if (type_holder->m_formal == wo::ast::AstTypeHolder::IDENTIFIER)

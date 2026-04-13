@@ -385,7 +385,7 @@ namespace wo
 
         //if (right->m_evaled_const_value.has_value())
         //{
-        //    wo_integer_t right_value = right->m_evaled_const_value.value().value_integer();
+        //    int64_t right_value = right->m_evaled_const_value.value().value_integer();
         //    wo_assert(right_value != 0);
         //    wo_assert(!left.has_value() || !left.value()->m_evaled_const_value.has_value());
 
@@ -397,7 +397,7 @@ namespace wo
         //}
         //else if (left.has_value() && left.value()->m_evaled_const_value.has_value())
         //{
-        //    wo_integer_t left_value = left.value()->m_evaled_const_value.value().value_integer();
+        //    int64_t left_value = left.value()->m_evaled_const_value.value().value_integer();
         //    if (left_value == INT64_MIN)
         //        // Need check r
         //        bgc.c().ext_cdivir(*right_opnum);

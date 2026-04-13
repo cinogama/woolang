@@ -1,12 +1,5 @@
 #include "wo_afx.hpp"
 
-wo_bool_t _wo_load_source(
-    wo_vm vm,
-    wo_string_t virtual_src_path,
-    const void* src,
-    size_t len,
-    const std::optional<wo::lexer*>& parent_lexer);
-
 namespace wo
 {
     const std::unordered_map<std::string, lex_type> lexer::_lex_operator_list =
@@ -556,17 +549,16 @@ namespace wo
     lexer::SharedContext::~SharedContext()
     {
         for (auto vpath : m_temp_virtual_file_path)
-            wo_assure(WO_TRUE == wo_remove_virtual_file(vpath.c_str()));
+            wo_assure(wo_remove_virtual_file(vpath.c_str()));
     }
-    const char* lexer::SharedContext::register_temp_virtual_file(wo_string_t context)
+    const char* lexer::SharedContext::register_temp_virtual_file(const char* context)
     {
         // String pool is available during compiling.
         // We can use it directly.
         char temp_path[64];
         (void)snprintf(temp_path, 64, "woo/tmp/%p-%zu", this, m_temp_virtual_file_path.size());
 
-        wo_assure(WO_TRUE == wo_virtual_source(
-            temp_path, context, WO_TRUE));
+        wo_assure(wo_virtual_source(temp_path, context, true));
 
         return m_temp_virtual_file_path.emplace_back(temp_path).c_str();
     }

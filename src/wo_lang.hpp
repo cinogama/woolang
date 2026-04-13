@@ -1,6 +1,7 @@
 #pragma once
 
 #include "wo_lang_ast.hpp"
+#include "wo_ir_compiler.hpp"
 
 #include <memory>
 #include <unordered_map>
@@ -68,7 +69,7 @@ namespace wo
                 {
                     ast::AstDeclareAttribue::accessc_attrib
                         m_attrib;
-                    wo_integer_t            m_offset;
+                    int64_t            m_offset;
                     lang_TypeInstance* m_member_type;
                 };
                 std::unordered_map<wo_pstring_t, StructMember>
@@ -84,7 +85,7 @@ namespace wo
             {
                 struct UnionMember
                 {
-                    wo_integer_t               m_label;
+                    int64_t               m_label;
                     std::optional<lang_TypeInstance*> m_item_type;
                 };
                 std::unordered_map<wo_pstring_t, UnionMember> m_union_label;
@@ -470,6 +471,8 @@ namespace wo
 
     struct BytecodeGenerateContext
     {
+        IRCompiler m_ir_compiler;
+
         // Processing and processed function instances
         std::unordered_set<ast::AstValueFunction*> m_processed_function_instance;
         std::unordered_set<ast::AstValueFunction*> m_being_used_function_instance;
@@ -524,6 +527,12 @@ namespace wo
         std::vector<LoopContent> m_loop_content_stack;
 
         // Functions
+        IRCompiler& c()
+        {
+            return m_ir_compiler;
+        }
+        std::optional<woort_CodeEnv*> finalize();
+
         void eval();
         void eval_action();
         void eval_for_upper();

@@ -2401,7 +2401,7 @@ namespace wo
                         auto& struct_constant =
                             node->m_container->m_evaled_const_value.value().value_struct();
 
-                        wo_assert(index < static_cast<wo_integer_t>(struct_constant.m_count));
+                        wo_assert(index < static_cast<int64_t>(struct_constant.m_count));
                         node->decide_final_constant_value(struct_constant.m_elements[index]);
                     }
                     break;
@@ -2441,7 +2441,7 @@ namespace wo
                         wo::u8combineu32(p, len, &index_result);
 
                         node->decide_final_constant_value(
-                            static_cast<wo_integer_t>(index_result));
+                            static_cast<int64_t>(index_result));
                     }
                     break;
                 }
@@ -4053,13 +4053,13 @@ namespace wo
         }
         else
         {
-            wo_integer_t hash = 0;
+            int64_t hash = 0;
             if (state == HOLD)
             {
                 wo_assert(lex.get_current_error_frame().empty());
 
                 lang_TypeInstance* id_type_instance = node->m_id_type->m_LANG_determined_type.value();
-                hash = (wo_integer_t)(intptr_t)id_type_instance;
+                hash = (int64_t)(intptr_t)id_type_instance;
             }
             else
                 wo_assert(!lex.get_current_error_frame().empty());
@@ -5010,7 +5010,7 @@ namespace wo
                     && base_type == lang_TypeInstance::DeterminedType::INTEGER
                     && node->m_right->m_evaled_const_value.has_value())
                 {
-                    wo_integer_t right_int_value = node->m_right->m_evaled_const_value.value().value_integer();
+                    int64_t right_int_value = node->m_right->m_evaled_const_value.value().value_integer();
                     if (right_int_value == 0)
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, node->m_right, WO_ERR_BAD_DIV_ZERO);

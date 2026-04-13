@@ -1058,14 +1058,14 @@ namespace wo
             {
             case lex_type::l_literal_integer:
                 literal_instance->decide_final_constant_value(
-                    (wo_integer_t)lexer::read_from_literal(literal.identifier.c_str()));
+                    (woort_Int)lexer::read_from_literal(literal.identifier.c_str()));
                 break;
             case lex_type::l_literal_handle:
                 literal_instance->decide_final_constant_value(
                     (wo_handle_t)lexer::read_from_unsigned_literal(literal.identifier.c_str()));
                 break;
             case lex_type::l_literal_real:
-                literal_instance->decide_final_constant_value((wo_real_t)std::stod(literal.identifier));
+                literal_instance->decide_final_constant_value((woort_Real)std::stod(literal.identifier));
                 break;
             case lex_type::l_literal_string:
             case lex_type::l_literal_raw_string:
@@ -1099,7 +1099,7 @@ namespace wo
             wo::u8combineu32(literal->m_token.identifier.data(), literal->m_token.identifier.size(), &char_literal);
 
             literal_instance->decide_final_constant_value(
-                static_cast<wo_integer_t>(char_literal));
+                static_cast<int64_t>(char_literal));
 
             AstIdentifier* char_identifier = new AstIdentifier(WO_PSTR(char), std::nullopt, {}, true);
             AstTypeHolder* char_type = new AstTypeHolder(char_identifier);
@@ -1658,7 +1658,7 @@ namespace wo
                 break;
             case lex_type::l_literal_integer:
                 index_literal->decide_final_constant_value(
-                    (wo_integer_t)lexer::read_from_literal(index->m_token.identifier.c_str()));
+                    (int64_t)lexer::read_from_literal(index->m_token.identifier.c_str()));
                 break;
             default:
                 wo_error("Unknown index type.");

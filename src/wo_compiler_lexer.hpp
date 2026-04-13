@@ -261,7 +261,7 @@ namespace wo
             SharedContext& operator = (const SharedContext&) = delete;
             SharedContext& operator = (SharedContext&&) = delete;
 
-            const char* register_temp_virtual_file(wo_string_t context);
+            const char* register_temp_virtual_file(const char* context);
         };
 
         class CachedIStream

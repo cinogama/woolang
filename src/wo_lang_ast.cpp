@@ -65,15 +65,11 @@ namespace wo
             : m_type(Type::BOOL), m_storage(val)
         {
         }
-        ConstantValue::ConstantValue(wo_integer_t val)
+        ConstantValue::ConstantValue(woort_Int val)
             : m_type(Type::INTEGER), m_storage(val)
         {
         }
-        ConstantValue::ConstantValue(wo_handle_t val)
-            : m_type(Type::HANDLE), m_storage(val)
-        {
-        }
-        ConstantValue::ConstantValue(wo_real_t val)
+        ConstantValue::ConstantValue(woort_Real val)
             : m_type(Type::REAL), m_storage(val)
         {
         }
@@ -116,17 +112,13 @@ namespace wo
         {
             return std::get<bool>(m_storage);
         }
-        wo_integer_t ConstantValue::value_integer()const
+        woort_Int ConstantValue::value_integer()const
         {
-            return std::get<wo_integer_t>(m_storage);
+            return std::get<woort_Int>(m_storage);
         }
-        wo_handle_t ConstantValue::value_handle()const
+        woort_Real ConstantValue::value_real()const
         {
-            return std::get<wo_handle_t>(m_storage);
-        }
-        wo_real_t ConstantValue::value_real()const
-        {
-            return std::get<wo_real_t>(m_storage);
+            return std::get<woort_Real>(m_storage);
         }
         wo_pstring_t ConstantValue::value_pstring()const
         {
@@ -148,8 +140,6 @@ namespace wo
                 return value_bool();
             case Type::INTEGER:
                 return value_integer() != 0;
-            case Type::HANDLE:
-                return value_handle() != 0;
             case Type::REAL:
                 return value_real() != 0;
             case Type::PSTRING:
@@ -158,7 +148,7 @@ namespace wo
                 wo_error("Unexpected type.");
             }
         }
-        wo_integer_t ConstantValue::cast_value_integer()const
+        woort_Int ConstantValue::cast_value_integer()const
         {
             switch (m_type)
             {
@@ -166,44 +156,23 @@ namespace wo
                 return value_bool() ? 1 : 0;
             case Type::INTEGER:
                 return value_integer();
-            case Type::HANDLE:
-                return static_cast<wo_integer_t>(value_handle());
             case Type::REAL:
-                return static_cast<wo_integer_t>(value_real());
+                return static_cast<woort_Int>(value_real());
             case Type::PSTRING:
-                return (wo_integer_t)strtoll(value_pstring()->c_str(), nullptr, 0);
+                return static_cast<woort_Int>(strtoll(value_pstring()->c_str(), nullptr, 0));
             default:
                 wo_error("Unexpected type.");
             }
         }
-        wo_handle_t ConstantValue::cast_value_handle()const
-        {
-            switch (m_type)
-            {
-            case Type::BOOL:
-                return value_bool() ? 1 : 0;
-            case Type::INTEGER:
-                return static_cast<wo_handle_t>(value_integer());
-            case Type::HANDLE:
-                return value_handle();
-            case Type::REAL:
-                return static_cast<wo_handle_t>(value_real());
-            case Type::PSTRING:
-                return (wo_handle_t)strtoull(value_pstring()->c_str(), nullptr, 0);
-            default:
-                wo_error("Unexpected type.");
-            }
-        }
-        wo_real_t ConstantValue::cast_value_real()const
+
+        woort_Real ConstantValue::cast_value_real()const
         {
             switch (m_type)
             {
             case Type::BOOL:
                 return value_bool() ? 1.0 : 0.0;
             case Type::INTEGER:
-                return static_cast<wo_real_t>(value_integer());
-            case Type::HANDLE:
-                return static_cast<wo_real_t>(value_handle());
+                return static_cast<woort_Real>(value_integer());
             case Type::REAL:
                 return value_real();
             case Type::PSTRING:
@@ -222,8 +191,6 @@ namespace wo
                 return value_bool() ? WO_PSTR(true) : WO_PSTR(false);
             case Type::INTEGER:
                 return wo::wstring_pool::get_pstr(std::to_string(value_integer()));
-            case Type::HANDLE:
-                return wo::wstring_pool::get_pstr(std::to_string(value_handle()));
             case Type::REAL:
                 return wo::wstring_pool::get_pstr(std::to_string(value_real()));
             case Type::PSTRING:
@@ -2438,7 +2405,7 @@ namespace wo
                         auto* cast_last_enum_item_value_into_int = new AstValueTypeCast(int_type, last_enum_item_value);
                         auto* one_literal = new AstValueLiteral();
                         one_literal->decide_final_constant_value(
-                            static_cast<wo_integer_t>(1));
+                            static_cast<int64_t>(1));
                         created_this_item_value = new AstValueBinaryOperator(
                             AstValueBinaryOperator::operator_type::ADD, cast_last_enum_item_value_into_int, one_literal, false);
 
@@ -2454,7 +2421,7 @@ namespace wo
                     {
                         created_this_item_value = new AstValueLiteral();
                         created_this_item_value->decide_final_constant_value(
-                            static_cast<wo_integer_t>(0));
+                            static_cast<int64_t>(0));
                     }
 
                     item->m_value = created_this_item_value;
@@ -2508,7 +2475,7 @@ namespace wo
         ////////////////////////////////////////////////////////
 
         AstValueMakeUnion::AstValueMakeUnion(
-            wo_integer_t index,
+            int64_t index,
             const std::optional<AstValueBase*>& packed_value)
             : AstValueBase(AST_VALUE_MAKE_UNION)
             , m_index(index)
@@ -2576,7 +2543,7 @@ namespace wo
             wo_pstring_t union_type_name_pstr =
                 wo::wstring_pool::get_pstr(union_type_name->m_token.identifier);
 
-            wo_integer_t current_item_index = 0;
+            int64_t current_item_index = 0;
             for (auto& item : union_items)
             {
                 union_type_info.m_fields.push_back(

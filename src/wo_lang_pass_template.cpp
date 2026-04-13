@@ -796,7 +796,7 @@ namespace wo
             std::vector<std::pair<ast::AstTypeHolder*, lang_TypeInstance*>>
                 member_type_instance_pairs;
 
-            wo_integer_t member_index = 0;
+            int64_t member_index = 0;
             for (auto& field : structure.m_fields)
             {
                 auto fnd = instance_type_determined_base_struct->m_member_types.find(field->m_name);

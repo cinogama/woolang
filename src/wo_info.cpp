@@ -13,7 +13,7 @@
     #DEV "." #MAIN "." #SUB "." #CORRECT
 
 #define WO_VERSION_WRAP WO_VERSION_INT
-constexpr wo_integer_t version = WO_VERSION;
+constexpr uint64_t version = WO_VERSION;
 #undef WO_VERSION_WRAP
 
 #define WO_VERSION_WRAP WO_VERSION_STR
@@ -24,11 +24,11 @@ constexpr char version_str[] = WO_VERSION;
 #undef WO_VERSION_STR
 #undef WO_VERSION_INT
 
-wo_string_t  wo_compile_date(void)
+const char* wo_compile_date(void)
 {
     return __DATE__ " " __TIME__;
 }
-wo_string_t  wo_commit_sha(void)
+const char* wo_commit_sha(void)
 {
     return
 #if __has_include("wo_commit_sha.hpp")
@@ -38,11 +38,11 @@ wo_string_t  wo_commit_sha(void)
 #endif
         ;
 }
-wo_string_t  wo_version(void)
+const char* wo_version(void)
 {
     return version_str;
 }
-wo_integer_t wo_version_int(void)
+uint64_t wo_version_int(void)
 {
     return version;
 }

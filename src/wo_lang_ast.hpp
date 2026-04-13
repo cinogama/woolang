@@ -28,9 +28,8 @@ namespace wo
             using Storage = std::variant<
                 std::monostate, // nil
                 bool,
-                wo_integer_t,
-                wo_handle_t,
-                wo_real_t,
+                woort_Int,
+                woort_Real,
                 wo_pstring_t,
                 StructStorage,
                 ast::AstValueFunction*>;
@@ -40,7 +39,6 @@ namespace wo
                 NIL,
                 BOOL,
                 INTEGER,
-                HANDLE,
                 REAL,
                 PSTRING,
                 STRUCT,
@@ -52,9 +50,8 @@ namespace wo
 
             ConstantValue();
             explicit ConstantValue(bool val);
-            explicit ConstantValue(wo_integer_t val);
-            explicit ConstantValue(wo_handle_t val);
-            explicit ConstantValue(wo_real_t val);
+            explicit ConstantValue(woort_Int val);
+            explicit ConstantValue(woort_Real val);
             explicit ConstantValue(wo_pstring_t val);
             explicit ConstantValue(const std::string& val);
             explicit ConstantValue(const std::vector<ConstantValue*>& val);
@@ -68,17 +65,15 @@ namespace wo
             bool operator <(const ConstantValue& another) const;
 
             bool value_bool()const;
-            wo_integer_t value_integer()const;
-            wo_handle_t value_handle()const;
-            wo_real_t value_real()const;
+            woort_Int value_integer()const;
+            woort_Real value_real()const;
             wo_pstring_t value_pstring()const;
             const StructStorage& value_struct() const;
             ast::AstValueFunction* value_function() const;
 
             bool cast_value_bool()const;
-            wo_integer_t cast_value_integer()const;
-            wo_handle_t cast_value_handle()const;
-            wo_real_t cast_value_real()const;
+            woort_Int cast_value_integer()const;
+            woort_Real cast_value_real()const;
             wo_pstring_t cast_value_pstring(size_t depth)const;
 
             std::optional<ast::AstValueFunction*> value_try_function()const;
@@ -175,7 +170,7 @@ namespace wo
             {
                 static_assert(
                     std::is_same_v<T, ConstantValue>
-                    || std::is_same_v<T, wo_integer_t>
+                    || std::is_same_v<T, int64_t>
                     || std::is_same_v<T, wo_handle_t>
                     || std::is_same_v<T, wo_real_t>
                     || std::is_same_v<T, void*>
@@ -236,17 +231,17 @@ namespace wo
             AstIdentifier(
                 wo_pstring_t identifier);
             AstIdentifier(
-                wo_pstring_t identifier, 
+                wo_pstring_t identifier,
                 const std::optional<std::vector<AstTemplateArgument*>>& template_arguments);
             AstIdentifier(
-                wo_pstring_t identifier, 
+                wo_pstring_t identifier,
                 const std::optional<std::vector<AstTemplateArgument*>>& template_arguments,
-                const std::vector<wo_pstring_t>& scopes, 
+                const std::vector<wo_pstring_t>& scopes,
                 bool from_global);
             AstIdentifier(
-                wo_pstring_t identifier, 
-                const std::optional<std::vector<AstTemplateArgument*>>& template_arguments, 
-                const std::vector<wo_pstring_t>& scopes, 
+                wo_pstring_t identifier,
+                const std::optional<std::vector<AstTemplateArgument*>>& template_arguments,
+                const std::vector<wo_pstring_t>& scopes,
                 AstTypeHolder* from_type);
 
             AstIdentifier(const AstIdentifier& ident);
@@ -342,7 +337,7 @@ namespace wo
             void _check_if_template_exist_in(const std::vector<AstTemplateParam*>& template_params, std::vector<bool>& out_contain_flags) const;
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
-       
+
         struct AstValueNothing : public AstValueBase
         {
             AstValueNothing();
@@ -649,7 +644,7 @@ namespace wo
 
             bool m_LANG_result_is_mutable;
 
-            std::optional<wo_integer_t> m_LANG_fast_index_for_struct;
+            std::optional<int64_t> m_LANG_fast_index_for_struct;
 
             AstValueIndex(AstValueBase* container, AstValueBase* index);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -969,7 +964,7 @@ namespace wo
 
             AstScope::LANG_end_state m_LANG_end_state;
             std::optional<lang_TypeInstance*> m_LANG_pattern_value_apply_type;
-            std::optional<wo_integer_t> m_LANG_case_label_or_takeplace;
+            std::optional<int64_t> m_LANG_case_label_or_takeplace;
 
             std::optional<opnum::opnumbase*> m_IR_matching_struct_opnum;
             std::optional<AstMatch*> m_IR_match;
@@ -1238,11 +1233,11 @@ namespace wo
         {
             // NOTE: This value will be marked as `nothing` type
             //  to fool the type checker.
-            wo_integer_t m_index;
+            int64_t m_index;
             std::optional<AstValueBase*> m_packed_value;
 
             AstValueMakeUnion(
-                wo_integer_t index,
+                int64_t index,
                 const std::optional<AstValueBase*>& packed_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -1273,7 +1268,7 @@ namespace wo
             std::optional<wo_pstring_t>     m_extern_from_library;
             uint32_t                        m_attribute_flags;
 
-            std::optional<wo_native_func_t> m_IR_externed_function;
+            std::optional<woort_NativeFunction> m_IR_externed_function;
 
             enum extern_attribute : uint32_t
             {
