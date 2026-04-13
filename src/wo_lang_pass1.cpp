@@ -1,8 +1,8 @@
 #include "wo_afx.hpp"
 
-WO_API wo_api rslib_std_bad_function(wo_vm vm, wo_value args)
+woort_api rslib_std_bad_function()
 {
-    return WO_API_NORMAL;
+    return woort_ret_void();
 }
 
 namespace wo
@@ -1002,9 +1002,6 @@ namespace wo
             break;
         case ConstantValue::Type::REAL:
             node->m_LANG_determined_type = m_origin_types.m_real.m_type_instance;
-            break;
-        case ConstantValue::Type::HANDLE:
-            node->m_LANG_determined_type = m_origin_types.m_handle.m_type_instance;
             break;
         case ConstantValue::Type::BOOL:
             node->m_LANG_determined_type = m_origin_types.m_bool.m_type_instance;
@@ -2658,9 +2655,6 @@ namespace wo
                         break;
                     case lang_TypeInstance::DeterminedType::REAL:
                         node->decide_final_constant_value(cast_from_const.cast_value_real());
-                        break;
-                    case lang_TypeInstance::DeterminedType::HANDLE:
-                        node->decide_final_constant_value(cast_from_const.cast_value_handle());
                         break;
                     case lang_TypeInstance::DeterminedType::BOOLEAN:
                         node->decide_final_constant_value(cast_from_const.cast_value_bool());
@@ -5078,10 +5072,6 @@ namespace wo
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() + *right_value.value_pstring());
                             break;
-                        case ConstantValue::Type::HANDLE:
-                            node->decide_final_constant_value(
-                                left_value.value_handle() + right_value.value_handle());
-                            break;
                         default:
                             wo_error("Unknown type.");
                         }
@@ -5096,10 +5086,6 @@ namespace wo
                         case ConstantValue::Type::REAL:
                             node->decide_final_constant_value(
                                 left_value.value_real() - right_value.value_real());
-                            break;
-                        case ConstantValue::Type::HANDLE:
-                            node->decide_final_constant_value(
-                                left_value.value_handle() - right_value.value_handle());
                             break;
                         default:
                             wo_error("Unknown type.");
@@ -5173,10 +5159,6 @@ namespace wo
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() > *right_value.value_pstring());
                             break;
-                        case ConstantValue::Type::HANDLE:
-                            node->decide_final_constant_value(
-                                left_value.value_handle() > right_value.value_handle());
-                            break;
                         default:
                             wo_error("Unknown type.");
                         }
@@ -5195,10 +5177,6 @@ namespace wo
                         case ConstantValue::Type::PSTRING:
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() >= *right_value.value_pstring());
-                            break;
-                        case ConstantValue::Type::HANDLE:
-                            node->decide_final_constant_value(
-                                left_value.value_handle() >= right_value.value_handle());
                             break;
                         default:
                             wo_error("Unknown type.");
@@ -5219,10 +5197,6 @@ namespace wo
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() < *right_value.value_pstring());
                             break;
-                        case ConstantValue::Type::HANDLE:
-                            node->decide_final_constant_value(
-                                left_value.value_handle() < right_value.value_handle());
-                            break;
                         default:
                             wo_error("Unknown type.");
                         }
@@ -5242,10 +5216,6 @@ namespace wo
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() <= *right_value.value_pstring());
                             break;
-                        case ConstantValue::Type::HANDLE:
-                            node->decide_final_constant_value(
-                                left_value.value_handle() <= right_value.value_handle());
-                            break;
                         default:
                             wo_error("Unknown type.");
                         }
@@ -5264,10 +5234,6 @@ namespace wo
                         case ConstantValue::Type::PSTRING:
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() == *right_value.value_pstring());
-                            break;
-                        case ConstantValue::Type::HANDLE:
-                            node->decide_final_constant_value(
-                                left_value.value_handle() == right_value.value_handle());
                             break;
                         case ConstantValue::Type::BOOL:
                             node->decide_final_constant_value(
@@ -5291,10 +5257,6 @@ namespace wo
                         case ConstantValue::Type::PSTRING:
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() != *right_value.value_pstring());
-                            break;
-                        case ConstantValue::Type::HANDLE:
-                            node->decide_final_constant_value(
-                                left_value.value_handle() != right_value.value_handle());
                             break;
                         case ConstantValue::Type::BOOL:
                             node->decide_final_constant_value(
@@ -6437,7 +6399,7 @@ namespace wo
 
         auto* function_instance = get_current_function().value();
 
-        wo_native_func_t extern_function;
+        woort_NativeFunction extern_function;
 #if 1
         extern_function = rslib_std_bad_function;
 #else

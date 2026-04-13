@@ -1062,7 +1062,7 @@ namespace wo
                 break;
             case lex_type::l_literal_handle:
                 literal_instance->decide_final_constant_value(
-                    (wo_handle_t)lexer::read_from_unsigned_literal(literal.identifier.c_str()));
+                    (woort_Int)lexer::read_from_unsigned_literal(literal.identifier.c_str()));
                 break;
             case lex_type::l_literal_real:
                 literal_instance->decide_final_constant_value((woort_Real)std::stod(literal.identifier));

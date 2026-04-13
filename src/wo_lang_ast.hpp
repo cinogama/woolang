@@ -170,9 +170,8 @@ namespace wo
             {
                 static_assert(
                     std::is_same_v<T, ConstantValue>
-                    || std::is_same_v<T, int64_t>
-                    || std::is_same_v<T, wo_handle_t>
-                    || std::is_same_v<T, wo_real_t>
+                    || std::is_same_v<T, woort_Int>
+                    || std::is_same_v<T, woort_Real>
                     || std::is_same_v<T, void*>
                     || std::is_same_v<T, bool>
                     || std::is_same_v<T, wo_pstring_t>

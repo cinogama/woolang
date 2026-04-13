@@ -1,7 +1,5 @@
 #include "wo_afx.hpp"
 
-WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args);
-
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
