@@ -54,7 +54,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         do_after_shutdown(custom_data);
 
     wo::wstring_pool::shutdown_global_str_pool();
-  
+
     wo::shutdown_virtual_binary();
     wo::wo_shutdown_locale_and_args();
 
@@ -140,6 +140,9 @@ void wo_init(int argc, char** argv)
 
     // Start up WooRT.
     woort_init();
+
+    void _wo_test_compile();
+    _wo_test_compile();
 }
 
 const char* wo_locale_name(void)
@@ -229,7 +232,7 @@ const char32_t* wo_strn_to_u32str(const char* str, size_t size)
 
     return wstr_buf.c_str();
 }
-const char*  wo_u32strn_to_str(const char32_t* str, size_t size)
+const char* wo_u32strn_to_str(const char32_t* str, size_t size)
 {
     static thread_local std::string str_buf;
     str_buf = wo::u32strtou8(str, size);
@@ -381,18 +384,18 @@ void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter)
 }
 
 wo::compile_result _wo_compile_impl(
-    const char*                 virtual_src_path,
-    /* OPTIONAL */ const void*  src_may_null,
+    const char* virtual_src_path,
+    /* OPTIONAL */ const void* src_may_null,
     size_t                      src_len,
-    const std::optional<wo::lexer*>& 
+    const std::optional<wo::lexer*>&
     append_macro_define_to_this_lexer,
-    std::optional<woort_CodeEnv*>* 
-                                out_env_if_success,
-    std::optional<std::unique_ptr<wo::lexer>>* 
-                                out_lexer_if_failed
+    std::optional<woort_CodeEnv*>*
+    out_env_if_success,
+    std::optional<std::unique_ptr<wo::lexer>>*
+    out_lexer_if_failed
 #ifndef WO_DISABLE_COMPILER
-    , std::optional<std::unique_ptr<wo::LangContext>>* 
-                                out_langcontext_if_pass_grammar
+    , std::optional<std::unique_ptr<wo::LangContext>>*
+    out_langcontext_if_pass_grammar
 #endif
 )
 {
@@ -403,10 +406,10 @@ wo::compile_result _wo_compile_impl(
     wo::compile_result compile_result = wo::compile_result::PROCESS_FAILED;
 
     std::optional<woort_CodeEnv*> compile_env_result = std::nullopt;
-        //wo::runtime_env::load_create_env_from_binary(
-        //    virtual_src_path, src, len,
-        //    &load_binary_failed_reason,
-        //    &is_valid_binary);
+    //wo::runtime_env::load_create_env_from_binary(
+    //    virtual_src_path, src, len,
+    //    &load_binary_failed_reason,
+    //    &is_valid_binary);
     std::unique_ptr<wo::lexer> compile_lexer;
 
     if (!compile_env_result.has_value())
@@ -521,15 +524,12 @@ wo::compile_result _wo_compile_impl(
 }
 
 bool _wo_compile_entry(
-    const char*                 virtual_src_path,
-    /* OPTIONAL */ const void*  src_may_null,
+    const char* virtual_src_path,
+    /* OPTIONAL */ const void* src_may_null,
     size_t                      src_len,
-    const std::optional<wo::lexer*>& 
-                                append_macro_define_to_this_lexer,
-    std::optional<woort_CodeEnv*>*
-                                out_env_if_success,
-    std::optional<std::unique_ptr<wo::lexer>>*
-                                out_lexer_if_failed)
+    const std::optional<wo::lexer*>& append_macro_define_to_this_lexer,
+    std::optional<woort_CodeEnv*>* out_env_if_success,
+    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed)
 {
     wo::start_string_pool_guard sg;
 
@@ -561,4 +561,28 @@ bool _wo_compile_entry(
 #endif
 
     return compile_result == wo::compile_result::PROCESS_OK;
+}
+
+void _wo_test_compile()
+{
+    const char* src = R"(
+    func fib(n: int)=> int
+    {
+        if (n < 2)
+            return 1;
+        return fib(n - 1) + fib(n - 2);
+    }   
+    fib(40);
+    )";
+
+    std::optional<woort_CodeEnv*> out_env_if_success;
+    std::optional<std::unique_ptr<wo::lexer>> out_lexer_if_failed;
+
+    _wo_compile_entry(
+        "test.wo",
+        src,
+        strlen(src),
+        std::nullopt,
+        &out_env_if_success,
+        &out_lexer_if_failed);
 }
