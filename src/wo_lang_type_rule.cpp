@@ -410,7 +410,7 @@ namespace wo
                 // 5. bool, handle, real, string can cast to int.
                 if (immutable_aimtype == m_origin_types.m_int.m_type_instance &&
                     (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
-                        // immutable_srctype == m_origin_types.m_handle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
                         immutable_srctype == m_origin_types.m_real.m_type_instance ||
                         immutable_srctype == m_origin_types.m_string.m_type_instance))
                 {
@@ -420,7 +420,7 @@ namespace wo
                 // 6. bool, int, handle, string can cast to real.
                 if (immutable_aimtype == m_origin_types.m_real.m_type_instance &&
                     (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
-                        // immutable_srctype == m_origin_types.m_handle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
                         immutable_srctype == m_origin_types.m_int.m_type_instance ||
                         immutable_srctype == m_origin_types.m_string.m_type_instance))
                 {
@@ -428,20 +428,20 @@ namespace wo
                 }
 
                 // 7. bool, int, gchandle, real, string can cast to handle.
-                //if (immutable_aimtype == m_origin_types.m_handle.m_type_instance &&
-                //    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
-                //        immutable_srctype == m_origin_types.m_int.m_type_instance ||
-                //        immutable_srctype == m_origin_types.m_gchandle.m_type_instance ||
-                //        immutable_srctype == m_origin_types.m_real.m_type_instance ||
-                //        immutable_srctype == m_origin_types.m_string.m_type_instance))
-                //{
-                //    return lang_TypeInstance::TypeCheckResult::ACCEPT;
-                //}
+                if (immutable_aimtype == m_origin_types.m_handle.m_type_instance &&
+                    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_int.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_gchandle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_real.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_string.m_type_instance))
+                {
+                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
+                }
 
                 // 8. integer, handle, real, string can cast to bool.
                 if (immutable_aimtype == m_origin_types.m_bool.m_type_instance &&
                     (immutable_srctype == m_origin_types.m_int.m_type_instance ||
-                        // immutable_srctype == m_origin_types.m_handle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
                         immutable_srctype == m_origin_types.m_real.m_type_instance ||
                         immutable_srctype == m_origin_types.m_string.m_type_instance))
                 {
@@ -622,7 +622,7 @@ namespace wo
                     if ((immutable_aimtype == m_origin_types.m_nil.m_type_instance
                         || immutable_aimtype == m_origin_types.m_int.m_type_instance
                         || immutable_aimtype == m_origin_types.m_real.m_type_instance
-                        // || immutable_aimtype == m_origin_types.m_handle.m_type_instance
+                        || immutable_aimtype == m_origin_types.m_handle.m_type_instance
                         || immutable_aimtype == m_origin_types.m_bool.m_type_instance
                         || immutable_aimtype == m_origin_types.m_string.m_type_instance
                         || immutable_aimtype == m_origin_types.m_gchandle.m_type_instance

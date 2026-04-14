@@ -5072,6 +5072,10 @@ namespace wo
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() + *right_value.value_pstring());
                             break;
+                        case ConstantValue::Type::HANDLE:
+                            node->decide_final_constant_value(
+                                left_value.value_handle() + right_value.value_handle());
+                            break;
                         default:
                             wo_error("Unknown type.");
                         }
@@ -5086,6 +5090,10 @@ namespace wo
                         case ConstantValue::Type::REAL:
                             node->decide_final_constant_value(
                                 left_value.value_real() - right_value.value_real());
+                            break;
+                        case ConstantValue::Type::HANDLE:
+                            node->decide_final_constant_value(
+                                left_value.value_handle() - right_value.value_handle());
                             break;
                         default:
                             wo_error("Unknown type.");
@@ -5159,6 +5167,10 @@ namespace wo
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() > *right_value.value_pstring());
                             break;
+                        case ConstantValue::Type::HANDLE:
+                            node->decide_final_constant_value(
+                                left_value.value_handle() > right_value.value_handle());
+                            break;
                         default:
                             wo_error("Unknown type.");
                         }
@@ -5177,6 +5189,10 @@ namespace wo
                         case ConstantValue::Type::PSTRING:
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() >= *right_value.value_pstring());
+                            break;
+                        case ConstantValue::Type::HANDLE:
+                            node->decide_final_constant_value(
+                                left_value.value_handle() >= right_value.value_handle());
                             break;
                         default:
                             wo_error("Unknown type.");
@@ -5197,6 +5213,10 @@ namespace wo
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() < *right_value.value_pstring());
                             break;
+                        case ConstantValue::Type::HANDLE:
+                            node->decide_final_constant_value(
+                                left_value.value_handle() < right_value.value_handle());
+                            break;
                         default:
                             wo_error("Unknown type.");
                         }
@@ -5216,6 +5236,10 @@ namespace wo
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() <= *right_value.value_pstring());
                             break;
+                        case ConstantValue::Type::HANDLE:
+                            node->decide_final_constant_value(
+                                left_value.value_handle() <= right_value.value_handle());
+                            break;
                         default:
                             wo_error("Unknown type.");
                         }
@@ -5234,6 +5258,10 @@ namespace wo
                         case ConstantValue::Type::PSTRING:
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() == *right_value.value_pstring());
+                            break;
+                        case ConstantValue::Type::HANDLE:
+                            node->decide_final_constant_value(
+                                left_value.value_handle() == right_value.value_handle());
                             break;
                         case ConstantValue::Type::BOOL:
                             node->decide_final_constant_value(
@@ -5257,6 +5285,10 @@ namespace wo
                         case ConstantValue::Type::PSTRING:
                             node->decide_final_constant_value(
                                 *left_value.value_pstring() != *right_value.value_pstring());
+                            break;
+                        case ConstantValue::Type::HANDLE:
+                            node->decide_final_constant_value(
+                                left_value.value_handle() != right_value.value_handle());
                             break;
                         case ConstantValue::Type::BOOL:
                             node->decide_final_constant_value(

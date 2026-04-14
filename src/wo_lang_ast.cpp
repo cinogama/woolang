@@ -69,6 +69,10 @@ namespace wo
             : m_type(Type::INTEGER), m_storage(val)
         {
         }
+        ConstantValue::ConstantValue(woort_Handle val)
+            : m_type(Type::HANDLE), m_storage(val)
+        {
+        }
         ConstantValue::ConstantValue(woort_Real val)
             : m_type(Type::REAL), m_storage(val)
         {
@@ -115,6 +119,10 @@ namespace wo
         woort_Int ConstantValue::value_integer()const
         {
             return std::get<woort_Int>(m_storage);
+        }
+        woort_Handle ConstantValue::value_handle() const
+        {
+            return std::get<woort_Handle>(m_storage);
         }
         woort_Real ConstantValue::value_real()const
         {
@@ -164,7 +172,25 @@ namespace wo
                 wo_error("Unexpected type.");
             }
         }
-
+        woort_Handle ConstantValue::cast_value_handle()const
+        {
+            switch (m_type)
+            {
+            case Type::BOOL:
+                return value_bool() ? 1 : 0;
+            case Type::INTEGER:
+                return static_cast<woort_Handle>(value_integer());
+            case Type::HANDLE:
+                return value_handle();
+            case Type::REAL:
+                return static_cast<woort_Handle>(value_real());
+            case Type::PSTRING:
+                return static_cast<woort_Handle>(
+                    strtoull(value_pstring()->c_str(), nullptr, 0));
+            default:
+                wo_error("Unexpected type.");
+            }
+        }
         woort_Real ConstantValue::cast_value_real()const
         {
             switch (m_type)

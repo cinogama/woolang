@@ -688,7 +688,7 @@ namespace wo
             OriginNoTemplateSymbolAndInstance   m_nil;
             OriginNoTemplateSymbolAndInstance   m_int;
             OriginNoTemplateSymbolAndInstance   m_real;
-            // OriginNoTemplateSymbolAndInstance   m_handle;
+            OriginNoTemplateSymbolAndInstance   m_handle;
             OriginNoTemplateSymbolAndInstance   m_bool;
             OriginNoTemplateSymbolAndInstance   m_string;
             OriginNoTemplateSymbolAndInstance   m_gchandle;

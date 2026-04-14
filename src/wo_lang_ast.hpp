@@ -29,6 +29,7 @@ namespace wo
                 std::monostate, // nil
                 bool,
                 woort_Int,
+                woort_Handle,
                 woort_Real,
                 wo_pstring_t,
                 StructStorage,
@@ -39,6 +40,7 @@ namespace wo
                 NIL,
                 BOOL,
                 INTEGER,
+                HANDLE,
                 REAL,
                 PSTRING,
                 STRUCT,
@@ -51,6 +53,7 @@ namespace wo
             ConstantValue();
             explicit ConstantValue(bool val);
             explicit ConstantValue(woort_Int val);
+            explicit ConstantValue(woort_Handle val);
             explicit ConstantValue(woort_Real val);
             explicit ConstantValue(wo_pstring_t val);
             explicit ConstantValue(const std::string& val);
@@ -66,6 +69,7 @@ namespace wo
 
             bool value_bool()const;
             woort_Int value_integer()const;
+            woort_Handle value_handle()const;
             woort_Real value_real()const;
             wo_pstring_t value_pstring()const;
             const StructStorage& value_struct() const;
@@ -73,6 +77,7 @@ namespace wo
 
             bool cast_value_bool()const;
             woort_Int cast_value_integer()const;
+            woort_Handle cast_value_handle()const;
             woort_Real cast_value_real()const;
             wo_pstring_t cast_value_pstring(size_t depth)const;
 
@@ -171,6 +176,7 @@ namespace wo
                 static_assert(
                     std::is_same_v<T, ConstantValue>
                     || std::is_same_v<T, woort_Int>
+					|| std::is_same_v<T, woort_Handle>
                     || std::is_same_v<T, woort_Real>
                     || std::is_same_v<T, void*>
                     || std::is_same_v<T, bool>

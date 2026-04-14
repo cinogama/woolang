@@ -1207,8 +1207,8 @@ namespace wo
             &m_origin_types.m_int, WO_PSTR(int), lang_TypeInstance::DeterminedType::INTEGER);
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_real, WO_PSTR(real), lang_TypeInstance::DeterminedType::REAL);
-        //create_builtin_non_template_symbol_and_instance(
-        //    &m_origin_types.m_handle, WO_PSTR(handle), lang_TypeInstance::DeterminedType::HANDLE);
+        create_builtin_non_template_symbol_and_instance(
+            &m_origin_types.m_handle, WO_PSTR(handle), lang_TypeInstance::DeterminedType::HANDLE);
         create_builtin_non_template_symbol_and_instance(
             &m_origin_types.m_bool, WO_PSTR(bool), lang_TypeInstance::DeterminedType::BOOLEAN);
         create_builtin_non_template_symbol_and_instance(
@@ -2135,8 +2135,8 @@ namespace wo
             return "false";
         case ast::ConstantValue::Type::INTEGER:
             return std::to_string(val.value_integer());
-            //case ast::ConstantValue::Type::HANDLE:
-            //    return std::to_string(val.value_handle());
+        case ast::ConstantValue::Type::HANDLE:
+            return std::to_string(val.value_handle());
         case ast::ConstantValue::Type::REAL:
             return std::to_string(val.value_real());
         case ast::ConstantValue::Type::PSTRING:
