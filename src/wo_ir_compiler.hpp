@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <stack>
 
 namespace wo
 {
@@ -204,6 +205,8 @@ namespace wo
         IRCompiler& operator = (const IRCompiler&) = delete;
         IRCompiler& operator = (IRCompiler&&) = delete;
 
+        std::vector<IRFunction> m_current_function_stacks;
+
     public:
         IRCompiler();
         ~IRCompiler();
@@ -213,12 +216,16 @@ namespace wo
     public:
         bool is_abondoned() const;
 
-        IRFunction add_function(uint32_t param_count);
+        void push_function(uint32_t param_count);
+        void pop_function();
 
         woort_IRConstantIndex alloc_constant();
         woort_IRStaticIndex alloc_static();
 
         std::optional<woort_CodeEnv*> commit();
         const woort_Bytecode* get_function(woort_CodeEnv* cenv, IRFunction f);
+
+    // Code generate APIs:
+
     };
 }

@@ -27,6 +27,9 @@ namespace wo
     {
         wo_assert(m_ircompiler != nullptr);
 
+        // Clear current function stack.
+        m_current_functions_stack.clear();
+
         woort_IRCompiler_close(m_ircompiler);
         m_ircompiler = nullptr;
     }
@@ -36,20 +39,24 @@ namespace wo
         return m_ircompiler == nullptr;
     }
 
-    IRFunction IRCompiler::add_function(uint32_t param_count)
+    void IRCompiler::push_function(uint32_t param_count)
     {
         if (is_abondoned())
             // IR 系列接口的设计原则是：压制内存申请失败，如同一切正常——直到最终提交代码时
             // 以失败结束
-            return IRFunction(this, nullptr);
+            ;
 
         woort_IRFunction* irfunc;
         if (!woort_IRCompiler_add_function(m_ircompiler, param_count, &irfunc))
-        {
             abondon();
-            return IRFunction(this, nullptr);
-        }
-        return IRFunction(this, irfunc);
+        else
+            m_current_functions_stack.push_back(IRFunction(this, irfunc));
+    }
+
+    void IRCompiler::pop_function()
+    {
+        if (!is_abondoned())
+            m_current_functions_stack.pop_back();
     }
 
     woort_IRConstantIndex IRCompiler::alloc_constant()

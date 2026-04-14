@@ -1268,6 +1268,9 @@ namespace wo
             return compile_result::PROCESS_FAILED;
 
         // Final process, generate bytecode.
+        // NOTE: After 1.15. we will create a entry function for init job.
+        IRFunction entry_function = m_ircontext.c().add_function(0);
+
         if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
             return compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
 
