@@ -1269,12 +1269,17 @@ namespace wo
 
         // Final process, generate bytecode.
         // NOTE: After 1.15. we will create a entry function for init job.
-        IRFunction entry_function = m_ircontext.c().add_function(0);
+        
+        woort_IRFunction* entry_function = m_ircontext.c().push_function(0);
+
+        // Entry function cannot be invoked twice, check it.
+        // woort_IRStaticIndex INITXA = m_ircontext.c().alloc_static();
 
         if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
             return compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
 
-        return  compile_result::PROCESS_OK;
+        m_ircontext.c().pop_function();
+        return compile_result::PROCESS_OK;
     }
 
     ////////////////////////

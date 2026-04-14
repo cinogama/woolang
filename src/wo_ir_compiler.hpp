@@ -5,21 +5,34 @@
 
 namespace wo
 {
-    class IRCompiler;
-
-    class IRFunction
+    class IRCompiler
     {
-        IRCompiler* const m_ircompiler;
-        /* OPTIONAL */ woort_IRFunction* m_irfunction;
+        /* OPTIONAL */ woort_IRCompiler* m_ircompiler;
 
-        friend class IRCompiler;
+        IRCompiler(const IRCompiler&) = delete;
+        IRCompiler(IRCompiler&&) = delete;
+        IRCompiler& operator = (const IRCompiler&) = delete;
+        IRCompiler& operator = (IRCompiler&&) = delete;
+
+        std::vector<woort_IRFunction*> m_current_functions_stack;
 
     public:
-        IRFunction(IRCompiler* c, /* OPTIONAL */ woort_IRFunction* irfunc);
-        IRFunction(const IRFunction&) = default;
-        IRFunction(IRFunction&&) = default;
-        IRFunction& operator =(const IRFunction&) = default;
-        IRFunction& operator =(IRFunction&&) = default;
+        IRCompiler();
+        ~IRCompiler();
+
+        void abondon();
+
+    public:
+        bool is_abondoned() const;
+
+        woort_IRFunction* push_function(uint32_t param_count);
+        void pop_function();
+
+        woort_IRConstantIndex alloc_constant();
+        woort_IRStaticIndex alloc_static();
+
+        std::optional<woort_CodeEnv*> commit();
+        const woort_Bytecode* get_function(woort_CodeEnv* cenv, woort_IRFunction* irfunc);
 
     public:
         const woort_IRValue* load_constant(woort_IRConstantIndex cidx);
@@ -28,7 +41,6 @@ namespace wo
 
         woort_IRLabel* new_label();
 
-        // IR commands.
         void mov(woort_IRValue* dst, const woort_IRValue* src);
         void load(woort_IRValue* dst, woort_IRStaticIndex src);
         void store(woort_IRStaticIndex dst, const woort_IRValue* src);
@@ -194,38 +206,6 @@ namespace wo
             uint32_t end_line,
             uint32_t end_column);
         void pop_srcloc();
-    };
-
-    class IRCompiler
-    {
-        /* OPTIONAL */ woort_IRCompiler* m_ircompiler;
-
-        IRCompiler(const IRCompiler&) = delete;
-        IRCompiler(IRCompiler&&) = delete;
-        IRCompiler& operator = (const IRCompiler&) = delete;
-        IRCompiler& operator = (IRCompiler&&) = delete;
-
-        std::vector<IRFunction> m_current_function_stacks;
-
-    public:
-        IRCompiler();
-        ~IRCompiler();
-
-        void abondon();
-
-    public:
-        bool is_abondoned() const;
-
-        void push_function(uint32_t param_count);
-        void pop_function();
-
-        woort_IRConstantIndex alloc_constant();
-        woort_IRStaticIndex alloc_static();
-
-        std::optional<woort_CodeEnv*> commit();
-        const woort_Bytecode* get_function(woort_CodeEnv* cenv, IRFunction f);
-
-    // Code generate APIs:
 
     };
 }
