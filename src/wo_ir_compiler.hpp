@@ -182,9 +182,15 @@ namespace wo
         void pushidxstboxb(const woort_IRValue* src, uint32_t idx);
         void pushidxstboxx(const woort_IRValue* src, uint32_t idx);
 
+        /* --- Atomic --- */
+        void astore(woort_IRStaticIndex idx, const woort_IRValue* src);
+        void aload(woort_IRValue* dst, woort_IRStaticIndex idx);
+        void cas(woort_IRStaticIndex idx, woort_IRValue* expected, const woort_IRValue* desired);
+
         /* --- Control Flow --- */
         void bind(woort_IRLabel* label);
         void jmp(woort_IRLabel* target);
+        void jifinited(woort_IRStaticIndex cond_idx, woort_IRLabel* target);
         void jcc(const woort_IRValue* cond, woort_IRLabel* target);
         void jccz(const woort_IRValue* cond, woort_IRLabel* target);
         void jcc_lt(const woort_IRValue* a, const woort_IRValue* b, woort_IRLabel* target);

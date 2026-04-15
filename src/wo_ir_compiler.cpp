@@ -1258,6 +1258,36 @@ namespace wo
             abondon();
     }
 
+    void IRCompiler::astore(woort_IRStaticIndex idx, const woort_IRValue* src)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back();
+        if (!woort_IR_ASTORE(cur, idx, src))
+            abondon();
+    }
+
+    void IRCompiler::aload(woort_IRValue* dst, woort_IRStaticIndex idx)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back();
+        if (!woort_IR_ALOAD(cur, dst, idx))
+            abondon();
+    }
+
+    void IRCompiler::cas(woort_IRStaticIndex idx, woort_IRValue* expected, const woort_IRValue* desired)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back();
+        if (!woort_IR_CAS(cur, idx, expected, desired))
+            abondon();
+    }
+
     void IRCompiler::bind(woort_IRLabel* label)
     {
         if (is_abondoned())
@@ -1275,6 +1305,16 @@ namespace wo
 
         woort_IRFunction* cur = m_current_functions_stack.back();
         if (!woort_IR_jmp(cur, target))
+            abondon();
+    }
+
+    void IRCompiler::jifinited(woort_IRStaticIndex cond_idx, woort_IRLabel* target)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back();
+        if (!woort_IR_jifinited(cur, cond_idx, target))
             abondon();
     }
 
