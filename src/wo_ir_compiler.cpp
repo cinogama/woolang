@@ -1418,6 +1418,36 @@ namespace wo
             abondon();
     }
 
+    void IRCompiler::nop()
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back();
+        if (!woort_IR_NOP(cur))
+            abondon();
+    }
+
+    void IRCompiler::debugtrap()
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back();
+        if (!woort_IR_debugtrap(cur))
+            abondon();
+    }
+
+    void IRCompiler::panic(const woort_IRValue* msg)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back();
+        if (!woort_IR_panic(cur, msg))
+            abondon();
+    }
+
     void IRCompiler::push_srcloc(
         const char* filepath,
         uint32_t begin_line,

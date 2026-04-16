@@ -204,6 +204,11 @@ namespace wo
         void ret(const woort_IRValue* val);
         void ret_void();
 
+        /* --- Debug --- */
+        void nop();
+        void debugtrap();
+        void panic(const woort_IRValue* msg);
+
         /* --- Source Location --- */
         void push_srcloc(
             /* OPTIONAL */ const char* filepath,
