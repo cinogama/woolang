@@ -239,9 +239,10 @@ namespace wo
         const woort_IRValue* load_imm_nil();
         const woort_IRValue* load_imm_bool(bool val);
         const woort_IRValue* load_imm_handle(woort_Handle handle);
+        const woort_IRValue* load_imm_box_handle(woort_Handle handle);
 
         const woort_IRValue* load_imm_const(
-            const ast::ConstantValue& constant, bool boxed, bool closure);
+            const ast::ConstantValue& constant, bool boxed);
 
         /* --- Debug --- */
         void nop();

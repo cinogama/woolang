@@ -1598,4 +1598,54 @@ namespace wo
     {
         return load_imm_int(static_cast<woort_Int>(handle));
     }
+    const woort_IRValue* IRCompiler::load_imm_box_handle(woort_Handle handle)
+    {
+        return load_imm_box_int(static_cast<woort_Int>(handle));
+    }
+    const woort_IRValue* IRCompiler::load_imm_const(
+        const ast::ConstantValue& constant, bool boxed)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        switch (constant.m_type)
+        {
+        case ast::ConstantValue::Type::NIL:
+            return load_imm_nil();
+        case ast::ConstantValue::Type::BOOL:
+            if (boxed)
+                return load_imm_box_bool(constant.value_bool());
+            return load_imm_bool(constant.value_bool());
+        case ast::ConstantValue::Type::INTEGER:
+            if (boxed)
+                return load_imm_box_int(constant.value_integer());
+            return load_imm_int(constant.value_integer());
+        case ast::ConstantValue::Type::HANDLE:
+            if (boxed)
+                return load_imm_box_handle(constant.value_handle());
+            return load_imm_handle(constant.value_handle());
+        case ast::ConstantValue::Type::REAL:
+            if (boxed)
+                return load_imm_box_real(constant.value_real());
+            return load_imm_real(constant.value_real());
+        case ast::ConstantValue::Type::PSTRING:
+            return load_imm_string(constant.value_pstring());
+        case ast::ConstantValue::Type::FUNCTION:
+            return load_imm_closure(constant.value_function());
+        case ast::ConstantValue::Type::STRUCT:
+        {
+            auto it = m_tuple_imm_pool.find(constant);
+            if (it == m_tuple_imm_pool.end())
+            {
+                woort_IRConstantIndex cidx = alloc_constant();
+                m_tuple_imm_pool.emplace(constant, cidx);
+                return load_constant(cidx);
+            }
+            return load_constant(it->second);
+        }
+        default:
+            wo_unreachable("Unknown ConstantValue type");
+            return nullptr;
+        }
+    }
 }

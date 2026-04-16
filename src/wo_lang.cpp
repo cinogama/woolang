@@ -1273,25 +1273,40 @@ namespace wo
         woort_IRFunction* entry_function = m_ircontext.c().push_function(0);
 
         // Entry function cannot be invoked twice, check it.
-        woort_IRLabel* bad_init_label = m_ircontext.c().new_label();
-        woort_IRLabel* entry_body = m_ircontext.c().new_label();
+        woort_IRLabel* label_bad_entry = m_ircontext.c().new_label();
+        woort_IRLabel* label_entry_body = m_ircontext.c().new_label();
 
         woort_IRStaticIndex entry_function_global_init_flag = 
             m_ircontext.c().alloc_static();
 
-        m_ircontext.c().jifinited(entry_function_global_init_flag, bad_init_label);
-        m_ircontext.c().jmp(entry_body);
+        /*
+        _entry:
+            jifinited   _bad_entry if ALOAD init_flag != 0
+            jfwd        _entry_body
+        _bad_entry:
+            panic       ""
+        _entry_body:
+            ...
+            retvc       0
+        */
+        m_ircontext.c().jifinited(entry_function_global_init_flag, label_bad_entry);
+        m_ircontext.c().jmp(label_entry_body);
         // Bad init:
-        m_ircontext.c().bind(bad_init_label);
-        m_ircontext.c().panic();
+        m_ircontext.c().bind(label_bad_entry);
+        m_ircontext.c().panic(
+            m_ircontext.c().load_imm_string(
+                wo::wstring_pool::get_pstr("")));
+
         // Entry body:
-        m_ircontext.c().bind(entry_body);
-        m_ircontext.c().astore(entry_function_global_init_flag, );
+        m_ircontext.c().bind(label_entry_body);
+        m_ircontext.c().astore(
+            entry_function_global_init_flag, 
+            m_ircontext.c().load_imm_int(2));
 
         if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
             return compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
 
-        m_ircontext.c().ret_void();
+        m_ircontext.c().ret(m_ircontext.c().load_imm_int(0));
 
         m_ircontext.c().pop_function();
         return compile_result::PROCESS_OK;
