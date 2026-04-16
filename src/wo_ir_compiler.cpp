@@ -1586,4 +1586,16 @@ namespace wo
         }
         return load_constant(it->second);
     }
+    const woort_IRValue* IRCompiler::load_imm_nil()
+    {
+        return load_imm_int(0);
+    }
+    const woort_IRValue* IRCompiler::load_imm_bool(bool val)
+    {
+        return load_imm_int(val ? 1 : 0);
+    }
+    const woort_IRValue* IRCompiler::load_imm_handle(woort_Handle handle)
+    {
+        return load_imm_int(static_cast<woort_Int>(handle));
+    }
 }
