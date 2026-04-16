@@ -236,6 +236,9 @@ namespace wo
         const woort_IRValue* load_imm_closure(ast::AstValueFunction* val);
         const woort_IRValue* load_imm_function(ast::AstValueFunction* val);
 
+        const woort_IRValue* load_imm_nil();
+        const woort_IRValue* load_imm_bool(bool val);
+        const woort_IRValue* load_imm_handle(woort_Handle handle);
         /* --- Debug --- */
         void nop();
         void debugtrap();

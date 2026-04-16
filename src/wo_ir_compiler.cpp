@@ -1502,4 +1502,88 @@ namespace wo
         }
         return load_constant(it->second);
     }
+    const woort_IRValue* IRCompiler::load_imm_real(woort_Real val)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        auto it = m_real_imm_pool.find(val);
+        if (it == m_real_imm_pool.end())
+        {
+            woort_IRConstantIndex cidx = alloc_constant();
+            m_real_imm_pool.emplace(val, cidx);
+            return load_constant(cidx);
+        }
+        return load_constant(it->second);
+    }
+    const woort_IRValue* IRCompiler::load_imm_box_real(woort_Real val)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        auto it = m_boxed_real_imm_pool.find(val);
+        if (it == m_boxed_real_imm_pool.end())
+        {
+            woort_IRConstantIndex cidx = alloc_constant();
+            m_boxed_real_imm_pool.emplace(val, cidx);
+            return load_constant(cidx);
+        }
+        return load_constant(it->second);
+    }
+    const woort_IRValue* IRCompiler::load_imm_box_bool(bool val)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        std::optional<woort_IRConstantIndex>& slot = val ? m_boxed_true_imm : m_boxed_false_imm;
+        if (!slot.has_value())
+        {
+            woort_IRConstantIndex cidx = alloc_constant();
+            slot = cidx;
+            return load_constant(cidx);
+        }
+        return load_constant(slot.value());
+    }
+    const woort_IRValue* IRCompiler::load_imm_string(wo_pstring_t val)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        auto it = m_string_imm_pool.find(val);
+        if (it == m_string_imm_pool.end())
+        {
+            woort_IRConstantIndex cidx = alloc_constant();
+            m_string_imm_pool.emplace(val, cidx);
+            return load_constant(cidx);
+        }
+        return load_constant(it->second);
+    }
+    const woort_IRValue* IRCompiler::load_imm_closure(ast::AstValueFunction* val)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        auto it = m_closure_imm_pool.find(val);
+        if (it == m_closure_imm_pool.end())
+        {
+            woort_IRConstantIndex cidx = alloc_constant();
+            m_closure_imm_pool.emplace(val, cidx);
+            return load_constant(cidx);
+        }
+        return load_constant(it->second);
+    }
+    const woort_IRValue* IRCompiler::load_imm_function(ast::AstValueFunction* val)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        auto it = m_function_imm_pool.find(val);
+        if (it == m_function_imm_pool.end())
+        {
+            woort_IRConstantIndex cidx = alloc_constant();
+            m_function_imm_pool.emplace(val, cidx);
+            return load_constant(cidx);
+        }
+        return load_constant(it->second);
+    }
 }
