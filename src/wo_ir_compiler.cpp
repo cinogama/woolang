@@ -1471,4 +1471,10 @@ namespace wo
         woort_IRFunction* cur = m_current_functions_stack.back();
         woort_IRFunction_pop_srcloc(cur);
     }
+
+    //
+
+    const woort_IRValue* IRCompiler::load_imm_int(woort_Int val)
+    {
+    }
 }

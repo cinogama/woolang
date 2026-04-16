@@ -1273,10 +1273,25 @@ namespace wo
         woort_IRFunction* entry_function = m_ircontext.c().push_function(0);
 
         // Entry function cannot be invoked twice, check it.
-        // woort_IRStaticIndex INITXA = m_ircontext.c().alloc_static();
+        woort_IRLabel* bad_init_label = m_ircontext.c().new_label();
+        woort_IRLabel* entry_body = m_ircontext.c().new_label();
+
+        woort_IRStaticIndex entry_function_global_init_flag = 
+            m_ircontext.c().alloc_static();
+
+        m_ircontext.c().jifinited(entry_function_global_init_flag, bad_init_label);
+        m_ircontext.c().jmp(entry_body);
+        // Bad init:
+        m_ircontext.c().bind(bad_init_label);
+        m_ircontext.c().panic();
+        // Entry body:
+        m_ircontext.c().bind(entry_body);
+        m_ircontext.c().astore(entry_function_global_init_flag, );
 
         if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
             return compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
+
+        m_ircontext.c().ret_void();
 
         m_ircontext.c().pop_function();
         return compile_result::PROCESS_OK;

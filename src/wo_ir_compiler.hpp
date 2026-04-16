@@ -16,6 +16,26 @@ namespace wo
 
         std::vector<woort_IRFunction*> m_current_functions_stack;
 
+        // Constant context
+        std::unordered_map<woort_Int, woort_IRConstantIndex>
+            m_nil_bool_int_handle_imm_pool;
+        std::unordered_map<woort_Int, woort_IRConstantIndex>
+            m_boxed_int_imm_pool;
+        std::optional<woort_IRConstantIndex> m_boxed_true_imm;
+        std::optional<woort_IRConstantIndex> m_boxed_false_imm;
+        std::unordered_map<woort_Real, woort_IRConstantIndex>
+            m_real_imm_pool;
+        std::unordered_map<woort_Real, woort_IRConstantIndex>
+            m_boxed_real_imm_pool;
+        std::unordered_map<wo_pstring_t, woort_IRConstantIndex>
+            m_string_imm_pool;
+        std::unordered_map<ast::AstValueFunction*, woort_IRConstantIndex>
+            m_closure_imm_pool;
+        std::unordered_map<ast::AstValueFunction*, woort_IRConstantIndex>
+            m_function_imm_pool;
+        std::map<ast::ConstantValue, woort_IRConstantIndex>
+            m_tuple_imm_pool;
+
     public:
         IRCompiler();
         ~IRCompiler();
@@ -203,6 +223,12 @@ namespace wo
         /* --- Return --- */
         void ret(const woort_IRValue* val);
         void ret_void();
+
+        /* --- Imm load helper */
+        const woort_IRValue* load_imm_int(woort_Int val);
+        const woort_IRValue* load_imm_box_int(woort_Int val);
+        const woort_IRValue* load_imm_real(woort_Real val);
+        const woort_IRValue* load_imm_box_real(woort_Real val);
 
         /* --- Debug --- */
         void nop();
