@@ -3,6 +3,8 @@
 #include <optional>
 #include <stack>
 
+#include "wo_const_string_pool.hpp"
+
 namespace wo
 {
     class IRCompiler
@@ -229,6 +231,10 @@ namespace wo
         const woort_IRValue* load_imm_box_int(woort_Int val);
         const woort_IRValue* load_imm_real(woort_Real val);
         const woort_IRValue* load_imm_box_real(woort_Real val);
+        const woort_IRValue* load_imm_box_bool(bool val);
+        const woort_IRValue* load_imm_string(wo_pstring_t val);
+        const woort_IRValue* load_imm_closure(ast::AstValueFunction* val);
+        const woort_IRValue* load_imm_function(ast::AstValueFunction* val);
 
         /* --- Debug --- */
         void nop();

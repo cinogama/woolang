@@ -1476,5 +1476,30 @@ namespace wo
 
     const woort_IRValue* IRCompiler::load_imm_int(woort_Int val)
     {
+        if (is_abondoned())
+            return nullptr;
+
+        auto it = m_nil_bool_int_handle_imm_pool.find(val);
+        if (it == m_nil_bool_int_handle_imm_pool.end())
+        {
+            woort_IRConstantIndex cidx = alloc_constant();
+            m_nil_bool_int_handle_imm_pool.emplace(val, cidx);
+            return load_constant(cidx);
+        }
+        return load_constant(it->second);
+    }
+    const woort_IRValue* IRCompiler::load_imm_box_int(woort_Int val)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        auto it = m_boxed_int_imm_pool.find(val);
+        if (it == m_boxed_int_imm_pool.end())
+        {
+            woort_IRConstantIndex cidx = alloc_constant();
+            m_boxed_int_imm_pool.emplace(val, cidx);
+            return load_constant(cidx);
+        }
+        return load_constant(it->second);
     }
 }
