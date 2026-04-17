@@ -482,27 +482,43 @@ namespace wo
         {
             enum Request
             {
-                // Request to assign the result to a specified opnum
-                ASSIGN_TO_SPECIFIED_OPNUM,
-                // Only get the opnum that stores the result, 
-                // if the result cannot be directly represented as an opnum, 
-                // a temporary opnum will be allocated
-                // NOTE: temporary opnum will be released after `get_eval_result`.
-                GET_RESULT_OPNUM_ONLY,
-                // Just like GET_RESULT_OPNUM_ONLY, but keep the result opnum, and if:
-                //  1) Result opnum is spreg(such as cr)
-                // GET_RESULT_OPNUM_AND_KEEP will borrow a temporary register to store the result.
-                GET_RESULT_OPNUM_AND_KEEP,
-                // Push the result opnum into stack, then ignore the result.
-                PUSH_RESULT_AND_IGNORE_RESULT,
-                // Donot eval for this request, get last one.
-                // EVAL_FOR_UPPER,
-                // Like IGNORE_RESULT, but still in eval. no result will be apply.
-                EVAL_PURE_ACTION,
-                // Simply ignore the result
+                /*
+                要求将求值结果直接赋值到指定的目标
+                */
+                ASSIGN_TO_TARGET_AND_IGNORE,
+
+                /*
+                要求获取储存有赋值结果的 IRValue，但是外部保证不会对此
+                IRValue 做写入操作，因此常量、变量不需要做额外的拷贝操作
+                */
+                GET_RESULT_FOR_READONLY,
+
+                /*
+                要求获取储存有赋值结果的 IRValue，外部需要对结果 IRValue
+                做写入操作（通常是因为需要一个临时 IRValue 做一些计算操作）
+                因此，常量、变量需要做一个额外的 MOV 操作
+                */
+                GET_RESULT_FOR_READWRITE,
+
+                /*
+                要求将赋值结果直接推到栈上
+                */
+                PUSH_RESULT_AND_IGNORE,
+
+                /*
+                对应请求的 BOX 版本，期待求值方给出一个 BOX 之后的值
+                */
+                ASSIGN_BOXED_TO_TARGET_AND_IGNORE,
+                GET_BOXED_RESULT_FOR_READONLY,
+                PUSH_BOXED_RESULT_AND_IGNORE,
+
+                /*
+                简单忽略求值结果，除去必须被观测到的副作用（例如函数调用必须
+                发生）之外，可以不生成求值代码
+                */
                 IGNORE_RESULT,
             };
-            Request      m_request;
+            Request m_request;
 
             // NOTE: If ASSIGN_TO_SPECIFIED_OPNUM, m_result will store target opnum.
             //  If GET_RESULT_OPNUM, m_result will store the result opnum.
