@@ -729,7 +729,7 @@ namespace wo
             std::optional<AstDeclareAttribue*>
                 m_attribute;
 
-            std::optional<int32_t> m_IR_static_init_flag_global_offset;
+            std::optional<woort_IRStaticIndex> m_IR_static_init_flag_global_offset;
 
         private:
             AstVariableDefines(const AstVariableDefines&);

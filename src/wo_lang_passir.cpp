@@ -387,8 +387,97 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstVariableDefines)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            if (node->m_attribute.has_value())
+            {
+                auto& attribute = node->m_attribute.value();
+                if (attribute->m_lifecycle.has_value()
+                    && attribute->m_lifecycle.value() == AstDeclareAttribue::lifecycle_attrib::STATIC)
+                {
+                    node->m_IR_static_init_flag_global_offset = m_ircontext.c().alloc_static();
+                }
+            }
+
+            if (node->m_IR_static_init_flag_global_offset.has_value())
+            {
+                m_ircontext.c().jifinited();
+
+                m_ircontext.c().equb(
+                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(2)));
+                m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
+
+                /*
+                    mov tp, 0;
+                    movicas Flag, 1, tp;
+                    jt static_job_
+                static_wait_:
+                    movicas Flag, tp, tp;
+                    equb tp 2
+                    jt static_end_
+                    jmp static_wait_
+                static_job_:
+                    ...
+                    movicas Flag, 2, tp
+                    jt static_end_
+                    ext0 panic xxx
+                static_end_:
+                */
+
+                m_ircontext.c().mov(
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(0)));
+
+                m_ircontext.c().movicas(
+                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(1)),
+                    opnum::reg(opnum::reg::tp));
+
+                m_ircontext.c().jt(opnum::tag(_generate_label("#static_job_", node)));
+                m_ircontext.c().tag(_generate_label("#static_wait_", node));
+
+                m_ircontext.c().movicas(
+                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    opnum::reg(opnum::reg::tp));
+
+                m_ircontext.c().equb(
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(2)));
+
+                m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
+                m_ircontext.c().jmp(opnum::tag(_generate_label("#static_wait_", node)));
+
+                m_ircontext.c().tag(_generate_label("#static_job_", node));
+                // Static job body will be continued.
+            }
+
+            WO_CONTINUE_PROCESS_LIST(node->m_definitions);
+            return HOLD;
+        }
+        if (state == HOLD)
+        {
+            if (node->m_IR_static_init_flag_global_offset.has_value())
+            {
+                m_ircontext.c().mov(
+                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(1)));
+                m_ircontext.c().movicas(
+                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
+                    WO_OPNUM(m_ircontext.opnum_imm_int(2)),
+                    opnum::reg(opnum::reg::tp));
+
+#ifndef NDEBUG  
+                m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
+                m_ircontext.c().ext_panic(WO_OPNUM(m_ircontext.opnum_imm_string(
+                    wstring_pool::get_pstr(
+                        "Atomic operation spurious failure."))));
+#endif
+                m_ircontext.c().tag(_generate_label("#static_end_", node));
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
 
     bool _check_pattern_all_no_need_storage(AstPatternTuple* ptuple)
@@ -631,7 +720,7 @@ namespace wo
     bool LangContext::pass_final_value(lexer& lex, ast::AstValueBase* val)
     {
         bool anylize_result =
-            anylize_pass(lex, val, &LangContext::pass_final_B_process_bytecode_generation);
+            anylize_pass(lex, val, &LangContext::pass_final_B_process_bytecode_generation, true);
 
         return anylize_result;
     }

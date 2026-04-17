@@ -566,16 +566,10 @@ bool _wo_compile_entry(
 void _wo_test_compile()
 {
     const char* src = R"(
-    for(;;)
-    {
-        for (;;)
+        func foo()
         {
-            /*for (;;)
-                break;*/
-
-            break;
+            return 0;
         }
-    }   
     )";
     
     std::optional<woort_CodeEnv*> out_env_if_success;

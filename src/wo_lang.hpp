@@ -609,6 +609,7 @@ namespace wo
         {
             pass_behavior m_state;
             ast::AstBase* m_ast_node;
+            bool m_srcloc_pushed;
 #ifndef NDEBUG
             size_t m_lex_error_frame_count;
             size_t m_debug_scope_layer_count;
@@ -776,7 +777,7 @@ namespace wo
 
         LangContext();
 
-        bool anylize_pass(lexer& lex, ast::AstBase* root, const PassFunctionT& pass_function);
+        bool anylize_pass(lexer& lex, ast::AstBase* root, const PassFunctionT& pass_function, bool track_srcloc);
         pass_behavior pass_0_process_scope_and_non_local_defination(
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
         pass_behavior pass_1_process_basic_type_marking_and_constant_eval(

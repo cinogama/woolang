@@ -1,6 +1,7 @@
 #include "wo_afx.hpp"
 
 #include "wo_ir_compiler.hpp"
+#include "wo_compiler_parser.hpp"
 
 namespace wo
 {
@@ -1448,18 +1449,19 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::push_srcloc(
-        const char* filepath,
-        uint32_t begin_line,
-        uint32_t begin_column,
-        uint32_t end_line,
-        uint32_t end_column)
+    void IRCompiler::push_srcloc(const ast::AstBase* node)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back();
-        if (!woort_IRFunction_push_srcloc(cur, filepath, begin_line, begin_column, end_line, end_column))
+        if (!woort_IRFunction_push_srcloc(
+            cur, 
+            node->source_location.source_file->c_str(), 
+            node->source_location.begin_at.row,
+            node->source_location.begin_at.column,
+            node->source_location.end_at.row,
+            node->source_location.end_at.column))
             abondon();
     }
 

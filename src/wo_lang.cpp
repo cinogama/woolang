@@ -624,17 +624,21 @@ namespace wo
     //////////////////////////////////////
 
     LangContext::AstNodeWithState::AstNodeWithState(ast::AstBase* node)
-        : m_state(UNPROCESSED), m_ast_node(node)
+        : m_state(UNPROCESSED)
+        , m_ast_node(node)
+        , m_srcloc_pushed(false)
 #ifndef NDEBUG
-        ,
-        m_debug_scope_layer_count(0), m_debug_entry_scope(nullptr)
+        , m_debug_scope_layer_count(0)
+        , m_debug_entry_scope(nullptr)
 #endif
     {
         wo_assert(m_ast_node != nullptr);
     }
     LangContext::AstNodeWithState::AstNodeWithState(
         pass_behavior state, ast::AstBase* node)
-        : m_state(state), m_ast_node(node)
+        : m_state(state)
+        , m_ast_node(node)
+        , m_srcloc_pushed(false)
     {
         wo_assert(m_ast_node != nullptr);
     }
@@ -1089,7 +1093,7 @@ namespace wo
     }
 
     bool LangContext::anylize_pass(
-        lexer& lex, ast::AstBase* root, const PassFunctionT& pass_function)
+        lexer& lex, ast::AstBase* root, const PassFunctionT& pass_function, bool track_srcloc)
     {
         PassProcessStackT process_stack;
         std::stack<AstNodeWithState*> process_roots;
@@ -1132,6 +1136,16 @@ namespace wo
             if (top_state.m_state == HOLD || top_state.m_state == HOLD_BUT_CHILD_FAILED)
                 process_roots.pop();
 
+            if (track_srcloc && top_state.m_state == UNPROCESSED)
+            {
+                auto& sl = top_state.m_ast_node->source_location;
+                if (sl.source_file != nullptr)
+                {
+                    m_ircontext.c().push_srcloc(top_state.m_ast_node);
+                    top_state.m_srcloc_pushed = true;
+                }
+            }
+
             auto process_state = pass_function(this, lex, top_state, process_stack);
 
             switch (process_state)
@@ -1142,7 +1156,11 @@ namespace wo
                 break;
             case FAILED:
                 if (process_roots.empty())
+                {
+                    if (top_state.m_srcloc_pushed)
+                        m_ircontext.c().pop_srcloc();
                     return false;
+                }
                 process_roots.top()->m_state = HOLD_BUT_CHILD_FAILED;
                 /* FALL THROUGH */
                 [[fallthrough]];
@@ -1158,6 +1176,8 @@ namespace wo
                     m_ircontext.m_eval_result_storage_target.size()
                     + m_ircontext.m_evaled_result_storage.size());
 #endif
+                if (top_state.m_srcloc_pushed)
+                    m_ircontext.c().pop_srcloc();
                 process_stack.pop();
                 break;
             default:
@@ -1263,10 +1283,10 @@ namespace wo
     {
         pass_0_5_register_builtin_types();
 
-        if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination))
+        if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination, false))
             return compile_result::PROCESS_FAILED;
 
-        if (!anylize_pass(lex, root, &LangContext::pass_1_process_basic_type_marking_and_constant_eval))
+        if (!anylize_pass(lex, root, &LangContext::pass_1_process_basic_type_marking_and_constant_eval, false))
             return compile_result::PROCESS_FAILED;
 
         // Final process, generate bytecode.
@@ -1305,7 +1325,7 @@ namespace wo
             entry_function_global_init_flag,
             m_ircontext.c().load_imm_int(2));
 
-        if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
+        if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation, true))
             return compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
 
         m_ircontext.c().ret(m_ircontext.c().load_imm_int(0));

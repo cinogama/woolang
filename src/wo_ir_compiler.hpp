@@ -7,6 +7,24 @@
 
 namespace wo
 {
+    namespace ast
+    {
+        class AstBase;
+    }
+
+    struct NamedLabelInAst
+    {
+        ast::AstBase* m_ast;
+        const char* m_label_name;
+    };
+
+    struct IRFunction
+    {
+        woort_IRFunction* m_irfunction;
+        std::unordered_map<NamedLabelInAst, woort_IRLabel*>
+            m_local_named_labels;
+    };
+
     class IRCompiler
     {
         /* OPTIONAL */ woort_IRCompiler* m_ircompiler;
@@ -272,12 +290,7 @@ namespace wo
         void panic(const woort_IRValue* msg);
 
         /* --- Source Location --- */
-        void push_srcloc(
-            /* OPTIONAL */ const char* filepath,
-            uint32_t begin_line,
-            uint32_t begin_column,
-            uint32_t end_line,
-            uint32_t end_column);
+        void push_srcloc(const ast::AstBase* node);
         void pop_srcloc();
 
     };
