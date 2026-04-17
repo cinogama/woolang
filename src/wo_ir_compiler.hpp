@@ -35,7 +35,13 @@ namespace wo
             m_closure_imm_pool;
         std::unordered_map<ast::AstValueFunction*, woort_IRConstantIndex>
             m_function_imm_pool;
-        std::map<ast::ConstantValue, woort_IRConstantIndex>
+
+        struct TupleImm
+        {
+            woort_IRConstantIndex m_idx;
+            std::vector<woort_IRConstantIndex> m_fields;
+        };
+        std::map<ast::ConstantValue::StructStorage, TupleImm>
             m_tuple_imm_pool;
 
     public:
@@ -227,6 +233,20 @@ namespace wo
         void ret_void();
 
         /* --- Imm load helper */
+        woort_IRConstantIndex imm_int(woort_Int val);
+        woort_IRConstantIndex imm_box_int(woort_Int val);
+        woort_IRConstantIndex imm_real(woort_Real val);
+        woort_IRConstantIndex imm_box_real(woort_Real val);
+        woort_IRConstantIndex imm_box_bool(bool val);
+        woort_IRConstantIndex imm_string(wo_pstring_t val);
+        woort_IRConstantIndex imm_closure(ast::AstValueFunction* val);
+        woort_IRConstantIndex imm_function(ast::AstValueFunction* val);
+
+        woort_IRConstantIndex imm_nil();
+        woort_IRConstantIndex imm_bool(bool val);
+        woort_IRConstantIndex imm_handle(woort_Handle handle);
+        woort_IRConstantIndex imm_box_handle(woort_Handle handle);
+
         const woort_IRValue* load_imm_int(woort_Int val);
         const woort_IRValue* load_imm_box_int(woort_Int val);
         const woort_IRValue* load_imm_real(woort_Real val);
@@ -241,6 +261,8 @@ namespace wo
         const woort_IRValue* load_imm_handle(woort_Handle handle);
         const woort_IRValue* load_imm_box_handle(woort_Handle handle);
 
+        woort_IRConstantIndex imm_const(
+            const ast::ConstantValue& constant, bool boxed);
         const woort_IRValue* load_imm_const(
             const ast::ConstantValue& constant, bool boxed);
 

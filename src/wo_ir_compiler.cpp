@@ -1474,178 +1474,242 @@ namespace wo
 
     //
 
-    const woort_IRValue* IRCompiler::load_imm_int(woort_Int val)
+    woort_IRConstantIndex IRCompiler::imm_int(woort_Int val)
     {
         if (is_abondoned())
-            return nullptr;
+            return 0;
 
         auto it = m_nil_bool_int_handle_imm_pool.find(val);
         if (it == m_nil_bool_int_handle_imm_pool.end())
         {
             woort_IRConstantIndex cidx = alloc_constant();
             m_nil_bool_int_handle_imm_pool.emplace(val, cidx);
-            return load_constant(cidx);
+            return cidx;
         }
-        return load_constant(it->second);
+        return it->second;
     }
-    const woort_IRValue* IRCompiler::load_imm_box_int(woort_Int val)
+    woort_IRConstantIndex IRCompiler::imm_box_int(woort_Int val)
     {
         if (is_abondoned())
-            return nullptr;
+            return 0;
 
         auto it = m_boxed_int_imm_pool.find(val);
         if (it == m_boxed_int_imm_pool.end())
         {
             woort_IRConstantIndex cidx = alloc_constant();
             m_boxed_int_imm_pool.emplace(val, cidx);
-            return load_constant(cidx);
+            return cidx;
         }
-        return load_constant(it->second);
+        return it->second;
     }
-    const woort_IRValue* IRCompiler::load_imm_real(woort_Real val)
+    woort_IRConstantIndex IRCompiler::imm_real(woort_Real val)
     {
         if (is_abondoned())
-            return nullptr;
+            return 0;
 
         auto it = m_real_imm_pool.find(val);
         if (it == m_real_imm_pool.end())
         {
             woort_IRConstantIndex cidx = alloc_constant();
             m_real_imm_pool.emplace(val, cidx);
-            return load_constant(cidx);
+            return cidx;
         }
-        return load_constant(it->second);
+        return it->second;
     }
-    const woort_IRValue* IRCompiler::load_imm_box_real(woort_Real val)
+    woort_IRConstantIndex IRCompiler::imm_box_real(woort_Real val)
     {
         if (is_abondoned())
-            return nullptr;
+            return 0;
 
         auto it = m_boxed_real_imm_pool.find(val);
         if (it == m_boxed_real_imm_pool.end())
         {
             woort_IRConstantIndex cidx = alloc_constant();
             m_boxed_real_imm_pool.emplace(val, cidx);
-            return load_constant(cidx);
+            return cidx;
         }
-        return load_constant(it->second);
+        return it->second;
     }
-    const woort_IRValue* IRCompiler::load_imm_box_bool(bool val)
+    woort_IRConstantIndex IRCompiler::imm_box_bool(bool val)
     {
         if (is_abondoned())
-            return nullptr;
+            return 0;
 
         std::optional<woort_IRConstantIndex>& slot = val ? m_boxed_true_imm : m_boxed_false_imm;
         if (!slot.has_value())
         {
             woort_IRConstantIndex cidx = alloc_constant();
             slot = cidx;
-            return load_constant(cidx);
+            return cidx;
         }
-        return load_constant(slot.value());
+        return slot.value();
     }
-    const woort_IRValue* IRCompiler::load_imm_string(wo_pstring_t val)
+    woort_IRConstantIndex IRCompiler::imm_string(wo_pstring_t val)
     {
         if (is_abondoned())
-            return nullptr;
+            return 0;
 
         auto it = m_string_imm_pool.find(val);
         if (it == m_string_imm_pool.end())
         {
             woort_IRConstantIndex cidx = alloc_constant();
             m_string_imm_pool.emplace(val, cidx);
-            return load_constant(cidx);
+            return cidx;
         }
-        return load_constant(it->second);
+        return it->second;
     }
-    const woort_IRValue* IRCompiler::load_imm_closure(ast::AstValueFunction* val)
+    woort_IRConstantIndex IRCompiler::imm_closure(ast::AstValueFunction* val)
     {
         if (is_abondoned())
-            return nullptr;
+            return 0;
 
         auto it = m_closure_imm_pool.find(val);
         if (it == m_closure_imm_pool.end())
         {
             woort_IRConstantIndex cidx = alloc_constant();
             m_closure_imm_pool.emplace(val, cidx);
-            return load_constant(cidx);
+            return cidx;
         }
-        return load_constant(it->second);
+        return it->second;
     }
-    const woort_IRValue* IRCompiler::load_imm_function(ast::AstValueFunction* val)
+    woort_IRConstantIndex IRCompiler::imm_function(ast::AstValueFunction* val)
     {
         if (is_abondoned())
-            return nullptr;
+            return 0;
 
         auto it = m_function_imm_pool.find(val);
         if (it == m_function_imm_pool.end())
         {
             woort_IRConstantIndex cidx = alloc_constant();
             m_function_imm_pool.emplace(val, cidx);
-            return load_constant(cidx);
+            return cidx;
         }
-        return load_constant(it->second);
+        return it->second;
+    }
+    woort_IRConstantIndex IRCompiler::imm_nil()
+    {
+        return imm_int(0);
+    }
+    woort_IRConstantIndex IRCompiler::imm_bool(bool val)
+    {
+        return imm_int(val ? 1 : 0);
+    }
+    woort_IRConstantIndex IRCompiler::imm_handle(woort_Handle handle)
+    {
+        return imm_int(static_cast<woort_Int>(handle));
+    }
+    woort_IRConstantIndex IRCompiler::imm_box_handle(woort_Handle handle)
+    {
+        return imm_box_int(static_cast<woort_Int>(handle));
+    }
+
+    const woort_IRValue* IRCompiler::load_imm_int(woort_Int val)
+    {
+        return load_constant(imm_int(val));
+    }
+    const woort_IRValue* IRCompiler::load_imm_box_int(woort_Int val)
+    {
+        return load_constant(imm_box_int(val));
+    }
+    const woort_IRValue* IRCompiler::load_imm_real(woort_Real val)
+    {
+        return load_constant(imm_real(val));
+    }
+    const woort_IRValue* IRCompiler::load_imm_box_real(woort_Real val)
+    {
+        return load_constant(imm_box_real(val));
+    }
+    const woort_IRValue* IRCompiler::load_imm_box_bool(bool val)
+    {
+        return load_constant(imm_box_bool(val));
+    }
+    const woort_IRValue* IRCompiler::load_imm_string(wo_pstring_t val)
+    {
+        return load_constant(imm_string(val));
+    }
+    const woort_IRValue* IRCompiler::load_imm_closure(ast::AstValueFunction* val)
+    {
+        return load_constant(imm_closure(val));
+    }
+    const woort_IRValue* IRCompiler::load_imm_function(ast::AstValueFunction* val)
+    {
+        return load_constant(imm_function(val));
     }
     const woort_IRValue* IRCompiler::load_imm_nil()
     {
-        return load_imm_int(0);
+        return load_constant(imm_nil());
     }
     const woort_IRValue* IRCompiler::load_imm_bool(bool val)
     {
-        return load_imm_int(val ? 1 : 0);
+        return load_constant(imm_bool(val));
     }
     const woort_IRValue* IRCompiler::load_imm_handle(woort_Handle handle)
     {
-        return load_imm_int(static_cast<woort_Int>(handle));
+        return load_constant(imm_handle(handle));
     }
     const woort_IRValue* IRCompiler::load_imm_box_handle(woort_Handle handle)
     {
-        return load_imm_box_int(static_cast<woort_Int>(handle));
+        return load_constant(imm_box_handle(handle));
     }
-    const woort_IRValue* IRCompiler::load_imm_const(
+
+    woort_IRConstantIndex IRCompiler::imm_const(
         const ast::ConstantValue& constant, bool boxed)
     {
         if (is_abondoned())
-            return nullptr;
+            return 0;
 
         switch (constant.m_type)
         {
         case ast::ConstantValue::Type::NIL:
-            return load_imm_nil();
+            return imm_nil();
         case ast::ConstantValue::Type::BOOL:
             if (boxed)
-                return load_imm_box_bool(constant.value_bool());
-            return load_imm_bool(constant.value_bool());
+                return imm_box_bool(constant.value_bool());
+            return imm_bool(constant.value_bool());
         case ast::ConstantValue::Type::INTEGER:
             if (boxed)
-                return load_imm_box_int(constant.value_integer());
-            return load_imm_int(constant.value_integer());
+                return imm_box_int(constant.value_integer());
+            return imm_int(constant.value_integer());
         case ast::ConstantValue::Type::HANDLE:
             if (boxed)
-                return load_imm_box_handle(constant.value_handle());
-            return load_imm_handle(constant.value_handle());
+                return imm_box_handle(constant.value_handle());
+            return imm_handle(constant.value_handle());
         case ast::ConstantValue::Type::REAL:
             if (boxed)
-                return load_imm_box_real(constant.value_real());
-            return load_imm_real(constant.value_real());
+                return imm_box_real(constant.value_real());
+            return imm_real(constant.value_real());
         case ast::ConstantValue::Type::PSTRING:
-            return load_imm_string(constant.value_pstring());
+            return imm_string(constant.value_pstring());
         case ast::ConstantValue::Type::FUNCTION:
-            return load_imm_closure(constant.value_function());
+            return imm_closure(constant.value_function());
         case ast::ConstantValue::Type::STRUCT:
         {
-            auto it = m_tuple_imm_pool.find(constant);
+            auto& struct_data = constant.value_struct();
+            auto it = m_tuple_imm_pool.find(struct_data);
             if (it == m_tuple_imm_pool.end())
             {
-                woort_IRConstantIndex cidx = alloc_constant();
-                m_tuple_imm_pool.emplace(constant, cidx);
-                return load_constant(cidx);
+                TupleImm t;
+                t.m_fields.reserve(struct_data.m_count);
+                for (size_t i = 0; i < struct_data.m_count; ++i)
+                {
+                    t.m_fields.push_back(
+                        imm_const(struct_data.m_elements[i], false));
+                }
+                t.m_idx = alloc_constant();
+                woort_IRConstantIndex result_idx = t.m_idx;
+                m_tuple_imm_pool.emplace(struct_data, std::move(t));
+                return result_idx;
             }
-            return load_constant(it->second);
+            return it->second.m_idx;
         }
         default:
             wo_unreachable("Unknown ConstantValue type");
-            return nullptr;
+            return 0;
         }
+    }
+    const woort_IRValue* IRCompiler::load_imm_const(
+        const ast::ConstantValue& constant, bool boxed)
+    {
+        return load_constant(imm_const(constant, boxed));
     }
 }
