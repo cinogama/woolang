@@ -529,7 +529,10 @@ namespace wo
             std::optional<ast::AstBase*> m_pdi_node;
 
             const std::optional<woort_IRValue*>& get_assign_target(bool* out_need_box) noexcept;
-            void set_result(BytecodeGenerateContext& ctx, woort_IRValue* result) noexcept;
+
+  /*          void set_result_stack(BytecodeGenerateContext& ctx, woort_IRValue* result) noexcept;
+            void set_result_temp(BytecodeGenerateContext& ctx, woort_IRValue* result) noexcept;
+            void set_result_constant(BytecodeGenerateContext& ctx, woort_IRCON*/
         };
         std::stack<EvalResult> m_eval_result_storage_target;
         std::stack<EvalResult> m_evaled_result_storage;
@@ -561,7 +564,7 @@ namespace wo
         void eval_for_upper();
         void cleanup_for_eval_upper();
 
-        void eval_to_assign_if_not_ignore(opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode);
+        void eval_to_assign_if_not_ignore(woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode);
         void do_eval_if_not_ignore(void(BytecodeGenerateContext::* method)());
 
         void begin_loop_while(ast::AstWhile* ast);

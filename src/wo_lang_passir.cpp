@@ -491,7 +491,7 @@ namespace wo
                 return FAILED;
             }
 
-            m_ircontext.eval_ignore();
+            m_ircontext.eval_and_ignore();
             bool result = pass_final_value(lex, eval_value);
 
             if (result)
