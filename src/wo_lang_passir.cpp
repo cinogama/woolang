@@ -5,6 +5,49 @@ namespace wo
 #ifndef WO_DISABLE_COMPILER
     using namespace ast;
 
+    void BytecodeGenerateContext::begin_loop_while(ast::AstWhile* ast)
+    {
+        abort();
+        /*m_loop_content_stack.push_back(LoopContent{
+            ast->m_LANG_binded_label.has_value()
+                ? std::optional(ast->m_LANG_binded_label.value()->m_label)
+                : std::nullopt,
+            _generate_label("#while_end_", ast),
+            _generate_label("#while_begin_", ast)
+            });*/
+    }
+    void BytecodeGenerateContext::begin_loop_for(ast::AstFor* ast)
+    {
+        m_loop_content_stack.push_back(LoopContent{
+            ast->m_LANG_binded_label.has_value()
+                ? std::optional(ast->m_LANG_binded_label.value()->m_label)
+                : std::nullopt,
+            ast->m_IR_Label_end.value(),
+            ast->m_IR_Label_next.value(),
+            });
+    }
+    std::optional<BytecodeGenerateContext::LoopContent*>
+        BytecodeGenerateContext::find_nearest_loop_content_label(
+            const std::optional<wo_pstring_t>& label)
+    {
+        auto loop_rend = m_loop_content_stack.rend();
+        for (auto it = m_loop_content_stack.rbegin();
+            it != loop_rend;
+            ++it)
+        {
+            if (!label.has_value()
+                || (it->m_label.has_value() && it->m_label.value() == label.value()))
+                return &(*it);
+        }
+        return std::nullopt;
+    }
+
+    void BytecodeGenerateContext::end_loop()
+    {
+        wo_assert(!m_loop_content_stack.empty());
+        m_loop_content_stack.pop_back();
+    }
+
     void LangContext::init_passir()
     {
         // No need to impl:
@@ -89,6 +132,7 @@ namespace wo
     {
         // NOTE: Donot generate code for AstDefer, 
         // code will be generated in AstReturn & AstScope.
+
         return OKAY;
     }
     WO_PASS_PROCESSER(AstScope)
@@ -178,7 +222,117 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstFor)
     {
-        abort();
+        /*
+        for (INITEXPR; COND; NEXT)
+            BODY
+        ===========================>
+            ..InitExpr..
+            jfwd _for_cond
+        _for_begin:
+            ..Body..
+        _for_next:
+            NEXT
+        _for_cond:
+            jCOND _for_begin
+        for_end:
+        */
+
+        if (state == UNPROCESSED)
+        {
+            if (node->m_initial.has_value())
+                WO_CONTINUE_PROCESS(node->m_initial.value());
+
+            node->m_LANG_hold_state = AstFor::IR_HOLD_FOR_INIT_EVAL;
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstFor::IR_HOLD_FOR_INIT_EVAL:
+                if (node->m_condition.has_value()
+                    && !node->m_condition.value()->m_evaled_const_value.has_value())
+                {
+                    woort_IRLabel* const for_label_cond = m_ircontext.c().new_label();
+                    node->m_IR_Label_cond.emplace(for_label_cond);
+
+                    // Need runtime cond.
+                    m_ircontext.c().jmp(for_label_cond);
+                }
+                else
+                {
+                    if (node->m_condition.has_value()
+                        && node->m_condition.value()->m_evaled_const_value.has_value()
+                        && !node->m_condition.value()->m_evaled_const_value.value().value_bool())
+                    {
+                        // Always false, skip body next and cond.
+                        return OKAY;
+                    }
+                }
+
+                node->m_IR_Label_begin.emplace(m_ircontext.c().new_label());
+                node->m_IR_Label_next.emplace(m_ircontext.c().new_label());
+                node->m_IR_Label_end.emplace(m_ircontext.c().new_label());
+
+                m_ircontext.c().bind(node->m_IR_Label_begin.value());
+
+                // Loop begin
+                m_ircontext.begin_loop_for(node);
+
+                WO_CONTINUE_PROCESS(node->m_body);
+                node->m_LANG_hold_state = AstFor::IR_HOLD_FOR_BODY_EVAL;
+                return HOLD;
+
+            case AstFor::IR_HOLD_FOR_BODY_EVAL:
+                m_ircontext.end_loop();
+
+                m_ircontext.c().bind(node->m_IR_Label_next.value());
+
+                if (node->m_step.has_value())
+                {
+                    m_ircontext.eval_and_ignore();
+                    if (!pass_final_value(lex, node->m_step.value()))
+                        return FAILED;
+                }
+
+                if (node->m_IR_Label_cond.has_value())
+                {
+                    wo_assert(node->m_condition.has_value()
+                        && !node->m_condition.value()->m_evaled_const_value.has_value());
+
+                    m_ircontext.c().bind(node->m_IR_Label_cond.value());
+
+                    /*m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
+                    if (!pass_final_value(lex, node->m_condition.value()))
+                        return FAILED;
+
+                    (void)m_ircontext.get_eval_result();
+
+                    m_ircontext.c().jt(opnum::tag(_generate_label("#for_begin_", node)));*/
+
+                    // TODO: More optimzied code generate required.
+
+                    abort();
+                }
+                else
+                {
+                    // Must be dead loop here.
+                    m_ircontext.c().jmp(node->m_IR_Label_begin.value());
+                }
+                m_ircontext.c().bind(node->m_IR_Label_end.value());
+
+                break;
+            default:
+                wo_error("Unknown hold state.");
+                break;
+            }
+        }
+        else
+        {
+            // Failed, we still need to end the loop.
+            if (node->m_LANG_hold_state == AstFor::IR_HOLD_FOR_BODY_EVAL)
+                m_ircontext.end_loop();
+        }
         return OKAY;
     }
     WO_PASS_PROCESSER(AstForeach)
@@ -192,8 +346,20 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstBreak)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
+            // Loop has been checked in pass1.
+
+            // WO_GENERATE_PDI_FOR(node);
+            m_ircontext.c().jmp(loop.value()->m_break_label);
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstContinue)
     {

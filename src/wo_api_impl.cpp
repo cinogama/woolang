@@ -566,15 +566,18 @@ bool _wo_compile_entry(
 void _wo_test_compile()
 {
     const char* src = R"(
-    func fib(n: int)=> int
+    for(;;)
     {
-        if (n < 2)
-            return 1;
-        return fib(n - 1) + fib(n - 2);
-    }   
-    fib(40);
-    )";
+        for (;;)
+        {
+            /*for (;;)
+                break;*/
 
+            break;
+        }
+    }   
+    )";
+    
     std::optional<woort_CodeEnv*> out_env_if_success;
     std::optional<std::unique_ptr<wo::lexer>> out_lexer_if_failed;
 
@@ -585,4 +588,6 @@ void _wo_test_compile()
         std::nullopt,
         &out_env_if_success,
         &out_lexer_if_failed);
+
+    woort_CodeEnv_dumps(out_env_if_success.value());
 }

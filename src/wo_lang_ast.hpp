@@ -1066,6 +1066,13 @@ namespace wo
             std::optional<lang_Scope*> m_LANG_loop_scope;
             std::optional<AstLabeled*> m_LANG_binded_label;
 
+            // Always contain begin/next/end (if cond not constant false).
+            std::optional<woort_IRLabel*> m_IR_Label_begin;
+            std::optional<woort_IRLabel*> m_IR_Label_next;
+            std::optional<woort_IRLabel*> m_IR_Label_end;
+            // If cond not a constant, use cond.
+            std::optional<woort_IRLabel*> m_IR_Label_cond;
+
             AstFor(
                 std::optional<AstBase*> initial,
                 std::optional<AstValueBase*> condition,
