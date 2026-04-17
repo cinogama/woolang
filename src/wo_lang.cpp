@@ -1269,14 +1269,14 @@ namespace wo
 
         // Final process, generate bytecode.
         // NOTE: After 1.15. we will create a entry function for init job.
-        
+
         woort_IRFunction* entry_function = m_ircontext.c().push_function(0);
 
         // Entry function cannot be invoked twice, check it.
         woort_IRLabel* label_bad_entry = m_ircontext.c().new_label();
         woort_IRLabel* label_entry_body = m_ircontext.c().new_label();
 
-        woort_IRStaticIndex entry_function_global_init_flag = 
+        woort_IRStaticIndex entry_function_global_init_flag =
             m_ircontext.c().alloc_static();
 
         /*
@@ -1300,7 +1300,7 @@ namespace wo
         // Entry body:
         m_ircontext.c().bind(label_entry_body);
         m_ircontext.c().astore(
-            entry_function_global_init_flag, 
+            entry_function_global_init_flag,
             m_ircontext.c().load_imm_int(2));
 
         if (!anylize_pass(lex, root, &LangContext::pass_final_A_process_bytecode_generation))
@@ -2409,124 +2409,181 @@ namespace wo
 #endif 
     }
 
-    void BytecodeGenerateContext::failed_eval_result() noexcept
-    {
-        m_eval_result_storage_target.pop();
-    }
-
-    void BytecodeGenerateContext::eval_action()
+    void BytecodeGenerateContext::eval_to_assign(
+        woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode)
     {
         m_eval_result_storage_target.push(
             EvalResult{
-                EvalResult::Request::EVAL_PURE_ACTION,
-                std::nullopt,
-                std::nullopt,
-            });
-    }
-    void BytecodeGenerateContext::eval_for_upper()
-    {
-        wo_assert(!m_eval_result_storage_target.empty());
-
-        // Make a duplicated eval request (For FAILED recover).
-        m_eval_result_storage_target.push(m_eval_result_storage_target.top());
-    }
-    void BytecodeGenerateContext::cleanup_for_eval_upper()
-    {
-        m_eval_result_storage_target.pop();
-    }
-    void BytecodeGenerateContext::eval_keep()
-    {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP,
-                std::nullopt,
-                std::nullopt,
-            });
-    }
-    void BytecodeGenerateContext::eval_push()
-    {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT,
-                std::nullopt,
-                std::nullopt,
-            });
-    }
-    void BytecodeGenerateContext::eval()
-    {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::GET_RESULT_OPNUM_ONLY,
-                std::nullopt,
-                std::nullopt,
-            });
-    }
-    void BytecodeGenerateContext::eval_to(
-        opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode)
-    {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM,
+                EvalResult::Request::ASSIGN_TO_TARGET_AND_IGNORE,
                 target,
                 pdinode,
             });
     }
-    void BytecodeGenerateContext::eval_ignore()
+    void BytecodeGenerateContext::begin_eval_readonly()
     {
         m_eval_result_storage_target.push(
             EvalResult{
-                EvalResult::Request::IGNORE_RESULT,
+                EvalResult::Request::GET_RESULT_FOR_READONLY,
                 std::nullopt,
                 std::nullopt,
             });
     }
-    void BytecodeGenerateContext::eval_to_if_not_ignore(
-        opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode)
+    void BytecodeGenerateContext::begin_eval_readwrite()
     {
-        if (!eval_result_ignored())
-            eval_to(target, pdinode);
-        else
-            eval_ignore();
+        m_eval_result_storage_target.push(
+            EvalResult{
+                EvalResult::Request::GET_RESULT_FOR_READWRITE,
+                std::nullopt,
+                std::nullopt,
+            });
     }
-    void BytecodeGenerateContext::eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)())
+    void BytecodeGenerateContext::eval_to_push()
     {
-        if (!eval_result_ignored())
-        {
-#ifndef NDEBUG
-            size_t current_request_count = m_eval_result_storage_target.size();
-#endif
-            (this->*method)();
-#ifndef NDEBUG
-            // NOTE: Cannot `eval_for_upper` in eval_sth_if_not_ignore.
-            //  You can invoke `eval_for_upper` directly, it has same check effect.
-            wo_assert(m_eval_result_storage_target.size() == current_request_count + 1);
-#endif
-        }
-        else
-            eval_ignore();
+        m_eval_result_storage_target.push(
+            EvalResult{
+                EvalResult::Request::PUSH_RESULT_AND_IGNORE,
+                std::nullopt,
+                std::nullopt,
+            });
     }
-
-    opnum::opnumbase* BytecodeGenerateContext::get_eval_result()
+    void BytecodeGenerateContext::eval_to_assign_box(
+        woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode)
     {
-        // TODO;
-        abort();
-#if 0
-        auto& result = m_evaled_result_storage.top();
-        auto* result_opnum = result.m_result.value();
-
-        wo_assert(
-            result.m_request == EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM
-            || result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY
-            || result.m_request == EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP);
-
-        if (result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY)
-            try_return_opnum_temporary_register(result_opnum);
-
-        m_evaled_result_storage.pop();
-        return result_opnum;
-#endif
+        m_eval_result_storage_target.push(
+            EvalResult{
+                EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE,
+                target,
+                pdinode,
+            });
     }
+    void BytecodeGenerateContext::begin_eval_readonly_box();
+    void BytecodeGenerateContext::eval_to_push_box();
+    void BytecodeGenerateContext::eval_and_ignore();
 
+    void BytecodeGenerateContext::eval_for_upper();
+    void BytecodeGenerateContext::cleanup_for_eval_upper();
+
+    void BytecodeGenerateContext::eval_to_if_not_ignore(opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode);
+    void BytecodeGenerateContext::do_eval_if_not_ignore(void(BytecodeGenerateContext::* method)());
+
+    void BytecodeGenerateContext::failed_eval_result() noexcept
+    {
+        m_eval_result_storage_target.pop();
+    }
+    //
+    //    void BytecodeGenerateContext::eval_action()
+    //    {
+    //        m_eval_result_storage_target.push(
+    //            EvalResult{
+    //                EvalResult::Request::EVAL_PURE_ACTION,
+    //                std::nullopt,
+    //                std::nullopt,
+    //            });
+    //    }
+    //    void BytecodeGenerateContext::eval_for_upper()
+    //    {
+    //        wo_assert(!m_eval_result_storage_target.empty());
+    //
+    //        // Make a duplicated eval request (For FAILED recover).
+    //        m_eval_result_storage_target.push(m_eval_result_storage_target.top());
+    //    }
+    //    void BytecodeGenerateContext::cleanup_for_eval_upper()
+    //    {
+    //        m_eval_result_storage_target.pop();
+    //    }
+    //    void BytecodeGenerateContext::eval_keep()
+    //    {
+    //        m_eval_result_storage_target.push(
+    //            EvalResult{
+    //                EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP,
+    //                std::nullopt,
+    //                std::nullopt,
+    //            });
+    //    }
+    //    void BytecodeGenerateContext::eval_push()
+    //    {
+    //        m_eval_result_storage_target.push(
+    //            EvalResult{
+    //                EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT,
+    //                std::nullopt,
+    //                std::nullopt,
+    //            });
+    //    }
+    //    void BytecodeGenerateContext::eval()
+    //    {
+    //        m_eval_result_storage_target.push(
+    //            EvalResult{
+    //                EvalResult::Request::GET_RESULT_OPNUM_ONLY,
+    //                std::nullopt,
+    //                std::nullopt,
+    //            });
+    //    }
+    //    void BytecodeGenerateContext::eval_to(
+    //        opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode)
+    //    {
+    //        m_eval_result_storage_target.push(
+    //            EvalResult{
+    //                EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM,
+    //                target,
+    //                pdinode,
+    //            });
+    //    }
+    //    void BytecodeGenerateContext::eval_ignore()
+    //    {
+    //        m_eval_result_storage_target.push(
+    //            EvalResult{
+    //                EvalResult::Request::IGNORE_RESULT,
+    //                std::nullopt,
+    //                std::nullopt,
+    //            });
+    //    }
+    //    void BytecodeGenerateContext::eval_to_if_not_ignore(
+    //        opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode)
+    //    {
+    //        if (!eval_result_ignored())
+    //            eval_to(target, pdinode);
+    //        else
+    //            eval_ignore();
+    //    }
+    //    void BytecodeGenerateContext::eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)())
+    //    {
+    //        if (!eval_result_ignored())
+    //        {
+    //#ifndef NDEBUG
+    //            size_t current_request_count = m_eval_result_storage_target.size();
+    //#endif
+    //            (this->*method)();
+    //#ifndef NDEBUG
+    //            // NOTE: Cannot `eval_for_upper` in eval_sth_if_not_ignore.
+    //            //  You can invoke `eval_for_upper` directly, it has same check effect.
+    //            wo_assert(m_eval_result_storage_target.size() == current_request_count + 1);
+    //#endif
+    //        }
+    //        else
+    //            eval_ignore();
+    //    }
+    //
+    //    opnum::opnumbase* BytecodeGenerateContext::get_eval_result()
+    //    {
+    //        // TODO;
+    //        abort();
+    //#if 0
+    //        auto& result = m_evaled_result_storage.top();
+    //        auto* result_opnum = result.m_result.value();
+    //
+    //        wo_assert(
+    //            result.m_request == EvalResult::Request::ASSIGN_TO_SPECIFIED_OPNUM
+    //            || result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY
+    //            || result.m_request == EvalResult::Request::GET_RESULT_OPNUM_AND_KEEP);
+    //
+    //        if (result.m_request == EvalResult::Request::GET_RESULT_OPNUM_ONLY)
+    //            try_return_opnum_temporary_register(result_opnum);
+    //
+    //        m_evaled_result_storage.pop();
+    //        return result_opnum;
+    //#endif
+    //    }
+    //
 
     std::optional<woort_CodeEnv*> BytecodeGenerateContext::finalize()
     {
@@ -2537,14 +2594,24 @@ namespace wo
     {
     }
 
-    const std::optional<opnum::opnumbase*>&
-        BytecodeGenerateContext::EvalResult::get_assign_target() noexcept
+    const std::optional<woort_IRValue*>&
+        BytecodeGenerateContext::EvalResult::get_assign_target(bool* out_need_box) noexcept
     {
+        switch (m_request)
+        {
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
+        case Request::GET_BOXED_RESULT_FOR_READONLY:
+        case Request::PUSH_BOXED_RESULT_AND_IGNORE:
+            *need_box = true;
+        default:
+            *need_box = false;
+        }
+
         return m_result;
     }
 
     void BytecodeGenerateContext::EvalResult::set_result(
-        BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept
+        BytecodeGenerateContext& ctx, woort_IRValue* result) noexcept
     {
         // TODO
         abort();

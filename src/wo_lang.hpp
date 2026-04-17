@@ -520,16 +520,16 @@ namespace wo
             };
             Request m_request;
 
-            // NOTE: If ASSIGN_TO_SPECIFIED_OPNUM, m_result will store target opnum.
-            //  If GET_RESULT_OPNUM, m_result will store the result opnum.
+            // NOTE: If ASSIGN_*, m_result will store target opnum.
+            //  If GET_*, m_result will store the result opnum.
             //  Or m_result will be empty.
-            std::optional<opnum::opnumbase* > m_result;
+            std::optional<woort_IRValue*> m_result;
 
             // The pdinode used for generate debug info.
             std::optional<ast::AstBase*> m_pdi_node;
 
-            const std::optional<opnum::opnumbase*>& get_assign_target() noexcept;
-            void set_result(BytecodeGenerateContext& ctx, opnum::opnumbase* result) noexcept;
+            const std::optional<woort_IRValue*>& get_assign_target(bool* out_need_box) noexcept;
+            void set_result(BytecodeGenerateContext& ctx, woort_IRValue* result) noexcept;
         };
         std::stack<EvalResult> m_eval_result_storage_target;
         std::stack<EvalResult> m_evaled_result_storage;
@@ -549,16 +549,20 @@ namespace wo
         }
         std::optional<woort_CodeEnv*> finalize();
 
-        void eval();
-        void eval_action();
+        void eval_to_assign(woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode);
+        void begin_eval_readonly();
+        void begin_eval_readwrite();
+        void eval_to_push();
+        void eval_to_assign_box(woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode);
+        void begin_eval_readonly_box();
+        void eval_to_push_box();
+        void eval_and_ignore();
+
         void eval_for_upper();
         void cleanup_for_eval_upper();
-        void eval_keep();
-        void eval_push();
-        void eval_to(opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode);
-        void eval_ignore();
-        void eval_to_if_not_ignore(opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode);
-        void eval_sth_if_not_ignore(void(BytecodeGenerateContext::* method)());
+
+        void eval_to_assign_if_not_ignore(opnum::opnumbase* target, const std::optional<ast::AstBase*>& pdinode);
+        void do_eval_if_not_ignore(void(BytecodeGenerateContext::* method)());
 
         void begin_loop_while(ast::AstWhile* ast);
         void begin_loop_for(ast::AstFor* ast);
