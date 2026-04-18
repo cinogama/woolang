@@ -214,6 +214,16 @@ namespace wo
             abondon();
     }
 
+    void IRCompiler::pushstaticchk(woort_IRStaticIndex static_src)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_PUSHSTATICCHK(cur, static_src))
+            abondon();
+    }
+
     void IRCompiler::popr(uint32_t count)
     {
         if (is_abondoned())

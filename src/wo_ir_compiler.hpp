@@ -114,6 +114,7 @@ namespace wo
         void load(woort_IRValue* dst, woort_IRStaticIndex src);
         void store(woort_IRStaticIndex dst, const woort_IRValue* src);
         void pushchk(const woort_IRValue* src);
+        void pushstaticchk(woort_IRStaticIndex static_src);
         void popr(uint32_t count);
         void poprs(const woort_IRValue* count_src);
 

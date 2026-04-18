@@ -145,6 +145,7 @@ namespace wo
         bool is_immutable() const;
         bool is_mutable() const;
         std::optional<const DeterminedType*> get_determined_type() const;
+        bool is_need_to_box_in_IR(woort_BoxValueType* out_type) const;
 
         void determine_base_type_by_another_type(lang_TypeInstance* immutable_from_type);
         void _update_type_instance_depend_this(const DeterminedType& copy_type);
@@ -527,6 +528,7 @@ namespace wo
                 ASSIGN_TO_STACKSLOT,
 
                 RESULT_STACK_VARIABLE,
+                
                 RESULT_STACK_TEMP,
                 RESULT_CONSTANT,
                 RESULT_STATIC,
@@ -536,8 +538,7 @@ namespace wo
             ResultKind m_result_type;
             union
             {
-                woort_IRValue* m_result_stack_readwrite;
-                const woort_IRValue* m_result_stack_readonly;
+                woort_IRValue* m_result_stack;
                 woort_IRStaticIndex m_result_static;
                 woort_IRConstantIndex m_result_constant;
             };
@@ -548,9 +549,22 @@ namespace wo
             std::optional<std::variant<woort_IRValue*, woort_IRStaticIndex>>
                 get_assign_target(bool* out_need_box) noexcept;
 
-  /*          void set_result_stack(BytecodeGenerateContext& ctx, woort_IRValue* result) noexcept;
-            void set_result_temp(BytecodeGenerateContext& ctx, woort_IRValue* result) noexcept;
-            void set_result_constant(BytecodeGenerateContext& ctx, woort_IRCON*/
+            void set_result_stack_temp(
+                BytecodeGenerateContext& ctx, 
+                woort_IRValue* result,
+                const lang_TypeInstance* type) noexcept;
+            void set_result_stack_var(
+                BytecodeGenerateContext& ctx, 
+                woort_IRValue* result,
+                const lang_TypeInstance* type) noexcept;
+            void set_result_static(
+                BytecodeGenerateContext& ctx, 
+                woort_IRStaticIndex result,
+                const lang_TypeInstance* type) noexcept;
+            void set_result_const(
+                BytecodeGenerateContext& ctx, 
+                woort_IRConstantIndex result,
+                const lang_TypeInstance* type) noexcept;
         };
         std::stack<EvalResult> m_eval_result_storage_target;
         std::stack<EvalResult> m_evaled_result_storage;

@@ -160,8 +160,7 @@ namespace wo
         , m_mutable(mutable_)
         , m_template_params(template_params)
         , m_origin_value_ast(ast)
-    {
-    }
+    {}
 
     lang_TemplateAstEvalStateValue* lang_Symbol::TemplateValuePrefab::find_or_create_template_instance(
         const TemplateArgumentListT& template_args)
@@ -192,8 +191,7 @@ namespace wo
         : m_symbol(symbol)
         , m_template_params(template_params)
         , m_origin_value_ast(ast)
-    {
-    }
+    {}
     lang_TemplateAstEvalStateType* lang_Symbol::TemplateTypePrefab::find_or_create_template_instance(
         const TemplateArgumentListT& template_args)
     {
@@ -223,8 +221,7 @@ namespace wo
         : m_symbol(symbol)
         , m_template_params(template_params)
         , m_origin_value_ast(ast)
-    {
-    }
+    {}
     lang_TemplateAstEvalStateAlias* lang_Symbol::TemplateAliasPrefab::find_or_create_template_instance(
         const TemplateArgumentListT& template_args)
     {
@@ -253,8 +250,7 @@ namespace wo
         : m_symbol(symbol)
         , m_determined_base_type_or_mutable(std::nullopt)
         , m_instance_template_arguments(template_arguments)
-    {
-    }
+    {}
 
     bool lang_TypeInstance::is_immutable() const
     {
@@ -280,7 +276,24 @@ namespace wo
         return std::get<lang_TypeInstance*>(m_determined_base_type_or_mutable)
             ->get_determined_type();
     }
-
+    bool lang_TypeInstance::is_need_to_box_in_IR(woort_BoxValueType* out_type) const
+    {
+        switch (get_determined_type().value()->m_base_type)
+        {
+        case DeterminedType::base_type::HANDLE:
+        case DeterminedType::base_type::INTEGER:
+            *out_type = WOORT_BOX_VALUE_TYPE_INT;
+            return true;
+        case DeterminedType::base_type::REAL:
+            *out_type = WOORT_BOX_VALUE_TYPE_REAL;
+            return true;
+        case DeterminedType::base_type::BOOLEAN:
+            *out_type = WOORT_BOX_VALUE_TYPE_BOOL;
+            return true;
+        default:
+            return false;
+        }
+    }
     void lang_TypeInstance::determine_base_type_by_another_type(lang_TypeInstance* immutable_from_type)
     {
         wo_assert(immutable_from_type->is_immutable());
@@ -376,8 +389,7 @@ namespace wo
 
     lang_TemplateAstEvalStateBase::lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast)
         : m_state(state::UNPROCESSED), m_ast(ast), m_symbol(symbol)
-    {
-    }
+    {}
 
     //////////////////////////////////////
 
@@ -440,8 +452,7 @@ namespace wo
         : m_symbol(symbol)
         , m_instance_template_arguments(template_arguments)
         , m_determined_type(std::nullopt)
-    {
-    }
+    {}
 
     //////////////////////////////////////
     void lang_ValueInstance::try_determine_function_may_constant(
@@ -530,19 +541,16 @@ namespace wo
         , m_instance_template_arguments(template_arguments)
         , m_determined_constant_or_function(std::nullopt)
         , m_determined_type(std::nullopt)
-    {
-    }
+    {}
     lang_ValueInstance::~lang_ValueInstance()
-    {
-    }
+    {}
 
     //////////////////////////////////////
 
     lang_TypeInstance::DeterminedType::DeterminedType(
         base_type type, const ExternalTypeDescription& desc)
         : m_base_type(type), m_external_type_description(desc)
-    {
-    }
+    {}
     lang_TypeInstance::DeterminedType::DeterminedType(DeterminedType&& item)
         : m_base_type(item.m_base_type), m_external_type_description(item.m_external_type_description)
     {
@@ -601,8 +609,7 @@ namespace wo
         , m_labeled_instance(std::nullopt)
         , m_scope_type(ScopeType::NORMAL)
         , m_been_break(false)
-    {
-    }
+    {}
 
     bool lang_Scope::is_namespace_scope() const
     {
@@ -2437,74 +2444,97 @@ namespace wo
         EvalResult r;
         r.m_request = EvalResult::Request::ASSIGN_TO_TARGET_AND_IGNORE;
         r.m_result_type = EvalResult::ResultKind::ASSIGN_TO_STACKSLOT;
-        r.m_result_stack_readwrite = target;
+        r.m_result_stack = target;
         r.m_pdi_node = pdinode;
 
         m_eval_result_storage_target.push(r);
     }
     void BytecodeGenerateContext::begin_eval_readonly()
     {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::GET_RESULT_FOR_READONLY,
-                std::nullopt,
-                std::nullopt,
-            });
+        EvalResult r;
+        r.m_request = EvalResult::Request::GET_RESULT_FOR_READONLY;
+        r.m_result_type = EvalResult::ResultKind::PENDING;
+        r.m_pdi_node = std::nullopt;
+
+        m_eval_result_storage_target.push(r);
     }
     void BytecodeGenerateContext::begin_eval_readwrite()
     {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::GET_RESULT_FOR_READWRITE,
-                std::nullopt,
-                std::nullopt,
-            });
+        EvalResult r;
+        r.m_request = EvalResult::Request::GET_RESULT_FOR_READWRITE;
+        r.m_result_type = EvalResult::ResultKind::PENDING;
+        r.m_pdi_node = std::nullopt;
+
+        m_eval_result_storage_target.push(r);
     }
     void BytecodeGenerateContext::eval_to_push()
     {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::PUSH_RESULT_AND_IGNORE,
-                std::nullopt,
-                std::nullopt,
-            });
+        EvalResult r;
+        r.m_request = EvalResult::Request::PUSH_RESULT_AND_IGNORE;
+        r.m_result_type = EvalResult::ResultKind::PENDING;
+        r.m_pdi_node = std::nullopt;
+
+        m_eval_result_storage_target.push(r);
     }
     void BytecodeGenerateContext::eval_to_assign_box(
         woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode)
     {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE,
-                target,
-                pdinode,
-            });
+        EvalResult r;
+        r.m_request = EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE;
+        r.m_result_type = EvalResult::ResultKind::ASSIGN_TO_STACKSLOT;
+        r.m_result_stack = target;
+        r.m_pdi_node = pdinode;
+
+        m_eval_result_storage_target.push(r);
+    }
+    void BytecodeGenerateContext::eval_to_assign_static(
+        woort_IRStaticIndex target, const std::optional<ast::AstBase*>& pdinode)
+    {
+        EvalResult r;
+        r.m_request = EvalResult::Request::ASSIGN_TO_TARGET_AND_IGNORE;
+        r.m_result_type = EvalResult::ResultKind::ASSIGN_TO_STATIC;
+        r.m_result_static = target;
+        r.m_pdi_node = pdinode;
+
+        m_eval_result_storage_target.push(r);
+    }
+    void BytecodeGenerateContext::eval_to_assign_box_static(
+        woort_IRStaticIndex target, const std::optional<ast::AstBase*>& pdinode)
+    {
+        EvalResult r;
+        r.m_request = EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE;
+        r.m_result_type = EvalResult::ResultKind::ASSIGN_TO_STATIC;
+        r.m_result_static = target;
+        r.m_pdi_node = pdinode;
+
+        m_eval_result_storage_target.push(r);
     }
     void BytecodeGenerateContext::begin_eval_readonly_box()
     {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::GET_BOXED_RESULT_FOR_READONLY,
-                std::nullopt,
-                std::nullopt,
-            });
+        EvalResult r;
+        r.m_request = EvalResult::Request::GET_BOXED_RESULT_FOR_READONLY;
+        r.m_result_type = EvalResult::ResultKind::PENDING;
+        r.m_pdi_node = std::nullopt;
+
+        m_eval_result_storage_target.push(r);
     }
     void BytecodeGenerateContext::eval_to_push_box()
     {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE,
-                std::nullopt,
-                std::nullopt,
-            });
+        EvalResult r;
+        r.m_request = EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE;
+        r.m_result_type = EvalResult::ResultKind::PENDING;
+        r.m_pdi_node = std::nullopt;
+
+        m_eval_result_storage_target.push(r);
     }
     void BytecodeGenerateContext::eval_and_ignore()
     {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::IGNORE_RESULT,
-                std::nullopt,
-                std::nullopt,
-            });
+        EvalResult r;
+        r.m_request = EvalResult::Request::IGNORE_RESULT;
+        r.m_result_type = EvalResult::ResultKind::PENDING;
+        r.m_pdi_node = std::nullopt;
+
+        m_eval_result_storage_target.push(r);
     }
 
     void BytecodeGenerateContext::eval_for_upper()
@@ -2533,7 +2563,7 @@ namespace wo
             eval_and_ignore();
         else
         {
-            #ifndef NDEBUG
+#ifndef NDEBUG
             size_t current_request_count = m_eval_result_storage_target.size();
 #endif
             (this->*method)();
@@ -2556,8 +2586,7 @@ namespace wo
     }
 
     BytecodeGenerateContext::BytecodeGenerateContext() noexcept
-    {
-    }
+    {}
 
     std::optional<std::variant<woort_IRValue*, woort_IRStaticIndex>>
         BytecodeGenerateContext::EvalResult::get_assign_target(bool* out_need_box) noexcept
@@ -2577,41 +2606,168 @@ namespace wo
         case ResultKind::ASSIGN_TO_STATIC:
             return m_result_static;
         case ResultKind::ASSIGN_TO_STACKSLOT:
-            return m_result_stack_readwrite;
+            return m_result_stack;
         default:
             return std::nullopt;
         }
     }
 
-    /*void BytecodeGenerateContext::EvalResult::set_result(
-        BytecodeGenerateContext& ctx, woort_IRValue* result) noexcept
+    void BytecodeGenerateContext::EvalResult::set_result_stack_temp(
+        BytecodeGenerateContext& ctx, woort_IRValue* result, const lang_TypeInstance* type) noexcept
     {
-        wo_assert(m_request == Request::GET_BOXED_RESULT_FOR_READONLY
-            || m_request == Request::GET_RESULT_FOR_READONLY
-            || m_request == Request::GET_RESULT_FOR_READWRITE
-            || m_request == Request::PUSH_RESULT_AND_IGNORE
-            || m_request == Request::PUSH_BOXED_RESULT_AND_IGNORE);
+        wo_assert(m_result_type == ResultKind::PENDING);
 
-        if (m_request == Request::GET_RESULT_OPNUM_AND_KEEP)
+        switch (m_request)
         {
-            auto* reg = dynamic_cast<opnum::reg*>(result);
-            if (reg != nullptr
-                && reg->id >= WO_REG_CR
-                && reg->id != WO_REG_NI)
+        case Request::GET_BOXED_RESULT_FOR_READONLY:
+        {
+            woort_BoxValueType box_type;
+            if (type->is_need_to_box_in_IR(&box_type))
             {
-                auto* borrowed_reg = ctx.borrow_opnum_temporary_register(
-                    WO_BORROW_TEMPORARY_FROM(nullptr));
+                m_result_type = ResultKind::RESULT_STACK_TEMP;
+                m_result_stack = ctx.c().new_value();
 
-                ctx.c().mov(
-                    *(opnum::opnumbase*)borrowed_reg,
-                    *(opnum::opnumbase*)result);
-
-                m_result = borrowed_reg;
-                return;
+                ctx.c().boxdyn(m_result_stack, box_type, result);
+                break;
             }
+            /* fallthrough */
+            [[fallthrough]]
+            ;
         }
-        m_result = result;
-    }*/
+        case Request::GET_RESULT_FOR_READONLY:
+        case Request::GET_RESULT_FOR_READWRITE:
+            m_result_type = ResultKind::RESULT_STACK_TEMP;
+            m_result_stack = result;
+            break;
+        case Request::PUSH_BOXED_RESULT_AND_IGNORE:
+        {
+            woort_BoxValueType box_type;
+            if (type->is_need_to_box_in_IR(&box_type))
+            {
+                ctx.c().pushboxdyn(box_type, result);
+                break;
+            }
+            /* fallthrough */
+            [[fallthrough]]
+            ;
+        }
+        case Request::PUSH_RESULT_AND_IGNORE:
+            ctx.c().pushchk(result);
+            break;
+        case Request::ASSIGN_TO_TARGET_AND_IGNORE:
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
+        default:
+            abort();
+        }
+    }
+    void BytecodeGenerateContext::EvalResult::set_result_stack_var(
+        BytecodeGenerateContext& ctx, woort_IRValue* result, const lang_TypeInstance* type) noexcept
+    {
+        wo_assert(m_result_type == ResultKind::PENDING);
+
+        switch (m_request)
+        {
+        case Request::GET_BOXED_RESULT_FOR_READONLY:
+        {
+            woort_BoxValueType box_type;
+            if (type->is_need_to_box_in_IR(&box_type))
+            {
+                m_result_type = ResultKind::RESULT_STACK_TEMP;
+                m_result_stack = ctx.c().new_value();
+
+                ctx.c().boxdyn(m_result_stack, box_type, result);
+                break;
+            }
+            /* fallthrough */
+            [[fallthrough]]
+            ;
+        }
+        case Request::GET_RESULT_FOR_READONLY:
+            m_result_type = ResultKind::RESULT_STACK_TEMP;
+            m_result_stack = result;
+        case Request::GET_RESULT_FOR_READWRITE:
+            m_result_type = ResultKind::RESULT_STACK_TEMP;
+            m_result_stack = ctx.c().new_value();
+
+            ctx.c().mov(m_result_stack, result);
+            break;
+        case Request::PUSH_BOXED_RESULT_AND_IGNORE:
+        {
+            woort_BoxValueType box_type;
+            if (type->is_need_to_box_in_IR(&box_type))
+            {
+                ctx.c().pushboxdyn(box_type, result);
+                break;
+            }
+            /* fallthrough */
+            [[fallthrough]]
+            ;
+        }
+        case Request::PUSH_RESULT_AND_IGNORE:
+            ctx.c().pushchk(result);
+            break;
+        case Request::ASSIGN_TO_TARGET_AND_IGNORE:
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
+        default:
+            abort();
+        }
+    }
+    void BytecodeGenerateContext::EvalResult::set_result_static(
+        BytecodeGenerateContext& ctx, woort_IRStaticIndex result, const lang_TypeInstance* type) noexcept
+    {
+        wo_assert(m_result_type == ResultKind::PENDING);
+
+        switch (m_request)
+        {
+        case Request::GET_BOXED_RESULT_FOR_READONLY:
+        {
+            woort_BoxValueType box_type;
+            if (type->is_need_to_box_in_IR(&box_type))
+            {
+                m_result_type = ResultKind::RESULT_STACK_TEMP;
+                m_result_stack = ctx.c().new_value();
+
+                ctx.c().load(m_result_stack, result); 
+                ctx.c().boxdyn(m_result_stack, box_type, m_result_stack);
+
+                break;
+            }
+            /* fallthrough */
+            [[fallthrough]]
+            ;
+        }
+        case Request::GET_RESULT_FOR_READONLY:
+        case Request::GET_RESULT_FOR_READWRITE:
+            m_result_type = ResultKind::RESULT_STACK_TEMP;
+            m_result_stack = ctx.c().new_value();
+
+            ctx.c().load(m_result_stack, result);
+            break;
+        case Request::PUSH_BOXED_RESULT_AND_IGNORE:
+        {
+            woort_BoxValueType box_type;
+            if (type->is_need_to_box_in_IR(&box_type))
+            {
+                woort_IRValue* const temp = ctx.c().new_value();
+                ctx.c().load(temp, result);
+                ctx.c().pushboxdyn(box_type, temp);
+                break;
+            }
+            /* fallthrough */
+            [[fallthrough]]
+            ;
+        }
+        case Request::PUSH_RESULT_AND_IGNORE:
+            ctx.c().pushstaticchk(result);
+            break;
+        case Request::ASSIGN_TO_TARGET_AND_IGNORE:
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
+        default:
+            abort();
+        }
+    }
+    void BytecodeGenerateContext::EvalResult::set_result_const(
+        BytecodeGenerateContext& ctx, woort_IRConstantIndex result, const lang_TypeInstance* type) noexcept;
 
 #endif
 }
