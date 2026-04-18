@@ -305,7 +305,11 @@ namespace wo
 
         woort_IRConstantIndex imm_const(
             const ast::ConstantValue& constant, bool boxed);
+        woort_IRConstantIndex imm_box_const(
+            const ast::ConstantValue& constant, bool boxed);
         const woort_IRValue* load_imm_const(
+            const ast::ConstantValue& constant, bool boxed);
+        const woort_IRValue* load_imm_box_const(
             const ast::ConstantValue& constant, bool boxed);
 
         /* --- Debug --- */

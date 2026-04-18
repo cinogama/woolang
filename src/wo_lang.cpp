@@ -2767,7 +2767,7 @@ namespace wo
         }
     }
     void BytecodeGenerateContext::EvalResult::set_result_const(
-        BytecodeGenerateContext& ctx, woort_IRConstantIndex result, const lang_TypeInstance* type) noexcept;
+        BytecodeGenerateContext& ctx, const ast::ConstantValue& result, const lang_TypeInstance* type);
 
 #endif
 }

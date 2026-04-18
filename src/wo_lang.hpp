@@ -563,7 +563,7 @@ namespace wo
                 const lang_TypeInstance* type) noexcept;
             void set_result_const(
                 BytecodeGenerateContext& ctx, 
-                woort_IRConstantIndex result,
+                const ast::ConstantValue& result,
                 const lang_TypeInstance* type) noexcept;
         };
         std::stack<EvalResult> m_eval_result_storage_target;
