@@ -1126,11 +1126,11 @@ namespace wo
                 {
                     switch (m_ircontext.m_eval_result_storage_target.top().m_request)
                     {
-                    case BytecodeGenerateContext::EvalResult::ASSIGN_TO_TARGET_AND_IGNORE:
-                    case BytecodeGenerateContext::EvalResult::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
-                    case BytecodeGenerateContext::EvalResult::PUSH_RESULT_AND_IGNORE:
-                    case BytecodeGenerateContext::EvalResult::PUSH_BOXED_RESULT_AND_IGNORE:
-                    case BytecodeGenerateContext::EvalResult::IGNORE_RESULT:
+                    case BytecodeGenerateContext::EvalResult::Request::ASSIGN_TO_TARGET_AND_IGNORE:
+                    case BytecodeGenerateContext::EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
+                    case BytecodeGenerateContext::EvalResult::Request::PUSH_RESULT_AND_IGNORE:
+                    case BytecodeGenerateContext::EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE:
+                    case BytecodeGenerateContext::EvalResult::Request::IGNORE_RESULT:
                         --top_state.m_debug_ir_eval_content;
                         break;
                     default:
@@ -2767,7 +2767,35 @@ namespace wo
         }
     }
     void BytecodeGenerateContext::EvalResult::set_result_const(
-        BytecodeGenerateContext& ctx, const ast::ConstantValue& result, const lang_TypeInstance* type);
+        BytecodeGenerateContext& ctx, const ast::ConstantValue& result) noexcept
+    {
+        wo_assert(m_result_type == ResultKind::PENDING);
+
+        switch (m_request)
+        {
+        case Request::GET_BOXED_RESULT_FOR_READONLY:
+            m_result_type = ResultKind::RESULT_STACK_TEMP;
+            m_result_stack = ctx.c().new_value();
+            ctx.c().mov(m_result_stack, ctx.c().load_imm_box_const(result));
+            break;
+        case Request::GET_RESULT_FOR_READONLY:
+        case Request::GET_RESULT_FOR_READWRITE:
+            m_result_type = ResultKind::RESULT_STACK_TEMP;
+            m_result_stack = ctx.c().new_value();
+            ctx.c().mov(m_result_stack, ctx.c().load_imm_const(result));
+            break;
+        case Request::PUSH_BOXED_RESULT_AND_IGNORE:
+            ctx.c().pushchk(ctx.c().load_imm_box_const(result));
+            break;
+        case Request::PUSH_RESULT_AND_IGNORE:
+            ctx.c().pushchk(ctx.c().load_imm_const(result));
+            break;
+        case Request::ASSIGN_TO_TARGET_AND_IGNORE:
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
+        default:
+            abort();
+        }
+    }
 
 #endif
 }
