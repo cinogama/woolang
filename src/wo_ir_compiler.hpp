@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <stack>
+#include <string_view>
 
 #include "wo_const_string_pool.hpp"
 
@@ -16,8 +17,29 @@ namespace wo
     {
         ast::AstBase* m_ast;
         const char* m_label_name;
-    };
 
+        bool operator == (const NamedLabelInAst& other) const
+        {
+            return m_ast == other.m_ast
+                && 0 == strcmp(m_label_name, other.m_label_name);
+        }
+    };
+}
+
+template<>
+struct std::hash<wo::NamedLabelInAst>
+{
+    size_t operator () (const wo::NamedLabelInAst& val) const
+    {
+        size_t h = std::hash<const void*>()(val.m_ast);
+        h ^= std::hash<std::string_view>()(val.m_label_name) + 0x9e3779b9
+            + (h << 6) + (h >> 2);
+        return h;
+    }
+};
+
+namespace wo
+{
     struct IRFunction
     {
         woort_IRFunction* m_irfunction;
@@ -34,7 +56,7 @@ namespace wo
         IRCompiler& operator = (const IRCompiler&) = delete;
         IRCompiler& operator = (IRCompiler&&) = delete;
 
-        std::vector<woort_IRFunction*> m_current_functions_stack;
+        std::vector<IRFunction> m_current_functions_stack;
 
         // Constant context
         std::unordered_map<woort_Int, woort_IRConstantIndex>
@@ -86,6 +108,7 @@ namespace wo
         const woort_IRValue* argument(uint32_t aidx);
 
         woort_IRLabel* new_label();
+        woort_IRLabel* named_label(ast::AstBase* ast, const char* label_name);
 
         void mov(woort_IRValue* dst, const woort_IRValue* src);
         void load(woort_IRValue* dst, woort_IRStaticIndex src);

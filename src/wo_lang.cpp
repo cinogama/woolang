@@ -2434,12 +2434,13 @@ namespace wo
     void BytecodeGenerateContext::eval_to_assign(
         woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode)
     {
-        m_eval_result_storage_target.push(
-            EvalResult{
-                EvalResult::Request::ASSIGN_TO_TARGET_AND_IGNORE,
-                target,
-                pdinode,
-            });
+        EvalResult r;
+        r.m_request = EvalResult::Request::ASSIGN_TO_TARGET_AND_IGNORE;
+        r.m_result_type = EvalResult::ResultKind::ASSIGN_TO_STACKSLOT;
+        r.m_result_stack_readwrite = target;
+        r.m_pdi_node = pdinode;
+
+        m_eval_result_storage_target.push(r);
     }
     void BytecodeGenerateContext::begin_eval_readonly()
     {
@@ -2558,7 +2559,7 @@ namespace wo
     {
     }
 
-    const std::optional<woort_IRValue*>&
+    std::optional<std::variant<woort_IRValue*, woort_IRStaticIndex>>
         BytecodeGenerateContext::EvalResult::get_assign_target(bool* out_need_box) noexcept
     {
         switch (m_request)
@@ -2571,7 +2572,15 @@ namespace wo
             *out_need_box = false;
         }
 
-        return m_result;
+        switch (m_result_type)
+        {
+        case ResultKind::ASSIGN_TO_STATIC:
+            return m_result_static;
+        case ResultKind::ASSIGN_TO_STACKSLOT:
+            return m_result_stack_readwrite;
+        default:
+            return std::nullopt;
+        }
     }
 
     /*void BytecodeGenerateContext::EvalResult::set_result(

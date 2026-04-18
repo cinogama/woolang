@@ -44,7 +44,7 @@ namespace wo
             return nullptr;
         }
 
-        m_current_functions_stack.push_back(irfunc);
+        m_current_functions_stack.push_back(IRFunction{irfunc, {}});
         return irfunc;
     }
 
@@ -102,7 +102,7 @@ namespace wo
         if (is_abondoned())
             return nullptr;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         const woort_IRValue* const result = woort_IRFunction_load_const(cur, cidx);
         if (result == nullptr)
             abondon();
@@ -115,7 +115,7 @@ namespace wo
         if (is_abondoned())
             return nullptr;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         woort_IRValue* const result = woort_IRFunction_new_vreg(cur);
         if (result == nullptr)
             abondon();
@@ -128,7 +128,7 @@ namespace wo
         if (is_abondoned())
             return nullptr;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         woort_IRValue* const result = woort_IRFunction_get_argument(cur, aidx);
         if (result == nullptr)
             abondon();
@@ -141,7 +141,7 @@ namespace wo
         if (is_abondoned())
             return nullptr;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         woort_IRLabel* const result = woort_IRFunction_new_label(cur);
         if (result == nullptr)
             abondon();
@@ -149,12 +149,37 @@ namespace wo
         return result;
     }
 
+    woort_IRLabel* IRCompiler::named_label(ast::AstBase* ast_node, const char* label_name)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        wo_assert(!m_current_functions_stack.empty());
+
+        IRFunction& current = m_current_functions_stack.back();
+        NamedLabelInAst key{ast_node, label_name};
+
+        auto it = current.m_local_named_labels.find(key);
+        if (it != current.m_local_named_labels.end())
+            return it->second;
+
+        woort_IRLabel* label = woort_IRFunction_new_label(current.m_irfunction);
+        if (label == nullptr)
+        {
+            abondon();
+            return nullptr;
+        }
+
+        current.m_local_named_labels.emplace(key, label);
+        return label;
+    }
+
     void IRCompiler::mov(woort_IRValue* dst, const woort_IRValue* src)
     {
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_MOV(cur, dst, src))
             abondon();
     }
@@ -164,7 +189,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LOAD(cur, dst, src))
             abondon();
     }
@@ -174,7 +199,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STORE(cur, dst, src))
             abondon();
     }
@@ -184,7 +209,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_PUSHCHK(cur, src))
             abondon();
     }
@@ -194,7 +219,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_POPR(cur, count))
             abondon();
     }
@@ -204,7 +229,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_POPRS(cur, count_src))
             abondon();
     }
@@ -214,7 +239,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_ITOR(cur, dst, src))
             abondon();
     }
@@ -224,7 +249,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_ITOS(cur, dst, src))
             abondon();
     }
@@ -234,7 +259,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_RTOI(cur, dst, src))
             abondon();
     }
@@ -244,7 +269,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_RTOS(cur, dst, src))
             abondon();
     }
@@ -254,7 +279,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STOI(cur, dst, src))
             abondon();
     }
@@ -264,7 +289,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STOR(cur, dst, src))
             abondon();
     }
@@ -274,7 +299,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_CALLNWO(cur, target, argc, dst))
             abondon();
     }
@@ -284,7 +309,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_CALLNFP(cur, target, argc, dst))
             abondon();
     }
@@ -294,7 +319,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_CALLNJIT(cur, target, argc, dst))
             abondon();
     }
@@ -304,7 +329,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_CALL(cur, func_val, argc, dst))
             abondon();
     }
@@ -314,7 +339,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_MKCLOSURE(cur, dst, elem_count, func_idx))
             abondon();
     }
@@ -324,7 +349,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_MKVEC(cur, dst, elem_count))
             abondon();
     }
@@ -334,7 +359,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_MKMAP(cur, dst, kvpair_count))
             abondon();
     }
@@ -344,7 +369,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_MKSTRUCT(cur, dst, elem_count))
             abondon();
     }
@@ -354,7 +379,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_BOXDYN(cur, dst, typ, src))
             abondon();
     }
@@ -364,7 +389,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_UNBOXDYN(cur, dst, typ, src))
             abondon();
     }
@@ -374,7 +399,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_CHECKDYN(cur, dst, typ, src))
             abondon();
     }
@@ -384,7 +409,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_PUSHBOXDYN(cur, typ, src))
             abondon();
     }
@@ -394,7 +419,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_ADDI(cur, dst, a, b))
             abondon();
     }
@@ -404,7 +429,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_SUBI(cur, dst, a, b))
             abondon();
     }
@@ -414,7 +439,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_MULI(cur, dst, a, b))
             abondon();
     }
@@ -424,7 +449,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_DIVI(cur, dst, a, b))
             abondon();
     }
@@ -434,7 +459,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_MODI(cur, dst, a, b))
             abondon();
     }
@@ -444,7 +469,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_NEGI(cur, dst, src))
             abondon();
     }
@@ -454,7 +479,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LTI(cur, dst, a, b))
             abondon();
     }
@@ -464,7 +489,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_GTI(cur, dst, a, b))
             abondon();
     }
@@ -474,7 +499,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LEI(cur, dst, a, b))
             abondon();
     }
@@ -484,7 +509,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_GEI(cur, dst, a, b))
             abondon();
     }
@@ -494,7 +519,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_EQI(cur, dst, a, b))
             abondon();
     }
@@ -504,7 +529,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_NEI(cur, dst, a, b))
             abondon();
     }
@@ -514,7 +539,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_ADDR(cur, dst, a, b))
             abondon();
     }
@@ -524,7 +549,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_SUBR(cur, dst, a, b))
             abondon();
     }
@@ -534,7 +559,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_MULR(cur, dst, a, b))
             abondon();
     }
@@ -544,7 +569,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_DIVR(cur, dst, a, b))
             abondon();
     }
@@ -554,7 +579,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_MODR(cur, dst, a, b))
             abondon();
     }
@@ -564,7 +589,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_NEGR(cur, dst, src))
             abondon();
     }
@@ -574,7 +599,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LTR(cur, dst, a, b))
             abondon();
     }
@@ -584,7 +609,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_GTR(cur, dst, a, b))
             abondon();
     }
@@ -594,7 +619,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LER(cur, dst, a, b))
             abondon();
     }
@@ -604,7 +629,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_GER(cur, dst, a, b))
             abondon();
     }
@@ -614,7 +639,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_EQR(cur, dst, a, b))
             abondon();
     }
@@ -624,7 +649,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_NER(cur, dst, a, b))
             abondon();
     }
@@ -634,7 +659,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_ADDS(cur, dst, a, b))
             abondon();
     }
@@ -644,7 +669,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LTS(cur, dst, a, b))
             abondon();
     }
@@ -654,7 +679,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_GTS(cur, dst, a, b))
             abondon();
     }
@@ -664,7 +689,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LES(cur, dst, a, b))
             abondon();
     }
@@ -674,7 +699,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_GES(cur, dst, a, b))
             abondon();
     }
@@ -684,7 +709,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_EQS(cur, dst, a, b))
             abondon();
     }
@@ -694,7 +719,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_NES(cur, dst, a, b))
             abondon();
     }
@@ -704,7 +729,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LAND(cur, dst, a, b))
             abondon();
     }
@@ -714,7 +739,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LOR(cur, dst, a, b))
             abondon();
     }
@@ -724,7 +749,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LNOT(cur, dst, src))
             abondon();
     }
@@ -734,7 +759,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LDIDXVEC(cur, dst, container, idx))
             abondon();
     }
@@ -744,7 +769,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LDIDXVECX(cur, dst, container, idx))
             abondon();
     }
@@ -754,7 +779,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LDIDXSTRUCT(cur, dst, container, idx))
             abondon();
     }
@@ -764,7 +789,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LDIDXSTRING(cur, dst, container, idx))
             abondon();
     }
@@ -774,7 +799,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LDIDXDICTI(cur, dst, container, idx))
             abondon();
     }
@@ -784,7 +809,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LDIDXDICTR(cur, dst, container, idx))
             abondon();
     }
@@ -794,7 +819,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LDIDXDICTB(cur, dst, container, idx))
             abondon();
     }
@@ -804,7 +829,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_LDIDXDICTX(cur, dst, container, idx))
             abondon();
     }
@@ -814,7 +839,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXVECI(cur, c, idx, val))
             abondon();
     }
@@ -824,7 +849,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXVECR(cur, c, idx, val))
             abondon();
     }
@@ -834,7 +859,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXVECB(cur, c, idx, val))
             abondon();
     }
@@ -844,7 +869,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXVECX(cur, c, idx, val))
             abondon();
     }
@@ -854,7 +879,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTII(cur, c, idx, val))
             abondon();
     }
@@ -864,7 +889,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTIR(cur, c, idx, val))
             abondon();
     }
@@ -874,7 +899,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTIB(cur, c, idx, val))
             abondon();
     }
@@ -884,7 +909,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTIX(cur, c, idx, val))
             abondon();
     }
@@ -894,7 +919,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTRI(cur, c, idx, val))
             abondon();
     }
@@ -904,7 +929,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTRR(cur, c, idx, val))
             abondon();
     }
@@ -914,7 +939,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTRB(cur, c, idx, val))
             abondon();
     }
@@ -924,7 +949,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTRX(cur, c, idx, val))
             abondon();
     }
@@ -934,7 +959,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTBI(cur, c, idx, val))
             abondon();
     }
@@ -944,7 +969,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTBR(cur, c, idx, val))
             abondon();
     }
@@ -954,7 +979,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTBB(cur, c, idx, val))
             abondon();
     }
@@ -964,7 +989,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTBX(cur, c, idx, val))
             abondon();
     }
@@ -974,7 +999,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTXI(cur, c, idx, val))
             abondon();
     }
@@ -984,7 +1009,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTXR(cur, c, idx, val))
             abondon();
     }
@@ -994,7 +1019,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTXB(cur, c, idx, val))
             abondon();
     }
@@ -1004,7 +1029,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXDICTXX(cur, c, idx, val))
             abondon();
     }
@@ -1014,7 +1039,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPII(cur, c, idx, val))
             abondon();
     }
@@ -1024,7 +1049,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPIR(cur, c, idx, val))
             abondon();
     }
@@ -1034,7 +1059,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPIB(cur, c, idx, val))
             abondon();
     }
@@ -1044,7 +1069,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPIX(cur, c, idx, val))
             abondon();
     }
@@ -1054,7 +1079,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPRI(cur, c, idx, val))
             abondon();
     }
@@ -1064,7 +1089,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPRR(cur, c, idx, val))
             abondon();
     }
@@ -1074,7 +1099,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPRB(cur, c, idx, val))
             abondon();
     }
@@ -1084,7 +1109,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPRX(cur, c, idx, val))
             abondon();
     }
@@ -1094,7 +1119,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPBI(cur, c, idx, val))
             abondon();
     }
@@ -1104,7 +1129,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPBR(cur, c, idx, val))
             abondon();
     }
@@ -1114,7 +1139,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPBB(cur, c, idx, val))
             abondon();
     }
@@ -1124,7 +1149,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPBX(cur, c, idx, val))
             abondon();
     }
@@ -1134,7 +1159,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPXI(cur, c, idx, val))
             abondon();
     }
@@ -1144,7 +1169,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPXR(cur, c, idx, val))
             abondon();
     }
@@ -1154,7 +1179,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPXB(cur, c, idx, val))
             abondon();
     }
@@ -1164,7 +1189,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXMAPXX(cur, c, idx, val))
             abondon();
     }
@@ -1174,7 +1199,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_STIDXSTRUCT(cur, c, idx, val))
             abondon();
     }
@@ -1184,7 +1209,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_UNPACKSTRUCT(cur, src))
             abondon();
     }
@@ -1194,7 +1219,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_UNPACKVEC(cur, dst, src))
             abondon();
     }
@@ -1204,7 +1229,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_UNPACKVECX(cur, dst, src))
             abondon();
     }
@@ -1214,7 +1239,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_PUSHIDXSTRUCT(cur, src, idx))
             abondon();
     }
@@ -1224,7 +1249,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_PUSHIDXSTBOXI(cur, src, idx))
             abondon();
     }
@@ -1234,7 +1259,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_PUSHIDXSTBOXR(cur, src, idx))
             abondon();
     }
@@ -1244,7 +1269,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_PUSHIDXSTBOXB(cur, src, idx))
             abondon();
     }
@@ -1254,7 +1279,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_PUSHIDXSTBOXX(cur, src, idx))
             abondon();
     }
@@ -1264,7 +1289,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_ASTORE(cur, idx, src))
             abondon();
     }
@@ -1274,7 +1299,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_ALOAD(cur, dst, idx))
             abondon();
     }
@@ -1284,7 +1309,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_CAS(cur, idx, expected, desired))
             abondon();
     }
@@ -1294,7 +1319,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_bind(cur, label))
             abondon();
     }
@@ -1304,7 +1329,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_jmp(cur, target))
             abondon();
     }
@@ -1314,7 +1339,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_jifinited(cur, cond_idx, target))
             abondon();
     }
@@ -1324,7 +1349,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_jcc(cur, cond, target))
             abondon();
     }
@@ -1334,7 +1359,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_jccz(cur, cond, target))
             abondon();
     }
@@ -1344,7 +1369,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_jcc_lt(cur, a, b, target))
             abondon();
     }
@@ -1354,7 +1379,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_jcc_le(cur, a, b, target))
             abondon();
     }
@@ -1364,7 +1389,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_jcc_eq(cur, a, b, target))
             abondon();
     }
@@ -1374,7 +1399,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_jcc_gt(cur, a, b, target))
             abondon();
     }
@@ -1384,7 +1409,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_jcc_ge(cur, a, b, target))
             abondon();
     }
@@ -1394,7 +1419,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_jcc_ne(cur, a, b, target))
             abondon();
     }
@@ -1404,7 +1429,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_ret(cur, val))
             abondon();
     }
@@ -1414,7 +1439,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_ret_void(cur))
             abondon();
     }
@@ -1424,7 +1449,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_NOP(cur))
             abondon();
     }
@@ -1434,7 +1459,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_debugtrap(cur))
             abondon();
     }
@@ -1444,7 +1469,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IR_panic(cur, msg))
             abondon();
     }
@@ -1454,7 +1479,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IRFunction_push_srcloc(
             cur, 
             node->source_location.source_file->c_str(), 
@@ -1470,7 +1495,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRFunction* cur = m_current_functions_stack.back();
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         woort_IRFunction_pop_srcloc(cur);
     }
 

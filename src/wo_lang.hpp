@@ -480,7 +480,7 @@ namespace wo
         // Mutable context
         struct EvalResult
         {
-            enum Request
+            enum class Request
             {
                 /*
                 要求将求值结果直接赋值到指定的目标
@@ -518,17 +518,35 @@ namespace wo
                 */
                 IGNORE_RESULT,
             };
-            Request m_request;
 
-            // NOTE: If ASSIGN_*, m_result will store target opnum.
-            //  If GET_*, m_result will store the result opnum.
-            //  Or m_result will be empty.
-            std::optional<woort_IRValue*> m_result;
+            enum class ResultKind
+            {
+                PENDING,
+
+                ASSIGN_TO_STATIC,
+                ASSIGN_TO_STACKSLOT,
+
+                RESULT_STACK_VARIABLE,
+                RESULT_STACK_TEMP,
+                RESULT_CONSTANT,
+                RESULT_STATIC,
+            };
+
+            Request m_request;
+            ResultKind m_result_type;
+            union
+            {
+                woort_IRValue* m_result_stack_readwrite;
+                const woort_IRValue* m_result_stack_readonly;
+                woort_IRStaticIndex m_result_static;
+                woort_IRConstantIndex m_result_constant;
+            };
 
             // The pdinode used for generate debug info.
             std::optional<ast::AstBase*> m_pdi_node;
 
-            const std::optional<woort_IRValue*>& get_assign_target(bool* out_need_box) noexcept;
+            std::optional<std::variant<woort_IRValue*, woort_IRStaticIndex>>
+                get_assign_target(bool* out_need_box) noexcept;
 
   /*          void set_result_stack(BytecodeGenerateContext& ctx, woort_IRValue* result) noexcept;
             void set_result_temp(BytecodeGenerateContext& ctx, woort_IRValue* result) noexcept;
@@ -553,10 +571,12 @@ namespace wo
         std::optional<woort_CodeEnv*> finalize();
 
         void eval_to_assign(woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode);
+        void eval_to_assign_static(woort_IRStaticIndex target, const std::optional<ast::AstBase*>& pdinode);
         void begin_eval_readonly();
         void begin_eval_readwrite();
         void eval_to_push();
         void eval_to_assign_box(woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode);
+        void eval_to_assign_box_static(woort_IRStaticIndex target, const std::optional<ast::AstBase*>& pdinode);
         void begin_eval_readonly_box();
         void eval_to_push_box();
         void eval_and_ignore();

@@ -18,12 +18,13 @@ namespace wo
     }
     void BytecodeGenerateContext::begin_loop_for(ast::AstFor* ast)
     {
-        m_loop_content_stack.push_back(LoopContent{
-            ast->m_LANG_binded_label.has_value()
-                ? std::optional(ast->m_LANG_binded_label.value()->m_label)
-                : std::nullopt,
-            ast->m_IR_Label_end.value(),
-            ast->m_IR_Label_next.value(),
+        m_loop_content_stack.push_back(
+            LoopContent{
+                ast->m_LANG_binded_label.has_value()
+                    ? std::optional(ast->m_LANG_binded_label.value()->m_label)
+                    : std::nullopt,
+                c().named_label(ast, "#for_end"),
+                c().named_label(ast, "#for_next"),
             });
     }
     std::optional<BytecodeGenerateContext::LoopContent*>
@@ -253,11 +254,8 @@ namespace wo
                 if (node->m_condition.has_value()
                     && !node->m_condition.value()->m_evaled_const_value.has_value())
                 {
-                    woort_IRLabel* const for_label_cond = m_ircontext.c().new_label();
-                    node->m_IR_Label_cond.emplace(for_label_cond);
-
                     // Need runtime cond.
-                    m_ircontext.c().jmp(for_label_cond);
+                    m_ircontext.c().jmp(m_ircontext.c().named_label(node, "#for_cond"));
                 }
                 else
                 {
@@ -269,12 +267,8 @@ namespace wo
                         return OKAY;
                     }
                 }
-
-                node->m_IR_Label_begin.emplace(m_ircontext.c().new_label());
-                node->m_IR_Label_next.emplace(m_ircontext.c().new_label());
-                node->m_IR_Label_end.emplace(m_ircontext.c().new_label());
-
-                m_ircontext.c().bind(node->m_IR_Label_begin.value());
+                m_ircontext.c().bind(
+                    m_ircontext.c().named_label(node, "#for_begin"));
 
                 // Loop begin
                 m_ircontext.begin_loop_for(node);
@@ -286,7 +280,8 @@ namespace wo
             case AstFor::IR_HOLD_FOR_BODY_EVAL:
                 m_ircontext.end_loop();
 
-                m_ircontext.c().bind(node->m_IR_Label_next.value());
+                m_ircontext.c().bind(
+                    m_ircontext.c().named_label(node, "#for_next"));
 
                 if (node->m_step.has_value())
                 {
@@ -295,12 +290,11 @@ namespace wo
                         return FAILED;
                 }
 
-                if (node->m_IR_Label_cond.has_value())
+                if (node->m_condition.has_value()
+                    && !node->m_condition.value()->m_evaled_const_value.has_value())
                 {
-                    wo_assert(node->m_condition.has_value()
-                        && !node->m_condition.value()->m_evaled_const_value.has_value());
-
-                    m_ircontext.c().bind(node->m_IR_Label_cond.value());
+                    m_ircontext.c().bind(
+                        m_ircontext.c().named_label(node, "#for_cond"));
 
                     /*m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
                     if (!pass_final_value(lex, node->m_condition.value()))
@@ -308,7 +302,7 @@ namespace wo
 
                     (void)m_ircontext.get_eval_result();
 
-                    m_ircontext.c().jt(opnum::tag(_generate_label("#for_begin_", node)));*/
+                    m_ircontext.c().jt(opnum::tag(_generate_label("#for_begin", node)));*/
 
                     // TODO: More optimzied code generate required.
 
@@ -317,9 +311,11 @@ namespace wo
                 else
                 {
                     // Must be dead loop here.
-                    m_ircontext.c().jmp(node->m_IR_Label_begin.value());
+                    m_ircontext.c().jmp(
+                        m_ircontext.c().named_label(node, "#for_begin"));
                 }
-                m_ircontext.c().bind(node->m_IR_Label_end.value());
+                m_ircontext.c().bind(
+                    m_ircontext.c().named_label(node, "#for_end"));
 
                 break;
             default:
@@ -401,56 +397,19 @@ namespace wo
 
             if (node->m_IR_static_init_flag_global_offset.has_value())
             {
-                m_ircontext.c().jifinited();
-
-                m_ircontext.c().equb(
-                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
-                    WO_OPNUM(m_ircontext.opnum_imm_int(2)));
-                m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
-
                 /*
-                    mov tp, 0;
-                    movicas Flag, 1, tp;
-                    jt static_job_
-                static_wait_:
-                    movicas Flag, tp, tp;
-                    equb tp 2
-                    jt static_end_
-                    jmp static_wait_
-                static_job_:
-                    ...
-                    movicas Flag, 2, tp
-                    jt static_end_
-                    ext0 panic xxx
-                static_end_:
+                    jifinited _static_end if ALOAD flag != 0
+
+                    ..init..
+
+                    astore flag = 2
+
+                _static_end:
                 */
 
-                m_ircontext.c().mov(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
-                    WO_OPNUM(m_ircontext.opnum_imm_int(0)));
-
-                m_ircontext.c().movicas(
-                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
-                    WO_OPNUM(m_ircontext.opnum_imm_int(1)),
-                    opnum::reg(opnum::reg::tp));
-
-                m_ircontext.c().jt(opnum::tag(_generate_label("#static_job_", node)));
-                m_ircontext.c().tag(_generate_label("#static_wait_", node));
-
-                m_ircontext.c().movicas(
-                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
-                    opnum::reg(opnum::reg::tp));
-
-                m_ircontext.c().equb(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
-                    WO_OPNUM(m_ircontext.opnum_imm_int(2)));
-
-                m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
-                m_ircontext.c().jmp(opnum::tag(_generate_label("#static_wait_", node)));
-
-                m_ircontext.c().tag(_generate_label("#static_job_", node));
-                // Static job body will be continued.
+                m_ircontext.c().jifinited(
+                    node->m_IR_static_init_flag_global_offset.value(),
+                    m_ircontext.c().named_label(node, "#static_end"));
             }
 
             WO_CONTINUE_PROCESS_LIST(node->m_definitions);
@@ -460,21 +419,11 @@ namespace wo
         {
             if (node->m_IR_static_init_flag_global_offset.has_value())
             {
-                m_ircontext.c().mov(
-                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tp)),
-                    WO_OPNUM(m_ircontext.opnum_imm_int(1)));
-                m_ircontext.c().movicas(
-                    WO_OPNUM(m_ircontext.opnum_global(node->m_IR_static_init_flag_global_offset.value())),
-                    WO_OPNUM(m_ircontext.opnum_imm_int(2)),
-                    opnum::reg(opnum::reg::tp));
-
-#ifndef NDEBUG  
-                m_ircontext.c().jt(opnum::tag(_generate_label("#static_end_", node)));
-                m_ircontext.c().ext_panic(WO_OPNUM(m_ircontext.opnum_imm_string(
-                    wstring_pool::get_pstr(
-                        "Atomic operation spurious failure."))));
-#endif
-                m_ircontext.c().tag(_generate_label("#static_end_", node));
+                m_ircontext.c().astore(
+                    node->m_IR_static_init_flag_global_offset.value(),
+                    m_ircontext.c().load_imm_int(2));
+                m_ircontext.c().bind(
+                    m_ircontext.c().named_label(node, "#static_end"));
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -521,8 +470,183 @@ namespace wo
     {
         wo_assert(state == UNPROCESSED);
 
-        abort();
-        return OKAY;
+        switch (node->m_pattern->node_type)
+        {
+        case AstBase::AST_PATTERN_TAKEPLACE:
+            m_ircontext.eval_result_ignored();
+            if (!pass_final_value(lex, node->m_init_value))
+                // Failed 
+                return FAILED;
+
+            return OKAY;
+        case AstBase::AST_PATTERN_SINGLE:
+        {
+            // Might be constant, template.
+            AstPatternSingle* pattern_single = static_cast<AstPatternSingle*>(node->m_pattern);
+            lang_Symbol* pattern_symbol = pattern_single->m_LANG_declared_symbol.value();
+            wo_assert(pattern_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+
+            if (pattern_symbol->m_is_template)
+            {
+                // Is template, walk through all the template instance;
+                for (auto* template_instance :
+                    pattern_symbol->m_template_value_instances->m_finished_instance_list)
+                {
+                    wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::state::EVALUATED);
+
+                    lang_ValueInstance* template_value_instance = template_instance->m_value_instance.get();
+                    if (template_instance->m_constant_template_argument_have_unfinished_function)
+                    {
+                        bool bad_template_instance = false;
+
+                        // Template argument may have non-constant-function, recheck here.
+                        for (auto& argument : template_value_instance->m_instance_template_arguments.value())
+                        {
+                            if (!argument.m_constant.has_value())
+                                continue;
+
+                            auto constant = argument.m_constant.value().value_try_function();
+                            if (!constant.has_value())
+                                continue;
+
+                            auto& captured_context = constant.value()->m_LANG_captured_context;
+                            if (!captured_context.m_finished
+                                || !captured_context.m_captured_variables.empty())
+                            {
+                                bad_template_instance = true;
+                                break;
+                            }
+                        }
+
+                        if (bad_template_instance)
+                            // Skip bad instance.
+                            continue;
+                    }
+                    if (!template_value_instance->IR_need_storage())
+                    {
+                        // No need storage.
+                        auto function = template_value_instance->m_determined_constant_or_function
+                            .value().value_try_function();
+
+                        if (function.has_value())
+                        {
+                            // We still eval the function to let compiler know the function.
+                            m_ircontext.eval_result_ignored();
+                            if (!pass_final_value(lex, function.value()))
+                                // Failed 
+                                return FAILED;
+                        }
+                    }
+                    else
+                    {
+                        // Need storage and initialize.
+                        const bool fast_eval = template_value_instance->m_IR_storage.has_value()
+                            && (_is_storage_can_addressing(template_value_instance->m_IR_storage.value()));
+
+                        if (fast_eval)
+                            m_ircontext.eval_to(
+                                m_ircontext.get_storage_place(
+                                    template_value_instance->m_IR_storage.value()), node);
+                        else
+                            m_ircontext.eval();
+                        if (!pass_final_value(lex, static_cast<AstValueBase*>(template_instance->m_ast)))
+                            // Failed 
+                            return FAILED;
+
+                        auto* result_opnum = m_ircontext.get_eval_result();
+
+                        if (fast_eval)
+                            (void)result_opnum;
+                        else
+                        {
+                            WO_GENERATE_PDI_FOR(node);
+
+                            if (!update_instance_storage_and_code_gen_passir(
+                                template_value_instance, result_opnum, std::nullopt))
+                                return FAILED;
+                        }
+                    }
+                }
+            }
+            else if (!pattern_symbol->m_value_instance->IR_need_storage())
+            {
+                // No need storage.
+                auto function = pattern_symbol->m_value_instance->m_determined_constant_or_function
+                    .value().value_try_function();
+
+                if (function.has_value())
+                {
+                    m_ircontext.eval_ignore();
+                    if (!pass_final_value(lex, function.value()))
+                        // Failed 
+                        return FAILED;
+                }
+            }
+            else
+            {
+                // Not template, but need storage.
+                const bool fast_eval = pattern_symbol->m_value_instance->m_IR_storage.has_value()
+                    && _is_storage_can_addressing(pattern_symbol->m_value_instance->m_IR_storage.value());
+
+                if (fast_eval)
+                    m_ircontext.eval_to(
+                        m_ircontext.get_storage_place(
+                            pattern_symbol->m_value_instance->m_IR_storage.value()), node);
+                else
+                    m_ircontext.eval();
+
+                if (!pass_final_value(lex, node->m_init_value))
+                    // Failed 
+                    return FAILED;
+
+                auto* result_opnum = m_ircontext.get_eval_result();
+
+                if (fast_eval)
+                    (void)result_opnum;
+                else
+                {
+                    WO_GENERATE_PDI_FOR(node);
+
+                    if (!update_instance_storage_and_code_gen_passir(
+                        pattern_symbol->m_value_instance, result_opnum, std::nullopt))
+                        return FAILED;
+                }
+            }
+            return OKAY;
+        }
+        case AstBase::AST_PATTERN_TUPLE:
+        {
+            AstPatternTuple* pattern_tuple = static_cast<AstPatternTuple*>(node->m_pattern);
+            if (_check_pattern_all_no_need_storage(pattern_tuple))
+            {
+                m_ircontext.eval_ignore();
+                if (!pass_final_value(lex, node->m_init_value))
+                    // Failed 
+                    return FAILED;
+            }
+            else
+            {
+                m_ircontext.eval_keep();
+                if (!pass_final_value(lex, node->m_init_value))
+                    // Failed 
+                    return FAILED;
+
+                auto* result_opnum = m_ircontext.get_eval_result();
+
+                bool update_result = update_pattern_storage_and_code_gen_passir(
+                    lex, node->m_pattern, result_opnum, std::nullopt);
+
+                m_ircontext.try_return_opnum_temporary_register(result_opnum);
+
+                if (!update_result)
+                    return FAILED;
+            }
+            return OKAY;
+        }
+        default:
+            wo_error("Unknown pattern type.");
+            return FAILED; // Unknown pattern type.
+        }
     }
     WO_PASS_PROCESSER(AstReturn)
     {

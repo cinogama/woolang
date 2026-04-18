@@ -566,9 +566,18 @@ bool _wo_compile_entry(
 void _wo_test_compile()
 {
     const char* src = R"(
-        func foo()
+        for (;;)
         {
-            return 0;
+            static let mut v = 15;
+            for (;;)
+            {
+                for (;;)
+                {
+                    for (;;)
+                    {
+                    }
+                }
+            }
         }
     )";
     

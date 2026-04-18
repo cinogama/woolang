@@ -2117,10 +2117,6 @@ namespace wo
             , m_LANG_end_state(AstScope::LANG_end_state::NORMAL)
             , m_LANG_loop_scope(std::nullopt)
             , m_LANG_binded_label(std::nullopt)
-            ,m_IR_Label_begin(std::nullopt)
-            , m_IR_Label_next(std::nullopt)
-            , m_IR_Label_end(std::nullopt)
-            , m_IR_Label_cond(std::nullopt)
         {
         }
         AstBase* AstFor::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
