@@ -1690,7 +1690,7 @@ namespace wo
     }
 
     woort_IRConstantIndex IRCompiler::imm_const(
-        const ast::ConstantValue& constant, bool boxed)
+        const ast::ConstantValue& constant)
     {
         if (is_abondoned())
             return 0;
@@ -1700,20 +1700,12 @@ namespace wo
         case ast::ConstantValue::Type::NIL:
             return imm_nil();
         case ast::ConstantValue::Type::BOOL:
-            if (boxed)
-                return imm_box_bool(constant.value_bool());
             return imm_bool(constant.value_bool());
         case ast::ConstantValue::Type::INTEGER:
-            if (boxed)
-                return imm_box_int(constant.value_integer());
             return imm_int(constant.value_integer());
         case ast::ConstantValue::Type::HANDLE:
-            if (boxed)
-                return imm_box_handle(constant.value_handle());
             return imm_handle(constant.value_handle());
         case ast::ConstantValue::Type::REAL:
-            if (boxed)
-                return imm_box_real(constant.value_real());
             return imm_real(constant.value_real());
         case ast::ConstantValue::Type::PSTRING:
             return imm_string(constant.value_pstring());
@@ -1730,7 +1722,7 @@ namespace wo
                 for (size_t i = 0; i < struct_data.m_count; ++i)
                 {
                     t.m_fields.push_back(
-                        imm_const(struct_data.m_elements[i], false));
+                        imm_const(struct_data.m_elements[i]));
                 }
                 t.m_idx = alloc_constant();
                 woort_IRConstantIndex result_idx = t.m_idx;
@@ -1744,9 +1736,34 @@ namespace wo
             return 0;
         }
     }
-    const woort_IRValue* IRCompiler::load_imm_const(
-        const ast::ConstantValue& constant, bool boxed)
+    woort_IRConstantIndex IRCompiler::imm_box_const(
+        const ast::ConstantValue& constant)
     {
-        return load_constant(imm_const(constant, boxed));
+        if (is_abondoned())
+            return 0;
+
+        switch (constant.m_type)
+        {
+        case ast::ConstantValue::Type::BOOL:
+            return imm_box_bool(constant.value_bool());
+        case ast::ConstantValue::Type::INTEGER:
+            return imm_box_int(constant.value_integer());
+        case ast::ConstantValue::Type::HANDLE:
+            return imm_box_handle(constant.value_handle());
+        case ast::ConstantValue::Type::REAL:
+            return imm_box_real(constant.value_real());
+        default:
+            return imm_const(constant);
+        }
+    }
+    const woort_IRValue* IRCompiler::load_imm_const(
+        const ast::ConstantValue& constant)
+    {
+        return load_constant(imm_const(constant));
+    }
+    const woort_IRValue* IRCompiler::load_imm_box_const(
+        const ast::ConstantValue& constant)
+    {
+        return load_constant(imm_box_const(constant));
     }
 }

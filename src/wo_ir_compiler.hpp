@@ -304,13 +304,14 @@ namespace wo
         const woort_IRValue* load_imm_box_handle(woort_Handle handle);
 
         woort_IRConstantIndex imm_const(
-            const ast::ConstantValue& constant, bool boxed);
+            const ast::ConstantValue& constant);
         woort_IRConstantIndex imm_box_const(
-            const ast::ConstantValue& constant, bool boxed);
+            const ast::ConstantValue& constant);
         const woort_IRValue* load_imm_const(
-            const ast::ConstantValue& constant, bool boxed);
+            const ast::ConstantValue& constant);
         const woort_IRValue* load_imm_box_const(
-            const ast::ConstantValue& constant, bool boxed);
+            const ast::ConstantValue& constant);
+
 
         /* --- Debug --- */
         void nop();
