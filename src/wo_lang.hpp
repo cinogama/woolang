@@ -1070,7 +1070,16 @@ namespace wo
             // NOTE: If template pattern, init_value_type will not able to be determined.
             // So here is optional.
             const std::optional<lang_TypeInstance*>& init_value_type);
-  
+        bool update_instance_storage_and_code_gen_passir(
+            lang_ValueInstance* instance,
+            const woort_IRValue* opnumval,
+            const std::optional<uint16_t>& tuple_member_offset);
+        bool update_pattern_storage_and_code_gen_passir(
+            lexer& lex,
+            ast::AstPatternBase* pattern,
+            const woort_IRValue* opnumval,
+            const std::optional<uint16_t>& tuple_member_offset);
+
         lang_TypeInstance* mutable_type(lang_TypeInstance* origin_type);
         lang_TypeInstance* immutable_type(lang_TypeInstance* origin_type);
 

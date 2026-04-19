@@ -7,14 +7,14 @@ namespace wo
 
     void BytecodeGenerateContext::begin_loop_while(ast::AstWhile* ast)
     {
-        abort();
-        /*m_loop_content_stack.push_back(LoopContent{
-            ast->m_LANG_binded_label.has_value()
-                ? std::optional(ast->m_LANG_binded_label.value()->m_label)
-                : std::nullopt,
-            _generate_label("#while_end_", ast),
-            _generate_label("#while_begin_", ast)
-            });*/
+        m_loop_content_stack.push_back(
+            LoopContent{
+                ast->m_LANG_binded_label.has_value()
+                    ? std::optional(ast->m_LANG_binded_label.value()->m_label)
+                    : std::nullopt,
+                c().named_label(ast, "#while_end"),
+                c().named_label(ast, "#while_begin")
+            });
     }
     void BytecodeGenerateContext::begin_loop_for(ast::AstFor* ast)
     {
@@ -47,6 +47,128 @@ namespace wo
     {
         wo_assert(!m_loop_content_stack.empty());
         m_loop_content_stack.pop_back();
+    }
+
+    bool LangContext::update_instance_storage_and_code_gen_passir(
+        lang_ValueInstance* instance,
+        const woort_IRValue* opnumval,
+        const std::optional<uint16_t>& tuple_member_offset)
+    {
+        if (instance->m_symbol->m_is_global
+            || instance->m_symbol->is_declared_as_static())
+        {
+            // Is static variable,
+            const woort_IRStaticIndex static_storage =
+                m_ircontext.c().alloc_static();
+
+            instance->m_IR_storage.emplace(
+                lang_ValueInstance::Storage(static_storage));
+        }
+        else
+        {
+            // Is stack variable.
+            woort_IRValue* const stack_storage =
+                m_ircontext.c().new_value();
+
+            instance->m_IR_storage.emplace(
+                lang_ValueInstance::Storage(stack_storage));
+        }
+
+        auto& storage = instance->m_IR_storage.value();
+
+        if (storage.m_type == lang_ValueInstance::Storage::StorageType::GLOBAL)
+        {
+            if (tuple_member_offset.has_value())
+            {
+                const uint16_t index = tuple_member_offset.value();
+
+                woort_IRValue* const v =
+                    m_ircontext.c().new_value();
+
+                m_ircontext.c().ldidxstruct(v, opnumval, index);
+                m_ircontext.c().store(storage.m_static_index, v);
+            }
+            else
+                m_ircontext.c().store(storage.m_static_index, opnumval);
+        }
+        else
+        {
+            wo_assert(storage.m_type == lang_ValueInstance::Storage::StorageType::STACKOFFSET);
+            if (tuple_member_offset.has_value())
+            {
+                const uint16_t index = tuple_member_offset.value();
+                m_ircontext.c().ldidxstruct(storage.m_stack_slot, opnumval, index);
+            }
+            else
+                m_ircontext.c().mov(storage.m_stack_slot, opnumval);
+        }
+        return true;
+    }
+
+    bool LangContext::update_pattern_storage_and_code_gen_passir(
+        lexer& lex,
+        ast::AstPatternBase* pattern,
+        const woort_IRValue* opnumval,
+        const std::optional<uint16_t>& tuple_member_offset)
+    {
+        switch (pattern->node_type)
+        {
+        case AstBase::AST_PATTERN_SINGLE:
+        {
+            AstPatternSingle* pattern_single = static_cast<AstPatternSingle*>(pattern);
+            lang_Symbol* pattern_symbol = pattern_single->m_LANG_declared_symbol.value();
+
+            wo_assert(!pattern_symbol->m_is_template
+                && pattern_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+
+            lang_ValueInstance* pattern_value_instance = pattern_symbol->m_value_instance;
+            if (!pattern_value_instance->IR_need_storage())
+                // Skip, constant.
+                return true;
+
+            return update_instance_storage_and_code_gen_passir(
+                pattern_value_instance, opnumval, tuple_member_offset);
+        }
+        case AstBase::AST_PATTERN_TUPLE:
+        {
+            AstPatternTuple* pattern_tuple = static_cast<AstPatternTuple*>(pattern);
+
+            const woort_IRValue* tuple_source;
+            if (tuple_member_offset.has_value())
+            {
+                uint16_t index = tuple_member_offset.value();
+                woort_IRValue* tuple_source_for_write = m_ircontext.c().new_value();
+
+                m_ircontext.c().ldidxstruct(tuple_source_for_write, opnumval, index);
+                tuple_source = tuple_source_for_write;
+            }
+            else
+                tuple_source = opnumval;
+
+            bool match_pattern_result = true;
+            uint16_t struct_offset = 0;
+            for (auto* sub_pattern : pattern_tuple->m_fields)
+            {
+                if (!update_pattern_storage_and_code_gen_passir(
+                    lex, sub_pattern, tuple_source, struct_offset))
+                {
+                    match_pattern_result = false;
+                    break;
+                }
+
+                struct_offset++;
+            }
+            return match_pattern_result;
+        }
+        case AstBase::AST_PATTERN_TAKEPLACE:
+        {
+            // Nothing todo.
+            return true;
+        }
+        default:
+            wo_error("Unknown pattern type.");
+            return false;
+        }
     }
 
     void LangContext::init_passir()
@@ -213,13 +335,110 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstIf)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            if (node->m_condition->m_evaled_const_value.has_value())
+            {
+                if (node->m_condition->m_evaled_const_value.value().value_bool() != 0)
+                    WO_CONTINUE_PROCESS(node->m_true_body);
+                else if (node->m_false_body.has_value())
+                    WO_CONTINUE_PROCESS(node->m_false_body.value());
+
+                node->m_LANG_hold_state = AstIf::IR_HOLD_FOR_FALSE_BODY;
+            }
+            else
+            {
+                // TODO: More optimzied code generate required.
+
+                m_ircontext.begin_eval_readonly();
+                if (!pass_final_value(lex, node->m_condition))
+                    return FAILED;
+
+                m_ircontext.c().jccz(
+                    m_ircontext.get_eval_result(),
+                    m_ircontext.c().named_label(node, "#if_else"));
+
+                WO_CONTINUE_PROCESS(node->m_true_body);
+
+                node->m_LANG_hold_state = AstIf::IR_HOLD_FOR_TRUE_BODY;
+            }
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstIf::IR_HOLD_FOR_TRUE_BODY:
+                if (node->m_false_body.has_value())
+                {
+                    m_ircontext.c().jmp(m_ircontext.c().named_label(node, "#if_end"));
+                    WO_CONTINUE_PROCESS(node->m_false_body.value());
+                }
+                m_ircontext.c().bind(m_ircontext.c().named_label(node, "#if_else"));
+                node->m_LANG_hold_state = AstIf::IR_HOLD_FOR_FALSE_BODY;
+
+                return HOLD;
+            case AstIf::IR_HOLD_FOR_FALSE_BODY:
+                if (!node->m_condition->m_evaled_const_value.has_value()
+                    && node->m_false_body.has_value())
+                {
+                    m_ircontext.c().bind(m_ircontext.c().named_label(node, "#if_end"));
+                }
+                break;
+            default:
+                wo_error("Unknown hold state.");
+                break;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstWhile)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            bool dead_loop = false;
+            if (node->m_condition->m_evaled_const_value.has_value())
+            {
+                if (node->m_condition->m_evaled_const_value.value().value_bool() == 0)
+                    return OKAY; // Skip body.
+
+                dead_loop = true;
+            }
+            m_ircontext.c().bind(m_ircontext.c().named_label(node, "#while_begin"));
+
+            if (!dead_loop)
+            {
+                // TODO: More optimzied code generate required.
+
+                m_ircontext.begin_eval_readonly();
+                if (!pass_final_value(lex, node->m_condition))
+                    return FAILED;
+
+                m_ircontext.c().jccz(
+                    m_ircontext.get_eval_result(),
+                    m_ircontext.c().named_label(node, "#while_end"));
+            }
+
+            // Loop begin
+            m_ircontext.begin_loop_while(node);
+
+            WO_CONTINUE_PROCESS(node->m_body);
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.c().jmp(m_ircontext.c().named_label(node, "#while_begin"));
+            m_ircontext.c().bind(m_ircontext.c().named_label(node, "#while_end"));
+
+            m_ircontext.end_loop();
+        }
+        else
+        {
+            // Failed, we still need to end the loop.
+            m_ircontext.end_loop();
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstFor)
     {
@@ -358,8 +577,19 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstContinue)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            auto loop = m_ircontext.find_nearest_loop_content_label(node->m_label);
+            // Loop has been checked in pass1.
+
+            m_ircontext.c().jmp(loop.value()->m_continue_label);
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstMatch)
     {
@@ -641,13 +871,11 @@ namespace wo
 
                 auto* result_opnum = m_ircontext.get_eval_result();
 
-                //bool update_result = update_pattern_storage_and_code_gen_passir(
-                //    lex, node->m_pattern, result_opnum, std::nullopt);
+                bool update_result = update_pattern_storage_and_code_gen_passir(
+                    lex, node->m_pattern, result_opnum, std::nullopt);
 
-                //if (!update_result)
-                //    return FAILED;
-
-                abort();
+                if (!update_result)
+                    return FAILED;
             }
             return OKAY;
         }
@@ -774,7 +1002,7 @@ namespace wo
                         {
                             wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
                             m_ircontext.c().store(
-                                std::get<woort_IRStaticIndex>(target), 
+                                std::get<woort_IRStaticIndex>(target),
                                 variable_storage.m_stack_slot);
                         }
                     }
@@ -797,14 +1025,14 @@ namespace wo
                 {
                     if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL)
                         result.set_result_static(
-                            m_ircontext, 
+                            m_ircontext,
                             variable_storage.m_static_index,
                             node->m_LANG_determined_type.value());
                     else
                     {
                         wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
                         result.set_result_stack_var(
-                            m_ircontext, 
+                            m_ircontext,
                             variable_storage.m_stack_slot,
                             node->m_LANG_determined_type.value());
                     }

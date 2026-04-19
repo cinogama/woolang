@@ -566,19 +566,15 @@ bool _wo_compile_entry(
 void _wo_test_compile()
 {
     const char* src = R"(
-        for (;;)
+        let (_, mut a, _) = (1, false, 3);
+        if (a)
         {
-            static let mut v = false;
-            for (;v;)
+            for (;a;)
             {
-                for (;;)
-                {
-                    for (;;)
-                    {
-                    }
-                }
+            
             }
         }
+        while(true);
     )";
     
     std::optional<woort_CodeEnv*> out_env_if_success;
