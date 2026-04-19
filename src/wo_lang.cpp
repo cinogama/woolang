@@ -149,6 +149,18 @@ namespace wo
         }
     }
 
+    bool lang_Symbol::is_declared_as_static() const
+    {
+        if (m_declare_attribute.has_value()
+            && m_declare_attribute.value()->m_lifecycle.has_value()
+            && m_declare_attribute.value()->m_lifecycle.value() ==
+            ast::AstDeclareAttribue::lifecycle_attrib::STATIC)
+        {
+            return true;
+        }
+        return false;
+    }
+
     //////////////////////////////////////
 
     lang_Symbol::TemplateValuePrefab::TemplateValuePrefab(
@@ -513,6 +525,9 @@ namespace wo
             }
         }
     }
+
+
+
     bool lang_ValueInstance::IR_need_storage() const
     {
         if (m_determined_constant_or_function.has_value())
@@ -531,6 +546,15 @@ namespace wo
 
         return true;
     }
+
+    lang_ValueInstance::Storage::Storage(woort_IRValue* stack_slot)
+        : m_type(STACKOFFSET)
+        , m_stack_slot(stack_slot)
+    {}
+    lang_ValueInstance::Storage::Storage(woort_IRStaticIndex static_index)
+        : m_type(GLOBAL)
+        , m_static_index(static_index)
+    {}
 
     lang_ValueInstance::lang_ValueInstance(
         bool mutable_,
@@ -1126,8 +1150,6 @@ namespace wo
                 {
                     switch (m_ircontext.m_eval_result_storage_target.top().m_request)
                     {
-                    case BytecodeGenerateContext::EvalResult::Request::ASSIGN_TO_TARGET_AND_IGNORE:
-                    case BytecodeGenerateContext::EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
                     case BytecodeGenerateContext::EvalResult::Request::PUSH_RESULT_AND_IGNORE:
                     case BytecodeGenerateContext::EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE:
                     case BytecodeGenerateContext::EvalResult::Request::IGNORE_RESULT:
@@ -1299,7 +1321,7 @@ namespace wo
         // Final process, generate bytecode.
         // NOTE: After 1.15. we will create a entry function for init job.
 
-        woort_IRFunction* entry_function = m_ircontext.c().push_function(0);
+        woort_IRFunction* entry_function = m_ircontext.c().push_function(0, 0);
 
         // Entry function cannot be invoked twice, check it.
         woort_IRLabel* label_bad_entry = m_ircontext.c().new_label();
@@ -2396,7 +2418,51 @@ namespace wo
         }
         return variable_instance;
     }
-    bool BytecodeGenerateContext::eval_result_ignored() noexcept
+
+    void BytecodeGenerateContext::pop_eval_result()
+    {
+#if WO_ENABLE_RUNTIME_CHECK
+        auto& result = m_evaled_result_storage.top();
+
+        wo_assert(result.m_request != EvalResult::Request::GET_RESULT_FOR_READONLY
+            && result.m_request != EvalResult::Request::GET_RESULT_FOR_READWRITE
+            && result.m_request != EvalResult::Request::GET_BOXED_RESULT_FOR_READONLY
+            && result.m_request != EvalResult::Request::PUSH_RESULT_AND_IGNORE
+            && result.m_request != EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE
+            && result.m_request != EvalResult::Request::IGNORE_RESULT);
+#endif
+
+        m_evaled_result_storage.pop();
+    }
+
+    woort_IRValue* BytecodeGenerateContext::get_eval_result()
+    {
+        auto& result = m_evaled_result_storage.top();
+
+        woort_IRValue* r;
+
+        switch (result.m_result_type)
+        {
+        case EvalResult::ResultKind::ASSIGN_TO_STATIC:
+        case EvalResult::ResultKind::RESULT_STATIC:
+        {
+            r = c().new_value();
+            c().load(r, result.m_result_static);
+            break;
+        }
+        case EvalResult::ResultKind::ASSIGN_TO_STACKSLOT:
+        case EvalResult::ResultKind::RESULT_STACK_VARIABLE:
+        case EvalResult::ResultKind::RESULT_STACK_TEMP:
+            r = result.m_result_stack;
+            break;
+        default:
+            abort();
+        }
+
+        m_evaled_result_storage.pop();
+        return r;
+    }
+    bool BytecodeGenerateContext::eval_result_just_ignored() noexcept
     {
         auto& top_eval_state = m_eval_result_storage_target.top();
         return top_eval_state.m_request == EvalResult::Request::IGNORE_RESULT;
@@ -2404,45 +2470,39 @@ namespace wo
     void BytecodeGenerateContext::apply_eval_result(
         const std::function<void(EvalResult&)>& bind_func) noexcept
     {
-        // TODO;
-        abort();
-#if 0
         auto& top_eval_state = m_eval_result_storage_target.top();
 
-        if (!eval_result_ignored())
+        if (!eval_result_just_ignored())
         {
+            bool need_pop_pdi = false;
             if (top_eval_state.m_pdi_node.has_value())
-                c().pdb_info->generate_debug_info_at_astnode(
-                    top_eval_state.m_pdi_node.value(), &c());
+            {
+                need_pop_pdi = true;
+                c().push_srcloc(top_eval_state.m_pdi_node.value());
+            }
 
             bind_func(top_eval_state);
             switch (top_eval_state.m_request)
             {
-            case EvalResult::Request::EVAL_PURE_ACTION:
-                // Pure action, do nothing.
+            case EvalResult::Request::PUSH_RESULT_AND_IGNORE:
+            case EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE:
+                // Already pushed when set_result_*, ignore the result.
                 break;
-            case EvalResult::Request::PUSH_RESULT_AND_IGNORE_RESULT:
-            {
-                opnum::opnumbase* result_opnum = top_eval_state.m_result.value();
-
-                try_return_opnum_temporary_register(result_opnum);
-
-                c().psh(*result_opnum);
-                break;
-            }
             default:
                 m_evaled_result_storage.emplace(std::move(top_eval_state));
             }
+
+            if (need_pop_pdi)
+                c().pop_srcloc();
         }
         m_eval_result_storage_target.pop();
-#endif 
     }
 
     void BytecodeGenerateContext::eval_to_assign(
         woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode)
     {
         EvalResult r;
-        r.m_request = EvalResult::Request::ASSIGN_TO_TARGET_AND_IGNORE;
+        r.m_request = EvalResult::Request::ASSIGN_TO_TARGET_AND_GET_TARGET;
         r.m_result_type = EvalResult::ResultKind::ASSIGN_TO_STACKSLOT;
         r.m_result_stack = target;
         r.m_pdi_node = pdinode;
@@ -2480,7 +2540,7 @@ namespace wo
         woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode)
     {
         EvalResult r;
-        r.m_request = EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE;
+        r.m_request = EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET;
         r.m_result_type = EvalResult::ResultKind::ASSIGN_TO_STACKSLOT;
         r.m_result_stack = target;
         r.m_pdi_node = pdinode;
@@ -2491,7 +2551,7 @@ namespace wo
         woort_IRStaticIndex target, const std::optional<ast::AstBase*>& pdinode)
     {
         EvalResult r;
-        r.m_request = EvalResult::Request::ASSIGN_TO_TARGET_AND_IGNORE;
+        r.m_request = EvalResult::Request::ASSIGN_TO_TARGET_AND_GET_TARGET;
         r.m_result_type = EvalResult::ResultKind::ASSIGN_TO_STATIC;
         r.m_result_static = target;
         r.m_pdi_node = pdinode;
@@ -2502,7 +2562,7 @@ namespace wo
         woort_IRStaticIndex target, const std::optional<ast::AstBase*>& pdinode)
     {
         EvalResult r;
-        r.m_request = EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE;
+        r.m_request = EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET;
         r.m_result_type = EvalResult::ResultKind::ASSIGN_TO_STATIC;
         r.m_result_static = target;
         r.m_pdi_node = pdinode;
@@ -2552,14 +2612,14 @@ namespace wo
     void BytecodeGenerateContext::eval_to_assign_if_not_ignore(
         woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode)
     {
-        if (eval_result_ignored())
+        if (eval_result_just_ignored())
             eval_and_ignore();
         else
             eval_to_assign(target, pdinode);
     }
     void BytecodeGenerateContext::do_eval_if_not_ignore(void(BytecodeGenerateContext::* method)())
     {
-        if (eval_result_ignored())
+        if (eval_result_just_ignored())
             eval_and_ignore();
         else
         {
@@ -2588,25 +2648,18 @@ namespace wo
     BytecodeGenerateContext::BytecodeGenerateContext() noexcept
     {}
 
-    std::optional<std::variant<woort_IRValue*, woort_IRStaticIndex>>
-        BytecodeGenerateContext::EvalResult::get_assign_target(bool* out_need_box) noexcept
+    std::optional<std::pair<bool /* Need box */, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
+        BytecodeGenerateContext::EvalResult::get_assign_target() const noexcept
     {
-        switch (m_request)
-        {
-        case Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
-        case Request::GET_BOXED_RESULT_FOR_READONLY:
-        case Request::PUSH_BOXED_RESULT_AND_IGNORE:
-            *out_need_box = true;
-        default:
-            *out_need_box = false;
-        }
+        const bool neex_box_assign =
+            m_request == Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET;
 
         switch (m_result_type)
         {
         case ResultKind::ASSIGN_TO_STATIC:
-            return m_result_static;
+            return std::make_pair(neex_box_assign, m_result_static);
         case ResultKind::ASSIGN_TO_STACKSLOT:
-            return m_result_stack;
+            return std::make_pair(neex_box_assign, m_result_stack);
         default:
             return std::nullopt;
         }
@@ -2654,8 +2707,8 @@ namespace wo
         case Request::PUSH_RESULT_AND_IGNORE:
             ctx.c().pushchk(result);
             break;
-        case Request::ASSIGN_TO_TARGET_AND_IGNORE:
-        case Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
+        case Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET:
         default:
             abort();
         }
@@ -2706,8 +2759,8 @@ namespace wo
         case Request::PUSH_RESULT_AND_IGNORE:
             ctx.c().pushchk(result);
             break;
-        case Request::ASSIGN_TO_TARGET_AND_IGNORE:
-        case Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
+        case Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET:
         default:
             abort();
         }
@@ -2727,7 +2780,7 @@ namespace wo
                 m_result_type = ResultKind::RESULT_STACK_TEMP;
                 m_result_stack = ctx.c().new_value();
 
-                ctx.c().load(m_result_stack, result); 
+                ctx.c().load(m_result_stack, result);
                 ctx.c().boxdyn(m_result_stack, box_type, m_result_stack);
 
                 break;
@@ -2760,8 +2813,8 @@ namespace wo
         case Request::PUSH_RESULT_AND_IGNORE:
             ctx.c().pushstaticchk(result);
             break;
-        case Request::ASSIGN_TO_TARGET_AND_IGNORE:
-        case Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
+        case Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET:
         default:
             abort();
         }
@@ -2790,8 +2843,8 @@ namespace wo
         case Request::PUSH_RESULT_AND_IGNORE:
             ctx.c().pushchk(ctx.c().load_imm_const(result));
             break;
-        case Request::ASSIGN_TO_TARGET_AND_IGNORE:
-        case Request::ASSIGN_BOXED_TO_TARGET_AND_IGNORE:
+        case Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET:
         default:
             abort();
         }

@@ -177,12 +177,22 @@ namespace wo
                 STACKOFFSET,
             };
             StorageType m_type;
+            union
+            {
+                woort_IRValue* m_stack_slot;
+                woort_IRStaticIndex m_static_index;
+            };
 
-            // for global, index is global index; for stack, index is offset.
-            int32_t     m_index;
+            explicit Storage(woort_IRValue* stack_slot);
+            explicit Storage(woort_IRStaticIndex static_index);
+
+            Storage(const Storage&) = default;
+            Storage(Storage&&) = default;
+            Storage& operator = (const Storage&) = default;
+            Storage& operator = (Storage&&) = default;
         };
 
-        lang_Symbol* m_symbol;
+        lang_Symbol*    m_symbol;
         bool            m_mutable;
 
         std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>
@@ -191,7 +201,6 @@ namespace wo
             m_determined_constant_or_function;
         std::optional<lang_TypeInstance*> m_determined_type;
 
-
         std::optional<Storage> m_IR_storage;
         std::optional<ast::AstValueFunction*>
             m_IR_normal_function;
@@ -199,7 +208,6 @@ namespace wo
         void try_determine_function_may_constant(ast::AstValueFunction* func);
         void try_determine_const_value(ast::AstValueBase* init_val);
         void set_const_value(const ast::ConstantValue& init_val);
-
         void check_and_reset_const_if_func_captured();
 
         bool IR_need_storage() const;
@@ -412,6 +420,8 @@ namespace wo
             ast::AstTypeHolder* template_type_base,
             const std::vector<ast::AstTemplateParam*>& template_params,
             bool is_alias);
+
+        bool is_declared_as_static() const;
     };
 
     struct lang_Scope
@@ -486,7 +496,7 @@ namespace wo
                 /*
                 要求将求值结果直接赋值到指定的目标
                 */
-                ASSIGN_TO_TARGET_AND_IGNORE,
+                ASSIGN_TO_TARGET_AND_GET_TARGET,
 
                 /*
                 要求获取储存有赋值结果的 IRValue，但是外部保证不会对此
@@ -509,7 +519,7 @@ namespace wo
                 /*
                 对应请求的 BOX 版本，期待求值方给出一个 BOX 之后的值
                 */
-                ASSIGN_BOXED_TO_TARGET_AND_IGNORE,
+                ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET,
                 GET_BOXED_RESULT_FOR_READONLY,
                 PUSH_BOXED_RESULT_AND_IGNORE,
 
@@ -546,8 +556,8 @@ namespace wo
             // The pdinode used for generate debug info.
             std::optional<ast::AstBase*> m_pdi_node;
 
-            std::optional<std::variant<woort_IRValue*, woort_IRStaticIndex>>
-                get_assign_target(bool* out_need_box) noexcept;
+            std::optional<std::pair<bool /* Need box */, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
+                get_assign_target() const noexcept;
 
             void set_result_stack_temp(
                 BytecodeGenerateContext& ctx, 
@@ -608,10 +618,10 @@ namespace wo
         std::optional<LoopContent*> find_nearest_loop_content_label(
             const std::optional<wo_pstring_t>& label);
 
-        // NOTE: get_eval_result will invoke `return_opnum_temporary_register`
-        //  to release temporary opnum if GET_RESULT_OPNUM_ONLY.
-        opnum::opnumbase* get_eval_result();
-        bool eval_result_ignored() noexcept;
+        woort_IRValue* get_eval_result();
+        void pop_eval_result();
+
+        bool eval_result_just_ignored() noexcept;
 
         // Apply and assign the value into specify 
         void apply_eval_result(const std::function<void(EvalResult&)>& bind_func) noexcept;

@@ -568,8 +568,8 @@ void _wo_test_compile()
     const char* src = R"(
         for (;;)
         {
-            static let mut v = 15;
-            for (;;)
+            static let mut v = false;
+            for (;v;)
             {
                 for (;;)
                 {

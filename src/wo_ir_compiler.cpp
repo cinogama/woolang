@@ -32,13 +32,14 @@ namespace wo
         return m_ircompiler == nullptr;
     }
 
-    woort_IRFunction* IRCompiler::push_function(uint32_t param_count)
+    woort_IRFunction* IRCompiler::push_function(
+        uint32_t param_count, uint32_t captured_count)
     {
         if (is_abondoned())
             return nullptr;
 
         woort_IRFunction* irfunc;
-        if (!woort_IRCompiler_add_function(m_ircompiler, param_count, &irfunc))
+        if (!woort_IRCompiler_add_function(m_ircompiler, param_count, captured_count, &irfunc))
         {
             abondon();
             return nullptr;
@@ -97,13 +98,13 @@ namespace wo
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    const woort_IRValue* IRCompiler::load_constant(woort_IRConstantIndex cidx)
+    const woort_IRValue* IRCompiler::fetch_constant(woort_IRConstantIndex cidx)
     {
         if (is_abondoned())
             return nullptr;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        const woort_IRValue* const result = woort_IRFunction_load_const(cur, cidx);
+        const woort_IRValue* const result = woort_IRFunction_fetch_const(cur, cidx);
         if (result == nullptr)
             abondon();
 
@@ -1642,51 +1643,51 @@ namespace wo
 
     const woort_IRValue* IRCompiler::load_imm_int(woort_Int val)
     {
-        return load_constant(imm_int(val));
+        return fetch_constant(imm_int(val));
     }
     const woort_IRValue* IRCompiler::load_imm_box_int(woort_Int val)
     {
-        return load_constant(imm_box_int(val));
+        return fetch_constant(imm_box_int(val));
     }
     const woort_IRValue* IRCompiler::load_imm_real(woort_Real val)
     {
-        return load_constant(imm_real(val));
+        return fetch_constant(imm_real(val));
     }
     const woort_IRValue* IRCompiler::load_imm_box_real(woort_Real val)
     {
-        return load_constant(imm_box_real(val));
+        return fetch_constant(imm_box_real(val));
     }
     const woort_IRValue* IRCompiler::load_imm_box_bool(bool val)
     {
-        return load_constant(imm_box_bool(val));
+        return fetch_constant(imm_box_bool(val));
     }
     const woort_IRValue* IRCompiler::load_imm_string(wo_pstring_t val)
     {
-        return load_constant(imm_string(val));
+        return fetch_constant(imm_string(val));
     }
     const woort_IRValue* IRCompiler::load_imm_closure(ast::AstValueFunction* val)
     {
-        return load_constant(imm_closure(val));
+        return fetch_constant(imm_closure(val));
     }
     const woort_IRValue* IRCompiler::load_imm_function(ast::AstValueFunction* val)
     {
-        return load_constant(imm_function(val));
+        return fetch_constant(imm_function(val));
     }
     const woort_IRValue* IRCompiler::load_imm_nil()
     {
-        return load_constant(imm_nil());
+        return fetch_constant(imm_nil());
     }
     const woort_IRValue* IRCompiler::load_imm_bool(bool val)
     {
-        return load_constant(imm_bool(val));
+        return fetch_constant(imm_bool(val));
     }
     const woort_IRValue* IRCompiler::load_imm_handle(woort_Handle handle)
     {
-        return load_constant(imm_handle(handle));
+        return fetch_constant(imm_handle(handle));
     }
     const woort_IRValue* IRCompiler::load_imm_box_handle(woort_Handle handle)
     {
-        return load_constant(imm_box_handle(handle));
+        return fetch_constant(imm_box_handle(handle));
     }
 
     woort_IRConstantIndex IRCompiler::imm_const(
@@ -1759,11 +1760,11 @@ namespace wo
     const woort_IRValue* IRCompiler::load_imm_const(
         const ast::ConstantValue& constant)
     {
-        return load_constant(imm_const(constant));
+        return fetch_constant(imm_const(constant));
     }
     const woort_IRValue* IRCompiler::load_imm_box_const(
         const ast::ConstantValue& constant)
     {
-        return load_constant(imm_box_const(constant));
+        return fetch_constant(imm_box_const(constant));
     }
 }

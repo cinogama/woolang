@@ -93,7 +93,7 @@ namespace wo
     public:
         bool is_abondoned() const;
 
-        woort_IRFunction* push_function(uint32_t param_count);
+        woort_IRFunction* push_function(uint32_t param_count, uint32_t captured_count);
         void pop_function();
 
         woort_IRConstantIndex alloc_constant();
@@ -103,7 +103,7 @@ namespace wo
         const woort_Bytecode* get_function(woort_CodeEnv* cenv, woort_IRFunction* irfunc);
 
     public:
-        const woort_IRValue* load_constant(woort_IRConstantIndex cidx);
+        const woort_IRValue* fetch_constant(woort_IRConstantIndex cidx);
         woort_IRValue* new_value();
         const woort_IRValue* argument(uint32_t aidx);
 

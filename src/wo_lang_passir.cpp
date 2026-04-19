@@ -296,17 +296,16 @@ namespace wo
                     m_ircontext.c().bind(
                         m_ircontext.c().named_label(node, "#for_cond"));
 
-                    /*m_ircontext.eval_to(m_ircontext.opnum_spreg(opnum::reg::cr), std::nullopt);
+                    // TODO: More optimzied code generate required.
+
+                    m_ircontext.begin_eval_readonly();
                     if (!pass_final_value(lex, node->m_condition.value()))
                         return FAILED;
 
-                    (void)m_ircontext.get_eval_result();
+                    m_ircontext.c().jcc(
+                        m_ircontext.get_eval_result(),
+                        m_ircontext.c().named_label(node, "#for_begin"));
 
-                    m_ircontext.c().jt(opnum::tag(_generate_label("#for_begin", node)));*/
-
-                    // TODO: More optimzied code generate required.
-
-                    abort();
                 }
                 else
                 {
@@ -473,7 +472,7 @@ namespace wo
         switch (node->m_pattern->node_type)
         {
         case AstBase::AST_PATTERN_TAKEPLACE:
-            m_ircontext.eval_result_ignored();
+            m_ircontext.eval_result_just_ignored();
             if (!pass_final_value(lex, node->m_init_value))
                 // Failed 
                 return FAILED;
@@ -531,7 +530,7 @@ namespace wo
                         if (function.has_value())
                         {
                             // We still eval the function to let compiler know the function.
-                            m_ircontext.eval_result_ignored();
+                            m_ircontext.eval_result_just_ignored();
                             if (!pass_final_value(lex, function.value()))
                                 // Failed 
                                 return FAILED;
@@ -539,32 +538,37 @@ namespace wo
                     }
                     else
                     {
-                        // Need storage and initialize.
-                        const bool fast_eval = template_value_instance->m_IR_storage.has_value()
-                            && (_is_storage_can_addressing(template_value_instance->m_IR_storage.value()));
+                        // 
+                        wo_assert(!template_value_instance->m_IR_storage.has_value());
+                        if (template_value_instance->m_symbol->m_is_global
+                            || template_value_instance->m_symbol->is_declared_as_static())
+                        {
+                            // Is static variable,
+                            const woort_IRStaticIndex static_storage =
+                                m_ircontext.c().alloc_static();
 
-                        if (fast_eval)
-                            m_ircontext.eval_to(
-                                m_ircontext.get_storage_place(
-                                    template_value_instance->m_IR_storage.value()), node);
+                            template_value_instance->m_IR_storage.emplace(
+                                lang_ValueInstance::Storage(static_storage));
+
+                            m_ircontext.eval_to_assign_static(static_storage, node);
+                        }
                         else
-                            m_ircontext.eval();
+                        {
+                            // Is stack variable.
+                            woort_IRValue* const stack_storage =
+                                m_ircontext.c().new_value();
+
+                            template_value_instance->m_IR_storage.emplace(
+                                lang_ValueInstance::Storage(stack_storage));
+
+                            m_ircontext.eval_to_assign(stack_storage, node);
+                        }
+
                         if (!pass_final_value(lex, static_cast<AstValueBase*>(template_instance->m_ast)))
                             // Failed 
                             return FAILED;
 
-                        auto* result_opnum = m_ircontext.get_eval_result();
-
-                        if (fast_eval)
-                            (void)result_opnum;
-                        else
-                        {
-                            WO_GENERATE_PDI_FOR(node);
-
-                            if (!update_instance_storage_and_code_gen_passir(
-                                template_value_instance, result_opnum, std::nullopt))
-                                return FAILED;
-                        }
+                        m_ircontext.pop_eval_result();
                     }
                 }
             }
@@ -576,7 +580,7 @@ namespace wo
 
                 if (function.has_value())
                 {
-                    m_ircontext.eval_ignore();
+                    m_ircontext.eval_and_ignore();
                     if (!pass_final_value(lex, function.value()))
                         // Failed 
                         return FAILED;
@@ -585,32 +589,36 @@ namespace wo
             else
             {
                 // Not template, but need storage.
-                const bool fast_eval = pattern_symbol->m_value_instance->m_IR_storage.has_value()
-                    && _is_storage_can_addressing(pattern_symbol->m_value_instance->m_IR_storage.value());
+                wo_assert(!pattern_symbol->m_value_instance->m_IR_storage.has_value());
+                if (pattern_symbol->m_value_instance->m_symbol->m_is_global
+                    || pattern_symbol->m_value_instance->m_symbol->is_declared_as_static())
+                {
+                    // Is static variable,
+                    const woort_IRStaticIndex static_storage =
+                        m_ircontext.c().alloc_static();
 
-                if (fast_eval)
-                    m_ircontext.eval_to(
-                        m_ircontext.get_storage_place(
-                            pattern_symbol->m_value_instance->m_IR_storage.value()), node);
+                    pattern_symbol->m_value_instance->m_IR_storage.emplace(
+                        lang_ValueInstance::Storage(static_storage));
+
+                    m_ircontext.eval_to_assign_static(static_storage, node);
+                }
                 else
-                    m_ircontext.eval();
+                {
+                    // Is stack variable.
+                    woort_IRValue* const stack_storage =
+                        m_ircontext.c().new_value();
 
-                if (!pass_final_value(lex, node->m_init_value))
+                    pattern_symbol->m_value_instance->m_IR_storage.emplace(
+                        lang_ValueInstance::Storage(stack_storage));
+
+                    m_ircontext.eval_to_assign(stack_storage, node);
+                }
+
+                if (!pass_final_value(lex, static_cast<AstValueBase*>(node->m_init_value)))
                     // Failed 
                     return FAILED;
 
-                auto* result_opnum = m_ircontext.get_eval_result();
-
-                if (fast_eval)
-                    (void)result_opnum;
-                else
-                {
-                    WO_GENERATE_PDI_FOR(node);
-
-                    if (!update_instance_storage_and_code_gen_passir(
-                        pattern_symbol->m_value_instance, result_opnum, std::nullopt))
-                        return FAILED;
-                }
+                m_ircontext.pop_eval_result();
             }
             return OKAY;
         }
@@ -619,27 +627,27 @@ namespace wo
             AstPatternTuple* pattern_tuple = static_cast<AstPatternTuple*>(node->m_pattern);
             if (_check_pattern_all_no_need_storage(pattern_tuple))
             {
-                m_ircontext.eval_ignore();
+                m_ircontext.eval_and_ignore();
                 if (!pass_final_value(lex, node->m_init_value))
                     // Failed 
                     return FAILED;
             }
             else
             {
-                m_ircontext.eval_keep();
+                m_ircontext.begin_eval_readonly();
                 if (!pass_final_value(lex, node->m_init_value))
                     // Failed 
                     return FAILED;
 
                 auto* result_opnum = m_ircontext.get_eval_result();
 
-                bool update_result = update_pattern_storage_and_code_gen_passir(
-                    lex, node->m_pattern, result_opnum, std::nullopt);
+                //bool update_result = update_pattern_storage_and_code_gen_passir(
+                //    lex, node->m_pattern, result_opnum, std::nullopt);
 
-                m_ircontext.try_return_opnum_temporary_register(result_opnum);
+                //if (!update_result)
+                //    return FAILED;
 
-                if (!update_result)
-                    return FAILED;
+                abort();
             }
             return OKAY;
         }
@@ -697,7 +705,112 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueVariable)
     {
-        abort();
+        wo_assert(state == UNPROCESSED);
+
+        lang_ValueInstance* value_instance = node->m_LANG_variable_instance.value();
+
+        if (value_instance->m_IR_normal_function.has_value())
+        {
+            abort();
+            //AstValueFunction* func = value_instance->m_IR_normal_function.value();
+            //m_ircontext.apply_eval_result(
+            //    [&](BytecodeGenerateContext::EvalResult& result)
+            //    {
+            //        const auto& target_storage = result.get_assign_target();
+            //        auto* function_opnum = m_ircontext.opnum_func(func);
+            //        if (target_storage.has_value())
+            //        {
+            //            m_ircontext.c().mov(
+            //                WO_OPNUM(target_storage.value()),
+            //                WO_OPNUM(function_opnum));
+            //        }
+            //        else
+            //            result.set_result(m_ircontext, function_opnum);
+            //    });
+            //return OKAY;
+        }
+
+        wo_assert(value_instance->IR_need_storage());
+
+        if (!value_instance->m_IR_storage.has_value())
+        {
+            lex.record_lang_error(lexer::msglevel_t::error, node,
+                WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED,
+                get_value_name(value_instance));
+
+            if (value_instance->m_symbol->m_symbol_declare_ast.has_value())
+                lex.record_lang_error(lexer::msglevel_t::infom,
+                    value_instance->m_symbol->m_symbol_declare_ast.value(),
+                    WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
+                    get_value_name(value_instance));
+
+            return FAILED;
+        }
+
+        auto& variable_storage = value_instance->m_IR_storage.value();
+
+        m_ircontext.apply_eval_result(
+            [&](BytecodeGenerateContext::EvalResult& result)
+            {
+                const auto target_storage = result.get_assign_target();
+                if (target_storage.has_value())
+                {
+                    const auto& [need_box, target] = target_storage.value();
+
+                    woort_IRValue* const* const target_irvalue =
+                        std::get_if<woort_IRValue*>(&target);
+
+                    if (target_irvalue == nullptr)
+                    {
+                        // Assigned to static.
+                        if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL)
+                        {
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+                            m_ircontext.c().load(v, variable_storage.m_static_index);
+                            m_ircontext.c().store(
+                                std::get<woort_IRStaticIndex>(target), v);
+                        }
+                        else
+                        {
+                            wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
+                            m_ircontext.c().store(
+                                std::get<woort_IRStaticIndex>(target), 
+                                variable_storage.m_stack_slot);
+                        }
+                    }
+                    else
+                    {
+                        if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL)
+                        {
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+                            m_ircontext.c().load(v, variable_storage.m_static_index);
+                            m_ircontext.c().mov(*target_irvalue, v);
+                        }
+                        else
+                        {
+                            wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
+                            m_ircontext.c().mov(*target_irvalue, variable_storage.m_stack_slot);
+                        }
+                    }
+                }
+                else
+                {
+                    if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL)
+                        result.set_result_static(
+                            m_ircontext, 
+                            variable_storage.m_static_index,
+                            node->m_LANG_determined_type.value());
+                    else
+                    {
+                        wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
+                        result.set_result_stack_var(
+                            m_ircontext, 
+                            variable_storage.m_stack_slot,
+                            node->m_LANG_determined_type.value());
+                    }
+                }
+            });
+
         return OKAY;
     }
     WO_PASS_PROCESSER(AstValueMarkAsMutable)
@@ -904,16 +1017,36 @@ namespace wo
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
-                    abort();
+                    const auto& asigned_target = result.get_assign_target();
+                    if (asigned_target.has_value())
+                    {
+                        const auto& [need_box, target] = asigned_target.value();
 
-                    //opnum::opnumbase* immediately_value =
-                    //    m_ircontext.opnum_imm_value(constant_value);
+                        woort_IRValue* const* const target_irvalue =
+                            std::get_if<woort_IRValue*>(&target);
 
-                    //const auto& asigned_target = result.get_assign_target();
-                    //if (asigned_target.has_value())
-                    //    m_ircontext.c().mov(WO_OPNUM(asigned_target.value()), WO_OPNUM(immediately_value));
-                    //else
-                    //    result.set_result(m_ircontext, immediately_value);
+                        if (target_irvalue == nullptr)
+                        {
+                            // Assigned to static.
+                            m_ircontext.c().store(
+                                std::get<woort_IRStaticIndex>(target),
+                                need_box
+                                ? m_ircontext.c().load_imm_box_const(constant_value)
+                                : m_ircontext.c().load_imm_const(constant_value));
+                        }
+                        else
+                        {
+                            m_ircontext.c().mov(
+                                *target_irvalue,
+                                need_box
+                                ? m_ircontext.c().load_imm_box_const(constant_value)
+                                : m_ircontext.c().load_imm_const(constant_value));
+                        }
+                    }
+                    else
+                    {
+                        result.set_result_const(m_ircontext, constant_value);
+                    }
                 });
             return OKAY;
         }
