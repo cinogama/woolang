@@ -567,6 +567,8 @@ namespace wo
             void set_result_const(
                 BytecodeGenerateContext& ctx, 
                 const ast::ConstantValue& result) noexcept;
+            void set_result_junk(
+                BytecodeGenerateContext& ctx) noexcept;
         };
         std::stack<EvalResult> m_eval_result_storage_target;
         std::stack<EvalResult> m_evaled_result_storage;
@@ -611,7 +613,7 @@ namespace wo
         std::optional<LoopContent*> find_nearest_loop_content_label(
             const std::optional<wo_pstring_t>& label);
 
-        woort_IRValue* get_eval_result();
+        const woort_IRValue* get_eval_result();
         void pop_eval_result();
 
         bool eval_result_just_ignored() noexcept;

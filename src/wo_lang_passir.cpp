@@ -1148,8 +1148,6 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueTypeCast)
     {
-        abort();
-#if 0
         if (state == UNPROCESSED)
         {
             auto* target_type_instance =
@@ -1169,19 +1167,45 @@ namespace wo
                 node->m_IR_need_eval = true;
                 m_ircontext.eval_and_ignore();
             }
-            else if (target_determined_type_instance->m_base_type
-                != src_determined_type_instance->m_base_type
-                && src_determined_type_instance->m_base_type
-                != lang_TypeInstance::DeterminedType::NOTHING)
+            else if (
+                (target_determined_type_instance->m_base_type
+                    != src_determined_type_instance->m_base_type
+                    && (
+                        /* INT & HANDLE IS SAME TYPE IN WOORT. */
+                        (target_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::INTEGER
+                            && target_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::HANDLE)
+                        || (src_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::INTEGER
+                            && src_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::HANDLE))
+                    && src_determined_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::NOTHING))
             {
                 if (target_determined_type_instance->m_base_type
                     != lang_TypeInstance::DeterminedType::DYNAMIC)
                 {
-                    // Need runtime check.
-                    node->m_IR_need_eval = true;
+                    // Woolang 1.15: This is special handling for type exemptions; although these types are 
+                    // different at the language level, they are identical at the WooRT underlying layer, 
+                    // so no conversion is needed.
+                    if (
+                        // INT <- HANDLE/BOOL
+                        (target_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER
+                            && (src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::HANDLE
+                                || src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::BOOLEAN))
+                        // HANDLE <- INT/BOOL
+                        || (target_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::HANDLE
+                            && (src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER
+                                || src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::BOOLEAN)))
+                    {
+                        // No need runtime operation
+                        goto _label_no_cast;
+                    }
+                    else
+                    {
+                        // Need runtime check.
+                        node->m_IR_need_eval = true;
 
-                    m_ircontext.do_eval_if_not_ignore(
-                        &BytecodeGenerateContext::begin_eval_readonly);
+                        m_ircontext.do_eval_if_not_ignore(
+                            &BytecodeGenerateContext::begin_eval_readonly);
+                    }
                 }
                 else
                 {
@@ -1194,6 +1218,7 @@ namespace wo
             else
             {
                 // No cast
+            _label_no_cast:
                 node->m_IR_need_eval = false;
 
                 m_ircontext.eval_for_upper();
@@ -1223,38 +1248,40 @@ namespace wo
 
                         const auto& target_storage = result.get_assign_target();
 
-                        // Need runtime cast.
-                        value::valuetype cast_type;
-                        switch (target_determined_type_instance->m_base_type)
-                        {
-                        case lang_TypeInstance::DeterminedType::NIL:
-                            cast_type = value::valuetype::invalid;
-                            break;
-                        case lang_TypeInstance::DeterminedType::INTEGER:
-                            cast_type = value::valuetype::integer_type;
-                            break;
-                        case lang_TypeInstance::DeterminedType::REAL:
-                            cast_type = value::valuetype::real_type;
-                            break;
-                        case lang_TypeInstance::DeterminedType::HANDLE:
-                            cast_type = value::valuetype::handle_type;
-                            break;
-                        case lang_TypeInstance::DeterminedType::BOOLEAN:
-                            cast_type = value::valuetype::bool_type;
-                            break;
-                        case lang_TypeInstance::DeterminedType::STRING:
-                            cast_type = value::valuetype::string_type;
-                            break;
-                        case lang_TypeInstance::DeterminedType::GCHANDLE:
-                            cast_type = value::valuetype::gchandle_type;
-                            break;
-                        case lang_TypeInstance::DeterminedType::DICTIONARY:
-                            cast_type = value::valuetype::dict_type;
-                            break;
-                        case lang_TypeInstance::DeterminedType::ARRAY:
-                            cast_type = value::valuetype::array_type;
-                            break;
-                        case lang_TypeInstance::DeterminedType::VOID:
+                        const auto _convert_lang_base_type_to_woort_type_exclude_compile_type =
+                            [](lang_TypeInstance::DeterminedType::base_type lang_type)
+                            {
+                                switch (lang_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::NIL:
+                                    return WOORT_BOX_VALUE_TYPE_NIL;
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    return WOORT_BOX_VALUE_TYPE_INT;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    return WOORT_BOX_VALUE_TYPE_REAL;
+                                case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                    return WOORT_BOX_VALUE_TYPE_BOOL;
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    return WOORT_BOX_VALUE_TYPE_STRING;
+                                case lang_TypeInstance::DeterminedType::GCHANDLE:
+                                    return WOORT_BOX_VALUE_TYPE_GCHANDLE;
+                                case lang_TypeInstance::DeterminedType::DICTIONARY:
+                                    return WOORT_BOX_VALUE_TYPE_MAP;
+                                case lang_TypeInstance::DeterminedType::ARRAY:
+                                    return WOORT_BOX_VALUE_TYPE_VEC;
+                                default:
+                                    wo_error("Unexpected type.");
+                                    return WOORT_BOX_VALUE_TYPE_NIL;
+                                }
+                            };
+
+                        // The case where the target type is dynamic has already been handled by eval_for_upper_box; 
+                        // it is impossible for this situation to occur here.
+                        wo_assert(target_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::DYNAMIC);
+
+                        // VOID expr needed, skip and give junk value.
+                        if (target_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::VOID)
                         {
                             if (target_storage.has_value())
                             {
@@ -1264,71 +1291,197 @@ namespace wo
                             else
                             {
                                 // Return a junk value.
-                                result.set_result_const(
-                                    m_ircontext, m_ircontext.c().load_imm_nil());
+                                result.set_result_junk(m_ircontext);
                             }
-                            return;
-                        }
-                        default:
-                            wo_error("Unknown type.");
-                            break;
                         }
 
-                        // NOTE: If target type is void, we can't get result from context.
-                        //  Expr has been evaled as non-result mode.
+                        // Need runtime cast.
                         auto* opnum_to_cast = m_ircontext.get_eval_result();
 
-                        if (target_storage.has_value())
+                        if (src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::DYNAMIC)
                         {
-                            if (cast_type == value::valuetype::integer_type
-                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::REAL)
+                            // Here, converting from the dynamic type to a specified type uses `castdyn`.
+                            if (target_storage.has_value())
                             {
-                                m_ircontext.c().movrcasti(
-                                    WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(opnum_to_cast));
-                            }
-                            else if (cast_type == value::valuetype::real_type
-                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER)
-                            {
-                                m_ircontext.c().movicastr(
-                                    WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(opnum_to_cast));
+                                auto& [need_box, target] = target_storage.value();
+                                woort_IRValue* const* const target_irvalue =
+                                    std::get_if<woort_IRValue*>(&target);
+
+                                if (target_irvalue == nullptr)
+                                {
+                                    woort_IRValue* const v = m_ircontext.c().new_value();
+                                    m_ircontext.c().castdyn(
+                                        v,
+                                        opnum_to_cast,
+                                        _convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            target_determined_type_instance->m_base_type));
+                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                }
+                                else
+                                {
+                                    m_ircontext.c().castdyn(
+                                        *target_irvalue,
+                                        opnum_to_cast,
+                                        _convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            target_determined_type_instance->m_base_type));
+                                }
                             }
                             else
                             {
-                                m_ircontext.c().movcast(
-                                    WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(opnum_to_cast),
-                                    cast_type);
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                m_ircontext.c().castdyn(
+                                    v, 
+                                    opnum_to_cast, 
+                                    _convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                        target_determined_type_instance->m_base_type));
+
+                                result.set_result_stack_temp(m_ircontext, v, target_type_instance);
                             }
                         }
                         else
                         {
-                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
-                                WO_BORROW_TEMPORARY_FROM(node));
-
-                            if (cast_type == value::valuetype::integer_type
-                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::REAL)
+                            switch (target_determined_type_instance->m_base_type)
                             {
-                                m_ircontext.c().movrcasti(
-                                    WO_OPNUM(borrowed_reg),
-                                    WO_OPNUM(opnum_to_cast));
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                /////////////////////////////////////////////////////////////////////////
+                                switch (src_determined_type_instance->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    if (target_storage.has_value())
+                                    {
+                                    }
+                                    else
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().rtoi(
+                                            v,
+                                            opnum_to_cast);
+                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                    }
+                                    break;
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    if (target_storage.has_value())
+                                    {
+                                    }
+                                    else
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().caststo(
+                                            v,
+                                            opnum_to_cast,
+                                            WOORT_BOX_VALUE_TYPE_INT);
+                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                    }
+                                    break;
+                                default:
+                                    wo_error("Unexpected type.");
+                                }
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                /////////////////////////////////////////////////////////////////////////
+                                switch (src_determined_type_instance->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                    if (target_storage.has_value())
+                                    {
+                                    }
+                                    else
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().itor(
+                                            v,
+                                            opnum_to_cast);
+                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                    }
+                                    break;
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    if (target_storage.has_value())
+                                    {
+                                    }
+                                    else
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().caststo(
+                                            v,
+                                            opnum_to_cast,
+                                            WOORT_BOX_VALUE_TYPE_REAL);
+                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                    }
+                                    break;
+                                default:
+                                    wo_error("Unexpected type.");
+                                }
+                                break;
+                            case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                /////////////////////////////////////////////////////////////////////////
+                                switch (src_determined_type_instance->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    if (target_storage.has_value())
+                                    {
+                                    }
+                                    else
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().nei(
+                                            v,
+                                            opnum_to_cast,
+                                            m_ircontext.c().load_imm_int(0));
+                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                    }
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    if (target_storage.has_value())
+                                    {
+                                    }
+                                    else
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().nei(
+                                            v,
+                                            opnum_to_cast,
+                                            m_ircontext.c().load_imm_real(0.));
+                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                    }
+                                    break;
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    if (target_storage.has_value())
+                                    {
+                                    }
+                                    else
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().caststo(
+                                            v,
+                                            opnum_to_cast,
+                                            WOORT_BOX_VALUE_TYPE_BOOL);
+                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                    }
+                                    break;
+                                default:
+                                    wo_error("Unexpected type.");
+                                }
+                                break;
+                            case lang_TypeInstance::DeterminedType::STRING:
+                                if (target_storage.has_value())
+                                {
+                                }
+                                else
+                                {
+                                    woort_IRValue* const v = m_ircontext.c().new_value();
+                                    m_ircontext.c().castsfrom(
+                                        v,
+                                        opnum_to_cast,
+                                        _convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            src_determined_type_instance->m_base_type));
+                                    result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                }
+                                break;
+                            default:
+                                wo_error("Unexpected type.");
                             }
-                            else if (cast_type == value::valuetype::real_type
-                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER)
-                            {
-                                m_ircontext.c().movicastr(
-                                    WO_OPNUM(borrowed_reg),
-                                    WO_OPNUM(opnum_to_cast));
-                            }
-                            else
-                            {
-                                m_ircontext.c().movcast(
-                                    WO_OPNUM(borrowed_reg),
-                                    WO_OPNUM(opnum_to_cast),
-                                    cast_type);
-                            }
-                            result.set_result(m_ircontext, borrowed_reg);
                         }
                     });
             }
@@ -1336,7 +1489,7 @@ namespace wo
                 m_ircontext.cleanup_for_eval_upper();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
-#endif
+
     }
     WO_PASS_PROCESSER(AstValueDoAsVoid)
     {

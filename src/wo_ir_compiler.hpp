@@ -123,8 +123,10 @@ namespace wo
         void itos(woort_IRValue* dst, const woort_IRValue* src);
         void rtoi(woort_IRValue* dst, const woort_IRValue* src);
         void rtos(woort_IRValue* dst, const woort_IRValue* src);
-        void stoi(woort_IRValue* dst, const woort_IRValue* src);
-        void stor(woort_IRValue* dst, const woort_IRValue* src);
+        void caststo(woort_IRValue* dst, const woort_IRValue* src, woort_BoxValueType t);
+        void castsfrom(woort_IRValue* dst, const woort_IRValue* src, woort_BoxValueType t);
+        void castdyn(woort_IRValue* dst, const woort_IRValue* src, woort_BoxValueType t);
+        void assertdyn(const woort_IRValue* src, woort_BoxValueType t);
 
         /* --- Function Calls --- */
         void callnwo(woort_IRConstantIndex target, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);

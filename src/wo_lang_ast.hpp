@@ -971,8 +971,8 @@ namespace wo
             std::optional<lang_TypeInstance*> m_LANG_pattern_value_apply_type;
             std::optional<int64_t> m_LANG_case_label_or_takeplace;
 
-            std::optional<woort_IRValue*> m_IR_matching_index_opnum;
-            std::optional<woort_IRValue*> m_IR_matching_struct_opnum;
+            std::optional<const woort_IRValue*> m_IR_matching_index_opnum;
+            std::optional<const woort_IRValue*> m_IR_matching_struct_opnum;
             std::optional<AstMatch*> m_IR_match;
 
             AstMatchCase(AstPatternBase* pattern, AstBase* body);

@@ -427,11 +427,10 @@ namespace wo
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
                 }
 
-                // 7. bool, int, gchandle, real, string can cast to handle.
+                // 7. bool, int, real, string can cast to handle.
                 if (immutable_aimtype == m_origin_types.m_handle.m_type_instance &&
                     (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
                         immutable_srctype == m_origin_types.m_int.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_gchandle.m_type_instance ||
                         immutable_srctype == m_origin_types.m_real.m_type_instance ||
                         immutable_srctype == m_origin_types.m_string.m_type_instance))
                 {

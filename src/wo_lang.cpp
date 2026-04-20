@@ -2434,7 +2434,7 @@ namespace wo
         m_evaled_result_storage.pop();
     }
 
-    woort_IRValue* BytecodeGenerateContext::get_eval_result()
+    const woort_IRValue* BytecodeGenerateContext::get_eval_result()
     {
         auto& result = m_evaled_result_storage.top();
 
@@ -2750,8 +2750,9 @@ namespace wo
             ;
         }
         case Request::GET_RESULT_FOR_READONLY:
-            m_result_type = ResultKind::RESULT_STACK_TEMP;
+            m_result_type = ResultKind::RESULT_STACK_VARIABLE;
             m_result_stack = result;
+            break;
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
         {
             woort_BoxValueType box_type;
@@ -2851,6 +2852,26 @@ namespace wo
             abort();
         }
     }
+    void BytecodeGenerateContext::EvalResult::set_result_junk(BytecodeGenerateContext& ctx) noexcept
+    {
+        wo_assert(m_result_type == ResultKind::PENDING);
 
+        switch (m_request)
+        {
+        case Request::GET_BOXED_RESULT_FOR_READONLY:
+        case Request::GET_RESULT_FOR_READONLY:
+            m_result_type = ResultKind::RESULT_STACK_TEMP;
+            m_result_stack = const_cast<woort_IRValue*>(ctx.c().load_imm_nil());
+            break;
+        case Request::PUSH_BOXED_RESULT_AND_IGNORE:
+        case Request::PUSH_RESULT_AND_IGNORE:
+            ctx.c().pushchk(ctx.c().load_imm_nil());
+            break;
+        case Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET:
+        default:
+            abort();
+        }
+    }
 #endif
 }

@@ -580,9 +580,15 @@ void _wo_test_compile()
         //}
 
         /*let mut aa = 155;
-        let mut bb = 155: dynamic; */       
+        let mut bb = 155: dynamic; */    
 
-        let (_, mut a, _) = (1, false, 3);
+        for (;;)
+        {
+            let cc = nil: dynamic;   
+            let dd = cc: int;
+        }
+
+       /* let (_, mut a, _) = (1, false, 3);
         if (a)
         {
             for (;a;)
@@ -590,7 +596,7 @@ void _wo_test_compile()
             
             }
         }
-        while(true);
+        while(true);*/
     )";
     
     std::optional<woort_CodeEnv*> out_env_if_success;

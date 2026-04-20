@@ -285,23 +285,43 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stoi(woort_IRValue* dst, const woort_IRValue* src)
+    void IRCompiler::caststo(woort_IRValue* dst, const woort_IRValue* src, woort_BoxValueType t)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STOI(cur, dst, src))
+        if (!woort_IR_CASTSTO(cur, dst, static_cast<uint8_t>(t), src))
             abondon();
     }
 
-    void IRCompiler::stor(woort_IRValue* dst, const woort_IRValue* src)
+    void IRCompiler::castsfrom(woort_IRValue* dst, const woort_IRValue* src, woort_BoxValueType t)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STOR(cur, dst, src))
+        if (!woort_IR_CASTSFROM(cur, dst, static_cast<uint8_t>(t), src))
+            abondon();
+    }
+
+    void IRCompiler::castdyn(woort_IRValue* dst, const woort_IRValue* src, woort_BoxValueType t)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_CASTDYN(cur, dst, static_cast<uint8_t>(t), src))
+            abondon();
+    }
+
+    void IRCompiler::assertdyn(const woort_IRValue* src, woort_BoxValueType t)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_ASSERTDYN(cur, static_cast<uint8_t>(t), src))
             abondon();
     }
 
