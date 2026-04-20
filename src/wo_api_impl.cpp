@@ -590,13 +590,13 @@ void _wo_test_compile()
 
         func foo((v, _): (string, int))
         {
-            return (v, 1, 2, 3);
+            return (v + "Helloworld", 1, 2, 3);
         }
 
         func bar(a: int, ...)
         {
-            let v = a;
-            return ...;
+            let v = (a + 7788): dynamic;
+            return v;
         }
 
         for (;;)

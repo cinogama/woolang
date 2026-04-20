@@ -2447,32 +2447,13 @@ namespace wo
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
-                        auto* right_opnum = m_ircontext.get_eval_result();
-                        auto* left_opnum = m_ircontext.get_eval_result();
+                        auto* const right_opnum = m_ircontext.get_eval_result();
+                        auto* const left_opnum = m_ircontext.get_eval_result();
 
-                        // We need to make sure following `borrow_opnum_temporary_register`
-                        // will not borrow the right value.
-                        m_ircontext.try_keep_opnum_temporary_register(
-                            right_opnum
-                            WO_BORROW_TEMPORARY_FROM_SP(node));
+                        using binary_op_t = void (IRCompiler::*)(
+                            woort_IRValue*, const woort_IRValue*, const woort_IRValue*);
 
-                        if (node->m_operator < AstValueBinaryOperator::LOGICAL_AND
-                            && nullptr == dynamic_cast<opnum::temporary*>(left_opnum))
-                        {
-                            // Is not temporary register, we need keep it.
-                            // NOTE: If left not temporary, we dont need to return it.
-                            //  at the same time.
-                            auto* borrow_reg = m_ircontext.borrow_opnum_temporary_register(
-                                WO_BORROW_TEMPORARY_FROM(node));
-                            m_ircontext.c().mov(
-                                WO_OPNUM(borrow_reg),
-                                WO_OPNUM(left_opnum));
-
-                            left_opnum = borrow_reg;
-                        }
-
-                        // After all borrow_opnum_temporary_register, we can return right.
-                        m_ircontext.try_return_opnum_temporary_register(right_opnum);
+                        binary_op_t binary_op;
 
                         lang_TypeInstance* left_type_instance = node->m_left->m_LANG_determined_type.value();
                         auto* left_determined_type = left_type_instance->get_determined_type().value();
@@ -2483,16 +2464,14 @@ namespace wo
                             switch (left_determined_type->m_base_type)
                             {
                             case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().addi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                binary_op = &IRCompiler::addi;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().addr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                                m_ircontext.c().ext_addh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::addr;
                                 break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().adds(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::adds;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2503,13 +2482,11 @@ namespace wo
                             switch (left_determined_type->m_base_type)
                             {
                             case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().subi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                binary_op = &IRCompiler::subi;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().subr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                                m_ircontext.c().ext_subh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::subr;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2520,10 +2497,10 @@ namespace wo
                             switch (left_determined_type->m_base_type)
                             {
                             case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().muli(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::muli;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().mulr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::mulr;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2534,12 +2511,10 @@ namespace wo
                             switch (left_determined_type->m_base_type)
                             {
                             case lang_TypeInstance::DeterminedType::INTEGER:
-                                check_and_generate_check_ir_for_divi_and_modi(
-                                    m_ircontext, node->m_left, node->m_right, left_opnum, right_opnum);
-                                m_ircontext.c().divi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::divi;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().divr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::divr;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2550,12 +2525,10 @@ namespace wo
                             switch (left_determined_type->m_base_type)
                             {
                             case lang_TypeInstance::DeterminedType::INTEGER:
-                                check_and_generate_check_ir_for_divi_and_modi(
-                                    m_ircontext, node->m_left, node->m_right, left_opnum, right_opnum);
-                                m_ircontext.c().modi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::modi;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().modr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::modr;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2563,25 +2536,23 @@ namespace wo
                             }
                             break;
                         case AstValueBinaryOperator::LOGICAL_AND:
-                            m_ircontext.c().land(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                            binary_op = &IRCompiler::land;
                             break;
                         case AstValueBinaryOperator::LOGICAL_OR:
-                            m_ircontext.c().lor(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                            binary_op = &IRCompiler::lor;
                             break;
                         case AstValueBinaryOperator::GREATER:
                             switch (left_determined_type->m_base_type)
                             {
                             case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().gti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                binary_op = &IRCompiler::gti;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().gtr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                                m_ircontext.c().ext_gth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::gtr;
                                 break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().gts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::gts;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2592,16 +2563,14 @@ namespace wo
                             switch (left_determined_type->m_base_type)
                             {
                             case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().egti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                binary_op = &IRCompiler::gei;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().egtr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                                m_ircontext.c().ext_egth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::ger;
                                 break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().egts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::ges;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2612,16 +2581,14 @@ namespace wo
                             switch (left_determined_type->m_base_type)
                             {
                             case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().lti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                binary_op = &IRCompiler::lti;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().ltr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                                m_ircontext.c().ext_lth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::ltr;
                                 break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().lts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::lts;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2632,16 +2599,14 @@ namespace wo
                             switch (left_determined_type->m_base_type)
                             {
                             case lang_TypeInstance::DeterminedType::INTEGER:
-                                m_ircontext.c().elti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                binary_op = &IRCompiler::lei;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().eltr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
-                                break;
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                                m_ircontext.c().ext_elth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::ler;
                                 break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().elts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::les;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2654,13 +2619,13 @@ namespace wo
                             case lang_TypeInstance::DeterminedType::HANDLE:
                             case lang_TypeInstance::DeterminedType::INTEGER:
                             case lang_TypeInstance::DeterminedType::BOOLEAN:
-                                m_ircontext.c().equb(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::eqi;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().equr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::eqr;
                                 break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().equs(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::eqs;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2673,13 +2638,13 @@ namespace wo
                             case lang_TypeInstance::DeterminedType::HANDLE:
                             case lang_TypeInstance::DeterminedType::INTEGER:
                             case lang_TypeInstance::DeterminedType::BOOLEAN:
-                                m_ircontext.c().nequb(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::nei;
                                 break;
                             case lang_TypeInstance::DeterminedType::REAL:
-                                m_ircontext.c().nequr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::ner;
                                 break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                m_ircontext.c().nequs(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                binary_op = &IRCompiler::nes;
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2692,41 +2657,43 @@ namespace wo
                         }
 
                         const auto& target_storage = result.get_assign_target();
-                        if (node->m_operator < AstValueBinaryOperator::LOGICAL_AND)
+                        if (target_storage.has_value())
                         {
-                            // Calculate result stored at left_opnum.
-                            if (target_storage.has_value())
+                            auto& [need_box, target] = target_storage.value();
+                            woort_IRValue* const* const target_irvalue =
+                                std::get_if<woort_IRValue*>(&target);
+
+                            woort_BoxValueType box_type;
+                            const bool type_need_box = need_box
+                                && node->m_LANG_determined_type.value()->is_need_to_box_in_IR(&box_type);
+
+                            if (target_irvalue == nullptr)
                             {
-                                m_ircontext.try_return_opnum_temporary_register(left_opnum);
-                                m_ircontext.c().mov(
-                                    WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(left_opnum));
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+
+                                (m_ircontext.c().*binary_op)(v, left_opnum, right_opnum);
+
+                                if (type_need_box)
+                                    m_ircontext.c().boxdyn(v, box_type, v);
+
+                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                             }
                             else
                             {
-                                result.set_result(m_ircontext, left_opnum);
+                                (m_ircontext.c().*binary_op)(*target_irvalue, left_opnum, right_opnum);
+                                if (type_need_box)
+                                    m_ircontext.c().boxdyn(
+                                        *target_irvalue, box_type, *target_irvalue);
                             }
                         }
                         else
                         {
-                            // Calculate result stored at cr.
-                            m_ircontext.try_return_opnum_temporary_register(left_opnum);
-                            if (target_storage.has_value())
-                            {
-                                if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                    target_reg == nullptr || target_reg->id != opnum::reg::cr)
-                                {
-                                    m_ircontext.c().mov(
-                                        WO_OPNUM(target_storage.value()),
-                                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
-                                }
-                                // Or do nothing, target is same.
-                            }
-                            else
-                            {
-                                result.set_result(
-                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
-                            }
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+
+                            (m_ircontext.c().*binary_op)(v, left_opnum, right_opnum);
+
+                            result.set_result_stack_temp(
+                                m_ircontext, v, node->m_LANG_determined_type.value());
                         }
                     });
 
