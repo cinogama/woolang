@@ -1188,7 +1188,7 @@ namespace wo
                 if (target_determined_type_instance->m_base_type
                     == lang_TypeInstance::DeterminedType::DYNAMIC)
                 {
-
+                    TODO;
                 }
                 else
                     m_ircontext.eval_for_upper();

@@ -2609,7 +2609,14 @@ namespace wo
         wo_assert(!m_eval_result_storage_target.empty());
 
         // Make a duplicated eval request (For FAILED recover).
-        m_eval_result_storage_target.push(m_eval_result_storage_target.top());
+        EvalResult dup_eval_request = m_eval_result_storage_target.top();
+        switch (dup_eval_request.m_request)
+        {
+        case BytecodeGenerateContext::EvalResult::Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
+            TODO;
+        }
+
+        m_eval_result_storage_target.push(dup_eval_request);
     }
     void BytecodeGenerateContext::cleanup_for_eval_upper()
     {
