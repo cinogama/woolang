@@ -1024,6 +1024,9 @@ namespace wo
                         woort_IRValue* const* const target_irvalue =
                             std::get_if<woort_IRValue*>(&target);
 
+                        /* No need to box. */
+                        (void)need_box;
+
                         if (target_irvalue == nullptr)
                         {
                             m_ircontext.c().store(
@@ -1067,6 +1070,9 @@ namespace wo
                         auto& [need_box, target] = target_storage.value();
                         woort_IRValue* const* const target_irvalue =
                             std::get_if<woort_IRValue*>(&target);
+
+                        /* No need to box. */
+                        (void)need_box;
 
                         if (target_irvalue == nullptr)
                         {
@@ -1143,6 +1149,9 @@ namespace wo
                     if (asigned_target.has_value())
                     {
                         const auto& [need_box, target] = asigned_target.value();
+
+                        /* No need to box. */
+                        (void)need_box;
 
                         woort_IRValue* const* const target_irvalue =
                             std::get_if<woort_IRValue*>(&target);
@@ -1235,6 +1244,9 @@ namespace wo
                     {
                         const auto& [need_box, target] = asigned_target.value();
 
+                        /* No need to box. */
+                        (void)need_box;
+
                         woort_IRValue* const* const target_irvalue =
                             std::get_if<woort_IRValue*>(&target);
 
@@ -1303,6 +1315,9 @@ namespace wo
                     if (asigned_target.has_value())
                     {
                         const auto& [need_box, target] = asigned_target.value();
+
+                        /* No need to box. */
+                        (void)need_box;
 
                         woort_IRValue* const* const target_irvalue =
                             std::get_if<woort_IRValue*>(&target);
@@ -1379,6 +1394,11 @@ namespace wo
                     woort_IRValue* const* const target_irvalue =
                         std::get_if<woort_IRValue*>(&target);
 
+                    woort_BoxValueType box_type;
+
+                    const bool type_need_box = need_box
+                        && node->m_LANG_determined_type.value()->is_need_to_box_in_IR(&box_type);
+
                     if (target_irvalue == nullptr)
                     {
                         // Assigned to static.
@@ -1386,15 +1406,27 @@ namespace wo
                         {
                             woort_IRValue* const v = m_ircontext.c().new_value();
                             m_ircontext.c().load(v, variable_storage.m_static_index);
+
+                            if (type_need_box)
+                                m_ircontext.c().boxdyn(v, box_type, v);
+
                             m_ircontext.c().store(
                                 std::get<woort_IRStaticIndex>(target), v);
                         }
                         else
                         {
                             wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
+
+                            woort_IRValue* v = variable_storage.m_stack_slot;
+
+                            if (type_need_box)
+                            {
+                                v = m_ircontext.c().new_value();
+                                m_ircontext.c().boxdyn(v, box_type, variable_storage.m_stack_slot);
+                            }
+
                             m_ircontext.c().store(
-                                std::get<woort_IRStaticIndex>(target),
-                                variable_storage.m_stack_slot);
+                                std::get<woort_IRStaticIndex>(target), v);
                         }
                     }
                     else
@@ -1410,6 +1442,9 @@ namespace wo
                             wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
                             m_ircontext.c().mov(*target_irvalue, variable_storage.m_stack_slot);
                         }
+
+                        if (type_need_box)
+                            m_ircontext.c().boxdyn(*target_irvalue, box_type, *target_irvalue);
                     }
                 }
                 else
@@ -1497,22 +1532,43 @@ namespace wo
 
                             if (target_irvalue == nullptr)
                             {
-                                woort_IRValue* const v = m_ircontext.c().new_value();
-                                m_ircontext.c().unboxdyn(
-                                    v,
-                                    convert_lang_base_type_to_woort_type_exclude_compile_type(
-                                        target_determined_type_instance->m_base_type),
-                                    opnum_to_check);
-
-                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                if (need_box)
+                                {
+                                    m_ircontext.c().assertdyn(
+                                        opnum_to_check,
+                                        convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            target_determined_type_instance->m_base_type));
+                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), opnum_to_check);
+                                }
+                                else
+                                {
+                                    woort_IRValue* const v = m_ircontext.c().new_value();
+                                    m_ircontext.c().unboxdyn(
+                                        v,
+                                        convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            target_determined_type_instance->m_base_type),
+                                        opnum_to_check);
+                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                }
                             }
                             else
                             {
-                                m_ircontext.c().unboxdyn(
-                                    *target_irvalue,
-                                    convert_lang_base_type_to_woort_type_exclude_compile_type(
-                                        target_determined_type_instance->m_base_type),
-                                    opnum_to_check);
+                                if (need_box)
+                                {
+                                    m_ircontext.c().assertdyn(
+                                        opnum_to_check,
+                                        convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            target_determined_type_instance->m_base_type));
+                                    m_ircontext.c().mov(*target_irvalue, opnum_to_check);
+                                }
+                                else
+                                {
+                                    m_ircontext.c().unboxdyn(
+                                        *target_irvalue,
+                                        convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            target_determined_type_instance->m_base_type),
+                                        opnum_to_check);
+                                }
                             }
                         }
                         else
@@ -1576,15 +1632,23 @@ namespace wo
                                     target_determined_type_instance->m_base_type),
                                 opnum_to_check);
 
+                            if (need_box)
+                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_BOOL, v);
+
                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                         }
                         else
                         {
+                            woort_IRValue* const v = m_ircontext.c().new_value();
                             m_ircontext.c().checkdyn(
-                                *target_irvalue,
+                                v,
                                 convert_lang_base_type_to_woort_type_exclude_compile_type(
                                     target_determined_type_instance->m_base_type),
                                 opnum_to_check);
+
+                            if (need_box)
+                                m_ircontext.c().boxdyn(
+                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_BOOL, *target_irvalue);
                         }
                     }
                     else
@@ -1595,6 +1659,8 @@ namespace wo
                             convert_lang_base_type_to_woort_type_exclude_compile_type(
                                 target_determined_type_instance->m_base_type),
                             opnum_to_check);
+
+                        result.set_result_stack_temp(m_ircontext, v, node->m_LANG_determined_type.value());
                     }
                 });
         }
@@ -1726,6 +1792,10 @@ namespace wo
 
                         if (src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::DYNAMIC)
                         {
+                            const auto target_woort_type =
+                                convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                    target_determined_type_instance->m_base_type);
+
                             // Here, converting from the dynamic type to a specified type uses `castdyn`.
                             if (target_storage.has_value())
                             {
@@ -1739,8 +1809,12 @@ namespace wo
                                     m_ircontext.c().castdyn(
                                         v,
                                         opnum_to_cast,
-                                        convert_lang_base_type_to_woort_type_exclude_compile_type(
-                                            target_determined_type_instance->m_base_type));
+                                        target_woort_type);
+
+                                    if (need_box)
+                                        m_ircontext.c().boxdyn(
+                                            v, target_woort_type, v);
+
                                     m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                 }
                                 else
@@ -1748,8 +1822,11 @@ namespace wo
                                     m_ircontext.c().castdyn(
                                         *target_irvalue,
                                         opnum_to_cast,
-                                        convert_lang_base_type_to_woort_type_exclude_compile_type(
-                                            target_determined_type_instance->m_base_type));
+                                        target_woort_type);
+
+                                    if (need_box)
+                                        m_ircontext.c().boxdyn(
+                                            *target_irvalue, target_woort_type, *target_irvalue);
                                 }
                             }
                             else
@@ -1758,9 +1835,7 @@ namespace wo
                                 m_ircontext.c().castdyn(
                                     v,
                                     opnum_to_cast,
-                                    convert_lang_base_type_to_woort_type_exclude_compile_type(
-                                        target_determined_type_instance->m_base_type));
-
+                                    target_woort_type);
                                 result.set_result_stack_temp(m_ircontext, v, target_type_instance);
                             }
                         }
@@ -1784,11 +1859,20 @@ namespace wo
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().rtoi(v, opnum_to_cast);
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_INT, v);
+
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
                                         else
                                         {
                                             m_ircontext.c().rtoi(*target_irvalue, opnum_to_cast);
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(
+                                                    *target_irvalue,
+                                                    WOORT_BOX_VALUE_TYPE_INT,
+                                                    *target_irvalue);
                                         }
                                     }
                                     else
@@ -1811,11 +1895,20 @@ namespace wo
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_INT);
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_INT, v);
+
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
                                         else
                                         {
-                                            m_ircontext.c().caststo(*target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_INT);
+                                            m_ircontext.c().caststo(
+                                                *target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_INT);
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(
+                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_INT, *target_irvalue);
                                         }
                                     }
                                     else
@@ -1848,11 +1941,18 @@ namespace wo
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().itor(v, opnum_to_cast);
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_REAL, v);
+
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
                                         else
                                         {
                                             m_ircontext.c().itor(*target_irvalue, opnum_to_cast);
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(
+                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_REAL, *target_irvalue);
                                         }
                                     }
                                     else
@@ -1875,11 +1975,20 @@ namespace wo
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_REAL);
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_REAL, v);
+
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
                                         else
                                         {
-                                            m_ircontext.c().caststo(*target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_REAL);
+                                            m_ircontext.c().caststo(
+                                                *target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_REAL);
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(
+                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_REAL, *target_irvalue);
                                         }
                                     }
                                     else
@@ -1911,11 +2020,20 @@ namespace wo
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().nei(v, opnum_to_cast, m_ircontext.c().load_imm_int(0));
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_BOOL, v);
+
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
                                         else
                                         {
-                                            m_ircontext.c().nei(*target_irvalue, opnum_to_cast, m_ircontext.c().load_imm_int(0));
+                                            m_ircontext.c().nei(
+                                                *target_irvalue, opnum_to_cast, m_ircontext.c().load_imm_int(0));
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(
+                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_BOOL, *target_irvalue);
                                         }
                                     }
                                     else
@@ -1939,11 +2057,20 @@ namespace wo
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().nei(v, opnum_to_cast, m_ircontext.c().load_imm_real(0.));
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_BOOL, v);
+
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
                                         else
                                         {
-                                            m_ircontext.c().nei(*target_irvalue, opnum_to_cast, m_ircontext.c().load_imm_real(0.));
+                                            m_ircontext.c().ner(
+                                                *target_irvalue, opnum_to_cast, m_ircontext.c().load_imm_real(0.));
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(
+                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_BOOL, *target_irvalue);
                                         }
                                     }
                                     else
@@ -1967,11 +2094,20 @@ namespace wo
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_BOOL);
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_BOOL, v);
+
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
                                         else
                                         {
-                                            m_ircontext.c().caststo(*target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_BOOL);
+                                            m_ircontext.c().caststo(
+                                                *target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_BOOL);
+
+                                            if (need_box)
+                                                m_ircontext.c().boxdyn(
+                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_BOOL, *target_irvalue);
                                         }
                                     }
                                     else
@@ -1998,6 +2134,9 @@ namespace wo
                                         auto& [need_box, target] = target_storage.value();
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
+
+                                        /* No need to box. */
+                                        (void)need_box;
 
                                         if (target_irvalue == nullptr)
                                         {
@@ -2026,6 +2165,9 @@ namespace wo
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
 
+                                        /* No need to box. */
+                                        (void)need_box;
+
                                         if (target_irvalue == nullptr)
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
@@ -2052,6 +2194,9 @@ namespace wo
                                         auto& [need_box, target] = target_storage.value();
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
+
+                                        /* No need to box. */
+                                        (void)need_box;
 
                                         if (target_irvalue == nullptr)
                                         {
@@ -2175,8 +2320,428 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueBinaryOperator)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            if (node->m_LANG_overload_call.has_value())
+            {
+                m_ircontext.eval_for_upper();
+                WO_CONTINUE_PROCESS(node->m_LANG_overload_call.value());
+
+                node->m_LANG_hold_state = AstValueBinaryOperator::IR_HOLD_FOR_OVERLOAD_CALL_EVAL;
+            }
+            else if (node->m_operator == AstValueBinaryOperator::LOGICAL_AND
+                || node->m_operator == AstValueBinaryOperator::LOGICAL_OR)
+            {
+                // Need short cut, 
+                woort_IRValue* const v = m_ircontext.c().new_value();
+                node->m_IR_value_to_store_shortcut_result.emplace(v);
+
+                m_ircontext.eval_to_assign(v, std::nullopt);
+
+                WO_CONTINUE_PROCESS(node->m_left);
+
+                node->m_LANG_hold_state = AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_LEFT_SHORT_CUT;
+            }
+            else
+            {
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::begin_eval_readonly);
+                WO_CONTINUE_PROCESS(node->m_right);
+
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::begin_eval_readonly);
+                WO_CONTINUE_PROCESS(node->m_left);
+
+                node->m_LANG_hold_state = AstValueBinaryOperator::IR_HOLD_FOR_NORMAL_LR_EVAL;
+            }
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_LEFT_SHORT_CUT:
+            {
+                const woort_IRValue* const left_result = m_ircontext.get_eval_result();
+                switch (node->m_operator)
+                {
+                case AstValueBinaryOperator::LOGICAL_AND:
+                    m_ircontext.c().jccz(left_result, m_ircontext.c().named_label(node, "#lshortcut"));
+                    break;
+                case AstValueBinaryOperator::LOGICAL_OR:
+                    m_ircontext.c().jcc(left_result, m_ircontext.c().named_label(node, "#lshortcut"));
+                    break;
+                default:
+                    wo_error("Unknown operator.");
+                    break;
+                }
+
+                m_ircontext.eval_to_assign_if_not_ignore(
+                    node->m_IR_value_to_store_shortcut_result.value(),
+                    std::nullopt);
+
+                WO_CONTINUE_PROCESS(node->m_right);
+
+                node->m_LANG_hold_state = AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_RIGHT;
+                return HOLD;
+            }
+            case  AstValueBinaryOperator::IR_HOLD_FOR_LAND_LOR_RIGHT:
+            {
+                m_ircontext.c().bind(m_ircontext.c().named_label(node, "#lshortcut"));
+
+                m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
+                    {
+                        auto* const shortcut_evaled_value =
+                            node->m_IR_value_to_store_shortcut_result.value();
+
+                        m_ircontext.pop_eval_result();
+
+                        const auto& target_storage = result.get_assign_target();
+                        if (target_storage.has_value())
+                        {
+                            auto& [need_box, target] = target_storage.value();
+                            woort_IRValue* const* const target_irvalue =
+                                std::get_if<woort_IRValue*>(&target);
+
+                            if (target_irvalue == nullptr)
+                            {
+                                if (need_box)
+                                    m_ircontext.c().boxdyn(
+                                        shortcut_evaled_value,
+                                        WOORT_BOX_VALUE_TYPE_BOOL,
+                                        shortcut_evaled_value);
+
+                                m_ircontext.c().store(
+                                    std::get<woort_IRStaticIndex>(target),
+                                    shortcut_evaled_value);
+                            }
+                            else
+                            {
+                                if (need_box)
+                                    m_ircontext.c().boxdyn(
+                                        *target_irvalue,
+                                        WOORT_BOX_VALUE_TYPE_BOOL,
+                                        shortcut_evaled_value);
+                                else
+                                    m_ircontext.c().mov(
+                                        *target_irvalue,
+                                        shortcut_evaled_value);
+                            }
+
+                        }
+                        else
+                        {
+                            result.set_result_stack_temp(
+                                m_ircontext,
+                                shortcut_evaled_value,
+                                node->m_LANG_determined_type.value());
+                        }
+                    }
+                );
+                break;
+            }
+            case AstValueBinaryOperator::IR_HOLD_FOR_NORMAL_LR_EVAL:
+                wo_assert(!node->m_LANG_overload_call.has_value());
+
+                m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
+                    {
+                        auto* right_opnum = m_ircontext.get_eval_result();
+                        auto* left_opnum = m_ircontext.get_eval_result();
+
+                        // We need to make sure following `borrow_opnum_temporary_register`
+                        // will not borrow the right value.
+                        m_ircontext.try_keep_opnum_temporary_register(
+                            right_opnum
+                            WO_BORROW_TEMPORARY_FROM_SP(node));
+
+                        if (node->m_operator < AstValueBinaryOperator::LOGICAL_AND
+                            && nullptr == dynamic_cast<opnum::temporary*>(left_opnum))
+                        {
+                            // Is not temporary register, we need keep it.
+                            // NOTE: If left not temporary, we dont need to return it.
+                            //  at the same time.
+                            auto* borrow_reg = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
+                            m_ircontext.c().mov(
+                                WO_OPNUM(borrow_reg),
+                                WO_OPNUM(left_opnum));
+
+                            left_opnum = borrow_reg;
+                        }
+
+                        // After all borrow_opnum_temporary_register, we can return right.
+                        m_ircontext.try_return_opnum_temporary_register(right_opnum);
+
+                        lang_TypeInstance* left_type_instance = node->m_left->m_LANG_determined_type.value();
+                        auto* left_determined_type = left_type_instance->get_determined_type().value();
+
+                        switch (node->m_operator)
+                        {
+                        case AstValueBinaryOperator::ADD:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                                m_ircontext.c().addi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().addr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                m_ircontext.c().ext_addh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::STRING:
+                                m_ircontext.c().adds(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        case AstValueBinaryOperator::SUBSTRACT:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                                m_ircontext.c().subi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().subr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                m_ircontext.c().ext_subh(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        case AstValueBinaryOperator::MULTIPLY:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                                m_ircontext.c().muli(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().mulr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        case AstValueBinaryOperator::DIVIDE:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                                check_and_generate_check_ir_for_divi_and_modi(
+                                    m_ircontext, node->m_left, node->m_right, left_opnum, right_opnum);
+                                m_ircontext.c().divi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().divr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        case AstValueBinaryOperator::MODULO:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                                check_and_generate_check_ir_for_divi_and_modi(
+                                    m_ircontext, node->m_left, node->m_right, left_opnum, right_opnum);
+                                m_ircontext.c().modi(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().modr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        case AstValueBinaryOperator::LOGICAL_AND:
+                            m_ircontext.c().land(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                            break;
+                        case AstValueBinaryOperator::LOGICAL_OR:
+                            m_ircontext.c().lor(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                            break;
+                        case AstValueBinaryOperator::GREATER:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                                m_ircontext.c().gti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().gtr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                m_ircontext.c().ext_gth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::STRING:
+                                m_ircontext.c().gts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        case AstValueBinaryOperator::GREATER_EQUAL:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                                m_ircontext.c().egti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().egtr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                m_ircontext.c().ext_egth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::STRING:
+                                m_ircontext.c().egts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        case AstValueBinaryOperator::LESS:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                                m_ircontext.c().lti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().ltr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                m_ircontext.c().ext_lth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::STRING:
+                                m_ircontext.c().lts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        case AstValueBinaryOperator::LESS_EQUAL:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                                m_ircontext.c().elti(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().eltr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                                m_ircontext.c().ext_elth(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::STRING:
+                                m_ircontext.c().elts(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        case AstValueBinaryOperator::EQUAL:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                            case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                m_ircontext.c().equb(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().equr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::STRING:
+                                m_ircontext.c().equs(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        case AstValueBinaryOperator::NOT_EQUAL:
+                            switch (left_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::HANDLE:
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                            case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                m_ircontext.c().nequb(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::REAL:
+                                m_ircontext.c().nequr(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            case lang_TypeInstance::DeterminedType::STRING:
+                                m_ircontext.c().nequs(WO_OPNUM(left_opnum), WO_OPNUM(right_opnum));
+                                break;
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            break;
+                        default:
+                            wo_error("Unknown operator.");
+                            break;
+                        }
+
+                        const auto& target_storage = result.get_assign_target();
+                        if (node->m_operator < AstValueBinaryOperator::LOGICAL_AND)
+                        {
+                            // Calculate result stored at left_opnum.
+                            if (target_storage.has_value())
+                            {
+                                m_ircontext.try_return_opnum_temporary_register(left_opnum);
+                                m_ircontext.c().mov(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(left_opnum));
+                            }
+                            else
+                            {
+                                result.set_result(m_ircontext, left_opnum);
+                            }
+                        }
+                        else
+                        {
+                            // Calculate result stored at cr.
+                            m_ircontext.try_return_opnum_temporary_register(left_opnum);
+                            if (target_storage.has_value())
+                            {
+                                if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
+                                    target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                                {
+                                    m_ircontext.c().mov(
+                                        WO_OPNUM(target_storage.value()),
+                                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                }
+                                // Or do nothing, target is same.
+                            }
+                            else
+                            {
+                                result.set_result(
+                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
+                            }
+                        }
+                    });
+
+                break;
+            case AstValueBinaryOperator::IR_HOLD_FOR_OVERLOAD_CALL_EVAL:
+                wo_assert(node->m_LANG_overload_call.has_value());
+
+                m_ircontext.cleanup_for_eval_upper();
+                break;
+            default:
+                wo_error("Unknown hold state.");
+                break;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueUnaryOperator)
     {

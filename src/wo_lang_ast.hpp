@@ -571,6 +571,8 @@ namespace wo
             AstValueBase* m_left;
             AstValueBase* m_right;
 
+            std::optional<woort_IRValue*> m_IR_value_to_store_shortcut_result;
+
             AstValueBinaryOperator(operator_type op, AstValueBase* left, AstValueBase* right, bool consider_overload);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };

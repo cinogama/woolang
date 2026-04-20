@@ -1367,6 +1367,7 @@ namespace wo
             , m_operator(op)
             , m_left(left)
             , m_right(right)
+            , m_IR_value_to_store_shortcut_result(std::nullopt)
         {
         }
         AstBase* AstValueBinaryOperator::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
