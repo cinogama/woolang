@@ -1410,7 +1410,7 @@ namespace wo
                         lang_ValueInstance::Storage(
                             const_cast<woort_IRValue*>(m_ircontext.c().captured(argument_place++))));
                 }
-                argument_place = 0;
+                argument_place = eval_function->m_is_variadic ? 1 : 0;
                 for (auto* param_decls : eval_function->m_parameters)
                 {
                     if (param_decls->m_pattern->node_type == ast::AstBase::AST_PATTERN_SINGLE)

@@ -1998,8 +1998,34 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueDoAsVoid)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            // Cast to void, just ignore it.
+            m_ircontext.eval_and_ignore();
+            WO_CONTINUE_PROCESS(node->m_do_value);
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    const auto& target_storage = result.get_assign_target();
+
+                    if (target_storage.has_value())
+                    {
+                        // NO NEED TO DO ANYTHING.
+                        // VOID VALUE IS PURE JUNK VALUE.
+                    }
+                    else
+                    {
+                        // Return a junk value.
+                        result.set_result_junk(m_ircontext);
+                    }
+                });
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
 
     void check_and_generate_check_ir_for_divi_and_modi(
@@ -2079,7 +2105,32 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueVariadicArgumentsPack)
     {
-        abort();
+        wo_assert(state == UNPROCESSED);
+        m_ircontext.apply_eval_result(
+            [&](BytecodeGenerateContext::EvalResult& result)
+            {
+                AstValueFunction* current_func = node->m_LANG_function_instance.value();
+
+                const auto& target_storage = result.get_assign_target();
+                if (target_storage.has_value())
+                {
+                    m_ircontext.c().ext_packargs(
+                        WO_OPNUM(target_storage.value()),
+                        (uint16_t)current_func->m_parameters.size(),
+                        (uint16_t)current_func->m_LANG_captured_context.m_captured_variables.size());
+                }
+                else
+                {
+                    auto* borrowed_opnum = m_ircontext.borrow_opnum_temporary_register(
+                        WO_BORROW_TEMPORARY_FROM(node));
+                    m_ircontext.c().packarg(
+                        WO_OPNUM(borrowed_opnum),
+                        (uint16_t)current_func->m_parameters.size(),
+                        (uint16_t)current_func->m_LANG_captured_context.m_captured_variables.size());
+                    result.set_result(m_ircontext, borrowed_opnum);
+                }
+            }
+        );
         return OKAY;
     }
     WO_PASS_PROCESSER(AstValueIROpnum)

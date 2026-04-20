@@ -1293,9 +1293,9 @@ namespace wo
         };
         struct AstValueIROpnum : public AstValueBase
         {
-            opnum::opnumbase* m_opnum;
+            woort_IRValue* m_opnum;
 
-            AstValueIROpnum(opnum::opnumbase* spec_opnum);
+            AstValueIROpnum(woort_IRValue* spec_opnum);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstTemplateConstantTypeCheckInPass1 : public AstBase
