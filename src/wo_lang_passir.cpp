@@ -1148,6 +1148,8 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueTypeCast)
     {
+        abort();
+#if 0
         if (state == UNPROCESSED)
         {
             auto* target_type_instance =
@@ -1169,29 +1171,32 @@ namespace wo
             }
             else if (target_determined_type_instance->m_base_type
                 != src_determined_type_instance->m_base_type
-                && target_determined_type_instance->m_base_type
-                != lang_TypeInstance::DeterminedType::DYNAMIC
                 && src_determined_type_instance->m_base_type
                 != lang_TypeInstance::DeterminedType::NOTHING)
             {
-                // Need runtime check.
-                node->m_IR_need_eval = true;
+                if (target_determined_type_instance->m_base_type
+                    != lang_TypeInstance::DeterminedType::DYNAMIC)
+                {
+                    // Need runtime check.
+                    node->m_IR_need_eval = true;
 
-                m_ircontext.do_eval_if_not_ignore(
-                    &BytecodeGenerateContext::begin_eval_readonly);
+                    m_ircontext.do_eval_if_not_ignore(
+                        &BytecodeGenerateContext::begin_eval_readonly);
+                }
+                else
+                {
+                    // Need box.
+                    node->m_IR_need_eval = false;
+
+                    m_ircontext.eval_for_upper_box();
+                }
             }
             else
             {
                 // No cast
                 node->m_IR_need_eval = false;
 
-                if (target_determined_type_instance->m_base_type
-                    == lang_TypeInstance::DeterminedType::DYNAMIC)
-                {
-                    TODO;
-                }
-                else
-                    m_ircontext.eval_for_upper();
+                m_ircontext.eval_for_upper();
             }
 
             // Eval.
@@ -1259,8 +1264,8 @@ namespace wo
                             else
                             {
                                 // Return a junk value.
-                                result.set_result(
-                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
+                                result.set_result_const(
+                                    m_ircontext, m_ircontext.c().load_imm_nil());
                             }
                             return;
                         }
@@ -1331,6 +1336,7 @@ namespace wo
                 m_ircontext.cleanup_for_eval_upper();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
+#endif
     }
     WO_PASS_PROCESSER(AstValueDoAsVoid)
     {

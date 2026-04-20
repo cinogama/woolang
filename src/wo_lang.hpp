@@ -505,13 +505,6 @@ namespace wo
                 GET_RESULT_FOR_READONLY,
 
                 /*
-                要求获取储存有赋值结果的 IRValue，外部需要对结果 IRValue
-                做写入操作（通常是因为需要一个临时 IRValue 做一些计算操作）
-                因此，常量、变量需要做一个额外的 MOV 操作
-                */
-                GET_RESULT_FOR_READWRITE,
-
-                /*
                 要求将赋值结果直接推到栈上
                 */
                 PUSH_RESULT_AND_IGNORE,
@@ -596,7 +589,6 @@ namespace wo
         void eval_to_assign(woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode);
         void eval_to_assign_static(woort_IRStaticIndex target, const std::optional<ast::AstBase*>& pdinode);
         void begin_eval_readonly();
-        void begin_eval_readwrite();
         void eval_to_push();
         void eval_to_assign_box(woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode);
         void eval_to_assign_box_static(woort_IRStaticIndex target, const std::optional<ast::AstBase*>& pdinode);

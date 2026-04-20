@@ -2425,7 +2425,6 @@ namespace wo
         auto& result = m_evaled_result_storage.top();
 
         wo_assert(result.m_request != EvalResult::Request::GET_RESULT_FOR_READONLY
-            && result.m_request != EvalResult::Request::GET_RESULT_FOR_READWRITE
             && result.m_request != EvalResult::Request::GET_BOXED_RESULT_FOR_READONLY
             && result.m_request != EvalResult::Request::PUSH_RESULT_AND_IGNORE
             && result.m_request != EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE
@@ -2518,15 +2517,6 @@ namespace wo
 
         m_eval_result_storage_target.push(r);
     }
-    void BytecodeGenerateContext::begin_eval_readwrite()
-    {
-        EvalResult r;
-        r.m_request = EvalResult::Request::GET_RESULT_FOR_READWRITE;
-        r.m_result_type = EvalResult::ResultKind::PENDING;
-        r.m_pdi_node = std::nullopt;
-
-        m_eval_result_storage_target.push(r);
-    }
     void BytecodeGenerateContext::eval_to_push()
     {
         EvalResult r;
@@ -2613,9 +2603,22 @@ namespace wo
         switch (dup_eval_request.m_request)
         {
         case BytecodeGenerateContext::EvalResult::Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
-            TODO;
+            dup_eval_request.m_request =
+                BytecodeGenerateContext::EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET;
+            break;
+        case BytecodeGenerateContext::EvalResult::Request::GET_RESULT_FOR_READONLY:
+            dup_eval_request.m_request =
+                BytecodeGenerateContext::EvalResult::Request::GET_BOXED_RESULT_FOR_READONLY;
+            break;
+        case BytecodeGenerateContext::EvalResult::Request::PUSH_RESULT_AND_IGNORE:
+            dup_eval_request.m_request =
+                BytecodeGenerateContext::EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE;
+            break;
+        case BytecodeGenerateContext::EvalResult::Request::IGNORE_RESULT:
+        default:
+            /* Donothing */
+            break;
         }
-
         m_eval_result_storage_target.push(dup_eval_request);
     }
     void BytecodeGenerateContext::cleanup_for_eval_upper()
@@ -2697,12 +2700,10 @@ namespace wo
                 ctx.c().boxdyn(m_result_stack, box_type, result);
                 break;
             }
-            /* fallthrough */
-            [[fallthrough]]
-            ;
         }
+        /* fallthrough */
+        [[fallthrough]];
         case Request::GET_RESULT_FOR_READONLY:
-        case Request::GET_RESULT_FOR_READWRITE:
             m_result_type = ResultKind::RESULT_STACK_TEMP;
             m_result_stack = result;
             break;
@@ -2714,10 +2715,9 @@ namespace wo
                 ctx.c().pushboxdyn(box_type, result);
                 break;
             }
-            /* fallthrough */
-            [[fallthrough]]
-            ;
         }
+        /* fallthrough */
+        [[fallthrough]];
         case Request::PUSH_RESULT_AND_IGNORE:
             ctx.c().pushchk(result);
             break;
@@ -2752,12 +2752,6 @@ namespace wo
         case Request::GET_RESULT_FOR_READONLY:
             m_result_type = ResultKind::RESULT_STACK_TEMP;
             m_result_stack = result;
-        case Request::GET_RESULT_FOR_READWRITE:
-            m_result_type = ResultKind::RESULT_STACK_TEMP;
-            m_result_stack = ctx.c().new_value();
-
-            ctx.c().mov(m_result_stack, result);
-            break;
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
         {
             woort_BoxValueType box_type;
@@ -2799,12 +2793,10 @@ namespace wo
 
                 break;
             }
-            /* fallthrough */
-            [[fallthrough]]
-            ;
         }
+        /* fallthrough */
+        [[fallthrough]];
         case Request::GET_RESULT_FOR_READONLY:
-        case Request::GET_RESULT_FOR_READWRITE:
             m_result_type = ResultKind::RESULT_STACK_TEMP;
             m_result_stack = ctx.c().new_value();
 
@@ -2820,10 +2812,9 @@ namespace wo
                 ctx.c().pushboxdyn(box_type, temp);
                 break;
             }
-            /* fallthrough */
-            [[fallthrough]]
-            ;
         }
+        /* fallthrough */
+        [[fallthrough]];
         case Request::PUSH_RESULT_AND_IGNORE:
             ctx.c().pushstaticchk(result);
             break;
@@ -2847,11 +2838,6 @@ namespace wo
         case Request::GET_RESULT_FOR_READONLY:
             m_result_type = ResultKind::RESULT_STACK_TEMP;
             m_result_stack = const_cast<woort_IRValue*>(ctx.c().load_imm_const(result));
-            break;
-        case Request::GET_RESULT_FOR_READWRITE:
-            m_result_type = ResultKind::RESULT_STACK_TEMP;
-            m_result_stack = ctx.c().new_value();
-            ctx.c().mov(m_result_stack, ctx.c().load_imm_const(result));
             break;
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
             ctx.c().pushchk(ctx.c().load_imm_box_const(result));

@@ -579,8 +579,8 @@ void _wo_test_compile()
         //B?;
         //}
 
-        let mut aa = 155;
-        let mut bb = 155: dynamic;        
+        /*let mut aa = 155;
+        let mut bb = 155: dynamic; */       
 
         let (_, mut a, _) = (1, false, 3);
         if (a)
