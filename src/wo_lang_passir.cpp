@@ -1104,18 +1104,240 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueTuple)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            auto rit_field_end = node->m_elements.rend();
+            for (auto rit_field = node->m_elements.rbegin();
+                rit_field != rit_field_end;
+                ++rit_field)
+            {
+                auto* field_value = *rit_field;
+
+                if (field_value->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
+                {
+                    abort();
+                    /* m_ircontext.do_eval_if_not_ignore(
+                         &BytecodeGenerateContext::eval_action);*/
+                }
+                else
+                {
+                    m_ircontext.do_eval_if_not_ignore(
+                        &BytecodeGenerateContext::eval_to_push);
+                }
+                WO_CONTINUE_PROCESS(field_value);
+            }
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            // Field has been pushed into stack.
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    woort_IRValue* make_result_target = nullptr;
+
+                    std::optional<woort_IRStaticIndex> need_write_back_to_static =
+                        std::nullopt;
+
+                    const auto& asigned_target = result.get_assign_target();
+                    if (asigned_target.has_value())
+                    {
+                        const auto& [need_box, target] = asigned_target.value();
+
+                        woort_IRValue* const* const target_irvalue =
+                            std::get_if<woort_IRValue*>(&target);
+
+                        if (target_irvalue == nullptr)
+                        {
+                            need_write_back_to_static.emplace(
+                                std::get<woort_IRStaticIndex>(target));
+
+                            make_result_target = m_ircontext.c().new_value();
+                        }
+                        else
+                        {
+                            make_result_target = *target_irvalue;
+                        }
+                    }
+                    else
+                    {
+                        make_result_target = m_ircontext.c().new_value();
+                        result.set_result_stack_temp(
+                            m_ircontext, 
+                            make_result_target, 
+                            node->m_LANG_determined_type.value());
+                    }
+
+                    uint32_t elem_count = (uint32_t)node->m_elements.size();
+                    for (auto* elem_field : node->m_elements)
+                    {
+                        if (elem_field->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
+                        {
+                            auto* unpacking_tuple_determined_type =
+                                elem_field->m_LANG_determined_type.value()->get_determined_type().value();
+
+                            wo_assert(unpacking_tuple_determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE);
+                            auto* tuple_info = unpacking_tuple_determined_type->m_external_type_description.m_tuple;
+                            uint16_t tuple_elem_count = (uint16_t)tuple_info->m_element_types.size();
+
+                            --elem_count;
+                            elem_count += tuple_elem_count;
+                        }
+                    }
+
+                    m_ircontext.c().mkstruct(make_result_target, elem_count);
+
+                    if (need_write_back_to_static.has_value())
+                    {
+                        m_ircontext.c().store(need_write_back_to_static.value(), make_result_target);
+                    }
+                });
+        }
+
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueDictOrMap)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            auto rit_field_end = node->m_elements.rend();
+            for (auto rit_field = node->m_elements.rbegin();
+                rit_field != rit_field_end;
+                ++rit_field)
+            {
+                auto* field_value = *rit_field;
+
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::eval_to_push_box);
+
+                WO_CONTINUE_PROCESS(field_value->m_value);
+
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::eval_to_push_box);
+
+                WO_CONTINUE_PROCESS(field_value->m_key);
+            }
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            // Field has been pushed into stack.
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    woort_IRValue* make_result_target = nullptr;
+
+                    std::optional<woort_IRStaticIndex> need_write_back_to_static =
+                        std::nullopt;
+
+                    const auto& asigned_target = result.get_assign_target();
+                    if (asigned_target.has_value())
+                    {
+                        const auto& [need_box, target] = asigned_target.value();
+
+                        woort_IRValue* const* const target_irvalue =
+                            std::get_if<woort_IRValue*>(&target);
+
+                        if (target_irvalue == nullptr)
+                        {
+                            need_write_back_to_static.emplace(
+                                std::get<woort_IRStaticIndex>(target));
+
+                            make_result_target = m_ircontext.c().new_value();
+                        }
+                        else
+                        {
+                            make_result_target = *target_irvalue;
+                        }
+                    }
+                    else
+                    {
+                        make_result_target = m_ircontext.c().new_value();
+                        result.set_result_stack_temp(
+                            m_ircontext,
+                            make_result_target,
+                            node->m_LANG_determined_type.value());
+                    }
+
+                    const uint32_t elem_count = (uint32_t)node->m_elements.size();
+                    m_ircontext.c().mkmap(make_result_target, elem_count);
+
+                    if (need_write_back_to_static.has_value())
+                    {
+                        m_ircontext.c().store(need_write_back_to_static.value(), make_result_target);
+                    }
+                });
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueArrayOrVec)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            auto rit_field_end = node->m_elements.rend();
+            for (auto rit_field = node->m_elements.rbegin();
+                rit_field != rit_field_end;
+                ++rit_field)
+            {
+                auto* field_value = *rit_field;
+
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::eval_to_push_box);
+
+                WO_CONTINUE_PROCESS(field_value);
+            }
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            // Field has been pushed into stack.
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    woort_IRValue* make_result_target = nullptr;
+
+                    std::optional<woort_IRStaticIndex> need_write_back_to_static =
+                        std::nullopt;
+
+                    const auto& asigned_target = result.get_assign_target();
+                    if (asigned_target.has_value())
+                    {
+                        const auto& [need_box, target] = asigned_target.value();
+
+                        woort_IRValue* const* const target_irvalue =
+                            std::get_if<woort_IRValue*>(&target);
+
+                        if (target_irvalue == nullptr)
+                        {
+                            need_write_back_to_static.emplace(
+                                std::get<woort_IRStaticIndex>(target));
+
+                            make_result_target = m_ircontext.c().new_value();
+                        }
+                        else
+                        {
+                            make_result_target = *target_irvalue;
+                        }
+                    }
+                    else
+                    {
+                        make_result_target = m_ircontext.c().new_value();
+                        result.set_result_stack_temp(
+                            m_ircontext,
+                            make_result_target,
+                            node->m_LANG_determined_type.value());
+                    }
+
+                    const uint32_t elem_count = (uint32_t)node->m_elements.size();
+                    m_ircontext.c().mkvec(make_result_target, elem_count);
+
+                    if (need_write_back_to_static.has_value())
+                    {
+                        m_ircontext.c().store(need_write_back_to_static.value(), make_result_target);
+                    }
+                });
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueFunctionCall)
     {
