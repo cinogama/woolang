@@ -586,6 +586,8 @@ void _wo_test_compile()
         {
             let mut cc = 15;   
             let dd = cc: string;
+
+            return dd;
         }
 
        /* let (_, mut a, _) = (1, false, 3);

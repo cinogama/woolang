@@ -1123,6 +1123,8 @@ namespace wo
             std::optional<std::pair<lang_TemplateAstEvalStateType*, bool>>
                 m_LANG_template_evalating_state_is_mutable;
 
+            std::optional<const woort_IRValue*> m_IR_return_value_may_none;
+
             AstReturn(const std::optional<AstValueBase*>& value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };

@@ -2252,6 +2252,7 @@ namespace wo
             , m_LANG_defer_instances{}
             , m_LANG_belong_function_may_null_if_outside(std::nullopt)
             , m_LANG_template_evalating_state_is_mutable(std::nullopt)
+            , m_IR_return_value_may_none(std::nullopt)
         {
         }
         AstBase* AstReturn::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

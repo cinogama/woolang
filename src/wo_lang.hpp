@@ -567,6 +567,9 @@ namespace wo
             void set_result_const(
                 BytecodeGenerateContext& ctx, 
                 const ast::ConstantValue& result) noexcept;
+            void set_result_const_idx_no_need_box(
+                BytecodeGenerateContext& ctx,
+                woort_IRConstantIndex result) noexcept;
             void set_result_junk(
                 BytecodeGenerateContext& ctx) noexcept;
         };
@@ -1233,9 +1236,6 @@ namespace wo
             const std::optional<wo_pstring_t>& label);
 
         static ast::AstScope::LANG_end_state check_node_type_and_get_end_state(ast::AstBase* node);
-
-        static wo_pstring_t IR_function_label(ast::AstValueFunction* func);
-        static wo_pstring_t IR_function_label_ret(ast::AstValueFunction* func);
     };
 #endif
 }

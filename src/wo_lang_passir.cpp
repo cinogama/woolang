@@ -953,12 +953,44 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstReturn)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            if (node->m_value.has_value())
+            {
+                m_ircontext.begin_eval_readonly();
+
+                if (!pass_final_value(lex, node->m_value.value()))
+                    return FAILED;
+
+                node->m_IR_return_value_may_none.emplace(
+                    m_ircontext.get_eval_result());
+            }
+
+            WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            if (node->m_IR_return_value_may_none.has_value())
+            {
+                m_ircontext.c().ret(node->m_IR_return_value_may_none.value());
+            }
+            else
+            {
+                if (node->m_LANG_belong_function_may_null_if_outside.has_value())
+                    m_ircontext.c().ret_void();
+                else
+                    m_ircontext.c().ret(m_ircontext.c().load_imm_int(0));
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstNop)
     {
-        abort();
+        wo_assert(state == UNPROCESSED);
+
+        m_ircontext.c().nop();
+
         return OKAY;
     }
 #undef WO_PASS_PROCESSER
@@ -975,7 +1007,99 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueFunction)
     {
-        abort();
+        wo_assert(state == UNPROCESSED);
+
+        m_ircontext.m_being_used_function_instance.insert(node);
+
+        if (node->m_LANG_captured_context.m_captured_variables.empty())
+        {
+            // Simple normal function
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    const auto& target_storage = result.get_assign_target();
+                    if (target_storage.has_value())
+                    {
+                        auto& [need_box, target] = target_storage.value();
+                        woort_IRValue* const* const target_irvalue =
+                            std::get_if<woort_IRValue*>(&target);
+
+                        if (target_irvalue == nullptr)
+                        {
+                            m_ircontext.c().store(
+                                std::get<woort_IRStaticIndex>(target),
+                                m_ircontext.c().load_imm_closure(node));
+                        }
+                        else
+                        {
+                            m_ircontext.c().mov(
+                                *target_irvalue,
+                                m_ircontext.c().load_imm_closure(node));
+                        }
+                    }
+                    else
+                        result.set_result_const_idx_no_need_box(
+                            m_ircontext, m_ircontext.c().imm_closure(node));
+                }
+            );
+        }
+        else
+        {
+            // Need capture.
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    for (auto& [capture_from_value, _useless] : node->m_LANG_captured_context.m_captured_variables)
+                    {
+                        (void)_useless;
+
+                        auto& storage = capture_from_value->m_IR_storage.value();
+
+                        if (storage.m_type == lang_ValueInstance::Storage::StorageType::STACKOFFSET)
+                            m_ircontext.c().pushchk(storage.m_stack_slot);
+                        else
+                            m_ircontext.c().pushstaticchk(storage.m_static_index);
+                    }
+
+                    const auto& target_storage = result.get_assign_target();
+                    if (target_storage.has_value())
+                    {
+                        auto& [need_box, target] = target_storage.value();
+                        woort_IRValue* const* const target_irvalue =
+                            std::get_if<woort_IRValue*>(&target);
+
+                        if (target_irvalue == nullptr)
+                        {
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+                            m_ircontext.c().mkclosure(
+                                v,
+                                (uint32_t)node->m_LANG_captured_context.m_captured_variables.size(),
+                                m_ircontext.c().imm_closure(node));
+                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                        }
+                        else
+                        {
+                            m_ircontext.c().mkclosure(
+                                *target_irvalue,
+                                (uint32_t)node->m_LANG_captured_context.m_captured_variables.size(),
+                                m_ircontext.c().imm_closure(node));
+                        }
+                    }
+                    else
+                    {
+                        woort_IRValue* const v = m_ircontext.c().new_value();
+
+                        m_ircontext.c().mkclosure(
+                            v,
+                            (uint32_t)node->m_LANG_captured_context.m_captured_variables.size(),
+                            m_ircontext.c().imm_closure(node));
+
+                        result.set_result_stack_temp(
+                            m_ircontext, v, node->m_LANG_determined_type.value());
+                    }
+                }
+            );
+        }
         return OKAY;
     }
     WO_PASS_PROCESSER(AstValueTuple)
@@ -1330,8 +1454,8 @@ namespace wo
                             {
                                 woort_IRValue* const v = m_ircontext.c().new_value();
                                 m_ircontext.c().castdyn(
-                                    v, 
-                                    opnum_to_cast, 
+                                    v,
+                                    opnum_to_cast,
                                     _convert_lang_base_type_to_woort_type_exclude_compile_type(
                                         target_determined_type_instance->m_base_type));
 
