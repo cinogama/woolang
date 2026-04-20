@@ -1163,8 +1163,8 @@ namespace wo
                     {
                         make_result_target = m_ircontext.c().new_value();
                         result.set_result_stack_temp(
-                            m_ircontext, 
-                            make_result_target, 
+                            m_ircontext,
+                            make_result_target,
                             node->m_LANG_determined_type.value());
                     }
 
@@ -1535,8 +1535,70 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueTypeCheckIs)
     {
-        abort();
-        return OKAY;
+        // Only dynamic check can be here.
+        if (state == UNPROCESSED)
+        {
+            wo_assert(
+                m_origin_types.m_dynamic.m_type_instance ==
+                immutable_type(node->m_check_value->m_LANG_determined_type.value()));
+
+            m_ircontext.do_eval_if_not_ignore(
+                &BytecodeGenerateContext::begin_eval_readonly);
+
+            WO_CONTINUE_PROCESS(node->m_check_value);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    auto* opnum_to_check = m_ircontext.get_eval_result();
+
+                    auto* target_type_instance =
+                        node->m_check_type->m_LANG_determined_type.value();
+                    auto* target_determined_type_instance =
+                        target_type_instance->get_determined_type().value();
+
+                    const auto& target_storage = result.get_assign_target();
+                    if (target_storage.has_value())
+                    {
+                        auto& [need_box, target] = target_storage.value();
+                        woort_IRValue* const* const target_irvalue =
+                            std::get_if<woort_IRValue*>(&target);
+
+                        if (target_irvalue == nullptr)
+                        {
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+                            m_ircontext.c().checkdyn(
+                                v,
+                                convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                    target_determined_type_instance->m_base_type),
+                                opnum_to_check);
+
+                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                        }
+                        else
+                        {
+                            m_ircontext.c().checkdyn(
+                                *target_irvalue,
+                                convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                    target_determined_type_instance->m_base_type),
+                                opnum_to_check);
+                        }
+                    }
+                    else
+                    {
+                        woort_IRValue* const v = m_ircontext.c().new_value();
+                        m_ircontext.c().checkdyn(
+                            v,
+                            convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                target_determined_type_instance->m_base_type),
+                            opnum_to_check);
+                    }
+                });
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueTypeCast)
     {
@@ -2175,11 +2237,11 @@ namespace wo
                 else
                 {
                     woort_IRValue* const v = m_ircontext.c().new_value();
-                    
+
                     m_ircontext.c().packarg(
                         v,
                         (uint16_t)current_func->m_parameters.size());
-                    
+
                     result.set_result_stack_temp(m_ircontext, v, node->m_LANG_determined_type.value());
                 }
             }
