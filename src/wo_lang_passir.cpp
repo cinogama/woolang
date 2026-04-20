@@ -1350,6 +1350,20 @@ namespace wo
                                 case lang_TypeInstance::DeterminedType::REAL:
                                     if (target_storage.has_value())
                                     {
+                                        auto& [need_box, target] = target_storage.value();
+                                        woort_IRValue* const* const target_irvalue =
+                                            std::get_if<woort_IRValue*>(&target);
+
+                                        if (target_irvalue == nullptr)
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().rtoi(v, opnum_to_cast);
+                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        }
+                                        else
+                                        {
+                                            m_ircontext.c().rtoi(*target_irvalue, opnum_to_cast);
+                                        }
                                     }
                                     else
                                     {
@@ -1363,6 +1377,20 @@ namespace wo
                                 case lang_TypeInstance::DeterminedType::STRING:
                                     if (target_storage.has_value())
                                     {
+                                        auto& [need_box, target] = target_storage.value();
+                                        woort_IRValue* const* const target_irvalue =
+                                            std::get_if<woort_IRValue*>(&target);
+
+                                        if (target_irvalue == nullptr)
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_INT);
+                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        }
+                                        else
+                                        {
+                                            m_ircontext.c().caststo(*target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_INT);
+                                        }
                                     }
                                     else
                                     {
@@ -1386,6 +1414,20 @@ namespace wo
                                 case lang_TypeInstance::DeterminedType::BOOLEAN:
                                     if (target_storage.has_value())
                                     {
+                                        auto& [need_box, target] = target_storage.value();
+                                        woort_IRValue* const* const target_irvalue =
+                                            std::get_if<woort_IRValue*>(&target);
+
+                                        if (target_irvalue == nullptr)
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().itor(v, opnum_to_cast);
+                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        }
+                                        else
+                                        {
+                                            m_ircontext.c().itor(*target_irvalue, opnum_to_cast);
+                                        }
                                     }
                                     else
                                     {
@@ -1399,6 +1441,20 @@ namespace wo
                                 case lang_TypeInstance::DeterminedType::STRING:
                                     if (target_storage.has_value())
                                     {
+                                        auto& [need_box, target] = target_storage.value();
+                                        woort_IRValue* const* const target_irvalue =
+                                            std::get_if<woort_IRValue*>(&target);
+
+                                        if (target_irvalue == nullptr)
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_REAL);
+                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        }
+                                        else
+                                        {
+                                            m_ircontext.c().caststo(*target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_REAL);
+                                        }
                                     }
                                     else
                                     {
@@ -1421,6 +1477,20 @@ namespace wo
                                 case lang_TypeInstance::DeterminedType::INTEGER:
                                     if (target_storage.has_value())
                                     {
+                                        auto& [need_box, target] = target_storage.value();
+                                        woort_IRValue* const* const target_irvalue =
+                                            std::get_if<woort_IRValue*>(&target);
+
+                                        if (target_irvalue == nullptr)
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().nei(v, opnum_to_cast, m_ircontext.c().load_imm_int(0));
+                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        }
+                                        else
+                                        {
+                                            m_ircontext.c().nei(*target_irvalue, opnum_to_cast, m_ircontext.c().load_imm_int(0));
+                                        }
                                     }
                                     else
                                     {
@@ -1435,6 +1505,20 @@ namespace wo
                                 case lang_TypeInstance::DeterminedType::REAL:
                                     if (target_storage.has_value())
                                     {
+                                        auto& [need_box, target] = target_storage.value();
+                                        woort_IRValue* const* const target_irvalue =
+                                            std::get_if<woort_IRValue*>(&target);
+
+                                        if (target_irvalue == nullptr)
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().nei(v, opnum_to_cast, m_ircontext.c().load_imm_real(0.));
+                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        }
+                                        else
+                                        {
+                                            m_ircontext.c().nei(*target_irvalue, opnum_to_cast, m_ircontext.c().load_imm_real(0.));
+                                        }
                                     }
                                     else
                                     {
@@ -1449,6 +1533,20 @@ namespace wo
                                 case lang_TypeInstance::DeterminedType::STRING:
                                     if (target_storage.has_value())
                                     {
+                                        auto& [need_box, target] = target_storage.value();
+                                        woort_IRValue* const* const target_irvalue =
+                                            std::get_if<woort_IRValue*>(&target);
+
+                                        if (target_irvalue == nullptr)
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_BOOL);
+                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        }
+                                        else
+                                        {
+                                            m_ircontext.c().caststo(*target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_BOOL);
+                                        }
                                     }
                                     else
                                     {
@@ -1465,18 +1563,99 @@ namespace wo
                                 }
                                 break;
                             case lang_TypeInstance::DeterminedType::STRING:
-                                if (target_storage.has_value())
+                                switch (src_determined_type_instance->m_base_type)
                                 {
-                                }
-                                else
-                                {
-                                    woort_IRValue* const v = m_ircontext.c().new_value();
-                                    m_ircontext.c().castsfrom(
-                                        v,
-                                        opnum_to_cast,
-                                        _convert_lang_base_type_to_woort_type_exclude_compile_type(
-                                            src_determined_type_instance->m_base_type));
-                                    result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                    if (target_storage.has_value())
+                                    {
+                                        auto& [need_box, target] = target_storage.value();
+                                        woort_IRValue* const* const target_irvalue =
+                                            std::get_if<woort_IRValue*>(&target);
+
+                                        if (target_irvalue == nullptr)
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().itos(v, opnum_to_cast);
+                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        }
+                                        else
+                                        {
+                                            m_ircontext.c().itos(*target_irvalue, opnum_to_cast);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().itos(
+                                            v,
+                                            opnum_to_cast);
+                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                    }
+                                    break;
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                    if (target_storage.has_value())
+                                    {
+                                        auto& [need_box, target] = target_storage.value();
+                                        woort_IRValue* const* const target_irvalue =
+                                            std::get_if<woort_IRValue*>(&target);
+
+                                        if (target_irvalue == nullptr)
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().rtos(v, opnum_to_cast);
+                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        }
+                                        else
+                                        {
+                                            m_ircontext.c().rtos(*target_irvalue, opnum_to_cast);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().rtos(
+                                            v,
+                                            opnum_to_cast);
+                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                    }
+                                    break;
+                                default:
+                                    if (target_storage.has_value())
+                                    {
+                                        auto& [need_box, target] = target_storage.value();
+                                        woort_IRValue* const* const target_irvalue =
+                                            std::get_if<woort_IRValue*>(&target);
+
+                                        if (target_irvalue == nullptr)
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().castsfrom(
+                                                v,
+                                                opnum_to_cast,
+                                                _convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                                    src_determined_type_instance->m_base_type));
+                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        }
+                                        else
+                                        {
+                                            m_ircontext.c().castsfrom(
+                                                *target_irvalue,
+                                                opnum_to_cast,
+                                                _convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                                    src_determined_type_instance->m_base_type));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().castsfrom(
+                                            v,
+                                            opnum_to_cast,
+                                            _convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                                src_determined_type_instance->m_base_type));
+                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                    }
                                 }
                                 break;
                             default:

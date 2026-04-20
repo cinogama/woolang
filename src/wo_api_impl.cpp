@@ -584,8 +584,8 @@ void _wo_test_compile()
 
         for (;;)
         {
-            let cc = nil: dynamic;   
-            let dd = cc: int;
+            let mut cc = 15;   
+            let dd = cc: string;
         }
 
        /* let (_, mut a, _) = (1, false, 3);
