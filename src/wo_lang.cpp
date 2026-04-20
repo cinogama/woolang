@@ -172,7 +172,8 @@ namespace wo
         , m_mutable(mutable_)
         , m_template_params(template_params)
         , m_origin_value_ast(ast)
-    {}
+    {
+    }
 
     lang_TemplateAstEvalStateValue* lang_Symbol::TemplateValuePrefab::find_or_create_template_instance(
         const TemplateArgumentListT& template_args)
@@ -203,7 +204,8 @@ namespace wo
         : m_symbol(symbol)
         , m_template_params(template_params)
         , m_origin_value_ast(ast)
-    {}
+    {
+    }
     lang_TemplateAstEvalStateType* lang_Symbol::TemplateTypePrefab::find_or_create_template_instance(
         const TemplateArgumentListT& template_args)
     {
@@ -233,7 +235,8 @@ namespace wo
         : m_symbol(symbol)
         , m_template_params(template_params)
         , m_origin_value_ast(ast)
-    {}
+    {
+    }
     lang_TemplateAstEvalStateAlias* lang_Symbol::TemplateAliasPrefab::find_or_create_template_instance(
         const TemplateArgumentListT& template_args)
     {
@@ -262,7 +265,8 @@ namespace wo
         : m_symbol(symbol)
         , m_determined_base_type_or_mutable(std::nullopt)
         , m_instance_template_arguments(template_arguments)
-    {}
+    {
+    }
 
     bool lang_TypeInstance::is_immutable() const
     {
@@ -401,7 +405,8 @@ namespace wo
 
     lang_TemplateAstEvalStateBase::lang_TemplateAstEvalStateBase(lang_Symbol* symbol, ast::AstBase* ast)
         : m_state(state::UNPROCESSED), m_ast(ast), m_symbol(symbol)
-    {}
+    {
+    }
 
     //////////////////////////////////////
 
@@ -464,7 +469,8 @@ namespace wo
         : m_symbol(symbol)
         , m_instance_template_arguments(template_arguments)
         , m_determined_type(std::nullopt)
-    {}
+    {
+    }
 
     //////////////////////////////////////
     void lang_ValueInstance::try_determine_function_may_constant(
@@ -550,11 +556,13 @@ namespace wo
     lang_ValueInstance::Storage::Storage(woort_IRValue* stack_slot)
         : m_type(STACKOFFSET)
         , m_stack_slot(stack_slot)
-    {}
+    {
+    }
     lang_ValueInstance::Storage::Storage(woort_IRStaticIndex static_index)
         : m_type(GLOBAL)
         , m_static_index(static_index)
-    {}
+    {
+    }
 
     lang_ValueInstance::lang_ValueInstance(
         bool mutable_,
@@ -565,16 +573,19 @@ namespace wo
         , m_instance_template_arguments(template_arguments)
         , m_determined_constant_or_function(std::nullopt)
         , m_determined_type(std::nullopt)
-    {}
+    {
+    }
     lang_ValueInstance::~lang_ValueInstance()
-    {}
+    {
+    }
 
     //////////////////////////////////////
 
     lang_TypeInstance::DeterminedType::DeterminedType(
         base_type type, const ExternalTypeDescription& desc)
         : m_base_type(type), m_external_type_description(desc)
-    {}
+    {
+    }
     lang_TypeInstance::DeterminedType::DeterminedType(DeterminedType&& item)
         : m_base_type(item.m_base_type), m_external_type_description(item.m_external_type_description)
     {
@@ -633,7 +644,8 @@ namespace wo
         , m_labeled_instance(std::nullopt)
         , m_scope_type(ScopeType::NORMAL)
         , m_been_break(false)
-    {}
+    {
+    }
 
     bool lang_Scope::is_namespace_scope() const
     {
@@ -1360,6 +1372,90 @@ namespace wo
         m_ircontext.c().ret(m_ircontext.c().load_imm_int(0));
 
         m_ircontext.c().pop_function();
+
+        for (;;)
+        {
+            auto functions_to_finalize =
+                std::move(m_ircontext.m_being_used_function_instance);
+
+            m_ircontext.m_being_used_function_instance.clear();
+            if (functions_to_finalize.empty())
+                break;
+
+            for (ast::AstValueFunction* eval_function : functions_to_finalize)
+            {
+                if (!m_ircontext.m_processed_function_instance.insert(eval_function).second)
+                    // Already processed.
+                    continue;
+
+                if (eval_function->m_IR_extern_information.has_value())
+                {
+                    // TODO;
+                    abort();
+
+                    continue;
+                }
+
+                // Script function, generate codes for it.
+                m_ircontext.c().push_function(
+                    (uint32_t)eval_function->m_parameters.size() + (eval_function->m_is_variadic ? 1 : 0),
+                    (uint32_t)eval_function->m_LANG_captured_context.m_captured_variables.size());
+
+                // Update captured variable / param's storage.
+                uint32_t argument_place = 0;
+                for (auto& [_useless, captured_variable_instance] :
+                    eval_function->m_LANG_captured_context.m_captured_variables)
+                {
+                    captured_variable_instance.m_instance->m_IR_storage.emplace(
+                        lang_ValueInstance::Storage(
+                            const_cast<woort_IRValue*>(m_ircontext.c().captured(argument_place++))));
+                }
+                argument_place = 0;
+                for (auto* param_decls : eval_function->m_parameters)
+                {
+                    if (param_decls->m_pattern->node_type == ast::AstBase::AST_PATTERN_SINGLE)
+                    {
+                        ast::AstPatternSingle* pattern_single =
+                            static_cast<ast::AstPatternSingle*>(param_decls->m_pattern);
+
+                        if (pattern_single->m_is_mutable)
+                            goto _label_mutable_or_pattern_params;
+
+                        // Immutable pattern single argument.
+                        lang_Symbol* symbol = pattern_single->m_LANG_declared_symbol.value();
+
+                        wo_assert(!symbol->m_is_template && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+                        symbol->m_value_instance->m_IR_storage.emplace(
+                            lang_ValueInstance::Storage(
+                                const_cast<woort_IRValue*>(m_ircontext.c().argument(argument_place))));
+                    }
+                    else
+                    {
+                    _label_mutable_or_pattern_params:
+                        update_pattern_storage_and_code_gen_passir(
+                            lex,
+                            param_decls->m_pattern,
+                            m_ircontext.c().argument(argument_place),
+                            std::nullopt);
+                    }
+
+                    ++argument_place;
+                }
+
+
+                if (!anylize_pass(
+                    lex,
+                    eval_function->m_body,
+                    &LangContext::pass_final_A_process_bytecode_generation,
+                    true))
+                {
+                    return compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
+                }
+
+                m_ircontext.c().pop_function();
+            }
+        }
+
         return compile_result::PROCESS_OK;
     }
 
@@ -2663,7 +2759,8 @@ namespace wo
     }
 
     BytecodeGenerateContext::BytecodeGenerateContext() noexcept
-    {}
+    {
+    }
 
     std::optional<std::pair<bool /* Need box */, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
         BytecodeGenerateContext::EvalResult::get_assign_target() const noexcept

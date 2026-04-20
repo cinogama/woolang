@@ -137,6 +137,19 @@ namespace wo
         return result;
     }
 
+    const woort_IRValue* IRCompiler::captured(uint32_t aidx)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        woort_IRValue* const result = woort_IRFunction_get_captured(cur, aidx);
+        if (result == nullptr)
+            abondon();
+
+        return result;
+    }
+
     woort_IRLabel* IRCompiler::new_label()
     {
         if (is_abondoned())
@@ -1514,10 +1527,10 @@ namespace wo
         if (!woort_IRFunction_push_srcloc(
             cur, 
             node->source_location.source_file->c_str(), 
-            node->source_location.begin_at.row,
-            node->source_location.begin_at.column,
-            node->source_location.end_at.row,
-            node->source_location.end_at.column))
+            (uint32_t)node->source_location.begin_at.row,
+            (uint32_t)node->source_location.begin_at.column,
+            (uint32_t)node->source_location.end_at.row,
+            (uint32_t)node->source_location.end_at.column))
             abondon();
     }
 

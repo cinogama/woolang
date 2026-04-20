@@ -202,8 +202,6 @@ namespace wo
         std::optional<lang_TypeInstance*> m_determined_type;
 
         std::optional<Storage> m_IR_storage;
-        std::optional<ast::AstValueFunction*>
-            m_IR_normal_function;
 
         void try_determine_function_may_constant(ast::AstValueFunction* func);
         void try_determine_const_value(ast::AstValueBase* init_val);

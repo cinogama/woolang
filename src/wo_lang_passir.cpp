@@ -1127,28 +1127,6 @@ namespace wo
         wo_assert(state == UNPROCESSED);
 
         lang_ValueInstance* value_instance = node->m_LANG_variable_instance.value();
-
-        if (value_instance->m_IR_normal_function.has_value())
-        {
-            abort();
-            //AstValueFunction* func = value_instance->m_IR_normal_function.value();
-            //m_ircontext.apply_eval_result(
-            //    [&](BytecodeGenerateContext::EvalResult& result)
-            //    {
-            //        const auto& target_storage = result.get_assign_target();
-            //        auto* function_opnum = m_ircontext.opnum_func(func);
-            //        if (target_storage.has_value())
-            //        {
-            //            m_ircontext.c().mov(
-            //                WO_OPNUM(target_storage.value()),
-            //                WO_OPNUM(function_opnum));
-            //        }
-            //        else
-            //            result.set_result(m_ircontext, function_opnum);
-            //    });
-            //return OKAY;
-        }
-
         wo_assert(value_instance->IR_need_storage());
 
         if (!value_instance->m_IR_storage.has_value())
@@ -1394,6 +1372,8 @@ namespace wo
                                     return WOORT_BOX_VALUE_TYPE_MAP;
                                 case lang_TypeInstance::DeterminedType::ARRAY:
                                     return WOORT_BOX_VALUE_TYPE_VEC;
+                                case lang_TypeInstance::DeterminedType::FUNCTION:
+                                    return WOORT_BOX_VALUE_TYPE_CLOSURE;
                                 default:
                                     wo_error("Unexpected type.");
                                     return WOORT_BOX_VALUE_TYPE_NIL;

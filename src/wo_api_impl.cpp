@@ -582,9 +582,14 @@ void _wo_test_compile()
         /*let mut aa = 155;
         let mut bb = 155: dynamic; */    
 
+        func foo((v, _): (string, int))
+        {
+            return v;
+        }
+
         for (;;)
         {
-            let mut cc = 15;   
+            let mut cc = foo;   
             let dd = cc: string;
 
             return dd;

@@ -1773,10 +1773,6 @@ namespace wo
                 }
                 else
                 {
-                    if (node->m_LANG_value_instance_to_update.has_value())
-                        // This function no need capture variables in runtime.
-                        node->m_LANG_value_instance_to_update.value()->m_IR_normal_function = node;
-
                     node->decide_final_constant_value(node);
                 }
 

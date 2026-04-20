@@ -106,6 +106,7 @@ namespace wo
         const woort_IRValue* fetch_constant(woort_IRConstantIndex cidx);
         woort_IRValue* new_value();
         const woort_IRValue* argument(uint32_t aidx);
+        const woort_IRValue* captured(uint32_t aidx);
 
         woort_IRLabel* new_label();
         woort_IRLabel* named_label(ast::AstBase* ast, const char* label_name);
