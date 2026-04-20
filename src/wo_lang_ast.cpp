@@ -2016,6 +2016,7 @@ namespace wo
             , m_LANG_end_state(AstScope::LANG_end_state::NORMAL)
             , m_LANG_pattern_value_apply_type(std::nullopt)
             , m_LANG_case_label_or_takeplace(std::nullopt)
+            , m_IR_matching_index_opnum(std::nullopt)
             , m_IR_matching_struct_opnum(std::nullopt)
             , m_IR_match(std::nullopt)
         {
@@ -2039,7 +2040,6 @@ namespace wo
             , m_cases(cases)
             , m_LANG_hold_state(UNPROCESSED)
             , m_LANG_end_state(AstScope::LANG_end_state::NORMAL)
-            , m_IR_matching_struct_opnum(std::nullopt)
         {
         }
         AstBase* AstMatch::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

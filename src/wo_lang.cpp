@@ -2604,6 +2604,13 @@ namespace wo
         // Make a duplicated eval request (For FAILED recover).
         m_eval_result_storage_target.push(m_eval_result_storage_target.top());
     }
+    void BytecodeGenerateContext::eval_for_upper_box()
+    {
+        wo_assert(!m_eval_result_storage_target.empty());
+
+        // Make a duplicated eval request (For FAILED recover).
+        m_eval_result_storage_target.push(m_eval_result_storage_target.top());
+    }
     void BytecodeGenerateContext::cleanup_for_eval_upper()
     {
         m_eval_result_storage_target.pop();

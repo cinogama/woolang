@@ -566,6 +566,22 @@ bool _wo_compile_entry(
 void _wo_test_compile()
 {
     const char* src = R"(
+        //union Test
+        //{
+        //    A,
+        //    B
+        //}
+
+        //let mut aa = Test::A;
+        //match (aa)
+        //{
+        //A?;
+        //B?;
+        //}
+
+        let mut aa = 155;
+        let mut bb = 155: dynamic;        
+
         let (_, mut a, _) = (1, false, 3);
         if (a)
         {

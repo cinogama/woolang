@@ -593,13 +593,80 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstMatch)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            m_ircontext.begin_eval_readonly();
+            if (!pass_final_value(lex, node->m_matched_value))
+                return FAILED;
+
+            auto* matching_value = m_ircontext.get_eval_result();
+            woort_IRValue* const matching_index = m_ircontext.c().new_value();
+            m_ircontext.c().ldidxstruct(
+                matching_index,
+                matching_value,
+                0);
+
+            for (auto& match_case : node->m_cases)
+            {
+                match_case->m_IR_matching_index_opnum = matching_index;
+                match_case->m_IR_matching_struct_opnum = matching_value;
+                match_case->m_IR_match = node;
+            }
+
+            WO_CONTINUE_PROCESS_LIST(node->m_cases);
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.c().panic(m_ircontext.c().load_imm_string(
+                wstring_pool::get_pstr(
+                    "Bad label for union: '"
+                    + std::string(get_type_name(node->m_matched_value->m_LANG_determined_type.value()))
+                    + "', may be bad value returned by the external function.")));
+
+            m_ircontext.c().bind(m_ircontext.c().named_label(node, "#match_end"));
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstMatchCase)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            if (node->m_LANG_case_label_or_takeplace.has_value())
+                m_ircontext.c().jcc_ne(
+                    node->m_IR_matching_index_opnum.value(),
+                    m_ircontext.c().load_imm_int(node->m_LANG_case_label_or_takeplace.value()),
+                    m_ircontext.c().named_label(node, "#match_case_end"));
+
+            if (node->m_pattern->node_type == AstBase::AST_PATTERN_UNION)
+            {
+                AstPatternUnion* pattern_union = static_cast<AstPatternUnion*>(node->m_pattern);
+                if (pattern_union->m_field.has_value())
+                {
+                    AstPatternBase* pattern_base = pattern_union->m_field.value();
+
+                    update_pattern_storage_and_code_gen_passir(
+                        lex,
+                        pattern_base,
+                        node->m_IR_matching_struct_opnum.value(),
+                        (uint16_t)1);
+                }
+            }
+            else
+            {
+                wo_assert(node->m_pattern->node_type == AstBase::AST_PATTERN_TAKEPLACE);
+            }
+
+            WO_CONTINUE_PROCESS(node->m_body);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.c().jmp(m_ircontext.c().named_label(node->m_IR_match.value(), "#match_end"));
+            m_ircontext.c().bind(m_ircontext.c().named_label(node, "#match_case_end_"));
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstLabeled)
     {
@@ -1081,8 +1148,189 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueTypeCast)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            auto* target_type_instance =
+                node->m_cast_type->m_LANG_determined_type.value();
+            auto* target_determined_type_instance =
+                target_type_instance->get_determined_type().value();
+
+            auto* src_type_instance =
+                node->m_cast_value->m_LANG_determined_type.value();
+            auto* src_determined_type_instance =
+                src_type_instance->get_determined_type().value();
+
+            if (target_determined_type_instance->m_base_type
+                == lang_TypeInstance::DeterminedType::VOID)
+            {
+                // Here we need mark this sign to apply `eval_ignore`.
+                node->m_IR_need_eval = true;
+                m_ircontext.eval_and_ignore();
+            }
+            else if (target_determined_type_instance->m_base_type
+                != src_determined_type_instance->m_base_type
+                && target_determined_type_instance->m_base_type
+                != lang_TypeInstance::DeterminedType::DYNAMIC
+                && src_determined_type_instance->m_base_type
+                != lang_TypeInstance::DeterminedType::NOTHING)
+            {
+                // Need runtime check.
+                node->m_IR_need_eval = true;
+
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::begin_eval_readonly);
+            }
+            else
+            {
+                // No cast
+                node->m_IR_need_eval = false;
+
+                if (target_determined_type_instance->m_base_type
+                    == lang_TypeInstance::DeterminedType::DYNAMIC)
+                {
+
+                }
+                else
+                    m_ircontext.eval_for_upper();
+            }
+
+            // Eval.
+            WO_CONTINUE_PROCESS(node->m_cast_value);
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            if (node->m_IR_need_eval)
+            {
+                m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
+                    {
+                        auto* target_type_instance =
+                            node->m_cast_type->m_LANG_determined_type.value();
+                        auto* target_determined_type_instance =
+                            target_type_instance->get_determined_type().value();
+
+                        auto* src_type_instance =
+                            node->m_cast_value->m_LANG_determined_type.value();
+                        auto* src_determined_type_instance =
+                            src_type_instance->get_determined_type().value();
+
+                        const auto& target_storage = result.get_assign_target();
+
+                        // Need runtime cast.
+                        value::valuetype cast_type;
+                        switch (target_determined_type_instance->m_base_type)
+                        {
+                        case lang_TypeInstance::DeterminedType::NIL:
+                            cast_type = value::valuetype::invalid;
+                            break;
+                        case lang_TypeInstance::DeterminedType::INTEGER:
+                            cast_type = value::valuetype::integer_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::REAL:
+                            cast_type = value::valuetype::real_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::HANDLE:
+                            cast_type = value::valuetype::handle_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::BOOLEAN:
+                            cast_type = value::valuetype::bool_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::STRING:
+                            cast_type = value::valuetype::string_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::GCHANDLE:
+                            cast_type = value::valuetype::gchandle_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::DICTIONARY:
+                            cast_type = value::valuetype::dict_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::ARRAY:
+                            cast_type = value::valuetype::array_type;
+                            break;
+                        case lang_TypeInstance::DeterminedType::VOID:
+                        {
+                            if (target_storage.has_value())
+                            {
+                                // NO NEED TO DO ANYTHING.
+                                // VOID VALUE IS PURE JUNK VALUE.
+                            }
+                            else
+                            {
+                                // Return a junk value.
+                                result.set_result(
+                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
+                            }
+                            return;
+                        }
+                        default:
+                            wo_error("Unknown type.");
+                            break;
+                        }
+
+                        // NOTE: If target type is void, we can't get result from context.
+                        //  Expr has been evaled as non-result mode.
+                        auto* opnum_to_cast = m_ircontext.get_eval_result();
+
+                        if (target_storage.has_value())
+                        {
+                            if (cast_type == value::valuetype::integer_type
+                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::REAL)
+                            {
+                                m_ircontext.c().movrcasti(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(opnum_to_cast));
+                            }
+                            else if (cast_type == value::valuetype::real_type
+                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER)
+                            {
+                                m_ircontext.c().movicastr(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(opnum_to_cast));
+                            }
+                            else
+                            {
+                                m_ircontext.c().movcast(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(opnum_to_cast),
+                                    cast_type);
+                            }
+                        }
+                        else
+                        {
+                            auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
+                                WO_BORROW_TEMPORARY_FROM(node));
+
+                            if (cast_type == value::valuetype::integer_type
+                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::REAL)
+                            {
+                                m_ircontext.c().movrcasti(
+                                    WO_OPNUM(borrowed_reg),
+                                    WO_OPNUM(opnum_to_cast));
+                            }
+                            else if (cast_type == value::valuetype::real_type
+                                && src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER)
+                            {
+                                m_ircontext.c().movicastr(
+                                    WO_OPNUM(borrowed_reg),
+                                    WO_OPNUM(opnum_to_cast));
+                            }
+                            else
+                            {
+                                m_ircontext.c().movcast(
+                                    WO_OPNUM(borrowed_reg),
+                                    WO_OPNUM(opnum_to_cast),
+                                    cast_type);
+                            }
+                            result.set_result(m_ircontext, borrowed_reg);
+                        }
+                    });
+            }
+            else
+                m_ircontext.cleanup_for_eval_upper();
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueDoAsVoid)
     {

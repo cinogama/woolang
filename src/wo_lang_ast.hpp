@@ -971,7 +971,8 @@ namespace wo
             std::optional<lang_TypeInstance*> m_LANG_pattern_value_apply_type;
             std::optional<int64_t> m_LANG_case_label_or_takeplace;
 
-            std::optional<opnum::opnumbase*> m_IR_matching_struct_opnum;
+            std::optional<woort_IRValue*> m_IR_matching_index_opnum;
+            std::optional<woort_IRValue*> m_IR_matching_struct_opnum;
             std::optional<AstMatch*> m_IR_match;
 
             AstMatchCase(AstPatternBase* pattern, AstBase* body);
@@ -991,7 +992,6 @@ namespace wo
 
             LANG_hold_state m_LANG_hold_state;
             AstScope::LANG_end_state m_LANG_end_state;
-            std::optional<opnum::opnumbase*> m_IR_matching_struct_opnum;
 
             AstMatch(AstValueBase* match_value, const std::vector<AstMatchCase*>& cases);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;

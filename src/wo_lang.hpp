@@ -605,6 +605,7 @@ namespace wo
         void eval_and_ignore();
 
         void eval_for_upper();
+        void eval_for_upper_box();
         void cleanup_for_eval_upper();
 
         void eval_to_assign_if_not_ignore(woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode);
