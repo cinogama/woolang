@@ -593,6 +593,12 @@ void _wo_test_compile()
             return (v, 1, 2, 3);
         }
 
+        func bar(a: int, ...)
+        {
+            let v = a;
+            return ...;
+        }
+
         for (;;)
         {
             let mut cc = foo;   

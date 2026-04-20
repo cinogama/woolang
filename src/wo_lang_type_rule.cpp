@@ -67,15 +67,15 @@ namespace wo
                     return lang_TypeInstance::TypeCheckResult::REJECT;
 
                 bool sub_match_is_pending = false;
-                
+
                 if (!immutable_provider->m_symbol->m_is_builtin)
                 {
                     // We need check template arguments of instance.
                     wo_assert(immutable_provider->m_symbol->m_is_template);
 
-                    auto& provider_template_arguments = 
+                    auto& provider_template_arguments =
                         immutable_provider->m_instance_template_arguments.value();
-                    auto& accepter_template_arguments = 
+                    auto& accepter_template_arguments =
                         immutable_accepter->m_instance_template_arguments.value();
 
                     auto it_provider = provider_template_arguments.begin();
@@ -362,7 +362,7 @@ namespace wo
             [&]()-> lang_TypeInstance::TypeCheckResult
             {
                 // 0. If aimtype accept srctype, Ok
-                if (lang_TypeInstance::TypeCheckResult::ACCEPT == 
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT ==
                     is_type_accepted(lex, node, aimtype, immutable_srctype))
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
 
@@ -856,7 +856,7 @@ namespace wo
                     if (!mixed_template_arg.has_value())
                         return TypeMixtureResult{ TypeMixtureResult::REJECT };
                     mixed_template_args.push_back(mixed_template_arg.value());
-                }          
+                }
             }
 
             bool need_continue_process = false;
@@ -898,5 +898,35 @@ namespace wo
         }
 
     }
+
+    woort_BoxValueType LangContext::convert_lang_base_type_to_woort_type_exclude_compile_type(
+        lang_TypeInstance::DeterminedType::base_type lang_type)
+    {
+        switch (lang_type)
+        {
+        case lang_TypeInstance::DeterminedType::NIL:
+            return WOORT_BOX_VALUE_TYPE_NIL;
+        case lang_TypeInstance::DeterminedType::HANDLE:
+        case lang_TypeInstance::DeterminedType::INTEGER:
+            return WOORT_BOX_VALUE_TYPE_INT;
+        case lang_TypeInstance::DeterminedType::REAL:
+            return WOORT_BOX_VALUE_TYPE_REAL;
+        case lang_TypeInstance::DeterminedType::BOOLEAN:
+            return WOORT_BOX_VALUE_TYPE_BOOL;
+        case lang_TypeInstance::DeterminedType::STRING:
+            return WOORT_BOX_VALUE_TYPE_STRING;
+        case lang_TypeInstance::DeterminedType::GCHANDLE:
+            return WOORT_BOX_VALUE_TYPE_GCHANDLE;
+        case lang_TypeInstance::DeterminedType::DICTIONARY:
+            return WOORT_BOX_VALUE_TYPE_MAP;
+        case lang_TypeInstance::DeterminedType::ARRAY:
+            return WOORT_BOX_VALUE_TYPE_VEC;
+        case lang_TypeInstance::DeterminedType::FUNCTION:
+            return WOORT_BOX_VALUE_TYPE_CLOSURE;
+        default:
+            wo_error("Unexpected type.");
+            return WOORT_BOX_VALUE_TYPE_NIL;
+        }
+    };
 #endif
 }

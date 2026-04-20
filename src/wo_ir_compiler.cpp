@@ -378,6 +378,16 @@ namespace wo
             abondon();
     }
 
+    void IRCompiler::packarg(woort_IRValue* dst, uint16_t named_param_count)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_PACKARG(cur, named_param_count, dst))
+            abondon();
+    }
+
     void IRCompiler::mkclosure(woort_IRValue* dst, uint32_t elem_count, woort_IRConstantIndex func_idx)
     {
         if (is_abondoned())

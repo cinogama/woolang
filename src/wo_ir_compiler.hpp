@@ -134,6 +134,7 @@ namespace wo
         void callnfp(woort_IRConstantIndex target, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
         void callnjit(woort_IRConstantIndex target, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
         void call(const woort_IRValue* func_val, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
+        void packarg(woort_IRValue* dst, uint16_t named_param_count);
 
         /* --- Closures / Containers --- */
         void mkclosure(woort_IRValue* dst, uint32_t elem_count, woort_IRConstantIndex func_idx);

@@ -1136,6 +1136,8 @@ namespace wo
             lang_TypeInstance* atype,
             lang_TypeInstance* btype,
             PassProcessStackT& out_stack);
+        woort_BoxValueType LangContext::convert_lang_base_type_to_woort_type_exclude_compile_type(
+            lang_TypeInstance::DeterminedType::base_type lang_type);
 
         std::string _get_scope_name(lang_Scope* scope);
         std::string _get_symbol_name(lang_Symbol* scope);
