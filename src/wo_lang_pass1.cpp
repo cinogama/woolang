@@ -2109,7 +2109,7 @@ namespace wo
                 if (element->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
                 {
                     auto* unpack = static_cast<AstFakeValueUnpack*>(element);
-                    unpack->m_IR_unpack_method = AstFakeValueUnpack::UNPACK_FOR_TUPLE;
+                    unpack->m_LANG_unpack_method = AstFakeValueUnpack::UNPACK_FOR_TUPLE;
                     auto* determined_base_type_instance = determined_type->get_determined_type().value();
                     // Unpacks base has been check in AstFakeValueUnpack.
 
@@ -3847,7 +3847,7 @@ namespace wo
                     if (argument_value->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
                     {
                         AstFakeValueUnpack* unpack = static_cast<AstFakeValueUnpack*>(argument_value);
-                        unpack->m_IR_unpack_method = AstFakeValueUnpack::UNPACK_FOR_FUNCTION_CALL;
+                        unpack->m_LANG_unpack_method = AstFakeValueUnpack::UNPACK_FOR_FUNCTION_CALL;
                         auto* unpacked_value_determined_value =
                             unpack->m_unpack_value->m_LANG_determined_type.value()->get_determined_type().value();
 
@@ -3874,7 +3874,7 @@ namespace wo
                                         unpack->m_unpack_value));
                             }
 
-                            unpack->m_IR_need_to_be_unpack_count =
+                            unpack->m_LANG_need_to_be_unpack_count =
                                 AstFakeValueUnpack::IR_unpack_requirement{
                                     elem_count_to_be_expand,
                                     node->m_LANG_invoking_variadic_function,
@@ -3898,7 +3898,7 @@ namespace wo
                                     std::make_pair(type, unpack->m_unpack_value));
                             }
 
-                            unpack->m_IR_need_to_be_unpack_count =
+                            unpack->m_LANG_need_to_be_unpack_count =
                                 AstFakeValueUnpack::IR_unpack_requirement{
                                     tuple_determined_type->m_element_types.size(),
                                     false,

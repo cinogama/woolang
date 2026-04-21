@@ -1121,9 +1121,8 @@ namespace wo
 
                 if (field_value->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
                 {
-                    abort();
-                    /* m_ircontext.do_eval_if_not_ignore(
-                         &BytecodeGenerateContext::eval_action);*/
+                    m_ircontext.do_eval_if_not_ignore(
+                        &BytecodeGenerateContext::eval_action_and_ignore);
                 }
                 else
                 {
@@ -2317,7 +2316,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            if (node->m_IR_unpack_method == AstFakeValueUnpack::SHOULD_NOT_UNPACK)
+            if (node->m_LANG_unpack_method == AstFakeValueUnpack::SHOULD_NOT_UNPACK)
             {
                 lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_CANNOT_UNPACK_HERE);
@@ -2341,7 +2340,7 @@ namespace wo
                     auto* const unpacking_tuple_determined_type =
                         node->m_LANG_determined_type.value()->get_determined_type().value();
 
-                    if (node->m_IR_unpack_method == AstFakeValueUnpack::UNPACK_FOR_TUPLE)
+                    if (node->m_LANG_unpack_method == AstFakeValueUnpack::UNPACK_FOR_TUPLE)
                     {
                         wo_assert(unpacking_tuple_determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE);
                         auto* tuple_info = unpacking_tuple_determined_type->m_external_type_description.m_tuple;
@@ -2352,7 +2351,7 @@ namespace wo
                     }
                     else
                     {
-                        const auto& unpack_requirement = node->m_IR_need_to_be_unpack_count.value();
+                        const auto& unpack_requirement = node->m_LANG_need_to_be_unpack_count.value();
 
                         if (unpacking_tuple_determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE)
                         {
@@ -2373,7 +2372,7 @@ namespace wo
 
                             if (unpack_requirement.m_unpack_all)
                             {
-                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                woort_IRValue* const v = node->m_IR_unpack_all_counter.value();
 
                                 if (elem_need_unpack)
                                     m_ircontext.c().unpackvecall(

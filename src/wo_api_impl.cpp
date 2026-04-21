@@ -582,6 +582,9 @@ void _wo_test_compile()
         /*let mut aa = 155;
         let mut bb = 155: dynamic; */    
 
+        let mut ta = (1, 2, 3);
+        let tb = (1, 2, ta...);
+
         /*let ma = {};
         let mb = {[2] = 3};
 

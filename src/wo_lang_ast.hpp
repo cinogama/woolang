@@ -631,8 +631,10 @@ namespace wo
 
             AstValueBase* m_unpack_value;
 
-            std::optional<IR_unpack_requirement> m_IR_need_to_be_unpack_count;
-            IR_unpack_method m_IR_unpack_method;
+            IR_unpack_method m_LANG_unpack_method;
+
+            std::optional<IR_unpack_requirement> m_LANG_need_to_be_unpack_count;
+            std::optional<woort_IRValue*> m_IR_unpack_all_counter;
 
             AstFakeValueUnpack(AstValueBase* unpack_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;

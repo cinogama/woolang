@@ -519,6 +519,11 @@ namespace wo
                 发生）之外，可以不生成求值代码
                 */
                 IGNORE_RESULT,
+
+                /*
+                执行求值逻辑，但是忽略求值结果
+                */
+                EXECUTE_ACTION_BUT_IGNORE_RESULT,
             };
 
             enum class ResultKind
@@ -598,6 +603,7 @@ namespace wo
         void begin_eval_readonly_box();
         void eval_to_push_box();
         void eval_and_ignore();
+        void eval_action_and_ignore();
 
         void eval_for_upper();
         void eval_for_upper_box();

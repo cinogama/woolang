@@ -1430,8 +1430,9 @@ namespace wo
         AstFakeValueUnpack::AstFakeValueUnpack(AstValueBase* unpack_value)
             : AstValueBase(AST_FAKE_VALUE_UNPACK)
             , m_unpack_value(unpack_value)
-            , m_IR_need_to_be_unpack_count(std::nullopt)
-            , m_IR_unpack_method(SHOULD_NOT_UNPACK)
+            , m_LANG_unpack_method(SHOULD_NOT_UNPACK)
+            , m_LANG_need_to_be_unpack_count(std::nullopt)
+            , m_IR_unpack_all_counter(std::nullopt)
         {
         }
         AstBase* AstFakeValueUnpack::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

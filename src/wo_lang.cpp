@@ -1165,6 +1165,7 @@ namespace wo
                     case BytecodeGenerateContext::EvalResult::Request::PUSH_RESULT_AND_IGNORE:
                     case BytecodeGenerateContext::EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE:
                     case BytecodeGenerateContext::EvalResult::Request::IGNORE_RESULT:
+                    case BytecodeGenerateContext::EvalResult::Request::EXECUTE_ACTION_BUT_IGNORE_RESULT:
                         --top_state.m_debug_ir_eval_content;
                         break;
                     default:
@@ -2579,6 +2580,8 @@ namespace wo
             bind_func(top_eval_state);
             switch (top_eval_state.m_request)
             {
+            case EvalResult::Request::EXECUTE_ACTION_BUT_IGNORE_RESULT:
+                // Pure action, do nothing.
             case EvalResult::Request::PUSH_RESULT_AND_IGNORE:
             case EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE:
                 // Already pushed when set_result_*, ignore the result.
@@ -2677,6 +2680,15 @@ namespace wo
     {
         EvalResult r;
         r.m_request = EvalResult::Request::IGNORE_RESULT;
+        r.m_result_type = EvalResult::ResultKind::PENDING;
+        r.m_pdi_node = std::nullopt;
+
+        m_eval_result_storage_target.push(r);
+    }
+    void BytecodeGenerateContext::eval_action_and_ignore()
+    {
+        EvalResult r;
+        r.m_request = EvalResult::Request::EXECUTE_ACTION_BUT_IGNORE_RESULT;
         r.m_result_type = EvalResult::ResultKind::PENDING;
         r.m_pdi_node = std::nullopt;
 
