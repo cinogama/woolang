@@ -1258,43 +1258,43 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::unpackstruct(const woort_IRValue* src)
+    void IRCompiler::unpackvec(uint8_t count, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_UNPACKSTRUCT(cur, src))
+        if (!woort_IR_UNPACKVEC(cur, count, val))
             abondon();
     }
 
-    void IRCompiler::unpackvec(woort_IRValue* dst, const woort_IRValue* src)
+    void IRCompiler::unpackvecx(uint8_t count, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_UNPACKVEC(cur, dst, src))
+        if (!woort_IR_UNPACKVECX(cur, count, val))
             abondon();
     }
 
-    void IRCompiler::unpackvecx(woort_IRValue* dst, const woort_IRValue* src)
+    void IRCompiler::unpackvecall(woort_IRValue* dst, uint8_t count, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_UNPACKVECX(cur, dst, src))
+        if (!woort_IR_UNPACKVECALL(cur, dst, count, val))
             abondon();
     }
 
-    void IRCompiler::pushidxstruct(const woort_IRValue* src, uint32_t idx)
+    void IRCompiler::unpackvecxall(woort_IRValue* dst, uint8_t count, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_PUSHIDXSTRUCT(cur, src, idx))
+        if (!woort_IR_UNPACKVECXALL(cur, dst, count, val))
             abondon();
     }
 
@@ -1328,13 +1328,13 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::pushidxstboxx(const woort_IRValue* src, uint32_t idx)
+    void IRCompiler::pushidxstruct(const woort_IRValue* src, uint32_t idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_PUSHIDXSTBOXX(cur, src, idx))
+        if (!woort_IR_PUSHIDXSTRUCT(cur, src, idx))
             abondon();
     }
 

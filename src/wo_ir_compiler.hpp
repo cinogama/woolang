@@ -245,16 +245,16 @@ namespace wo
         void stidxstruct(woort_IRValue* c, uint32_t idx, const woort_IRValue* val);
 
         /* --- Unpacking --- */
-        void unpackstruct(const woort_IRValue* src);
-        void unpackvec(woort_IRValue* dst, const woort_IRValue* src);
-        void unpackvecx(woort_IRValue* dst, const woort_IRValue* src);
+        void unpackvec(uint8_t count, const woort_IRValue* val);
+        void unpackvecx(uint8_t count, const woort_IRValue* val);
+        void unpackvecall(woort_IRValue* dst, uint8_t count, const woort_IRValue* val);
+        void unpackvecxall(woort_IRValue* dst, uint8_t count, const woort_IRValue* val);
 
         /* --- Struct Field Push to Stack --- */
         void pushidxstruct(const woort_IRValue* src, uint32_t idx);
         void pushidxstboxi(const woort_IRValue* src, uint32_t idx);
         void pushidxstboxr(const woort_IRValue* src, uint32_t idx);
         void pushidxstboxb(const woort_IRValue* src, uint32_t idx);
-        void pushidxstboxx(const woort_IRValue* src, uint32_t idx);
 
         /* --- Atomic --- */
         void astore(woort_IRStaticIndex idx, const woort_IRValue* src);
