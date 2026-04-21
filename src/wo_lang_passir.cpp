@@ -2315,8 +2315,63 @@ namespace wo
 
     WO_PASS_PROCESSER(AstFakeValueUnpack)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            if (node->m_IR_unpack_method == AstFakeValueUnpack::SHOULD_NOT_UNPACK)
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_CANNOT_UNPACK_HERE);
+
+                return FAILED;
+            }
+
+            m_ircontext.do_eval_if_not_ignore(
+                &BytecodeGenerateContext::begin_eval_readonly);
+
+            WO_CONTINUE_PROCESS(node->m_unpack_value);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult&)
+                {
+                    auto* unpacking_opnum = m_ircontext.get_eval_result();
+
+                    if (node->m_IR_unpack_method == AstFakeValueUnpack::UNPACK_FOR_TUPLE)
+                    {
+                        auto* unpacking_tuple_determined_type =
+                            node->m_LANG_determined_type.value()->get_determined_type().value();
+
+                        wo_assert(unpacking_tuple_determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE);
+                        auto* tuple_info = unpacking_tuple_determined_type->m_external_type_description.m_tuple;
+                        const uint32_t tuple_elem_count = (uint32_t)tuple_info->m_element_types.size();
+
+                        for (uint32_t i = 0; i < tuple_elem_count; ++i)
+                            m_ircontext.c().pushidxstruct(unpacking_opnum, i);
+                    }
+                    else
+                    {
+                        const auto& unpack_requirement = node->m_IR_need_to_be_unpack_count.value();
+
+                        if (unpack_requirement.m_unpack_all)
+                        {
+                            m_ircontext.c().unpack(
+                                WO_OPNUM(unpacking_opnum),
+                                -(int32_t)unpack_requirement.m_require_unpack_count);
+                        }
+                        else
+                        {
+                            // If require to unpack 0 argument, just skip & ignore.
+                            if (unpack_requirement.m_require_unpack_count != 0)
+                                m_ircontext.c().unpack(
+                                    WO_OPNUM(unpacking_opnum),
+                                    (int32_t)unpack_requirement.m_require_unpack_count);
+                        }
+                    }
+                });
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueBinaryOperator)
     {

@@ -582,7 +582,7 @@ void _wo_test_compile()
         /*let mut aa = 155;
         let mut bb = 155: dynamic; */    
 
-        let ma = {};
+        /*let ma = {};
         let mb = {[2] = 3};
 
         let aa = [];
@@ -605,7 +605,7 @@ void _wo_test_compile()
             let dd = cc: string;
 
             return dd;
-        }
+        }*/
 
        /* let (_, mut a, _) = (1, false, 3);
         if (a)
@@ -616,6 +616,10 @@ void _wo_test_compile()
             }
         }
         while(true);*/
+
+
+        let mut a = 0: dynamic;
+        do a as string;
     )";
     
     std::optional<woort_CodeEnv*> out_env_if_success;
