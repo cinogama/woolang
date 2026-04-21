@@ -2338,11 +2338,11 @@ namespace wo
                 {
                     auto* unpacking_opnum = m_ircontext.get_eval_result();
 
+                    auto* const unpacking_tuple_determined_type =
+                        node->m_LANG_determined_type.value()->get_determined_type().value();
+
                     if (node->m_IR_unpack_method == AstFakeValueUnpack::UNPACK_FOR_TUPLE)
                     {
-                        auto* unpacking_tuple_determined_type =
-                            node->m_LANG_determined_type.value()->get_determined_type().value();
-
                         wo_assert(unpacking_tuple_determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE);
                         auto* tuple_info = unpacking_tuple_determined_type->m_external_type_description.m_tuple;
                         const uint32_t tuple_elem_count = (uint32_t)tuple_info->m_element_types.size();
@@ -2354,19 +2354,53 @@ namespace wo
                     {
                         const auto& unpack_requirement = node->m_IR_need_to_be_unpack_count.value();
 
-                        if (unpack_requirement.m_unpack_all)
+                        if (unpacking_tuple_determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE)
                         {
-                            m_ircontext.c().unpack(
-                                WO_OPNUM(unpacking_opnum),
-                                -(int32_t)unpack_requirement.m_require_unpack_count);
+                            // TODO
+                            abort();
                         }
                         else
                         {
-                            // If require to unpack 0 argument, just skip & ignore.
-                            if (unpack_requirement.m_require_unpack_count != 0)
-                                m_ircontext.c().unpack(
-                                    WO_OPNUM(unpacking_opnum),
-                                    (int32_t)unpack_requirement.m_require_unpack_count);
+                            wo_assert(unpack_requirement.m_require_unpack_count <= UINT8_MAX);
+
+                            woort_BoxValueType _useless_type;
+                            const bool elem_need_unpack = unpacking_tuple_determined_type
+                                ->m_external_type_description.m_array_or_vector
+                                ->m_element_type
+                                ->is_need_to_box_in_IR(&_useless_type);
+
+                            (void)_useless_type;
+
+                            if (unpack_requirement.m_unpack_all)
+                            {
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+
+                                if (elem_need_unpack)
+                                    m_ircontext.c().unpackvecall(
+                                        v,
+                                        (uint8_t)unpack_requirement.m_require_unpack_count,
+                                        unpacking_opnum);
+                                else
+                                    m_ircontext.c().unpackvecxall(
+                                        v,
+                                        (uint8_t)unpack_requirement.m_require_unpack_count,
+                                        unpacking_opnum);
+                            }
+                            else
+                            {
+                                // If require to unpack 0 argument, just skip & ignore.
+                                if (unpack_requirement.m_require_unpack_count != 0)
+                                {
+                                    if (elem_need_unpack)
+                                        m_ircontext.c().unpackvec(
+                                            (uint8_t)unpack_requirement.m_require_unpack_count,
+                                            unpacking_opnum);
+                                    else
+                                        m_ircontext.c().unpackvecx(
+                                            (uint8_t)unpack_requirement.m_require_unpack_count,
+                                            unpacking_opnum);
+                                }
+                            }
                         }
                     }
                 });
