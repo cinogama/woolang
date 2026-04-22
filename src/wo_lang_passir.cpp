@@ -3687,38 +3687,45 @@ namespace wo
             }
             case AstValueAssign::IR_HOLD_TO_APPLY_ASSIGN:
             {
-                const woort_IRValue* assign_expr_result_opnum;
+                const woort_IRValue* eval_result_for_upper = nullptr;
 
                 if (node->m_assign_place->node_type == AstBase::AST_PATTERN_VARIABLE)
                 {
                     AstPatternVariable* assign_var = static_cast<AstPatternVariable*>(node->m_assign_place);
                     lang_ValueInstance* assign_value_instance = assign_var->m_variable->m_LANG_variable_instance.value();
 
-                    auto& storage = assign_value_instance->m_IR_storage.value();
+                    const auto& storage = assign_value_instance->m_IR_storage.value();
 
                     switch (node->m_assign_type)
                     {
                     case AstValueAssign::ASSIGN:
-                        assign_expr_result_opnum = m_ircontext.get_eval_result();
+                        if (m_ircontext.eval_result_just_ignored())
+                            m_ircontext.pop_eval_result();
+                        else
+                            eval_result_for_upper = m_ircontext.get_eval_result();
                         break;
                     default:
                         if (node->m_LANG_overload_call.has_value())
-                            assign_expr_result_opnum = m_ircontext.get_eval_result();
+                        {
+                            if (m_ircontext.eval_result_just_ignored())
+                                m_ircontext.pop_eval_result();
+                            else
+                                eval_result_for_upper = m_ircontext.get_eval_result();
+                        }
                         else
                         {
+                            woort_IRValue* assign_expr_result_opnum;
                             auto* right_value_result = m_ircontext.get_eval_result();
 
                             // Do normal assign operate;
-                            if (storage.m_type == lang_ValueInstance::Storage::StorageType::STACKOFFSET)
+                            if (storage.m_type == lang_ValueInstance::Storage::StorageType::GLOBAL)
                             {
-                                assign_expr_result_opnum = storage.m_stack_slot;
+                                assign_expr_result_opnum = m_ircontext.c().new_value();
+                                m_ircontext.c().load(assign_expr_result_opnum, storage.m_static_index);
                             }
                             else
                             {
-                                woort_IRValue* const v = m_ircontext.c().new_value();
-                                m_ircontext.c().load(v, storage.m_static_index);
-
-                                assign_expr_result_opnum = v;
+                                assign_expr_result_opnum = storage.m_stack_slot;
                             }
 
                             lang_TypeInstance* assign_type_instance =
@@ -3726,30 +3733,25 @@ namespace wo
                             auto* determined_assign_type =
                                 assign_type_instance->get_determined_type().value();
 
+                            using binary_op_t = void (IRCompiler::*)(
+                                woort_IRValue*, const woort_IRValue*, const woort_IRValue*);
+
+                            binary_op_t binary_op;
+
                             switch (node->m_assign_type)
                             {
                             case AstValueAssign::ADD_ASSIGN:
                                 switch (determined_assign_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
-                                    m_ircontext.c().addi(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                case lang_TypeInstance::DeterminedType::HANDLE:
+                                    binary_op = &IRCompiler::addi;
                                     break;
                                 case lang_TypeInstance::DeterminedType::REAL:
-                                    m_ircontext.c().addr(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
-                                    break;
-                                case lang_TypeInstance::DeterminedType::HANDLE:
-                                    m_ircontext.c().ext_addh(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                    binary_op = &IRCompiler::addr;
                                     break;
                                 case lang_TypeInstance::DeterminedType::STRING:
-                                    m_ircontext.c().adds(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                    binary_op = &IRCompiler::adds;
                                     break;
                                 default:
                                     wo_error("Unknown type.");
@@ -3760,19 +3762,11 @@ namespace wo
                                 switch (determined_assign_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
-                                    m_ircontext.c().subi(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
-                                    break;
                                 case lang_TypeInstance::DeterminedType::HANDLE:
-                                    m_ircontext.c().ext_subh(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                    binary_op = &IRCompiler::subi;
                                     break;
                                 case lang_TypeInstance::DeterminedType::REAL:
-                                    m_ircontext.c().subr(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                    binary_op = &IRCompiler::subr;
                                     break;
                                 default:
                                     wo_error("Unknown type.");
@@ -3783,14 +3777,10 @@ namespace wo
                                 switch (determined_assign_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
-                                    m_ircontext.c().muli(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                    binary_op = &IRCompiler::muli;
                                     break;
                                 case lang_TypeInstance::DeterminedType::REAL:
-                                    m_ircontext.c().mulr(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                    binary_op = &IRCompiler::mulr;
                                     break;
                                 default:
                                     wo_error("Unknown type.");
@@ -3801,17 +3791,10 @@ namespace wo
                                 switch (determined_assign_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
-                                    check_and_generate_check_ir_for_divi_and_modi(
-                                        m_ircontext, std::nullopt, node->m_right,
-                                        assign_expr_result_opnum, right_value_result);
-                                    m_ircontext.c().divi(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                    binary_op = &IRCompiler::divi;
                                     break;
                                 case lang_TypeInstance::DeterminedType::REAL:
-                                    m_ircontext.c().divr(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                    binary_op = &IRCompiler::divr;
                                     break;
                                 default:
                                     wo_error("Unknown type.");
@@ -3822,17 +3805,10 @@ namespace wo
                                 switch (determined_assign_type->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
-                                    check_and_generate_check_ir_for_divi_and_modi(
-                                        m_ircontext, std::nullopt, node->m_right,
-                                        assign_expr_result_opnum, right_value_result);
-                                    m_ircontext.c().modi(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                    binary_op = &IRCompiler::modi;
                                     break;
                                 case lang_TypeInstance::DeterminedType::REAL:
-                                    m_ircontext.c().modr(
-                                        WO_OPNUM(assign_expr_result_opnum),
-                                        WO_OPNUM(right_value_result));
+                                    binary_op = &IRCompiler::modr;
                                     break;
                                 default:
                                     wo_error("Unknown type.");
@@ -3844,31 +3820,25 @@ namespace wo
                                 break;
                             }
 
-                            if (can_storage_addressing)
-                                // Assign completed.
-                                ;
-                            else
-                                m_ircontext.try_return_opnum_temporary_register(
-                                    assign_expr_result_opnum);
+                            (m_ircontext.c().*binary_op)(
+                                assign_expr_result_opnum,
+                                assign_expr_result_opnum, 
+                                right_value_result);
+
+                            if (storage.m_type == lang_ValueInstance::Storage::StorageType::GLOBAL)
+                            {
+                                // Write back.
+                                m_ircontext.c().store(storage.m_static_index, assign_expr_result_opnum);
+                            }
+
+                            eval_result_for_upper = assign_expr_result_opnum;
                         }
                         break;
                     }
-
-                    /////////////////////// EVAL FINISHED ///////////////////////
-
-                    if (can_storage_addressing)
-                        // Nothing todo, assign has been complete.
-                        ;
-                    else
-                        m_ircontext.c().sts(
-                            WO_OPNUM(assign_expr_result_opnum),
-                            WO_OPNUM(m_ircontext.opnum_imm_int(storage.m_index)));
                 }
                 else
                 {
                     // ATTENTION: Here still 2(or 1) temporary reg stores in AstValueIROpnum need to be free manually.
-                    WO_GENERATE_PDI_FOR(node);
-
                     wo_assert(node->m_assign_place->node_type == AstBase::AST_PATTERN_INDEX);
                     AstPatternIndex* pattern_index = static_cast<AstPatternIndex*>(node->m_assign_place);
 
