@@ -3142,47 +3142,123 @@ namespace wo
                         auto* determined_container_type =
                             container_type_instance->get_determined_type().value();
 
+                        const bool need_box = target_storage.has_value()
+                            && target_storage.value().first;
+                        const bool result_is_dynamic =
+                            node->m_LANG_determined_type.value()->get_determined_type().has_value()
+                            && node->m_LANG_determined_type.value()->get_determined_type().value()->m_base_type
+                                == lang_TypeInstance::DeterminedType::DYNAMIC;
+                        const bool use_x_variant = need_box || result_is_dynamic;
+
+                        const lang_TypeInstance* const result_type_for_set =
+                            use_x_variant
+                                ? m_origin_types.m_dynamic.m_type_instance
+                                : node->m_LANG_determined_type.value();
+
                         switch (determined_container_type->m_base_type)
                         {
                         case lang_TypeInstance::DeterminedType::ARRAY:
                         case lang_TypeInstance::DeterminedType::VECTOR:
+                        case lang_TypeInstance::DeterminedType::STRING:
                         case lang_TypeInstance::DeterminedType::DICTIONARY:
                         case lang_TypeInstance::DeterminedType::MAPPING:
-                        case lang_TypeInstance::DeterminedType::STRING:
                         {
                             auto* index_opnum = m_ircontext.get_eval_result();
                             auto* container_opnum = m_ircontext.get_eval_result();
 
                             wo_assert(!node->m_LANG_fast_index_for_struct.has_value());
 
-                            if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::ARRAY
-                                || determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::VECTOR)
-                                m_ircontext.c().idarr(
-                                    WO_OPNUM(container_opnum),
-                                    WO_OPNUM(index_opnum));
-                            else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRING)
-                                m_ircontext.c().idstr(
-                                    WO_OPNUM(container_opnum),
-                                    WO_OPNUM(index_opnum));
-                            else
-                                m_ircontext.c().iddict(
-                                    WO_OPNUM(container_opnum),
-                                    WO_OPNUM(index_opnum));
-
                             if (target_storage.has_value())
                             {
-                                if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                    target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                                const auto& [_, target] = target_storage.value();
+                                woort_IRValue* const* const target_irvalue =
+                                    std::get_if<woort_IRValue*>(&target);
+
+                                woort_IRValue* const v = target_irvalue
+                                    ? *target_irvalue
+                                    : m_ircontext.c().new_value();
+
+                                if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::ARRAY
+                                    || determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::VECTOR)
                                 {
-                                    m_ircontext.c().mov(
-                                        WO_OPNUM(target_storage.value()),
-                                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                    if (use_x_variant)
+                                        m_ircontext.c().ldidxvecx(v, container_opnum, index_opnum);
+                                    else
+                                        m_ircontext.c().ldidxvec(v, container_opnum, index_opnum);
                                 }
+                                else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRING)
+                                {
+                                    m_ircontext.c().ldidxstring(v, container_opnum, index_opnum);
+                                }
+                                else
+                                {
+                                    auto* key_type_instance =
+                                        determined_container_type->m_external_type_description.m_dictionary_or_mapping->m_key_type;
+                                    auto* key_determined_type =
+                                        key_type_instance->get_determined_type().value();
+
+                                    switch (key_determined_type->m_base_type)
+                                    {
+                                    case lang_TypeInstance::DeterminedType::INTEGER:
+                                        m_ircontext.c().ldidxdicti(v, container_opnum, index_opnum);
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::REAL:
+                                        m_ircontext.c().ldidxdictr(v, container_opnum, index_opnum);
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                        m_ircontext.c().ldidxdictb(v, container_opnum, index_opnum);
+                                        break;
+                                    default:
+                                        m_ircontext.c().ldidxdictx(v, container_opnum, index_opnum);
+                                        break;
+                                    }
+                                }
+
+                                if (target_irvalue == nullptr)
+                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                             }
                             else
                             {
-                                result.set_result(
-                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+
+                                if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::ARRAY
+                                    || determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::VECTOR)
+                                {
+                                    if (use_x_variant)
+                                        m_ircontext.c().ldidxvecx(v, container_opnum, index_opnum);
+                                    else
+                                        m_ircontext.c().ldidxvec(v, container_opnum, index_opnum);
+                                }
+                                else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRING)
+                                {
+                                    m_ircontext.c().ldidxstring(v, container_opnum, index_opnum);
+                                }
+                                else
+                                {
+                                    auto* key_type_instance =
+                                        determined_container_type->m_external_type_description.m_dictionary_or_mapping->m_key_type;
+                                    auto* key_determined_type =
+                                        key_type_instance->get_determined_type().value();
+
+                                    switch (key_determined_type->m_base_type)
+                                    {
+                                    case lang_TypeInstance::DeterminedType::INTEGER:
+                                        m_ircontext.c().ldidxdicti(v, container_opnum, index_opnum);
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::REAL:
+                                        m_ircontext.c().ldidxdictr(v, container_opnum, index_opnum);
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                        m_ircontext.c().ldidxdictb(v, container_opnum, index_opnum);
+                                        break;
+                                    default:
+                                        m_ircontext.c().ldidxdictx(v, container_opnum, index_opnum);
+                                        break;
+                                    }
+                                }
+
+                                result.set_result_stack_temp(
+                                    m_ircontext, v, result_type_for_set);
                             }
                             break;
                         }
@@ -3193,29 +3269,30 @@ namespace wo
 
                             wo_assert(node->m_LANG_fast_index_for_struct.has_value());
 
-                            // NOTE: Keep index & container if is IR OPNUM node.
-                            if (node->m_container->node_type == AstBase::AST_VALUE_IR_OPNUM)
-                                m_ircontext.try_keep_opnum_temporary_register(
-                                    container_opnum
-                                    WO_BORROW_TEMPORARY_FROM_SP(node));
+                            const uint32_t fast_index = (uint32_t)node->m_LANG_fast_index_for_struct.value();
 
-                            uint16_t fast_index = (uint16_t)node->m_LANG_fast_index_for_struct.value();
                             if (target_storage.has_value())
                             {
-                                m_ircontext.c().idstruct(
-                                    WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(container_opnum),
-                                    fast_index);
+                                const auto& [_, target] = target_storage.value();
+                                woort_IRValue* const* const target_irvalue =
+                                    std::get_if<woort_IRValue*>(&target);
+
+                                woort_IRValue* const v = target_irvalue
+                                    ? *target_irvalue
+                                    : m_ircontext.c().new_value();
+
+                                m_ircontext.c().ldidxstruct(v, container_opnum, fast_index);
+
+                                if (target_irvalue == nullptr)
+                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                             }
                             else
                             {
-                                auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
-                                    WO_BORROW_TEMPORARY_FROM(node));
-                                m_ircontext.c().idstruct(
-                                    WO_OPNUM(borrowed_reg),
-                                    WO_OPNUM(container_opnum),
-                                    fast_index);
-                                result.set_result(m_ircontext, borrowed_reg);
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                m_ircontext.c().ldidxstruct(v, container_opnum, fast_index);
+
+                                result.set_result_stack_temp(
+                                    m_ircontext, v, result_type_for_set);
                             }
                             break;
                         }
