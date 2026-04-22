@@ -1410,6 +1410,7 @@ namespace wo
             , m_false_value(false_value)
             , m_LANG_hold_state(UNPROCESSED)
             , m_LANG_template_evalating_state_is_mutable(std::nullopt)
+            , m_IR_cond_eval_result(std::nullopt)
         {
         }
         AstBase* AstValueTribleOperator::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

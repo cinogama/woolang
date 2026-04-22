@@ -612,6 +612,8 @@ namespace wo
             std::optional<std::pair<lang_TemplateAstEvalStateType*, bool>>
                 m_LANG_template_evalating_state_is_mutable;
 
+            std::optional<woort_IRValue*> m_IR_cond_eval_result;
+
             AstValueTribleOperator(AstValueBase* condition, AstValueBase* true_value, AstValueBase* false_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };

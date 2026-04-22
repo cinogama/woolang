@@ -2800,13 +2800,274 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueUnaryOperator)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            m_ircontext.do_eval_if_not_ignore(
+                &BytecodeGenerateContext::begin_eval_readonly);
+            WO_CONTINUE_PROCESS(node->m_operand);
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    const auto& target_storage = result.get_assign_target();
+                    auto* opnum_to_unary = m_ircontext.get_eval_result();
+
+                    switch (node->m_operator)
+                    {
+                    case AstValueUnaryOperator::NEGATIVE:
+                    {
+                        lang_TypeInstance* operand_type_instance =
+                            node->m_operand->m_LANG_determined_type.value();
+                        auto operand_determined_type =
+                            operand_type_instance->get_determined_type().value();
+
+                        if (target_storage.has_value())
+                        {
+                            auto& [need_box, target] = target_storage.value();
+                            woort_IRValue* const* const target_irvalue =
+                                std::get_if<woort_IRValue*>(&target);
+
+                            if (target_irvalue == nullptr)
+                            {
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+
+                                switch (operand_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                {
+                                    m_ircontext.c().negi(v, opnum_to_unary);
+                                    break;
+                                }
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                {
+                                    m_ircontext.c().negr(v, opnum_to_unary);
+                                    break;
+                                }
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+
+                                if (need_box)
+                                    m_ircontext.c().boxdyn(v,
+                                        convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            node->m_LANG_determined_type.value()->get_determined_type().value()->m_base_type), v);
+
+                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                            }
+                            else
+                            {
+                                switch (operand_determined_type->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::INTEGER:
+                                {
+                                    m_ircontext.c().negi(*target_irvalue, opnum_to_unary);
+                                    break;
+                                }
+                                case lang_TypeInstance::DeterminedType::REAL:
+                                {
+                                    m_ircontext.c().negr(*target_irvalue, opnum_to_unary);
+                                    break;
+                                }
+                                default:
+                                    wo_error("Unknown type.");
+                                    break;
+                                }
+
+                                if (need_box)
+                                    m_ircontext.c().boxdyn(
+                                        *target_irvalue,
+                                        convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            node->m_LANG_determined_type.value()->get_determined_type().value()->m_base_type),
+                                        *target_irvalue);
+                            }
+                        }
+                        else
+                        {
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+
+                            switch (operand_determined_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::INTEGER:
+                            {
+                                m_ircontext.c().negi(v, opnum_to_unary);
+                                break;
+                            }
+                            case lang_TypeInstance::DeterminedType::REAL:
+                            {
+                                m_ircontext.c().negr(v, opnum_to_unary);
+                                break;
+                            }
+                            default:
+                                wo_error("Unknown type.");
+                                break;
+                            }
+                            result.set_result_stack_temp(
+                                m_ircontext, v, node->m_LANG_determined_type.value());
+                        }
+                        break;
+                    }
+                    case AstValueUnaryOperator::LOGICAL_NOT:
+                    {
+                        if (target_storage.has_value())
+                        {
+                            auto& [need_box, target] = target_storage.value();
+                            woort_IRValue* const* const target_irvalue =
+                                std::get_if<woort_IRValue*>(&target);
+
+                            if (target_irvalue == nullptr)
+                            {
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+
+                                m_ircontext.c().lnot(v, opnum_to_unary);
+                                if (need_box)
+                                    m_ircontext.c().boxdyn(v,
+                                        convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            node->m_LANG_determined_type.value()->get_determined_type().value()->m_base_type), v);
+
+                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                            }
+                            else
+                            {
+                                m_ircontext.c().lnot(*target_irvalue, opnum_to_unary);
+                                if (need_box)
+                                    m_ircontext.c().boxdyn(
+                                        *target_irvalue,
+                                        convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                            node->m_LANG_determined_type.value()->get_determined_type().value()->m_base_type),
+                                        *target_irvalue);
+                            }
+                        }
+                        else
+                        {
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+
+                            m_ircontext.c().lnot(v, opnum_to_unary);
+
+                            result.set_result_stack_temp(
+                                m_ircontext, v, node->m_LANG_determined_type.value());
+                        }
+                        break;
+                    }
+                    default:
+                        wo_error("Unknown operator.");
+                        break;
+                    }
+                }
+            );
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueTribleOperator)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            if (node->m_condition->m_evaled_const_value.has_value())
+            {
+                m_ircontext.eval_for_upper();
+
+                if (node->m_condition->m_evaled_const_value.value().value_bool() != 0)
+                    WO_CONTINUE_PROCESS(node->m_true_value);
+                else
+                    WO_CONTINUE_PROCESS(node->m_false_value);
+
+                node->m_LANG_hold_state = AstValueTribleOperator::IR_HOLD_FOR_BRANCH_CONST_EVAL;
+            }
+            else
+            {
+                m_ircontext.begin_eval_readonly();
+                WO_CONTINUE_PROCESS(node->m_condition);
+
+                node->m_LANG_hold_state = AstValueTribleOperator::IR_HOLD_FOR_COND_EVAL;
+            }
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstValueTribleOperator::IR_HOLD_FOR_COND_EVAL:
+            {
+                const woort_IRValue* const cond = m_ircontext.get_eval_result();
+                m_ircontext.c().jccz(cond, m_ircontext.c().named_label(node, "#cond_false"));
+
+                if (m_ircontext.eval_result_just_ignored())
+                    m_ircontext.eval_and_ignore();
+                else
+                {
+                    woort_IRValue* const v = m_ircontext.c().new_value();
+                    node->m_IR_cond_eval_result.emplace(v);
+
+                    // TODO: Eval for box if need box?
+                    m_ircontext.eval_to_assign();
+                }
+
+                m_ircontext.eval_to_if_not_ignore(
+                    m_ircontext.opnum_spreg(opnum::reg::spreg::cr), std::nullopt);
+
+                WO_CONTINUE_PROCESS(node->m_true_value);
+
+                node->m_LANG_hold_state = AstValueTribleOperator::IR_HOLD_FOR_BRANCH_A_EVAL;
+                return HOLD;
+            }
+            case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_A_EVAL:
+            {
+                m_ircontext.c().jmp(opnum::tag(_generate_label("#cond_end_", node)));
+                m_ircontext.c().tag(_generate_label("#cond_false_", node));
+
+                m_ircontext.eval_to_if_not_ignore(
+                    m_ircontext.opnum_spreg(opnum::reg::spreg::cr), std::nullopt);
+
+                WO_CONTINUE_PROCESS(node->m_false_value);
+
+                node->m_LANG_hold_state = AstValueTribleOperator::IR_HOLD_FOR_BRANCH_B_EVAL;
+                return HOLD;
+            }
+            case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_B_EVAL:
+            {
+                m_ircontext.c().tag(_generate_label("#cond_end_", node));
+
+                m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
+                    {
+                        // Ignore results.
+                        (void)m_ircontext.get_eval_result(); // False branch result.
+                        (void)m_ircontext.get_eval_result(); // True branch result.
+                        (void)m_ircontext.get_eval_result(); // Condition result.
+
+                        const auto& target_storage = result.get_assign_target();
+                        if (target_storage.has_value())
+                        {
+                            if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
+                                target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                            {
+                                m_ircontext.c().mov(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                            }
+                            // Or do nothing, target is same.
+                        }
+                        else
+                        {
+                            result.set_result(
+                                m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                        }
+                    }
+                );
+                break;
+            }
+            case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_CONST_EVAL:
+                m_ircontext.cleanup_for_eval_upper();
+                break;
+            default:
+                wo_error("Unknown hold state.");
+                break;
+            }
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueIndex)
     {

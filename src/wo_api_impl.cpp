@@ -566,63 +566,11 @@ bool _wo_compile_entry(
 void _wo_test_compile()
 {
     const char* src = R"(
-        //union Test
-        //{
-        //    A,
-        //    B
-        //}
+        let mut a = true;
+        let b = !a;
+        
+        let c = -a: int;
 
-        //let mut aa = Test::A;
-        //match (aa)
-        //{
-        //A?;
-        //B?;
-        //}
-
-        /*let mut aa = 155;
-        let mut bb = 155: dynamic; */    
-
-        let mut ta = (1, 2, 3);
-        let tb = (1, 2, ta...);
-
-        /*let ma = {};
-        let mb = {[2] = 3};
-
-        let aa = [];
-        let ab = [1, 2, 3];
-
-        func foo((v, _): (string, int))
-        {
-            return (v + "Helloworld", 1, 2, 3);
-        }
-
-        func bar(a: int, ...)
-        {
-            let v = (a + 7788): dynamic;
-            return v;
-        }
-
-        for (;;)
-        {
-            let mut cc = foo;   
-            let dd = cc: string;
-
-            return dd;
-        }*/
-
-       /* let (_, mut a, _) = (1, false, 3);
-        if (a)
-        {
-            for (;a;)
-            {
-            
-            }
-        }
-        while(true);*/
-
-
-        let mut a = 0: dynamic;
-        do a as string;
     )";
     
     std::optional<woort_CodeEnv*> out_env_if_success;
