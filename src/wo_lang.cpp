@@ -2820,18 +2820,24 @@ namespace wo
     {
     }
 
-    std::optional<std::pair<bool /* Need box */, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
-        BytecodeGenerateContext::EvalResult::get_assign_target() const noexcept
+    std::optional<std::pair<std::optional<woort_BoxValueType>, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
+        BytecodeGenerateContext::EvalResult::get_assign_target(lang_TypeInstance* t) const noexcept
     {
-        const bool neex_box_assign =
-            m_request == Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET;
+        std::optional<woort_BoxValueType> need_to_box_as = std::nullopt;
+        if (m_request == Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET)
+        {
+            woort_BoxValueType woort_box_target_type;
+
+            if (t->is_need_to_box_in_IR(&woort_box_target_type))
+                need_to_box_as.emplace(woort_box_target_type);
+        }
 
         switch (m_result_type)
         {
         case ResultKind::ASSIGN_TO_STATIC:
-            return std::make_pair(neex_box_assign, m_result_static);
+            return std::make_pair(need_to_box_as, m_result_static);
         case ResultKind::ASSIGN_TO_STACKSLOT:
-            return std::make_pair(neex_box_assign, m_result_stack);
+            return std::make_pair(need_to_box_as, m_result_stack);
         default:
             return std::nullopt;
         }

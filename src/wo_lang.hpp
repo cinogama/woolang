@@ -552,8 +552,8 @@ namespace wo
             // The pdinode used for generate debug info.
             std::optional<ast::AstBase*> m_pdi_node;
 
-            std::optional<std::pair<bool /* Need box */, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
-                get_assign_target() const noexcept;
+            std::optional<std::pair<std::optional<woort_BoxValueType>, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
+                get_assign_target(lang_TypeInstance* t) const noexcept;
 
             void set_result_stack_temp(
                 BytecodeGenerateContext& ctx, 

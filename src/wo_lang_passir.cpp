@@ -1017,7 +1017,7 @@ namespace wo
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
-                    const auto& target_storage = result.get_assign_target();
+                    const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
                     if (target_storage.has_value())
                     {
                         auto& [need_box, target] = target_storage.value();
@@ -1025,7 +1025,7 @@ namespace wo
                             std::get_if<woort_IRValue*>(&target);
 
                         /* No need to box. */
-                        (void)need_box;
+                        wo_assert(!need_box.has_value());
 
                         if (target_irvalue == nullptr)
                         {
@@ -1064,7 +1064,7 @@ namespace wo
                             m_ircontext.c().pushstaticchk(storage.m_static_index);
                     }
 
-                    const auto& target_storage = result.get_assign_target();
+                    const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
                     if (target_storage.has_value())
                     {
                         auto& [need_box, target] = target_storage.value();
@@ -1072,7 +1072,7 @@ namespace wo
                             std::get_if<woort_IRValue*>(&target);
 
                         /* No need to box. */
-                        (void)need_box;
+                        wo_assert(!need_box.has_value());
 
                         if (target_irvalue == nullptr)
                         {
@@ -1144,7 +1144,7 @@ namespace wo
                     std::optional<woort_IRStaticIndex> need_write_back_to_static =
                         std::nullopt;
 
-                    const auto& asigned_target = result.get_assign_target();
+                    const auto& asigned_target = result.get_assign_target(node->m_LANG_determined_type.value());
                     if (asigned_target.has_value())
                     {
                         const auto& [need_box, target] = asigned_target.value();
@@ -1238,7 +1238,7 @@ namespace wo
                     std::optional<woort_IRStaticIndex> need_write_back_to_static =
                         std::nullopt;
 
-                    const auto& asigned_target = result.get_assign_target();
+                    const auto& asigned_target = result.get_assign_target(node->m_LANG_determined_type.value());
                     if (asigned_target.has_value())
                     {
                         const auto& [need_box, target] = asigned_target.value();
@@ -3987,45 +3987,240 @@ namespace wo
                     case lang_TypeInstance::DeterminedType::DICTIONARY:
                     case lang_TypeInstance::DeterminedType::MAPPING:
                     {
+                        using stdx_operate_t = void (IRCompiler::*)(
+                            const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+
+                        stdx_operate_t stdx_operate;
+
                         // NOTE: index_opnum must be valid, check m_LANG_fast_index_for_struct to make sure it.
                         //  if m_LANG_fast_index_for_struct should be nullopt here.
                         wo_assert(!pattern_index->m_index->m_LANG_fast_index_for_struct.has_value());
 
                         if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::DICTIONARY)
                         {
-                            const auto* index_type = pattern_index->m_index->m_LANG_determined_type.value();
-
-
-                            switch (index_type->get_determined_type().value()->m_base_type)
+                            switch (
+                                /* Result type. */
+                                pattern_index->m_index->m_LANG_determined_type.value()->
+                                get_determined_type().value()->m_base_type)
                             {
                             case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                            case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                switch (
+                                    /* Index key type. */
+                                    pattern_index->m_index->m_index->m_LANG_determined_type.value()->
+                                    get_determined_type().value()->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                                case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                    stdx_operate = &IRCompiler::stidxdictii;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                    stdx_operate = &IRCompiler::stidxdictri;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                    stdx_operate = &IRCompiler::stidxdictbi;
+                                    break;
+                                default:
+                                    stdx_operate = &IRCompiler::stidxdictxi;
+                                    break;
+                                }
+                                break;
+                            case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                switch (
+                                    /* Index key type. */
+                                    pattern_index->m_index->m_index->m_LANG_determined_type.value()->
+                                    get_determined_type().value()->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                                case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                    stdx_operate = &IRCompiler::stidxdictir;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                    stdx_operate = &IRCompiler::stidxdictrr;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                    stdx_operate = &IRCompiler::stidxdictbr;
+                                    break;
+                                default:
+                                    stdx_operate = &IRCompiler::stidxdictxr;
+                                    break;
+                                }
+                                break;
+                            case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                switch (
+                                    /* Index key type. */
+                                    pattern_index->m_index->m_index->m_LANG_determined_type.value()->
+                                    get_determined_type().value()->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                                case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                    stdx_operate = &IRCompiler::stidxdictib;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                    stdx_operate = &IRCompiler::stidxdictrb;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                    stdx_operate = &IRCompiler::stidxdictbb;
+                                    break;
+                                default:
+                                    stdx_operate = &IRCompiler::stidxdictxb;
+                                    break;
+                                }
+                                break;
                             default:
-                                m_ircontext.c().stidxdictxx(
-                                    container_opnum,
-                                    index_opnum,
-                                    eval_result_for_upper);
+                                switch (
+                                    /* Index key type. */
+                                    pattern_index->m_index->m_index->m_LANG_determined_type.value()->
+                                    get_determined_type().value()->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                                case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                    stdx_operate = &IRCompiler::stidxdictix;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                    stdx_operate = &IRCompiler::stidxdictrx;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                    stdx_operate = &IRCompiler::stidxdictbx;
+                                    break;
+                                default:
+                                    stdx_operate = &IRCompiler::stidxdictxx;
+                                    break;
+                                }
+                                break;
                             }
-                           
                         }
                         else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::MAPPING)
-                            m_ircontext.c().sidmap(
-                                WO_OPNUM(container_opnum),
-                                WO_OPNUM(index_opnum),
-                                *dynamic_cast<opnum::reg*>(assigned_right_value));
+                        {
+                            switch (
+                                /* Result type. */
+                                pattern_index->m_index->m_LANG_determined_type.value()->
+                                get_determined_type().value()->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                            case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                switch (
+                                    /* Index key type. */
+                                    pattern_index->m_index->m_index->m_LANG_determined_type.value()->
+                                    get_determined_type().value()->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                                case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                    stdx_operate = &IRCompiler::stidxmapii;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                    stdx_operate = &IRCompiler::stidxmapri;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                    stdx_operate = &IRCompiler::stidxmapbi;
+                                    break;
+                                default:
+                                    stdx_operate = &IRCompiler::stidxmapxi;
+                                    break;
+                                }
+                                break;
+                            case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                switch (
+                                    /* Index key type. */
+                                    pattern_index->m_index->m_index->m_LANG_determined_type.value()->
+                                    get_determined_type().value()->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                                case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                    stdx_operate = &IRCompiler::stidxmapir;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                    stdx_operate = &IRCompiler::stidxmaprr;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                    stdx_operate = &IRCompiler::stidxmapbr;
+                                    break;
+                                default:
+                                    stdx_operate = &IRCompiler::stidxmapxr;
+                                    break;
+                                }
+                                break;
+                            case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                switch (
+                                    /* Index key type. */
+                                    pattern_index->m_index->m_index->m_LANG_determined_type.value()->
+                                    get_determined_type().value()->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                                case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                    stdx_operate = &IRCompiler::stidxmapib;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                    stdx_operate = &IRCompiler::stidxmaprb;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                    stdx_operate = &IRCompiler::stidxmapbb;
+                                    break;
+                                default:
+                                    stdx_operate = &IRCompiler::stidxmapxb;
+                                    break;
+                                }
+                                break;
+                            default:
+                                switch (
+                                    /* Index key type. */
+                                    pattern_index->m_index->m_index->m_LANG_determined_type.value()->
+                                    get_determined_type().value()->m_base_type)
+                                {
+                                case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                                case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                    stdx_operate = &IRCompiler::stidxmapix;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                    stdx_operate = &IRCompiler::stidxmaprx;
+                                    break;
+                                case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                    stdx_operate = &IRCompiler::stidxmapbx;
+                                    break;
+                                default:
+                                    stdx_operate = &IRCompiler::stidxmapxx;
+                                    break;
+                                }
+                                break;
+                            }
+                        }
                         else
-                            m_ircontext.c().sidarr(
-                                WO_OPNUM(container_opnum),
-                                WO_OPNUM(index_opnum),
-                                *dynamic_cast<opnum::reg*>(assigned_right_value));
+                        {
+                            switch (
+                                /* Result type. */
+                                pattern_index->m_index->m_LANG_determined_type.value()->
+                                get_determined_type().value()->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                            case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                                stdx_operate = &IRCompiler::stidxveci;
+                                break;
+                            case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                stdx_operate = &IRCompiler::stidxvecr;
+                                break;
+                            case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                stdx_operate = &IRCompiler::stidxvecb;
+                                break;
+                            default:
+                                stdx_operate = &IRCompiler::stidxvecx;
+                                break;
+                            }
+                        }
+
+                        (m_ircontext.c().*stdx_operate)(
+                            container_opnum,
+                            index_opnum, 
+                            eval_result_for_upper);
+
                         break;
                     }
                     case lang_TypeInstance::DeterminedType::STRUCT:
                     case lang_TypeInstance::DeterminedType::TUPLE:
                     {
-                        m_ircontext.c().sidstruct(
-                            WO_OPNUM(container_opnum),
-                            WO_OPNUM(assign_expr_result_opnum),
-                            (int16_t)pattern_index->m_index->m_LANG_fast_index_for_struct.value());
+                        m_ircontext.c().stidxstruct(
+                            container_opnum,
+                            (uint32_t)pattern_index->m_index->m_LANG_fast_index_for_struct.value(),
+                            eval_result_for_upper);
                         break;
                     }
                     default:
@@ -4041,9 +4236,11 @@ namespace wo
                         if (target_storage.has_value())
                         {
                             if (node->m_valued_assign)
-                                m_ircontext.c().mov(
-                                    WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(assign_expr_result_opnum));
+                            {
+                                auto& [need_box, target] = target_storage.value();
+                                woort_IRValue* const* const target_irvalue =
+                                    std::get_if<woort_IRValue*>(&target);
+                            }
                             else
                                 // No valued return, junk it.
                                 ;
@@ -4052,15 +4249,12 @@ namespace wo
                         {
                             if (node->m_valued_assign)
                             {
-                                m_ircontext.try_keep_opnum_temporary_register(
-                                    assign_expr_result_opnum
-                                    WO_BORROW_TEMPORARY_FROM_SP(node));
-                                result.set_result(m_ircontext, assign_expr_result_opnum);
+                                result.set_result_stack_temp(
+                                    m_ircontext, eval_result_for_upper, node->m_LANG_determined_type.value());
                             }
                             else
                                 // Give a junk value.
-                                result.set_result(
-                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::ni));
+                                result.set_result_junk(m_ircontext);
                         }
                     }
                 );
