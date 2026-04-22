@@ -428,6 +428,16 @@ namespace wo
             abondon();
     }
 
+    void IRCompiler::mkunion(woort_IRValue* dst, const woort_IRValue* src, uint32_t union_id)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_MKUNION(cur, dst, src, union_id))
+            abondon();
+    }
+
     void IRCompiler::boxdyn(woort_IRValue* dst, uint8_t typ, const woort_IRValue* src)
     {
         if (is_abondoned())

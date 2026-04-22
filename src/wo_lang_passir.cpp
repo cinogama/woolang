@@ -3056,7 +3056,7 @@ namespace wo
             {
                 m_ircontext.c().bind(m_ircontext.c().named_label(node, "#cond_end"));
 
-                if (node->m_IR_cond_eval_result.has_value() 
+                if (node->m_IR_cond_eval_result.has_value()
                     || m_ircontext.eval_result_just_ignored())
                 {
                     m_ircontext.apply_eval_result(
@@ -3094,13 +3094,147 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueStruct)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            std::vector<AstStructFieldValuePair*> struct_value_tobe_make(
+                node->m_fields.rbegin(), node->m_fields.rend());
+
+            if (node->m_marked_struct_type.has_value())
+            {
+                // Making specify struct.
+                auto* struct_type_instance = node->m_marked_struct_type.value()->m_LANG_determined_type.value();
+                auto* struct_determined_type = struct_type_instance->get_determined_type().value();
+                auto* struct_detail_info = struct_determined_type->m_external_type_description.m_struct;
+
+                std::sort(struct_value_tobe_make.begin(), struct_value_tobe_make.end(),
+                    [&struct_detail_info](AstStructFieldValuePair* a, AstStructFieldValuePair* b)
+                    {
+                        const auto offset_a = struct_detail_info->m_member_types.at(a->m_name).m_offset;
+                        const auto offset_b = struct_detail_info->m_member_types.at(b->m_name).m_offset;
+                        return offset_a > offset_b;
+                    });
+            }
+
+            for (auto* field_value : struct_value_tobe_make)
+            {
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::eval_to_push);
+                WO_CONTINUE_PROCESS(field_value->m_value);
+            }
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    const auto& target_storage = result.get_assign_target();
+                    if (target_storage.has_value())
+                    {
+                        auto& [need_box, target] = target_storage.value();
+                        woort_IRValue* const* const target_irvalue =
+                            std::get_if<woort_IRValue*>(&target);
+
+                        /* No need to box. */
+                        (void)need_box;
+
+                        if (target_irvalue == nullptr)
+                        {
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+                            m_ircontext.c().mkstruct(
+                                v,
+                                (uint32_t)node->m_fields.size());
+
+                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                        }
+                        else
+                        {
+                            m_ircontext.c().mkstruct(
+                                *target_irvalue,
+                                (uint32_t)node->m_fields.size());
+                        }
+                    }
+                    else
+                    {
+                        woort_IRValue* const v = m_ircontext.c().new_value();
+                        m_ircontext.c().mkstruct(
+                            v,
+                            (uint32_t)node->m_fields.size());
+                        result.set_result_stack_temp(m_ircontext, v, node->m_LANG_determined_type.value());
+                    }
+                }
+            );
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueMakeUnion)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            if (node->m_packed_value.has_value())
+            {
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::begin_eval_readonly);
+
+                WO_CONTINUE_PROCESS(node->m_packed_value.value());
+            }
+            return HOLD;
+        }
+        else
+        {
+            m_ircontext.apply_eval_result(
+                [&](BytecodeGenerateContext::EvalResult& result)
+                {
+                    auto* const packed_opnum =
+                        node->m_packed_value.has_value()
+                        ? m_ircontext.get_eval_result()
+                        : m_ircontext.c().load_imm_nil();
+
+                    const auto& target_storage = result.get_assign_target();
+                    if (target_storage.has_value())
+                    {
+                        auto& [need_box, target] = target_storage.value();
+                        woort_IRValue* const* const target_irvalue =
+                            std::get_if<woort_IRValue*>(&target);
+
+                        /* No need to box. */
+                        (void)need_box;
+
+                        if (target_irvalue == nullptr)
+                        {
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+
+                            m_ircontext.c().mkunion(
+                                v,
+                                packed_opnum,
+                                (uint32_t)node->m_index);
+
+                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                        }
+                        else
+                        {
+                            m_ircontext.c().mkunion(
+                                *target_irvalue,
+                                packed_opnum,
+                                (uint32_t)node->m_index);
+                        }
+                    }
+                    else
+                    {
+                        woort_IRValue* const v = m_ircontext.c().new_value();
+
+                        m_ircontext.c().mkunion(
+                            v,
+                            packed_opnum,
+                            (uint32_t)node->m_index);
+                        result.set_result_stack_temp(
+                            m_ircontext, v, node->m_LANG_determined_type.value());
+                    }
+                }
+            );
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueVariadicArgumentsPack)
     {

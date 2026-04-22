@@ -141,6 +141,7 @@ namespace wo
         void mkvec(woort_IRValue* dst, uint32_t elem_count);
         void mkmap(woort_IRValue* dst, uint32_t kvpair_count);
         void mkstruct(woort_IRValue* dst, uint32_t elem_count);
+        void mkunion(woort_IRValue* dst, const woort_IRValue* src, uint32_t union_id);
 
         /* --- Dynamic Typing --- */
         void boxdyn(woort_IRValue* dst, uint8_t typ, const woort_IRValue* src);
