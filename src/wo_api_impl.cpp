@@ -572,21 +572,27 @@ void _wo_test_compile()
             B,
         }
 
-        let a = Test::B: dynamic;
-        let b = struct{
-            aa = 15,
-            bb = "Wtf",
-        };
+        func main()
+        {
+            let a = Test::B: dynamic;
+            let b = struct{
+                aa = 15,
+                bb = "Wtf",
+            };
 
-        let c = b.bb;
-        let d = [1, 2, 3, ];
-        let e = d[0];
+            let c = b.bb;
+            let d = [1, 2, 3, ];
+            let e = d[0];
 
-        let f = [1, 2, 3, ];
-        let g = f[0]: dynamic;
+            let f = [1, 2, 3, ];
+            let g = f[0]: dynamic;
 
-        let h = [1: dynamic, 2: dynamic, 3: dynamic, ];
-        let i = h[0]: int;
+            let h = [1: dynamic, 2: dynamic, 3: dynamic, ];
+            let i = h[0]: int;
+    
+            let mut j = 0;
+            j = 666;        
+        }
     )";
 
     std::optional<woort_CodeEnv*> out_env_if_success;
