@@ -3089,8 +3089,149 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueIndex)
     {
-        abort();
-        return OKAY;
+        if (state == UNPROCESSED)
+        {
+            if (node->m_LANG_overload_call.has_value())
+            {
+                m_ircontext.eval_for_upper();
+                WO_CONTINUE_PROCESS(node->m_LANG_overload_call.value());
+
+                node->m_LANG_hold_state = AstValueIndex::IR_HOLD_FOR_OVERLOAD_CALL_EVAL;
+            }
+            else if (!node->m_LANG_fast_index_for_struct.has_value())
+            {
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::begin_eval_readonly);
+                WO_CONTINUE_PROCESS(node->m_index);
+
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::begin_eval_readonly);
+                WO_CONTINUE_PROCESS(node->m_container);
+
+                node->m_LANG_hold_state = AstValueIndex::IR_HOLD_FOR_NORMAL_LR_EVAL;
+            }
+            else
+            {
+                m_ircontext.do_eval_if_not_ignore(
+                    &BytecodeGenerateContext::begin_eval_readonly);
+                WO_CONTINUE_PROCESS(node->m_container);
+
+                node->m_LANG_hold_state = AstValueIndex::IR_HOLD_FOR_NORMAL_LR_EVAL;
+            }
+
+            return HOLD;
+        }
+        else if (state == HOLD)
+        {
+            switch (node->m_LANG_hold_state)
+            {
+            case AstValueIndex::IR_HOLD_FOR_OVERLOAD_CALL_EVAL:
+                wo_assert(node->m_LANG_overload_call.has_value());
+                m_ircontext.cleanup_for_eval_upper();
+                break;
+            case AstValueIndex::IR_HOLD_FOR_NORMAL_LR_EVAL:
+                wo_assert(!node->m_LANG_overload_call.has_value());
+
+                m_ircontext.apply_eval_result(
+                    [&](BytecodeGenerateContext::EvalResult& result)
+                    {
+                        const auto& target_storage = result.get_assign_target();
+
+                        lang_TypeInstance* container_type_instance =
+                            node->m_container->m_LANG_determined_type.value();
+                        auto* determined_container_type =
+                            container_type_instance->get_determined_type().value();
+
+                        switch (determined_container_type->m_base_type)
+                        {
+                        case lang_TypeInstance::DeterminedType::ARRAY:
+                        case lang_TypeInstance::DeterminedType::VECTOR:
+                        case lang_TypeInstance::DeterminedType::DICTIONARY:
+                        case lang_TypeInstance::DeterminedType::MAPPING:
+                        case lang_TypeInstance::DeterminedType::STRING:
+                        {
+                            auto* index_opnum = m_ircontext.get_eval_result();
+                            auto* container_opnum = m_ircontext.get_eval_result();
+
+                            wo_assert(!node->m_LANG_fast_index_for_struct.has_value());
+
+                            if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::ARRAY
+                                || determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::VECTOR)
+                                m_ircontext.c().idarr(
+                                    WO_OPNUM(container_opnum),
+                                    WO_OPNUM(index_opnum));
+                            else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRING)
+                                m_ircontext.c().idstr(
+                                    WO_OPNUM(container_opnum),
+                                    WO_OPNUM(index_opnum));
+                            else
+                                m_ircontext.c().iddict(
+                                    WO_OPNUM(container_opnum),
+                                    WO_OPNUM(index_opnum));
+
+                            if (target_storage.has_value())
+                            {
+                                if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
+                                    target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                                {
+                                    m_ircontext.c().mov(
+                                        WO_OPNUM(target_storage.value()),
+                                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                }
+                            }
+                            else
+                            {
+                                result.set_result(
+                                    m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
+                            }
+                            break;
+                        }
+                        case lang_TypeInstance::DeterminedType::STRUCT:
+                        case lang_TypeInstance::DeterminedType::TUPLE:
+                        {
+                            auto* container_opnum = m_ircontext.get_eval_result();
+
+                            wo_assert(node->m_LANG_fast_index_for_struct.has_value());
+
+                            // NOTE: Keep index & container if is IR OPNUM node.
+                            if (node->m_container->node_type == AstBase::AST_VALUE_IR_OPNUM)
+                                m_ircontext.try_keep_opnum_temporary_register(
+                                    container_opnum
+                                    WO_BORROW_TEMPORARY_FROM_SP(node));
+
+                            uint16_t fast_index = (uint16_t)node->m_LANG_fast_index_for_struct.value();
+                            if (target_storage.has_value())
+                            {
+                                m_ircontext.c().idstruct(
+                                    WO_OPNUM(target_storage.value()),
+                                    WO_OPNUM(container_opnum),
+                                    fast_index);
+                            }
+                            else
+                            {
+                                auto* borrowed_reg = m_ircontext.borrow_opnum_temporary_register(
+                                    WO_BORROW_TEMPORARY_FROM(node));
+                                m_ircontext.c().idstruct(
+                                    WO_OPNUM(borrowed_reg),
+                                    WO_OPNUM(container_opnum),
+                                    fast_index);
+                                result.set_result(m_ircontext, borrowed_reg);
+                            }
+                            break;
+                        }
+                        default:
+                            wo_error("Unknown type.");
+                            break;
+                        }
+                    }
+                );
+                break;
+            default:
+                wo_error("Unknown type.");
+            }
+
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstValueStruct)
     {

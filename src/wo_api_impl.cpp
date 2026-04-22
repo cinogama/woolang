@@ -566,16 +566,17 @@ bool _wo_compile_entry(
 void _wo_test_compile()
 {
     const char* src = R"(
-        let mut a = true;
-        let b = !a;
-        
-        let c = -a: int;
+        union Test
+        {
+            A(int),
+            B,
+        }
 
-        let aa = [
-            1, 2, 3,
-            a? 4 | 5,
-        ];
-        let dd = (a? 4 | 5): dynamic;
+        let a = Test::B: dynamic;
+        let b = struct{
+            aa = 15,
+            bb = "Wtf",
+        };
     )";
 
     std::optional<woort_CodeEnv*> out_env_if_success;
