@@ -898,7 +898,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxveci(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxveci(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -908,7 +908,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxvecr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxvecr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -918,7 +918,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxvecb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxvecb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -928,7 +928,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxvecx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxvecx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -938,7 +938,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictii(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictii(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -948,7 +948,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictir(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictir(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -958,7 +958,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictib(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictib(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -968,7 +968,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictix(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictix(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -978,7 +978,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictri(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictri(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -988,7 +988,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictrr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictrr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -998,7 +998,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictrb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictrb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1008,7 +1008,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictrx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictrx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1018,7 +1018,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictbi(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictbi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1028,7 +1028,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictbr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictbr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1038,7 +1038,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictbb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictbb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1048,7 +1048,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictbx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictbx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1058,7 +1058,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictxi(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictxi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1068,7 +1068,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictxr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictxr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1078,7 +1078,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictxb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictxb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1088,7 +1088,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxdictxx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxdictxx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1098,7 +1098,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapii(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapii(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1108,7 +1108,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapir(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapir(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1118,7 +1118,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapib(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapib(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1128,7 +1128,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapix(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapix(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1138,7 +1138,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapri(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapri(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1148,7 +1148,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmaprr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmaprr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1158,7 +1158,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmaprb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmaprb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1168,7 +1168,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmaprx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmaprx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1178,7 +1178,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapbi(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapbi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1188,7 +1188,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapbr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapbr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1198,7 +1198,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapbb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapbb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1208,7 +1208,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapbx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapbx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1218,7 +1218,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapxi(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapxi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1228,7 +1228,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapxr(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapxr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1238,7 +1238,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapxb(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapxb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1248,7 +1248,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxmapxx(woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidxmapxx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
@@ -1258,7 +1258,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::stidxstruct(woort_IRValue* c, uint32_t idx, const woort_IRValue* val)
+    void IRCompiler::stidxstruct(const woort_IRValue* c, uint32_t idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
