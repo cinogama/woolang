@@ -623,7 +623,10 @@ namespace wo
         const woort_IRValue* get_eval_result();
         void pop_eval_result();
 
-        bool eval_result_just_ignored() noexcept;
+        bool eval_result_just_ignored() const noexcept;
+        bool upper_need_box() const noexcept;
+        bool upper_need_get_result() const noexcept;
+        bool upper_need_assign() const noexcept;
 
         // Apply and assign the value into specify 
         void apply_eval_result(const std::function<void(EvalResult&)>& bind_func) noexcept;

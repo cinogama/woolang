@@ -571,8 +571,13 @@ void _wo_test_compile()
         
         let c = -a: int;
 
+        let aa = [
+            1, 2, 3,
+            a? 4 | 5,
+        ];
+        let dd = (a? 4 | 5): dynamic;
     )";
-    
+
     std::optional<woort_CodeEnv*> out_env_if_success;
     std::optional<std::unique_ptr<wo::lexer>> out_lexer_if_failed;
 

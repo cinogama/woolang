@@ -2995,18 +2995,23 @@ namespace wo
                 m_ircontext.c().jccz(cond, m_ircontext.c().named_label(node, "#cond_false"));
 
                 if (m_ircontext.eval_result_just_ignored())
+                {
                     m_ircontext.eval_and_ignore();
-                else
+                }
+                else if (m_ircontext.upper_need_get_result()
+                    && !m_ircontext.upper_need_assign())
                 {
                     woort_IRValue* const v = m_ircontext.c().new_value();
                     node->m_IR_cond_eval_result.emplace(v);
 
-                    // TODO: Eval for box if need box?
-                    m_ircontext.eval_to_assign();
+                    // Eval for box if need box.
+                    if (m_ircontext.upper_need_box())
+                        m_ircontext.eval_to_assign_box(v, std::nullopt);
+                    else
+                        m_ircontext.eval_to_assign(v, std::nullopt);
                 }
-
-                m_ircontext.eval_to_if_not_ignore(
-                    m_ircontext.opnum_spreg(opnum::reg::spreg::cr), std::nullopt);
+                else
+                    m_ircontext.eval_for_upper();
 
                 WO_CONTINUE_PROCESS(node->m_true_value);
 
@@ -3015,11 +3020,32 @@ namespace wo
             }
             case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_A_EVAL:
             {
-                m_ircontext.c().jmp(opnum::tag(_generate_label("#cond_end_", node)));
-                m_ircontext.c().tag(_generate_label("#cond_false_", node));
+                m_ircontext.c().jmp(m_ircontext.c().named_label(node, "#cond_end"));
+                m_ircontext.c().bind(m_ircontext.c().named_label(node, "#cond_false"));
 
-                m_ircontext.eval_to_if_not_ignore(
-                    m_ircontext.opnum_spreg(opnum::reg::spreg::cr), std::nullopt);
+                if (node->m_IR_cond_eval_result.has_value())
+                {
+                    m_ircontext.pop_eval_result();
+
+                    woort_IRValue* const v = node->m_IR_cond_eval_result.value();
+
+                    // Eval for box if need box.
+                    if (m_ircontext.upper_need_box())
+                        m_ircontext.eval_to_assign_box(v, std::nullopt);
+                    else
+                        m_ircontext.eval_to_assign(v, std::nullopt);
+                }
+                else if (m_ircontext.eval_result_just_ignored())
+                {
+                    m_ircontext.eval_and_ignore();
+                }
+                else
+                {
+                    if (m_ircontext.upper_need_assign())
+                        m_ircontext.pop_eval_result();
+
+                    m_ircontext.eval_for_upper();
+                }
 
                 WO_CONTINUE_PROCESS(node->m_false_value);
 
@@ -3028,35 +3054,27 @@ namespace wo
             }
             case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_B_EVAL:
             {
-                m_ircontext.c().tag(_generate_label("#cond_end_", node));
+                m_ircontext.c().bind(m_ircontext.c().named_label(node, "#cond_end"));
 
-                m_ircontext.apply_eval_result(
-                    [&](BytecodeGenerateContext::EvalResult& result)
-                    {
-                        // Ignore results.
-                        (void)m_ircontext.get_eval_result(); // False branch result.
-                        (void)m_ircontext.get_eval_result(); // True branch result.
-                        (void)m_ircontext.get_eval_result(); // Condition result.
+                if (node->m_IR_cond_eval_result.has_value() 
+                    || m_ircontext.eval_result_just_ignored())
+                {
+                    m_ircontext.apply_eval_result(
+                        [&](BytecodeGenerateContext::EvalResult& result)
+                        {
+                            wo_assert(!result.get_assign_target().has_value());
 
-                        const auto& target_storage = result.get_assign_target();
-                        if (target_storage.has_value())
-                        {
-                            if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                target_reg == nullptr || target_reg->id != opnum::reg::cr)
-                            {
-                                m_ircontext.c().mov(
-                                    WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
-                            }
-                            // Or do nothing, target is same.
+                            result.set_result_stack_temp(
+                                m_ircontext, node->m_IR_cond_eval_result.value(),
+                                /* Assure no box, it has been boxed in branch eval. */
+                                m_origin_types.m_dynamic.m_type_instance);
                         }
-                        else
-                        {
-                            result.set_result(
-                                m_ircontext, m_ircontext.opnum_spreg(opnum::reg::spreg::cr));
-                        }
-                    }
-                );
+                    );
+                }
+                else
+                {
+                    m_ircontext.cleanup_for_eval_upper();
+                }
                 break;
             }
             case AstValueTribleOperator::IR_HOLD_FOR_BRANCH_CONST_EVAL:

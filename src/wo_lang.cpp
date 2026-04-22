@@ -2558,11 +2558,57 @@ namespace wo
         m_evaled_result_storage.pop();
         return r;
     }
-    bool BytecodeGenerateContext::eval_result_just_ignored() noexcept
+    bool BytecodeGenerateContext::eval_result_just_ignored() const noexcept
     {
         auto& top_eval_state = m_eval_result_storage_target.top();
         return top_eval_state.m_request == EvalResult::Request::IGNORE_RESULT;
     }
+    bool BytecodeGenerateContext::upper_need_box() const noexcept
+    {
+        auto& top_eval_state = m_eval_result_storage_target.top();
+        switch (top_eval_state.m_request)
+        {
+        case EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET:
+        case EvalResult::Request::GET_BOXED_RESULT_FOR_READONLY:
+        case EvalResult::Request::PUSH_BOXED_RESULT_AND_IGNORE:
+            return true;
+        default:
+            break;
+        }
+
+        return false;
+    }
+    bool BytecodeGenerateContext::upper_need_get_result() const noexcept
+    {
+        auto& top_eval_state = m_eval_result_storage_target.top();
+        switch (top_eval_state.m_request)
+        {
+        case EvalResult::Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
+        case EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET:
+        case EvalResult::Request::GET_RESULT_FOR_READONLY:
+        case EvalResult::Request::GET_BOXED_RESULT_FOR_READONLY:
+            return true;
+        default:
+            break;
+        }
+
+        return false;
+    }
+    bool BytecodeGenerateContext::upper_need_assign() const noexcept
+    {
+        auto& top_eval_state = m_eval_result_storage_target.top();
+        switch (top_eval_state.m_request)
+        {
+        case EvalResult::Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
+        case EvalResult::Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET:
+            return true;
+        default:
+            break;
+        }
+
+        return false;
+    }
+
     void BytecodeGenerateContext::apply_eval_result(
         const std::function<void(EvalResult&)>& bind_func) noexcept
     {
