@@ -2838,7 +2838,7 @@ namespace wo
     }
 
     void BytecodeGenerateContext::EvalResult::set_result_stack_temp(
-        BytecodeGenerateContext& ctx, woort_IRValue* result, const lang_TypeInstance* type) noexcept
+        BytecodeGenerateContext& ctx, const woort_IRValue* result, const lang_TypeInstance* type) noexcept
     {
         wo_assert(m_result_type == ResultKind::PENDING);
 
@@ -2860,7 +2860,7 @@ namespace wo
         [[fallthrough]];
         case Request::GET_RESULT_FOR_READONLY:
             m_result_type = ResultKind::RESULT_STACK_TEMP;
-            m_result_stack = result;
+            m_result_stack = const_cast<woort_IRValue*>(result);
             break;
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
         {

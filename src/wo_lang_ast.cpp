@@ -2858,7 +2858,7 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueIROpnum::AstValueIROpnum(woort_IRValue* spec_opnum)
+        AstValueIROpnum::AstValueIROpnum(const woort_IRValue* spec_opnum)
             : AstValueBase(AST_VALUE_IR_OPNUM)
             , m_opnum(spec_opnum)
         {

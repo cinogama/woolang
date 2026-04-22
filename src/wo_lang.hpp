@@ -557,7 +557,7 @@ namespace wo
 
             void set_result_stack_temp(
                 BytecodeGenerateContext& ctx, 
-                woort_IRValue* result,
+                const woort_IRValue* result,
                 const lang_TypeInstance* type) noexcept;
             void set_result_stack_var(
                 BytecodeGenerateContext& ctx, 
