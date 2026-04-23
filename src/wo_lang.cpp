@@ -2992,7 +2992,64 @@ namespace wo
         uint32_t index,
         const lang_TypeInstance* type) noexcept
     {
+        wo_assert(m_result_type == ResultKind::PENDING);
 
+        switch (m_request)
+        {
+        case Request::GET_BOXED_RESULT_FOR_READONLY:
+        {
+            woort_BoxValueType box_type;
+            if (type->is_need_to_box_in_IR(&box_type))
+            {
+                m_result_type = ResultKind::RESULT_STACK_TEMP;
+                m_result_stack = ctx.c().new_value();
+
+                ctx.c().ldidxstruct(m_result_stack, structure, index);
+                ctx.c().boxdyn(m_result_stack, box_type, m_result_stack);
+                break;
+            }
+        }
+        /* fallthrough */
+        [[fallthrough]];
+        case Request::GET_RESULT_FOR_READONLY:
+            m_result_type = ResultKind::RESULT_STACK_TEMP;
+            m_result_stack = ctx.c().new_value();
+
+            ctx.c().ldidxstruct(m_result_stack, structure, index);
+            break;
+        case Request::PUSH_BOXED_RESULT_AND_IGNORE:
+        {
+            woort_BoxValueType box_type;
+            if (type->is_need_to_box_in_IR(&box_type))
+            {
+                switch (box_type)
+                {
+                case WOORT_BOX_VALUE_TYPE_INT:
+                    ctx.c().pushidxstboxi(structure, index);
+                    break;
+                case WOORT_BOX_VALUE_TYPE_REAL:
+                    ctx.c().pushidxstboxr(structure, index);
+                    break;
+                case WOORT_BOX_VALUE_TYPE_BOOL:
+                    ctx.c().pushidxstboxb(structure, index);
+                    break;
+                default:
+                    wo_error("Unknown box_type for struct field.");
+                    break;
+                }
+                break;
+            }
+        }
+        /* fallthrough */
+        [[fallthrough]];
+        case Request::PUSH_RESULT_AND_IGNORE:
+            ctx.c().pushidxstruct(structure, index);
+            break;
+        case Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
+        case Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET:
+        default:
+            abort();
+        }
     }
     void BytecodeGenerateContext::EvalResult::set_result_const(
         BytecodeGenerateContext& ctx, const ast::ConstantValue& result) noexcept

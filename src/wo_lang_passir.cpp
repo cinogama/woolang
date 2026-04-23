@@ -3776,11 +3776,8 @@ namespace wo
                             }
                             else
                             {
-                                woort_IRValue* const v = m_ircontext.c().new_value();
-                                m_ircontext.c().ldidxstruct(v, container_opnum, fast_index);
-
-                                result.set_result_stack_temp(
-                                    m_ircontext, v, node->m_LANG_determined_type.value());
+                                result.set_result_struct_index(
+                                    m_ircontext, container_opnum, fast_index, node->m_LANG_determined_type.value());
                             }
                             break;
                         }

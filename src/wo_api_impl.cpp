@@ -573,7 +573,8 @@ void _wo_test_compile()
             return fib(n - 1) + fib(n - 2);
         }
 
-        do fib(40);
+        let a = struct{v = 40};
+        do fib(a.v);
     )";
 
     std::optional<woort_CodeEnv*> out_env_if_success;
@@ -588,4 +589,18 @@ void _wo_test_compile()
         &out_lexer_if_failed);
 
     woort_CodeEnv_dumps(out_env_if_success.value());
+
+    woort_VMRuntime* vm;
+    woort_VMRuntime_create(&vm);
+
+    woort_VMRuntime* const last = woort_VMRuntime_swap(vm);
+
+    woort_StackValue sv;
+    woort_push_reserve(2, &sv);
+
+    woort_set_int(sv + 0, 0);
+
+    woort_invoke(sv + 1, sv + 0);
+
+    woort_VMRuntime_swap(last);
 }
