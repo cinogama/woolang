@@ -2986,6 +2986,14 @@ namespace wo
             abort();
         }
     }
+    void BytecodeGenerateContext::EvalResult::set_result_struct_index(
+        BytecodeGenerateContext& ctx,
+        const woort_IRValue* structure,
+        uint32_t index,
+        const lang_TypeInstance* type) noexcept
+    {
+
+    }
     void BytecodeGenerateContext::EvalResult::set_result_const(
         BytecodeGenerateContext& ctx, const ast::ConstantValue& result) noexcept
     {

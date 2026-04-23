@@ -3623,18 +3623,8 @@ namespace wo
                         auto* determined_container_type =
                             container_type_instance->get_determined_type().value();
 
-                        const bool need_box = target_storage.has_value()
+                        const bool is_need_box = target_storage.has_value()
                             && target_storage.value().first;
-                        const bool result_is_dynamic =
-                            node->m_LANG_determined_type.value()->get_determined_type().has_value()
-                            && node->m_LANG_determined_type.value()->get_determined_type().value()->m_base_type
-                            == lang_TypeInstance::DeterminedType::DYNAMIC;
-                        const bool use_x_variant = need_box || result_is_dynamic;
-
-                        const lang_TypeInstance* const result_type_for_set =
-                            use_x_variant
-                            ? m_origin_types.m_dynamic.m_type_instance
-                            : node->m_LANG_determined_type.value();
 
                         switch (determined_container_type->m_base_type)
                         {
@@ -3644,6 +3634,17 @@ namespace wo
                         case lang_TypeInstance::DeterminedType::DICTIONARY:
                         case lang_TypeInstance::DeterminedType::MAPPING:
                         {
+                            const bool result_is_dynamic =
+                                node->m_LANG_determined_type.value()->get_determined_type().has_value()
+                                && node->m_LANG_determined_type.value()->get_determined_type().value()->m_base_type
+                                == lang_TypeInstance::DeterminedType::DYNAMIC;
+                            const bool use_x_variant = is_need_box || result_is_dynamic;
+
+                            const lang_TypeInstance* const result_type_for_set =
+                                use_x_variant
+                                ? m_origin_types.m_dynamic.m_type_instance
+                                : node->m_LANG_determined_type.value();
+
                             auto* index_opnum = m_ircontext.get_eval_result();
                             auto* container_opnum = m_ircontext.get_eval_result();
 
@@ -3670,6 +3671,8 @@ namespace wo
                                 else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRING)
                                 {
                                     m_ircontext.c().ldidxstring(v, container_opnum, index_opnum);
+                                    if (is_need_box)
+                                        m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_INT, v);
                                 }
                                 else
                                 {
@@ -3713,6 +3716,8 @@ namespace wo
                                 else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRING)
                                 {
                                     m_ircontext.c().ldidxstring(v, container_opnum, index_opnum);
+                                    if (is_need_box)
+                                        m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_INT, v);
                                 }
                                 else
                                 {
@@ -3754,7 +3759,7 @@ namespace wo
 
                             if (target_storage.has_value())
                             {
-                                const auto& [_, target] = target_storage.value();
+                                const auto& [need_box, target] = target_storage.value();
                                 woort_IRValue* const* const target_irvalue =
                                     std::get_if<woort_IRValue*>(&target);
 
@@ -3763,7 +3768,9 @@ namespace wo
                                     : m_ircontext.c().new_value();
 
                                 m_ircontext.c().ldidxstruct(v, container_opnum, fast_index);
-
+                                if (need_box.has_value())
+                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+                                    
                                 if (target_irvalue == nullptr)
                                     m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                             }
@@ -3773,7 +3780,7 @@ namespace wo
                                 m_ircontext.c().ldidxstruct(v, container_opnum, fast_index);
 
                                 result.set_result_stack_temp(
-                                    m_ircontext, v, result_type_for_set);
+                                    m_ircontext, v, node->m_LANG_determined_type.value());
                             }
                             break;
                         }

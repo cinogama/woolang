@@ -567,6 +567,11 @@ namespace wo
                 BytecodeGenerateContext& ctx, 
                 woort_IRStaticIndex result,
                 const lang_TypeInstance* type) noexcept;
+            void set_result_struct_index(
+                BytecodeGenerateContext& ctx,
+                const woort_IRValue* structure,
+                uint32_t index,
+                const lang_TypeInstance* type) noexcept;
             void set_result_const(
                 BytecodeGenerateContext& ctx, 
                 const ast::ConstantValue& result) noexcept;
