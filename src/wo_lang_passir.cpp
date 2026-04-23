@@ -2363,18 +2363,56 @@ namespace wo
                     else
                     {
                         const auto& unpack_requirement = node->m_LANG_need_to_be_unpack_count.value();
-
                         if (unpacking_tuple_determined_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE)
                         {
-                            // TODO
-                            abort();
+                            auto* tuple_info = unpacking_tuple_determined_type->m_external_type_description.m_tuple;
+                            const uint32_t tuple_elem_count = (uint32_t)tuple_info->m_element_types.size();
+
+                            if (unpack_requirement.m_unpack_all)
+                            {
+                                for (uint32_t i = 0; i < tuple_elem_count; ++i)
+                                {
+                                    woort_BoxValueType box_type;
+                                    
+                                    if (i < unpack_requirement.m_require_unpack_count
+                                        || !tuple_info->m_element_types[i]->is_need_to_box_in_IR(&box_type))
+                                        m_ircontext.c().pushidxstruct(unpacking_opnum, i);
+                                    else
+                                    {
+                                        switch (box_type)
+                                        {
+                                        case WOORT_BOX_VALUE_TYPE_INT:
+                                            m_ircontext.c().pushidxstboxi(unpacking_opnum, i);
+                                            break;
+                                        case WOORT_BOX_VALUE_TYPE_REAL:
+                                            m_ircontext.c().pushidxstboxr(unpacking_opnum, i);
+                                            break;
+                                        case WOORT_BOX_VALUE_TYPE_BOOL:
+                                            m_ircontext.c().pushidxstboxb(unpacking_opnum, i);
+                                            break;
+                                        default:
+                                            /* Unexpected */
+                                            wo_error("Unknown box_type.");
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // If require to unpack 0 argument, just skip & ignore.
+                                if (unpack_requirement.m_require_unpack_count != 0)
+                                {
+                                    for (uint32_t i = 0; i < (uint32_t)unpack_requirement.m_require_unpack_count; ++i)
+                                        m_ircontext.c().pushidxstruct(unpacking_opnum, i);
+                                }
+                            }
                         }
                         else
                         {
                             wo_assert(unpack_requirement.m_require_unpack_count <= UINT8_MAX);
 
                             woort_BoxValueType _useless_type;
-                            const bool elem_need_unpack = unpacking_tuple_determined_type
+                            const bool elem_need_unbox = unpacking_tuple_determined_type
                                 ->m_external_type_description.m_array_or_vector
                                 ->m_element_type
                                 ->is_need_to_box_in_IR(&_useless_type);
@@ -2385,7 +2423,7 @@ namespace wo
                             {
                                 woort_IRValue* const v = node->m_IR_unpack_all_counter.value();
 
-                                if (elem_need_unpack)
+                                if (elem_need_unbox)
                                     m_ircontext.c().unpackvecall(
                                         v,
                                         (uint8_t)unpack_requirement.m_require_unpack_count,
@@ -2401,7 +2439,7 @@ namespace wo
                                 // If require to unpack 0 argument, just skip & ignore.
                                 if (unpack_requirement.m_require_unpack_count != 0)
                                 {
-                                    if (elem_need_unpack)
+                                    if (elem_need_unbox)
                                         m_ircontext.c().unpackvec(
                                             (uint8_t)unpack_requirement.m_require_unpack_count,
                                             unpacking_opnum);

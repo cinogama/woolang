@@ -593,6 +593,8 @@ void _wo_test_compile()
             let mut j = 0;
             j = 666;        
         }
+
+        main();
     )";
 
     std::optional<woort_CodeEnv*> out_env_if_success;

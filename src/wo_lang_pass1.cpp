@@ -3851,6 +3851,11 @@ namespace wo
                         auto* unpacked_value_determined_value =
                             unpack->m_unpack_value->m_LANG_determined_type.value()->get_determined_type().value();
 
+                        const size_t elem_count_to_be_expand =
+                            target_function_param_types.size() >= argument_types.size()
+                            ? target_function_param_types.size() - argument_types.size()
+                            : 0;
+
                         switch (unpacked_value_determined_value->m_base_type)
                         {
                         case lang_TypeInstance::DeterminedType::ARRAY:
@@ -3861,10 +3866,6 @@ namespace wo
                             auto* array_or_vec_determined_type =
                                 unpacked_value_determined_value->m_external_type_description.m_array_or_vector;
 
-                            const size_t elem_count_to_be_expand =
-                                target_function_param_types.size() >= argument_types.size()
-                                ? target_function_param_types.size() - argument_types.size()
-                                : 0;
 
                             for (size_t i = 0; i < elem_count_to_be_expand; ++i)
                             {
@@ -3900,8 +3901,8 @@ namespace wo
 
                             unpack->m_LANG_need_to_be_unpack_count =
                                 AstFakeValueUnpack::IR_unpack_requirement{
-                                    tuple_determined_type->m_element_types.size(),
-                                    false,
+                                    elem_count_to_be_expand,
+                                    node->m_LANG_invoking_variadic_function,
                             };
 
                             node->m_LANG_certenly_function_argument_count +=
