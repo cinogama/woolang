@@ -3,6 +3,7 @@
 #include <optional>
 #include <stack>
 #include <string_view>
+#include <string>
 
 #include "wo_const_string_pool.hpp"
 
@@ -56,6 +57,7 @@ namespace wo
         IRCompiler& operator = (const IRCompiler&) = delete;
         IRCompiler& operator = (IRCompiler&&) = delete;
 
+        std::optional<woort_IRFunction*> m_entry_function;
         std::vector<IRFunction> m_current_functions_stack;
 
         // Constant context
@@ -76,6 +78,9 @@ namespace wo
         std::unordered_map<ast::AstValueFunction*, woort_IRConstantIndex>
             m_function_imm_pool;
 
+        std::unordered_map<std::string, woort_IRConstantIndex>
+            m_extern_symbols;
+
         struct TupleImm
         {
             woort_IRConstantIndex m_idx;
@@ -94,6 +99,7 @@ namespace wo
         bool is_abondoned() const;
 
         woort_IRFunction* push_function(uint32_t param_count, uint32_t captured_count);
+        void set_entry_function(woort_IRFunction* f);
         void pop_function();
 
         woort_IRConstantIndex alloc_constant();
@@ -101,6 +107,7 @@ namespace wo
 
         std::optional<woort_CodeEnv*> commit();
         const woort_Bytecode* get_function(woort_CodeEnv* cenv, woort_IRFunction* irfunc);
+        void register_extern_symbols(std::string_view name, woort_IRConstantIndex cidx);
 
     public:
         const woort_IRValue* fetch_constant(woort_IRConstantIndex cidx);

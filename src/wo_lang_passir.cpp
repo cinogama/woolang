@@ -1592,7 +1592,7 @@ namespace wo
                 break;
             case AstValueFunctionCall::IR_HOLD_FOR_NORMAL_CALL:
             {
-                uint32_t fact_argument_to_pop = node->m_LANG_certenly_function_argument_count;
+                uint32_t fact_argument_to_pop = (uint32_t)node->m_LANG_certenly_function_argument_count;
                 if (node->m_LANG_invoking_variadic_function)
                 {
                     // Need push extra argument counter.
@@ -4365,8 +4365,8 @@ namespace wo
                             eval_result_for_upper = m_ircontext.get_eval_result();
                         else
                         {
-                            woort_IRValue* assign_expr_result_opnum;
-                            auto* right_value_result = m_ircontext.get_eval_result();
+                            auto* const right_value_result = m_ircontext.get_eval_result();
+                            const woort_IRValue* const assign_expr_result_opnum = m_ircontext.get_eval_result();
 
                             using binary_op_t = void (IRCompiler::*)(
                                 woort_IRValue*, const woort_IRValue*, const woort_IRValue*);
@@ -4454,13 +4454,15 @@ namespace wo
                                 wo_error("Unknown operator.");
                                 break;
                             }
+                            
+                            woort_IRValue* const v = m_ircontext.c().new_value();
 
                             (m_ircontext.c().*binary_op)(
-                                assign_expr_result_opnum,
+                                v,
                                 assign_expr_result_opnum,
                                 right_value_result);
 
-                            eval_result_for_upper = assign_expr_result_opnum;
+                            eval_result_for_upper = v;
                         }
                         break;
                     }

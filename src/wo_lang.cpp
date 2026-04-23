@@ -1333,8 +1333,8 @@ namespace wo
 
         // Final process, generate bytecode.
         // NOTE: After 1.15. we will create a entry function for init job.
-
         woort_IRFunction* entry_function = m_ircontext.c().push_function(0, 0);
+        m_ircontext.c().set_entry_function(entry_function);
 
         // Entry function cannot be invoked twice, check it.
         woort_IRLabel* label_bad_entry = m_ircontext.c().new_label();
@@ -1391,16 +1391,45 @@ namespace wo
 
                 if (eval_function->m_LANG_extern_information.has_value())
                 {
-                    // TODO;
-                    abort();
+                    wo_assert(eval_function->m_LANG_captured_context.m_captured_variables.empty());
 
-                    continue;
+                    //ast::AstExternInformation* extern_info = eval_function->m_IR_extern_information.value();
+                    //wo_assert(extern_info == static_cast<ast::AstExternInformation*>(eval_function->m_body));
+
+                    //m_ircontext.c().record_extern_native_function(
+                    //    extern_info->m_IR_externed_function.value(),
+                    //    *eval_function->source_location.source_file,
+                    //    extern_info->m_extern_from_library.has_value()
+                    //    ? std::optional(*extern_info->m_extern_from_library.value())
+                    //    : std::nullopt,
+                    //    *extern_info->m_extern_symbol);
+
+                    //// Donot generate code for extern function.
+                    //continue;
+                }
+
+                if (eval_function->m_LANG_value_instance_to_update.has_value())
+                {
+                    lang_ValueInstance* value_instance = eval_function->m_LANG_value_instance_to_update.value();
+                    lang_Symbol* symbol = value_instance->m_symbol;
+
+                    if (symbol->m_declare_attribute.has_value())
+                    {
+                        ast::AstDeclareAttribue* declare_attribute = symbol->m_declare_attribute.value();
+                        if (declare_attribute->m_external.has_value()
+                            && declare_attribute->m_external.value() == ast::AstDeclareAttribue::external_attrib::EXTERNAL)
+                        {
+                            m_ircontext.c().register_extern_symbols(
+                                get_function_name(eval_function), m_ircontext.c().imm_closure(eval_function));
+                        }
+                    }
                 }
 
                 // Script function, generate codes for it.
-                m_ircontext.c().push_function(
-                    (uint32_t)eval_function->m_parameters.size() + (eval_function->m_is_variadic ? 1 : 0),
-                    (uint32_t)eval_function->m_LANG_captured_context.m_captured_variables.size());
+                eval_function->m_IR_function.emplace(
+                    m_ircontext.c().push_function(
+                        (uint32_t)eval_function->m_parameters.size() + (eval_function->m_is_variadic ? 1 : 0),
+                        (uint32_t)eval_function->m_LANG_captured_context.m_captured_variables.size()));
 
                 // Update captured variable / param's storage.
                 uint32_t argument_place = 0;
@@ -1452,6 +1481,10 @@ namespace wo
                 {
                     return compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
                 }
+
+                // Generate ret if function donot end with return.
+                if (!eval_function->m_LANG_function_body_end_with_return_flag_for_IR)
+                    m_ircontext.c().ret_void();
 
                 m_ircontext.c().pop_function();
             }

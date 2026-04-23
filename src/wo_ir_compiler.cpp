@@ -2,6 +2,7 @@
 
 #include "wo_ir_compiler.hpp"
 #include "wo_compiler_parser.hpp"
+#include "wo_lang_ast.hpp"
 
 namespace wo
 {
@@ -44,11 +45,14 @@ namespace wo
             abondon();
             return nullptr;
         }
-
         m_current_functions_stack.push_back(IRFunction{irfunc, {}});
         return irfunc;
     }
-
+    void IRCompiler::set_entry_function(woort_IRFunction* f)
+    {
+        wo_assert(!m_entry_function.has_value());
+        m_entry_function.emplace(f);
+    }
     void IRCompiler::pop_function()
     {
         if (!is_abondoned())
@@ -79,6 +83,12 @@ namespace wo
         // All function must be ended.
         wo_assert(m_current_functions_stack.empty());
 
+        // Must contain a entry function.
+        wo_assert(m_entry_function.has_value());
+
+        const woort_IRConstantIndex entry_function_index = alloc_constant();
+        register_extern_symbols("@entry", entry_function_index);
+
         woort_CodeEnv* cenv;
         if (!woort_IRCompiler_finish(m_ircompiler, &cenv))
             return std::nullopt;
@@ -89,6 +99,90 @@ namespace wo
         for (const auto& [val, cidx]: m_nil_bool_int_handle_imm_pool)
         {
             woort_CodeEnv_set_const_int(cenv, cidx, val);
+        }
+
+        for (const auto& [val, cidx]: m_real_imm_pool)
+        {
+            woort_CodeEnv_set_const_real(cenv, cidx, val);
+        }
+
+        for (const auto& [val, cidx]: m_string_imm_pool)
+        {
+            woort_CodeEnv_set_const_string(cenv, cidx, val->c_str());
+        }
+
+        for (const auto& [val, cidx]: m_boxed_int_imm_pool)
+        {
+            woort_CodeEnv_set_const_box_int(cenv, cidx, val);
+        }
+
+        for (const auto& [val, cidx]: m_boxed_real_imm_pool)
+        {
+            woort_CodeEnv_set_const_box_real(cenv, cidx, val);
+        }
+
+        if (m_boxed_true_imm.has_value())
+        {
+            woort_CodeEnv_set_const_box_bool(cenv, *m_boxed_true_imm, true);
+        }
+
+        if (m_boxed_false_imm.has_value())
+        {
+            woort_CodeEnv_set_const_box_bool(cenv, *m_boxed_false_imm, false);
+        }
+
+        for (const auto& [func, cidx]: m_function_imm_pool)
+        {
+            if (func->m_IR_function.has_value())
+            {
+                woort_CodeEnv_set_const_script_function(
+                    cenv, cidx, get_function(cenv, func->m_IR_function.value()));
+            }
+            else
+            {
+                woort_CodeEnv_set_const_extern_function(
+                    cenv, 
+                    cidx, 
+                    func->m_LANG_extern_information.value()->m_IR_externed_function.value());
+            }
+        }
+
+        for (const auto& [func, cidx]: m_closure_imm_pool)
+        {
+            if (func->m_IR_function.has_value())
+            {
+                woort_CodeEnv_set_const_script_closure(
+                    cenv, cidx, get_function(cenv, func->m_IR_function.value()));
+            }
+            else
+            {
+                woort_CodeEnv_set_const_extern_closure(
+                    cenv,
+                    cidx,
+                    func->m_LANG_extern_information.value()->m_IR_externed_function.value());
+            }
+        }
+
+        for (const auto& [storage, tuple]: m_tuple_imm_pool)
+        {
+            woort_CodeEnv_set_const_struct(
+                cenv, tuple.m_idx, tuple.m_fields.data(), tuple.m_fields.size());
+        }
+
+        // Apply entry codes.
+        woort_CodeEnv_set_const_script_closure(
+            cenv, entry_function_index, get_function(cenv, m_entry_function.value()));
+
+        for (const auto& [sym_name, sym_cidx]: m_extern_symbols)
+        {
+            if (!woort_CodeEnv_register_extern_constant(cenv, sym_name.c_str(), sym_cidx))
+            {
+                woort_CodeEnv_unlock(cenv);
+                woort_CodeEnv_drop(cenv);
+
+                abondon();
+                return std::nullopt;
+            }
         }
 
         woort_CodeEnv_unlock(cenv);
@@ -104,6 +198,14 @@ namespace wo
             abort();
 
         return bytecode;
+    }
+
+    void IRCompiler::register_extern_symbols(std::string_view name, woort_IRConstantIndex cidx)
+    {
+        if (m_extern_symbols.find(std::string(name)) != m_extern_symbols.end())
+            wo_error("Duplicate extern symbol name");
+
+        m_extern_symbols.emplace(name, cidx);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////

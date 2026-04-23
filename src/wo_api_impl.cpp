@@ -566,15 +566,14 @@ bool _wo_compile_entry(
 void _wo_test_compile()
 {
     const char* src = R"(
-        func fib(n: int)=> int
+        extern func main()
         {
-            if (n < 2)
-                return 1;
-            return fib(n - 1) + fib(n - 2);
+            for (let mut i = 0; i < 1000000000; i += 1)
+            {
+            }
+            return;
         }
-
-        let a = struct{v = 40};
-        do fib(a.v);
+        main();
     )";
 
     std::optional<woort_CodeEnv*> out_env_if_success;
@@ -595,12 +594,19 @@ void _wo_test_compile()
 
     woort_VMRuntime* const last = woort_VMRuntime_swap(vm);
 
+    woort_IRConstantIndex cidx;
+    woort_CodeEnv_find_extern_constant(out_env_if_success.value(), "@entry", &cidx);
+
     woort_StackValue sv;
     woort_push_reserve(2, &sv);
 
-    woort_set_int(sv + 0, 0);
+    woort_load_const(sv + 0, out_env_if_success.value(), cidx);
 
+    auto a = clock();
     woort_invoke(sv + 1, sv + 0);
+    auto b = clock();
+        // printf("%s", woort_string(sv + 1));
+        printf("%f", (double)(b - a) / ((double)CLOCKS_PER_SEC));
 
     woort_VMRuntime_swap(last);
 }

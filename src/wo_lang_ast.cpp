@@ -1768,6 +1768,7 @@ namespace wo
             , m_LANG_function_body_end_with_return_flag_for_IR(false)
             , m_LANG_function_scope(std::nullopt)
             , m_LANG_extern_information(std::nullopt)
+            , m_IR_function(std::nullopt)
         {
             wo_assert(body->node_type == AstBase::node_type_t::AST_EMPTY
                 || body->node_type == AstBase::node_type_t::AST_SCOPE

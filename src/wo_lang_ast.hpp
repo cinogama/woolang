@@ -817,7 +817,9 @@ namespace wo
 
             LANG_capture_context m_LANG_captured_context;
             std::optional<lang_Scope*> m_LANG_function_scope;
+
             std::optional<AstExternInformation*> m_LANG_extern_information;
+            std::optional<woort_IRFunction*> m_IR_function;
 
             AstValueFunction(
                 const std::vector<AstFunctionParameterDeclare*>& parameters,
