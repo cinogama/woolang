@@ -1385,9 +1385,9 @@ namespace wo
             if (has_invoking_function_near)
             {
                 auto* function = node->m_IR_invoking_function_near.value();
-                if (function->m_IR_extern_information.has_value())
+                if (function->m_LANG_extern_information.has_value())
                 {
-                    auto* extern_information = function->m_IR_extern_information.value();
+                    auto* extern_information = function->m_LANG_extern_information.value();
                     if (extern_information->m_IR_externed_function.has_value())
                     {
                         auto* externed_function = extern_information->m_IR_externed_function.value();
@@ -1416,7 +1416,23 @@ namespace wo
                 // So here we eval them by origin order, stack pop will be in reverse order.
 
                 if (arguments->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
+                {
+                    if (arg_index == 0 && node->m_LANG_has_runtime_full_unpackargs)
+                    {
+                        AstFakeValueUnpack* const ast_fake_value_unpack =
+                            static_cast<AstFakeValueUnpack*>(arguments);
+
+                        wo_assert(ast_fake_value_unpack->m_LANG_unpack_method ==
+                            AstFakeValueUnpack::IR_unpack_method::UNPACK_FOR_FUNCTION_CALL);
+                        wo_assert(ast_fake_value_unpack->m_LANG_need_to_be_unpack_count.value().m_unpack_all);
+
+                        woort_IRValue* const v = m_ircontext.c().new_value();
+
+                        node->m_IR_unpack_counter_if_in_variadic_func.emplace(v);
+                        ast_fake_value_unpack->m_IR_unpack_all_counter.emplace(v);
+                    }
                     m_ircontext.eval_action_and_ignore();
+                }
                 else if (arg_index < target_function_named_param_count)
                     m_ircontext.eval_to_push();
                 else
@@ -1426,6 +1442,9 @@ namespace wo
 
                 WO_CONTINUE_PROCESS(arguments);
             }
+
+            wo_assert(node->m_LANG_has_runtime_full_unpackargs ==
+                node->m_IR_unpack_counter_if_in_variadic_func.has_value());
 
             if (!has_invoking_function_near)
             {
@@ -1446,51 +1465,160 @@ namespace wo
                 break;
             case AstValueFunctionCall::IR_HOLD_FOR_NORMAL_CALL:
             {
-                if (node->m_IR_invoking_function_near.has_value())
-                {
-                    AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
-                    wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
-
-                    m_ircontext.c().call(WO_OPNUM(m_ircontext.opnum_func(invoking_function)));
-                }
-                else
-                {
-                    auto* opnumbase = m_ircontext.get_eval_result();
-                    m_ircontext.c().call(WO_OPNUM(opnumbase));
-
-                    m_ircontext.try_return_opnum_temporary_register(opnumbase);
-                }
-
-                if (!node->m_LANG_has_runtime_full_unpackargs)
-                    m_ircontext.c().pop(
-                        node->m_LANG_certenly_function_argument_count);
-                else
-                    m_ircontext.c().ext_popn(
-                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
-
+                uint32_t fact_argument_to_pop = node->m_LANG_certenly_function_argument_count;
                 if (node->m_LANG_invoking_variadic_function)
-                    m_ircontext.c().pop(
-                        WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::tc)));
+                {
+                    // Need push extra argument counter.
+                    if (node->m_IR_unpack_counter_if_in_variadic_func.has_value())
+                    {
+                        woort_IRValue* const v =
+                            node->m_IR_unpack_counter_if_in_variadic_func.value();
+
+                        m_ircontext.c().addi(
+                            v,
+                            v,
+                            m_ircontext.c().load_imm_box_int((woort_Int)fact_argument_to_pop));
+                        m_ircontext.c().pushchk(v);
+
+                        fact_argument_to_pop = 0;
+                    }
+                    else
+                    {
+                        m_ircontext.c().pushchk(
+                            m_ircontext.c().load_imm_box_int((woort_Int)fact_argument_to_pop));
+                    }
+                }
 
                 // Ok, invoke finished.
+                if (m_ircontext.eval_result_just_ignored())
+                {
+                    if (node->m_IR_invoking_function_near.has_value())
+                    {
+                        AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
+                        wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
+
+                        if (invoking_function->m_LANG_extern_information.has_value())
+                            m_ircontext.c().callnfp(
+                                m_ircontext.c().imm_function(invoking_function),
+                                fact_argument_to_pop,
+                                nullptr);
+                        else
+                            m_ircontext.c().callnwo(
+                                m_ircontext.c().imm_function(invoking_function),
+                                fact_argument_to_pop,
+                                nullptr);
+                    }
+                    else
+                    {
+                        auto* opnumbase = m_ircontext.get_eval_result();
+                        m_ircontext.c().call(opnumbase, fact_argument_to_pop, nullptr);
+                    }
+
+                    if (node->m_IR_unpack_counter_if_in_variadic_func.has_value())
+                        m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func.value());
+                }
+
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
-                        const auto& target_storage = result.get_assign_target();
+                        const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
                         if (target_storage.has_value())
                         {
-                            if (opnum::reg* target_reg = dynamic_cast<opnum::reg*>(target_storage.value());
-                                target_reg == nullptr || target_reg->id != opnum::reg::cr)
+                            auto& [need_box, target] = target_storage.value();
+                            woort_IRValue* const* const target_irvalue =
+                                std::get_if<woort_IRValue*>(&target);
+
+                            if (target_irvalue == nullptr)
                             {
-                                m_ircontext.c().mov(
-                                    WO_OPNUM(target_storage.value()),
-                                    WO_OPNUM(m_ircontext.opnum_spreg(opnum::reg::cr)));
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+
+                                if (node->m_IR_invoking_function_near.has_value())
+                                {
+                                    AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
+                                    wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
+
+                                    if (invoking_function->m_LANG_extern_information.has_value())
+                                        m_ircontext.c().callnfp(
+                                            m_ircontext.c().imm_function(invoking_function),
+                                            fact_argument_to_pop,
+                                            v);
+                                    else
+                                        m_ircontext.c().callnwo(
+                                            m_ircontext.c().imm_function(invoking_function),
+                                            fact_argument_to_pop,
+                                            v);
+                                }
+                                else
+                                {
+                                    auto* opnumbase = m_ircontext.get_eval_result();
+                                    m_ircontext.c().call(opnumbase, fact_argument_to_pop, v);
+                                }
+
+                                if (need_box.has_value())
+                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                             }
-                            // Or do nothing, target is same.
+                            else
+                            {
+                                if (node->m_IR_invoking_function_near.has_value())
+                                {
+                                    AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
+                                    wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
+
+                                    if (invoking_function->m_LANG_extern_information.has_value())
+                                        m_ircontext.c().callnfp(
+                                            m_ircontext.c().imm_function(invoking_function),
+                                            fact_argument_to_pop,
+                                            *target_irvalue);
+                                    else
+                                        m_ircontext.c().callnwo(
+                                            m_ircontext.c().imm_function(invoking_function),
+                                            fact_argument_to_pop,
+                                            *target_irvalue);
+                                }
+                                else
+                                {
+                                    auto* opnumbase = m_ircontext.get_eval_result();
+                                    m_ircontext.c().call(opnumbase, fact_argument_to_pop, *target_irvalue);
+                                }
+
+                                if (need_box.has_value())
+                                    m_ircontext.c().boxdyn(*target_irvalue, need_box.value(), *target_irvalue);
+                            }
+                            if (node->m_IR_unpack_counter_if_in_variadic_func.has_value())
+                                m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func.value());
                         }
                         else
-                            result.set_result(
-                                m_ircontext, m_ircontext.opnum_spreg(opnum::reg::cr));
+                        {
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+                            if (node->m_IR_invoking_function_near.has_value())
+                            {
+                                AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
+                                wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
+
+                                if (invoking_function->m_LANG_extern_information.has_value())
+                                    m_ircontext.c().callnfp(
+                                        m_ircontext.c().imm_function(invoking_function),
+                                        fact_argument_to_pop,
+                                        v);
+                                else
+                                    m_ircontext.c().callnwo(
+                                        m_ircontext.c().imm_function(invoking_function),
+                                        fact_argument_to_pop,
+                                        v);
+                            }
+                            else
+                            {
+                                auto* opnumbase = m_ircontext.get_eval_result();
+                                m_ircontext.c().call(opnumbase, fact_argument_to_pop, v);
+                            }
+
+                            if (node->m_IR_unpack_counter_if_in_variadic_func.has_value())
+                                m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func.value());
+
+                            result.set_result_stack_temp(m_ircontext, v, node->m_LANG_determined_type.value());
+                        }
                     });
 
                 break;
@@ -2565,7 +2693,6 @@ namespace wo
                             if (unpack_requirement.m_unpack_all)
                             {
                                 woort_IRValue* const v = node->m_IR_unpack_all_counter.value();
-                                此处，需要考虑如何将展开的参数数量反馈给调用方。
                                 if (elem_need_unbox)
                                     m_ircontext.c().unpackvecall(
                                         v,

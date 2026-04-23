@@ -1696,7 +1696,7 @@ namespace wo
                     end_last_scope();
 
                 node->m_LANG_function_body_end_with_return_flag_for_IR =
-                    node->m_IR_extern_information.has_value()
+                    node->m_LANG_extern_information.has_value()
                     || check_node_type_and_get_end_state(node->m_body) == ast::AstScope::LANG_end_state::END_WITH_RETURN;
 
                 if (node->m_LANG_determined_return_type.has_value() == false)
@@ -3866,7 +3866,6 @@ namespace wo
                             auto* array_or_vec_determined_type =
                                 unpacked_value_determined_value->m_external_type_description.m_array_or_vector;
 
-
                             for (size_t i = 0; i < elem_count_to_be_expand; ++i)
                             {
                                 argument_types.push_back(
@@ -3884,8 +3883,7 @@ namespace wo
                             if (node->m_LANG_invoking_variadic_function)
                                 node->m_LANG_has_runtime_full_unpackargs = true;
                             else
-                                node->m_LANG_certenly_function_argument_count +=
-                                elem_count_to_be_expand;
+                                node->m_LANG_certenly_function_argument_count += elem_count_to_be_expand;
                             break;
                         }
                         case lang_TypeInstance::DeterminedType::TUPLE:
@@ -6462,7 +6460,7 @@ namespace wo
 
             return FAILED;
         }
-        function_instance->m_IR_extern_information = node;
+        function_instance->m_LANG_extern_information = node;
 
         function_instance->m_LANG_determined_return_type =
             function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();

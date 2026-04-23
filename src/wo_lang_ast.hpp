@@ -515,6 +515,7 @@ namespace wo
             size_t m_LANG_certenly_function_argument_count;
 
             std::optional<AstValueFunction*> m_IR_invoking_function_near;
+            std::optional<woort_IRValue*> m_IR_unpack_counter_if_in_variadic_func;
 
             AstValueFunctionCall(bool direct, AstValueBase* function, const std::vector<AstValueBase*>& arguments);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -816,7 +817,7 @@ namespace wo
 
             LANG_capture_context m_LANG_captured_context;
             std::optional<lang_Scope*> m_LANG_function_scope;
-            std::optional<AstExternInformation*> m_IR_extern_information;
+            std::optional<AstExternInformation*> m_LANG_extern_information;
 
             AstValueFunction(
                 const std::vector<AstFunctionParameterDeclare*>& parameters,

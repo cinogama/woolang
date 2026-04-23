@@ -1389,7 +1389,7 @@ namespace wo
                     // Already processed.
                     continue;
 
-                if (eval_function->m_IR_extern_information.has_value())
+                if (eval_function->m_LANG_extern_information.has_value())
                 {
                     // TODO;
                     abort();

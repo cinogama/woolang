@@ -1323,6 +1323,7 @@ namespace wo
             , m_LANG_has_runtime_full_unpackargs(false)
             , m_LANG_certenly_function_argument_count(0)
             , m_IR_invoking_function_near(std::nullopt)
+            , m_IR_unpack_counter_if_in_variadic_func(std::nullopt)
         {
 
         }
@@ -1766,7 +1767,7 @@ namespace wo
             , m_LANG_determined_template_arguments(std::nullopt)
             , m_LANG_function_body_end_with_return_flag_for_IR(false)
             , m_LANG_function_scope(std::nullopt)
-            , m_IR_extern_information(std::nullopt)
+            , m_LANG_extern_information(std::nullopt)
         {
             wo_assert(body->node_type == AstBase::node_type_t::AST_EMPTY
                 || body->node_type == AstBase::node_type_t::AST_SCOPE
