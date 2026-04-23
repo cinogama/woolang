@@ -49,6 +49,83 @@ namespace wo
         m_loop_content_stack.pop_back();
     }
 
+    static bool is_int_or_handle_type(lang_TypeInstance::DeterminedType::base_type bt)
+    {
+        return bt == lang_TypeInstance::DeterminedType::INTEGER
+            || bt == lang_TypeInstance::DeterminedType::HANDLE;
+    }
+
+    static ast::AstValueBinaryOperator* try_get_optimizable_comparison_binop(ast::AstValueBase* cond)
+    {
+        if (cond->node_type != ast::AstBase::AST_VALUE_BINARY_OPERATOR)
+            return nullptr;
+
+        auto* binop = static_cast<ast::AstValueBinaryOperator*>(cond);
+
+        if (binop->m_LANG_overload_call.has_value())
+            return nullptr;
+
+        switch (binop->m_operator)
+        {
+        case ast::AstValueBinaryOperator::LESS:
+        case ast::AstValueBinaryOperator::LESS_EQUAL:
+        case ast::AstValueBinaryOperator::GREATER:
+        case ast::AstValueBinaryOperator::GREATER_EQUAL:
+        case ast::AstValueBinaryOperator::EQUAL:
+        case ast::AstValueBinaryOperator::NOT_EQUAL:
+            break;
+        default:
+            return nullptr;
+        }
+
+        auto* left_type_instance = binop->m_left->m_LANG_determined_type.value();
+        auto* right_type_instance = binop->m_right->m_LANG_determined_type.value();
+
+        if (!is_int_or_handle_type(left_type_instance->get_determined_type().value()->m_base_type)
+            || !is_int_or_handle_type(right_type_instance->get_determined_type().value()->m_base_type))
+            return nullptr;
+
+        return binop;
+    }
+
+    static void emit_optimized_jcc_negated(
+        IRCompiler& c,
+        ast::AstValueBinaryOperator* binop,
+        const woort_IRValue* left,
+        const woort_IRValue* right,
+        woort_IRLabel* target)
+    {
+        switch (binop->m_operator)
+        {
+        case ast::AstValueBinaryOperator::LESS:          c.jcc_ge(left, right, target); break;
+        case ast::AstValueBinaryOperator::LESS_EQUAL:     c.jcc_gt(left, right, target); break;
+        case ast::AstValueBinaryOperator::GREATER:       c.jcc_le(left, right, target); break;
+        case ast::AstValueBinaryOperator::GREATER_EQUAL:  c.jcc_lt(left, right, target); break;
+        case ast::AstValueBinaryOperator::EQUAL:          c.jcc_ne(left, right, target); break;
+        case ast::AstValueBinaryOperator::NOT_EQUAL:      c.jcc_eq(left, right, target); break;
+        default: wo_error("Unknown comparison operator."); break;
+        }
+    }
+
+    static void emit_optimized_jcc_direct(
+        IRCompiler& c,
+        ast::AstValueBinaryOperator* binop,
+        const woort_IRValue* left,
+        const woort_IRValue* right,
+        woort_IRLabel* target)
+    {
+        switch (binop->m_operator)
+        {
+        case ast::AstValueBinaryOperator::LESS:          c.jcc_lt(left, right, target); break;
+        case ast::AstValueBinaryOperator::LESS_EQUAL:     c.jcc_le(left, right, target); break;
+        case ast::AstValueBinaryOperator::GREATER:       c.jcc_gt(left, right, target); break;
+        case ast::AstValueBinaryOperator::GREATER_EQUAL:  c.jcc_ge(left, right, target); break;
+        case ast::AstValueBinaryOperator::EQUAL:          c.jcc_eq(left, right, target); break;
+        case ast::AstValueBinaryOperator::NOT_EQUAL:      c.jcc_ne(left, right, target); break;
+        default: wo_error("Unknown comparison operator."); break;
+        }
+    }
+
     bool LangContext::update_instance_storage_and_code_gen_passir(
         lang_ValueInstance* instance,
         const woort_IRValue* opnumval,
@@ -348,15 +425,32 @@ namespace wo
             }
             else
             {
-                // TODO: More optimzied code generate required.
+                auto* binop = try_get_optimizable_comparison_binop(node->m_condition);
+                if (binop)
+                {
+                    m_ircontext.begin_eval_readonly();
+                    if (!pass_final_value(lex, binop->m_left))
+                        return FAILED;
+                    auto* left_val = m_ircontext.get_eval_result();
 
-                m_ircontext.begin_eval_readonly();
-                if (!pass_final_value(lex, node->m_condition))
-                    return FAILED;
+                    m_ircontext.begin_eval_readonly();
+                    if (!pass_final_value(lex, binop->m_right))
+                        return FAILED;
+                    auto* right_val = m_ircontext.get_eval_result();
 
-                m_ircontext.c().jccz(
-                    m_ircontext.get_eval_result(),
-                    m_ircontext.c().named_label(node, "#if_else"));
+                    emit_optimized_jcc_negated(m_ircontext.c(), binop, left_val, right_val,
+                        m_ircontext.c().named_label(node, "#if_else"));
+                }
+                else
+                {
+                    m_ircontext.begin_eval_readonly();
+                    if (!pass_final_value(lex, node->m_condition))
+                        return FAILED;
+
+                    m_ircontext.c().jccz(
+                        m_ircontext.get_eval_result(),
+                        m_ircontext.c().named_label(node, "#if_else"));
+                }
 
                 WO_CONTINUE_PROCESS(node->m_true_body);
 
@@ -408,15 +502,32 @@ namespace wo
 
             if (!dead_loop)
             {
-                // TODO: More optimzied code generate required.
+                auto* binop = try_get_optimizable_comparison_binop(node->m_condition);
+                if (binop)
+                {
+                    m_ircontext.begin_eval_readonly();
+                    if (!pass_final_value(lex, binop->m_left))
+                        return FAILED;
+                    auto* left_val = m_ircontext.get_eval_result();
 
-                m_ircontext.begin_eval_readonly();
-                if (!pass_final_value(lex, node->m_condition))
-                    return FAILED;
+                    m_ircontext.begin_eval_readonly();
+                    if (!pass_final_value(lex, binop->m_right))
+                        return FAILED;
+                    auto* right_val = m_ircontext.get_eval_result();
 
-                m_ircontext.c().jccz(
-                    m_ircontext.get_eval_result(),
-                    m_ircontext.c().named_label(node, "#while_end"));
+                    emit_optimized_jcc_negated(m_ircontext.c(), binop, left_val, right_val,
+                        m_ircontext.c().named_label(node, "#while_end"));
+                }
+                else
+                {
+                    m_ircontext.begin_eval_readonly();
+                    if (!pass_final_value(lex, node->m_condition))
+                        return FAILED;
+
+                    m_ircontext.c().jccz(
+                        m_ircontext.get_eval_result(),
+                        m_ircontext.c().named_label(node, "#while_end"));
+                }
             }
 
             // Loop begin
@@ -515,16 +626,32 @@ namespace wo
                     m_ircontext.c().bind(
                         m_ircontext.c().named_label(node, "#for_cond"));
 
-                    // TODO: More optimzied code generate required.
+                    auto* binop = try_get_optimizable_comparison_binop(node->m_condition.value());
+                    if (binop)
+                    {
+                        m_ircontext.begin_eval_readonly();
+                        if (!pass_final_value(lex, binop->m_left))
+                            return FAILED;
+                        auto* left_val = m_ircontext.get_eval_result();
 
-                    m_ircontext.begin_eval_readonly();
-                    if (!pass_final_value(lex, node->m_condition.value()))
-                        return FAILED;
+                        m_ircontext.begin_eval_readonly();
+                        if (!pass_final_value(lex, binop->m_right))
+                            return FAILED;
+                        auto* right_val = m_ircontext.get_eval_result();
 
-                    m_ircontext.c().jcc(
-                        m_ircontext.get_eval_result(),
-                        m_ircontext.c().named_label(node, "#for_begin"));
+                        emit_optimized_jcc_direct(m_ircontext.c(), binop, left_val, right_val,
+                            m_ircontext.c().named_label(node, "#for_begin"));
+                    }
+                    else
+                    {
+                        m_ircontext.begin_eval_readonly();
+                        if (!pass_final_value(lex, node->m_condition.value()))
+                            return FAILED;
 
+                        m_ircontext.c().jcc(
+                            m_ircontext.get_eval_result(),
+                            m_ircontext.c().named_label(node, "#for_begin"));
+                    }
                 }
                 else
                 {
@@ -3291,10 +3418,51 @@ namespace wo
             }
             else
             {
-                m_ircontext.begin_eval_readonly();
-                WO_CONTINUE_PROCESS(node->m_condition);
+                auto* binop = try_get_optimizable_comparison_binop(node->m_condition);
+                if (binop)
+                {
+                    m_ircontext.begin_eval_readonly();
+                    if (!pass_final_value(lex, binop->m_left))
+                        return FAILED;
+                    auto* left_val = m_ircontext.get_eval_result();
 
-                node->m_LANG_hold_state = AstValueTribleOperator::IR_HOLD_FOR_COND_EVAL;
+                    m_ircontext.begin_eval_readonly();
+                    if (!pass_final_value(lex, binop->m_right))
+                        return FAILED;
+                    auto* right_val = m_ircontext.get_eval_result();
+
+                    emit_optimized_jcc_negated(m_ircontext.c(), binop, left_val, right_val,
+                        m_ircontext.c().named_label(node, "#cond_false"));
+
+                    if (m_ircontext.eval_result_just_ignored())
+                    {
+                        m_ircontext.eval_and_ignore();
+                    }
+                    else if (m_ircontext.upper_need_get_result()
+                        && !m_ircontext.upper_need_assign())
+                    {
+                        woort_IRValue* const v = m_ircontext.c().new_value();
+                        node->m_IR_cond_eval_result.emplace(v);
+
+                        if (m_ircontext.upper_need_box())
+                            m_ircontext.eval_to_assign_box(v, std::nullopt);
+                        else
+                            m_ircontext.eval_to_assign(v, std::nullopt);
+                    }
+                    else
+                        m_ircontext.eval_for_upper();
+
+                    WO_CONTINUE_PROCESS(node->m_true_value);
+
+                    node->m_LANG_hold_state = AstValueTribleOperator::IR_HOLD_FOR_BRANCH_A_EVAL;
+                }
+                else
+                {
+                    m_ircontext.begin_eval_readonly();
+                    WO_CONTINUE_PROCESS(node->m_condition);
+
+                    node->m_LANG_hold_state = AstValueTribleOperator::IR_HOLD_FOR_COND_EVAL;
+                }
             }
             return HOLD;
         }
