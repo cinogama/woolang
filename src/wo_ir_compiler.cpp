@@ -83,7 +83,17 @@ namespace wo
         if (!woort_IRCompiler_finish(m_ircompiler, &cenv))
             return std::nullopt;
 
-        m_ircompiler = nullptr;
+        woort_CodeEnv_lock(cenv);
+
+        // Apply constant.
+        for (const auto& [val, cidx]: m_nil_bool_int_handle_imm_pool)
+        {
+            woort_CodeEnv_set_const_int(cenv, cidx, val);
+        }
+
+        woort_CodeEnv_unlock(cenv);
+
+        abondon();
         return cenv;
     }
 
