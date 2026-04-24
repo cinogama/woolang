@@ -566,14 +566,10 @@ bool _wo_compile_entry(
 void _wo_test_compile()
 {
     const char* src = R"(
-        extern func main()
+        extern func add(a: string, b: string)
         {
-            for (let mut i = 0; i < 1000000000; i += 1)
-            {
-            }
-            return;
+            return a + b;
         }
-        main();
     )";
 
     std::optional<woort_CodeEnv*> out_env_if_success;
@@ -595,18 +591,19 @@ void _wo_test_compile()
     woort_VMRuntime* const last = woort_VMRuntime_swap(vm);
 
     woort_IRConstantIndex cidx;
-    woort_CodeEnv_find_extern_constant(out_env_if_success.value(), "@entry", &cidx);
+    woort_CodeEnv_find_extern_constant(out_env_if_success.value(), "add", &cidx);
 
     woort_StackValue sv;
-    woort_push_reserve(2, &sv);
+    woort_push_reserve(3, &sv);
 
-    woort_load_const(sv + 0, out_env_if_success.value(), cidx);
+    woort_load_const(sv + 2, out_env_if_success.value(), cidx);
 
-    auto a = clock();
-    woort_invoke(sv + 1, sv + 0);
-    auto b = clock();
-        // printf("%s", woort_string(sv + 1));
-        printf("%f", (double)(b - a) / ((double)CLOCKS_PER_SEC));
+    woort_set_string(sv + 0, "Hello");
+    woort_set_string(sv + 1, "world");
+
+    woort_invoke(sv + 0, sv + 2);
+
+    printf("%s\n", woort_string(sv + 0));
 
     woort_VMRuntime_swap(last);
 }
