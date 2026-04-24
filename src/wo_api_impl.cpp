@@ -47,6 +47,8 @@ void _wo_warning(
 
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
+    wo::rslib_extern_symbols::free_wo_lib();
+
     woort_shutdown();
 
     // Ready to shutdown.
@@ -140,6 +142,9 @@ void wo_init(int argc, char** argv)
 
     // Start up WooRT.
     woort_init();
+
+    // Initialize the self-module handle for global extern("func") lookups
+    wo::rslib_extern_symbols::init_wo_lib();
 
     void _wo_test_compile();
     _wo_test_compile();

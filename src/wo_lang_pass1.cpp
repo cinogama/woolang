@@ -2,7 +2,7 @@
 
 woort_api rslib_std_bad_function()
 {
-    return woort_ret_void();
+    return woort_ret_panic("This function cannot be invoked.");
 }
 
 namespace wo
@@ -6427,9 +6427,7 @@ namespace wo
         auto* function_instance = get_current_function().value();
 
         woort_NativeFunction extern_function;
-#if 1
-        extern_function = rslib_std_bad_function;
-#else
+
         if (node->m_extern_from_library.has_value())
         {
             extern_function = rslib_extern_symbols::get_lib_symbol(
@@ -6448,7 +6446,7 @@ namespace wo
                 rslib_extern_symbols::get_global_symbol(
                     node->m_extern_symbol->c_str());
         }
-#endif
+
         if (extern_function != nullptr)
             node->m_IR_externed_function = extern_function;
         else

@@ -2846,6 +2846,11 @@ namespace wo
 
     std::optional<woort_CodeEnv*> BytecodeGenerateContext::finalize()
     {
+        // Transfer loaded extern library handles to IRCompiler for CodeEnv binding
+        auto handles = m_extern_libs.collect_handles();
+        for (woort_Dylib* lib : handles)
+            m_ir_compiler.add_extern_lib(lib);
+
         return c().commit();
     }
 

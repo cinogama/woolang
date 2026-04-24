@@ -4,6 +4,7 @@
 #include <stack>
 #include <string_view>
 #include <string>
+#include <vector>
 
 #include "wo_const_string_pool.hpp"
 
@@ -81,6 +82,9 @@ namespace wo
         std::unordered_map<std::string, woort_IRConstantIndex>
             m_extern_symbols;
 
+        // Loaded extern library handles for lifecycle binding to CodeEnv
+        std::vector<woort_Dylib*> m_loaded_extern_libs;
+
         struct TupleImm
         {
             woort_IRConstantIndex m_idx;
@@ -108,6 +112,7 @@ namespace wo
         std::optional<woort_CodeEnv*> commit();
         const woort_Bytecode* get_function(woort_CodeEnv* cenv, woort_IRFunction* irfunc);
         void register_extern_symbols(std::string_view name, woort_IRConstantIndex cidx);
+        void add_extern_lib(woort_Dylib* lib);
 
     public:
         const woort_IRValue* fetch_constant(woort_IRConstantIndex cidx);

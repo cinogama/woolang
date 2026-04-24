@@ -2,6 +2,7 @@
 
 #include "wo_lang_ast.hpp"
 #include "wo_ir_compiler.hpp"
+#include "wo_lang_extern_symbol_loader.hpp"
 
 #include <memory>
 #include <unordered_map>
@@ -485,6 +486,9 @@ namespace wo
         // Processing and processed function instances
         std::unordered_set<ast::AstValueFunction*> m_processed_function_instance;
         std::unordered_set<ast::AstValueFunction*> m_being_used_function_instance;
+
+        // Extern library cache, per source-path -> library-name -> library-guard
+        rslib_extern_symbols::extern_lib_set m_extern_libs;
 
         // Mutable context
         struct EvalResult

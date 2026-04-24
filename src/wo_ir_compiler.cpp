@@ -185,6 +185,19 @@ namespace wo
             }
         }
 
+        // Bind loaded extern libraries to CodeEnv lifecycle
+        for (woort_Dylib* lib : m_loaded_extern_libs)
+        {
+            if (!woort_CodeEnv_add_extern_lib(cenv, lib))
+            {
+                woort_CodeEnv_unlock(cenv);
+                woort_CodeEnv_drop(cenv);
+
+                abondon();
+                return std::nullopt;
+            }
+        }
+
         woort_CodeEnv_unlock(cenv);
 
         abondon();
@@ -206,6 +219,11 @@ namespace wo
             wo_error("Duplicate extern symbol name");
 
         m_extern_symbols.emplace(name, cidx);
+    }
+
+    void IRCompiler::add_extern_lib(woort_Dylib* lib)
+    {
+        m_loaded_extern_libs.push_back(lib);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////
