@@ -571,9 +571,12 @@ bool _wo_compile_entry(
 void _wo_test_compile()
 {
     const char* src = R"(
+        extern("test_debug")
+        func test_debug()=> string;
+
         extern func add(a: string, b: string)
         {
-            return a + b;
+            return a + b + test_debug();
         }
     )";
 

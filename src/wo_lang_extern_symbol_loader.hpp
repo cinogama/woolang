@@ -11,6 +11,11 @@
 #include <vector>
 #include <string>
 
+inline woort_api test_debug(void)
+{
+    return woort_ret_string("woolang 1.15~!");
+}
+
 namespace wo
 {
     class rslib_extern_symbols
@@ -21,15 +26,21 @@ namespace wo
         static void init_wo_lib()
         {
             wo_assert(_current_wo_lib_handle == nullptr);
-            _current_wo_lib_handle = woort_load_lib("woolang", NULL, NULL, false);
+
+            woort_ExternLibFunc funcs[] = {
+                {"test_debug", (void*)&test_debug},
+                WOORT_EXTERN_LIB_FUNC_END,
+            };
+
+            _current_wo_lib_handle =
+                woort_fake_lib("woolang", funcs, NULL);
         }
         static void free_wo_lib()
         {
-            if (_current_wo_lib_handle != nullptr)
-            {
-                woort_unload_lib(_current_wo_lib_handle, WOORT_DYLIB_UNREF_AND_BURY);
-                _current_wo_lib_handle = nullptr;
-            }
+            wo_assert(_current_wo_lib_handle != nullptr);
+
+            woort_unload_lib(_current_wo_lib_handle, WOORT_DYLIB_UNREF_AND_BURY);
+            _current_wo_lib_handle = nullptr;
         }
 
         struct extern_lib_guard
@@ -111,7 +122,8 @@ namespace wo
 
         static woort_NativeFunction get_global_symbol(const char* symbol)
         {
-            return (woort_NativeFunction)woort_load_func(_current_wo_lib_handle, symbol);
+            return (woort_NativeFunction)woort_load_func(
+                _current_wo_lib_handle, symbol);
         }
 
         static woort_NativeFunction get_lib_symbol(const char* src, const char* lib, const char* symb, extern_lib_set& elibs)

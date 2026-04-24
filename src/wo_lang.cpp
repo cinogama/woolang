@@ -1392,20 +1392,8 @@ namespace wo
                 if (eval_function->m_LANG_extern_information.has_value())
                 {
                     wo_assert(eval_function->m_LANG_captured_context.m_captured_variables.empty());
-
-                    //ast::AstExternInformation* extern_info = eval_function->m_IR_extern_information.value();
-                    //wo_assert(extern_info == static_cast<ast::AstExternInformation*>(eval_function->m_body));
-
-                    //m_ircontext.c().record_extern_native_function(
-                    //    extern_info->m_IR_externed_function.value(),
-                    //    *eval_function->source_location.source_file,
-                    //    extern_info->m_extern_from_library.has_value()
-                    //    ? std::optional(*extern_info->m_extern_from_library.value())
-                    //    : std::nullopt,
-                    //    *extern_info->m_extern_symbol);
-
-                    //// Donot generate code for extern function.
-                    //continue;
+                    // Donot generate code for extern function.
+                    continue;
                 }
 
                 if (eval_function->m_LANG_value_instance_to_update.has_value())
@@ -1471,8 +1459,7 @@ namespace wo
 
                     ++argument_place;
                 }
-
-
+                
                 if (!anylize_pass(
                     lex,
                     eval_function->m_body,
