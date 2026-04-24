@@ -585,25 +585,22 @@ void _wo_test_compile()
 
     woort_CodeEnv_dumps(out_env_if_success.value());
 
-    woort_VMRuntime* vm;
-    woort_VMRuntime_create(&vm);
+    woort_VMRuntime* vm = woort_vm_create();
 
-    woort_VMRuntime* const last = woort_VMRuntime_swap(vm);
+    woort_VMRuntime* const last = woort_vm_swap(vm);
+    {
+        woort_StackValue sv;
+        (void)woort_push_reserve(3, &sv);
 
-    woort_IRConstantIndex cidx;
-    woort_CodeEnv_find_extern_constant(out_env_if_success.value(), "add", &cidx);
+        woort_set_string(sv + 0, "Hello");
+        woort_set_string(sv + 1, "world");
+        (void)woort_load_extern_const(sv + 2, out_env_if_success.value(), "add");
 
-    woort_StackValue sv;
-    woort_push_reserve(3, &sv);
+        (void)woort_invoke(sv + 0, sv + 2);
 
-    woort_load_const(sv + 2, out_env_if_success.value(), cidx);
+        printf("%s\n", woort_string(sv + 0));
 
-    woort_set_string(sv + 0, "Hello");
-    woort_set_string(sv + 1, "world");
-
-    woort_invoke(sv + 0, sv + 2);
-
-    printf("%s\n", woort_string(sv + 0));
-
-    woort_VMRuntime_swap(last);
+        woort_pop(3);
+    }
+    (void)woort_vm_swap(last);
 }
