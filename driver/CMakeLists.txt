@@ -13,7 +13,8 @@ add_executable(woodriver ${WOOLANG_DRIVER_SOURCES} ../include/wo.h)
 
 target_link_libraries(woodriver
     PRIVATE woolang_options
-    PRIVATE woolang)
+    PRIVATE woolang
+    PRIVATE woort)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set_target_properties(woodriver PROPERTIES RELEASE_POSTFIX "")

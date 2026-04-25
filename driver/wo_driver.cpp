@@ -57,6 +57,19 @@ int main(int argc, char** argv)
         }
         else
         {
+            if (compile_error != nullptr)
+            {
+                wo_CompileErrorInfo* info;
+                while ((info = wo_compile_errors_next(compile_error)) != nullptr)
+                {
+                    std::cerr << info->m_file_name << ":"
+                              << info->m_begin_row << ":" << info->m_begin_col
+                              << ": " << (info->m_is_error ? "error" : "info")
+                              << ": " << info->m_message << std::endl;
+                }
+                wo_compile_errors_free(compile_error);
+            }
+            ret = -2;
         }
     }
     else
