@@ -617,6 +617,272 @@ void wo_compile_errors_free(wo_CompileErrors* errors)
     delete errors;
 }
 
+static std::string _dump_src_info(
+    const std::string& path,
+    const wo::lexer::compiler_message_t& errmsg,
+    size_t depth,
+    size_t beginaimrow,
+    size_t beginpointplace,
+    size_t aimrow,
+    size_t pointplace,
+    wo_inform_style_t style)
+{
+    std::string src_full_path, result;
+
+    if (wo::check_virtual_file_path(path, std::nullopt, &src_full_path))
+    {
+        auto content_stream = wo::open_virtual_file_stream(src_full_path);
+        if (content_stream)
+        {
+            auto& content_stream_ptr = content_stream.value();
+            wo_assert(content_stream_ptr != nullptr);
+
+            constexpr size_t UP_DOWN_SHOWN_LINE = 2;
+            size_t current_row_no = 0;
+            size_t current_col_no = 0;
+            size_t from = beginaimrow > UP_DOWN_SHOWN_LINE ? beginaimrow - UP_DOWN_SHOWN_LINE : 0;
+            size_t to = aimrow + UP_DOWN_SHOWN_LINE;
+
+            bool first_line = true;
+
+            auto print_src_file_print_lineno =
+                [&current_row_no, &result, &first_line, depth]()
+                {
+                    char buf[20] = {};
+                    if (first_line)
+                        first_line = false;
+                    else
+                        result += "\n";
+
+                    snprintf(buf, 20, "%-5zu | ", current_row_no + 1);
+                    result += std::string(depth == 0 ? 0 : depth + 1, ' ') + buf;
+                };
+            auto print_notify_line =
+                [
+                    &result,
+                    &first_line,
+                    &current_row_no,
+                    &errmsg,
+                    beginpointplace,
+                    pointplace,
+                    style,
+                    beginaimrow,
+                    aimrow,
+                    depth
+                ](size_t line_end_place)
+            {
+                char buf[20] = {};
+                if (first_line)
+                    first_line = false;
+                else
+                    result += "\n";
+
+                snprintf(buf, 20, "      | ");
+                std::string append_result = buf;
+
+                if (style == WO_NEED_COLOR)
+                    append_result += errmsg.m_level == wo::lexer::msglevel_t::error
+                    ? ANSI_HIR
+                    : ANSI_HIC;
+
+                if (current_row_no == aimrow)
+                {
+                    if (current_row_no == beginaimrow)
+                    {
+                        size_t i = 1;
+                        for (; i <= beginpointplace; i++)
+                            append_result += " ";
+                        for (; i < pointplace; i++)
+                            append_result += "~";
+                    }
+                    else
+                        for (size_t i = 1; i < pointplace; i++)
+                            append_result += "~";
+
+                    append_result +=
+                        std::string("~\\");
+
+                    if (style == WO_NEED_COLOR)
+                        append_result += ANSI_UNDERLNE;
+
+                    append_result +=
+                        " " WO_HERE;
+
+                    if (style == WO_NEED_COLOR)
+                        append_result += ANSI_NUNDERLNE;
+
+                    append_result += "_";
+
+                    if (depth != 0)
+                        append_result += ": " + errmsg.m_describe;
+                }
+                else
+                {
+                    if (current_row_no == beginaimrow)
+                    {
+                        size_t i = 1;
+                        for (; i <= beginpointplace; i++)
+                            append_result += " ";
+                        if (i < line_end_place)
+                            for (; i < line_end_place; i++)
+                                append_result += "~";
+                        else
+                            return;
+                    }
+                    else
+                    {
+                        size_t i = 1;
+                        if (i < line_end_place)
+                            for (; i < line_end_place; i++)
+                                append_result += "~";
+                        else
+                            return;
+                    }
+                }
+
+                if (style == WO_NEED_COLOR)
+                    append_result += ANSI_RST;
+
+                result += std::string(depth == 0 ? 0 : depth + 1, ' ') + append_result;
+            };
+
+            if (from <= current_row_no && current_row_no <= to)
+                print_src_file_print_lineno();
+
+            for (;;)
+            {
+                char ch;
+                content_stream_ptr->read(&ch, 1);
+
+                if (content_stream_ptr->eof() || !*content_stream_ptr)
+                    break;
+
+                if (ch == '\n')
+                {
+                    if (current_row_no >= beginaimrow && current_row_no <= aimrow)
+                        print_notify_line(current_col_no);
+                    current_col_no = 0;
+                    current_row_no++;
+                    if (from <= current_row_no && current_row_no <= to)
+                        print_src_file_print_lineno();
+                    continue;
+                }
+                else if (ch == '\r')
+                {
+                    if (current_row_no >= beginaimrow && current_row_no <= aimrow)
+                        print_notify_line(current_col_no);
+                    current_col_no = 0;
+                    current_row_no++;
+                    if (from <= current_row_no && current_row_no <= to)
+                        print_src_file_print_lineno();
+
+                    auto index = content_stream_ptr->tellg();
+                    content_stream_ptr->read(&ch, 1);
+                    if (content_stream_ptr->eof() || !*content_stream_ptr || ch != L'\n')
+                    {
+                        content_stream_ptr->clear(content_stream_ptr->rdstate() & ~std::ios_base::failbit);
+                        content_stream_ptr->seekg(index);
+                    }
+                    continue;
+                }
+                ++current_col_no;
+                if (from <= current_row_no && current_row_no <= to && ch)
+                    result += ch;
+
+            }
+            if (current_row_no >= beginaimrow && current_row_no <= aimrow)
+                print_notify_line(current_col_no);
+
+            result += "\n";
+        }
+    }
+    return result;
+}
+
+static std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_t style)
+{
+    std::string src_file_path;
+    std::string _vm_compile_errors;
+
+    size_t last_depth = 0;
+
+    for (auto& err_info : lex->get_current_error_frame())
+    {
+        if (err_info.m_layer != 0)
+        {
+            auto see_also = last_depth >= err_info.m_layer ? WO_SEE_ALSO : WO_SEE_HERE;
+            if (style == WO_NEED_COLOR)
+                _vm_compile_errors
+                += std::string(err_info.m_layer, ' ')
+                + ANSI_HIY + see_also + ANSI_RST
+                + ":\n";
+            else
+                _vm_compile_errors
+                += std::string(err_info.m_layer, ' ')
+                + see_also
+                + ":\n";
+        }
+
+        last_depth = err_info.m_layer;
+
+        if (src_file_path != err_info.m_filename)
+        {
+            if (style == WO_NEED_COLOR)
+                _vm_compile_errors +=
+                ANSI_HIR "In file: '" ANSI_RST
+                + (src_file_path = err_info.m_filename)
+                + ANSI_HIR "'" ANSI_RST "\n";
+            else
+                _vm_compile_errors +=
+                "In file: '"
+                + (src_file_path = err_info.m_filename)
+                + "'\n";
+        }
+
+        if (err_info.m_layer == 0)
+            _vm_compile_errors += err_info.to_string(style & WO_NEED_COLOR) + "\n";
+
+        // Print source informations..
+        _vm_compile_errors +=
+            _dump_src_info(
+                src_file_path,
+                err_info,
+                err_info.m_layer,
+                err_info.m_range_begin[0],
+                err_info.m_range_begin[1],
+                err_info.m_range_end[0],
+                err_info.m_range_end[1],
+                style);
+    }
+
+    if (lex->get_current_error_frame().size() >= WO_MAX_ERROR_COUNT)
+        _vm_compile_errors += WO_TOO_MANY_ERROR(WO_MAX_ERROR_COUNT) + "\n";
+
+    return _vm_compile_errors;
+}
+
+WO_API const char* wo_get_compile_error(
+    wo_CompileErrors* errors,
+    wo_inform_style_t style)
+{
+    if (style == WO_DEFAULT)
+        style = wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL ? WO_NEED_COLOR : WO_NOTHING;
+
+    thread_local std::string _vm_compile_errors;
+    _vm_compile_errors.clear();
+
+    if (errors != nullptr)
+    {
+        auto* impl = reinterpret_cast<_wo_CompileErrors*>(errors);
+        if (impl->m_lexer.has_value())
+        {
+            _vm_compile_errors += _wo_dump_lexer_context_error(
+                impl->m_lexer.value().get(), style);
+        }
+    }
+    return _vm_compile_errors.c_str();
+}
+
 woort_CodeEnv* wo_load_binary(
     woort_U8CString virtual_src_path,
     const void* buffer,

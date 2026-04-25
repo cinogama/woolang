@@ -185,6 +185,13 @@ WO_API wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors);
 // Free the compile errors iterator.
 WO_API void wo_compile_errors_free(wo_CompileErrors* errors);
 
+// Get a formatted compile error string (rich output with source snippets and colors).
+// style: WO_DEFAULT, WO_NOTHING, or WO_NEED_COLOR.
+// Returns a thread-local C string, valid until the next call.
+WO_API const char* wo_get_compile_error(
+    wo_CompileErrors* errors,
+    wo_inform_style_t style);
+
 WO_API char32_t wo_str_get_char(const char* str, size_t index);
 WO_API char32_t wo_strn_get_char(const char* str, size_t size, size_t index);
 
