@@ -6,6 +6,7 @@
 #include "wo_assert.hpp"
 #include "wo_shared_ptr.hpp"
 #include "wo_global_setting.hpp"
+#include "wo_stdlib_extern_functions.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -22,9 +23,8 @@ namespace wo
         {
             wo_assert(_current_wo_lib_handle == nullptr);
 
-            woort_ExternLibFunc funcs[] = {
-                WOORT_EXTERN_LIB_FUNC_END,
-            };
+            woort_ExternLibFunc* funcs = nullptr;
+            wo::stdlib::register_all(&funcs);
 
             _current_wo_lib_handle =
                 woort_fake_lib("woolang", funcs, NULL);
