@@ -1,5 +1,7 @@
 #include "wo_afx.hpp"
 
+#include "wo_internal_native_function.hpp"
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -1518,16 +1520,16 @@ namespace wo
                     if (extern_information->m_IR_externed_function.has_value())
                     {
                         auto* externed_function = extern_information->m_IR_externed_function.value();
-                        //if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST
-                        //    && (void*)&rslib_std_return_itself == (void*)externed_function)
-                        //{
-                        //    // Optimized for rslib_std_return_itself.
-                        //    m_ircontext.eval_for_upper();
-                        //    WO_CONTINUE_PROCESS(node->m_arguments.front());
+                        if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST
+                            && &internal_native::return_it_self == externed_function)
+                        {
+                            // Optimized for rslib_std_return_itself.
+                            m_ircontext.eval_for_upper();
+                            WO_CONTINUE_PROCESS(node->m_arguments.front());
 
-                        //    node->m_LANG_hold_state = AstValueFunctionCall::IR_HOLD_FOR_FAST_ITSELF;
-                        //    return HOLD;
-                        //}
+                            node->m_LANG_hold_state = AstValueFunctionCall::IR_HOLD_FOR_FAST_ITSELF;
+                            return HOLD;
+                        }
                     }
                 }
             }

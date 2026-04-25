@@ -13,62 +13,51 @@ int main(int argc, char** argv)
 
     if (argc >= 2)
     {
-       /* wo_vm vmm = wo_create_vm();
-        bool compile_successful_flag = wo_load_file(vmm, argv[1]);
-
-        if (compile_successful_flag)
+        wo_CompileErrors* compile_error;
+        woort_codeenv* cenv = wo_load_file(argv[1], &compile_error);
+        if (cenv != NULL)
         {
-            wo_value    return_state = nullptr;
+            woort_vm* vmm = woort_vm_create();
 
-            const char* out_binary_path = nullptr;
-            bool        out_binary_file_ok = false;
-
-            for (int i = 0; i < argc - 1; ++i)
+            if (vmm == NULL)
             {
-                if (strcmp(argv[i], "-o") == 0)
-                    out_binary_path = argv[i + 1];
+                std::cerr << "Failed to create VM instance: out of memory." << std::endl;
+                ret = -3;
             }
-            if (out_binary_path == nullptr)
-                return_state = wo_bootup(vmm, WO_TRUE);
             else
             {
-                if (FILE* out_binary_file = fopen(out_binary_path, "wb"))
+                (void)woort_vm_swap(vmm);
+
+                woort_value v;
+                if (!woort_push_reserve(1, &v))
                 {
-                    size_t binary_len = 0;
-                    void* binary_buf = wo_dump_binary(vmm, true, &binary_len);
+                    std::cerr << "Failed to run: cannot reserve stack." << std::endl;
+                    ret = -3;
 
-                    if (fwrite(binary_buf, sizeof(char), binary_len, out_binary_file) == binary_len)
-                        out_binary_file_ok = true;
-
-                    fclose(out_binary_file);
-                    wo_free_binary(binary_buf);
+                    goto label_run_failed;
                 }
-            }
 
-            if (return_state != nullptr)
-            {
-                if (wo_valuetype(return_state) == WO_INTEGER_TYPE)
-                    ret = (int)wo_cast_int(return_state);
+                if (!woort_load_extern_const(v, cenv, "@entry"))
+                {
+                    std::cerr << "Failed to run: no entry found." << std::endl;
+                    ret = -4;
+
+                    goto label_run_failed;
+                }
+
+                if (woort_invoke(v, v) == WOORT_VM_CALL_STATUS_NORMAL)
+                    ret = (int)woort_int(v);
                 else
-                    ret = 0;
+                    ret = -1;
+
+            label_run_failed:
+                (void)woort_vm_swap(NULL);
             }
-            else if (out_binary_path != nullptr)
-            {
-                if (out_binary_file_ok)
-                    ret = 0;
-                else
-                    ret = errno;
-            }
-            else
-                ret = -1;
+            woort_codeenv_drop(cenv);
         }
         else
         {
-            std::cerr << wo_get_compile_error(vmm, WO_DEFAULT) << std::endl;
-            ret = -2;
         }
-
-        wo_close_vm(vmm);*/
     }
     else
     {

@@ -145,6 +145,46 @@ WO_API void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
 
 WO_API bool wo_remove_virtual_file(const char* filepath);
 
+// Load woolang source/file/binary and get compiled CodeEnv without a VM.
+// Returns woort_CodeEnv* on success (caller must woort_CodeEnv_drop() it).
+// On failure, returns NULL. If out_errors != NULL, *out_errors is set to
+// a wo_CompileErrors object that can be iterated (caller must free it).
+
+typedef struct _wo_CompileErrorInfo
+{
+    const char* m_file_name;
+    const char* m_message;
+    size_t      m_begin_row;
+    size_t      m_begin_col;
+    size_t      m_end_row;
+    size_t      m_end_col;
+    int         m_is_error; // 1 = error, 0 = information
+} wo_CompileErrorInfo;
+
+typedef struct _wo_CompileErrors wo_CompileErrors;
+
+WO_API /* OPTIONAL */ woort_CodeEnv* wo_load_source(
+    woort_U8CString virtual_src_path,
+    woort_U8CString src,
+    /* OPTIONAL */ wo_CompileErrors** out_errors);
+
+WO_API /* OPTIONAL */ woort_CodeEnv* wo_load_file(
+    woort_U8CString virtual_src_path,
+    /* OPTIONAL */ wo_CompileErrors** out_errors);
+
+WO_API /* OPTIONAL */ woort_CodeEnv* wo_load_binary(
+    woort_U8CString virtual_src_path,
+    const void* buffer,
+    size_t length,
+    /* OPTIONAL */ wo_CompileErrors** out_errors);
+
+// Iterate compile errors. Returns pointer to internal wo_CompileErrorInfo
+// (valid until next call or wo_compile_errors_free). Returns NULL when exhausted.
+WO_API wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors);
+
+// Free the compile errors iterator.
+WO_API void wo_compile_errors_free(wo_CompileErrors* errors);
+
 WO_API char32_t wo_str_get_char(const char* str, size_t index);
 WO_API char32_t wo_strn_get_char(const char* str, size_t size, size_t index);
 

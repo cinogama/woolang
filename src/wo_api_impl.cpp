@@ -145,9 +145,6 @@ void wo_init(int argc, char** argv)
 
     // Initialize the self-module handle for global extern("func") lookups
     wo::rslib_extern_symbols::init_wo_lib();
-
-    void _wo_test_compile();
-    _wo_test_compile();
 }
 
 const char* wo_locale_name(void)
@@ -568,47 +565,144 @@ bool _wo_compile_entry(
     return compile_result == wo::compile_result::PROCESS_OK;
 }
 
-void _wo_test_compile()
+struct _wo_CompileErrors
 {
-    const char* src = R"(
-        extern("test_debug")
-        func test_debug()=> string;
+    std::optional<std::unique_ptr<wo::lexer>> m_lexer;
+    size_t m_current_index;
+    wo_CompileErrorInfo m_current_info;
 
-        extern func add(a: string, b: string)
-        {
-            return a + b + test_debug();
-        }
-    )";
-
-    std::optional<woort_CodeEnv*> out_env_if_success;
-    std::optional<std::unique_ptr<wo::lexer>> out_lexer_if_failed;
-
-    _wo_compile_entry(
-        "test.wo",
-        src,
-        strlen(src),
-        std::nullopt,
-        &out_env_if_success,
-        &out_lexer_if_failed);
-
-    woort_CodeEnv_dumps(out_env_if_success.value());
-
-    woort_VMRuntime* vm = woort_vm_create();
-
-    woort_VMRuntime* const last = woort_vm_swap(vm);
+    _wo_CompileErrors(std::optional<std::unique_ptr<wo::lexer>> lex)
+        : m_lexer(std::move(lex))
+        , m_current_index(0)
     {
-        woort_StackValue sv;
-        (void)woort_push_reserve(3, &sv);
-
-        woort_set_string(sv + 0, "Hello");
-        woort_set_string(sv + 1, "world");
-        (void)woort_load_extern_const(sv + 2, out_env_if_success.value(), "add");
-
-        (void)woort_invoke(sv + 0, sv + 2);
-
-        printf("%s\n", woort_string(sv + 0));
-
-        woort_pop(3);
+        m_current_info.m_file_name = nullptr;
+        m_current_info.m_message = nullptr;
+        m_current_info.m_begin_row = 0;
+        m_current_info.m_begin_col = 0;
+        m_current_info.m_end_row = 0;
+        m_current_info.m_end_col = 0;
+        m_current_info.m_is_error = 0;
     }
-    (void)woort_vm_swap(last);
+
+    _wo_CompileErrors(const _wo_CompileErrors&) = delete;
+    _wo_CompileErrors(_wo_CompileErrors&&) = delete;
+    _wo_CompileErrors& operator=(const _wo_CompileErrors&) = delete;
+    _wo_CompileErrors& operator=(_wo_CompileErrors&&) = delete;
+};
+
+wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors)
+{
+    if (errors == nullptr)
+        return nullptr;
+
+    auto& msg_list = errors->m_lexer.value()->get_current_error_frame();
+    if (errors->m_current_index >= msg_list.size())
+        return nullptr;
+
+    auto& msg = msg_list[errors->m_current_index++];
+    errors->m_current_info.m_file_name = msg.m_filename.c_str();
+    errors->m_current_info.m_message = msg.m_describe.c_str();
+    errors->m_current_info.m_begin_row = msg.m_range_begin[0];
+    errors->m_current_info.m_begin_col = msg.m_range_begin[1];
+    errors->m_current_info.m_end_row = msg.m_range_end[0];
+    errors->m_current_info.m_end_col = msg.m_range_end[1];
+    errors->m_current_info.m_is_error =
+        (msg.m_level == wo::lexer::msglevel_t::error) ? 1 : 0;
+
+    return &errors->m_current_info;
+}
+
+void wo_compile_errors_free(wo_CompileErrors* errors)
+{
+    delete errors;
+}
+
+woort_CodeEnv* wo_load_binary(
+    woort_U8CString virtual_src_path,
+    const void* buffer,
+    size_t length,
+    /* OPTIONAL */ wo_CompileErrors** out_errors)
+{
+    if (out_errors != nullptr)
+        *out_errors = nullptr;
+
+    static std::atomic_size_t vcount = 0;
+    std::string vpath;
+    if (virtual_src_path == nullptr)
+        vpath = "/woolang/__runtime_script_" + std::to_string(++vcount) + "__";
+    else
+    {
+        vpath = virtual_src_path;
+        wo::normalize_path(&vpath);
+    }
+
+    if (!wo_virtual_binary(vpath.c_str(), buffer, length, true))
+        return nullptr;
+
+    std::optional<woort_CodeEnv*> code_env;
+    std::optional<std::unique_ptr<wo::lexer>> failed_lexer;
+
+    bool ok = _wo_compile_entry(
+        vpath.c_str(),
+        buffer,
+        length,
+        std::nullopt,
+        &code_env,
+        &failed_lexer);
+
+    if (ok)
+    {
+        wo_assert(code_env.has_value());
+        return code_env.value();
+    }
+
+    if (out_errors != nullptr && failed_lexer.has_value())
+    {
+        *out_errors = reinterpret_cast<wo_CompileErrors*>(
+            new _wo_CompileErrors(std::move(failed_lexer)));
+    }
+    return nullptr;
+}
+
+woort_CodeEnv* wo_load_source(
+    woort_U8CString virtual_src_path,
+    woort_U8CString src,
+    /* OPTIONAL */ wo_CompileErrors** out_errors)
+{
+    return wo_load_binary(virtual_src_path, src, strlen(src), out_errors);
+}
+
+woort_CodeEnv* wo_load_file(
+    woort_U8CString virtual_src_path,
+    /* OPTIONAL */ wo_CompileErrors** out_errors)
+{
+    if (out_errors != nullptr)
+        *out_errors = nullptr;
+
+    std::string vpath = virtual_src_path;
+    wo::normalize_path(&vpath);
+
+    std::optional<woort_CodeEnv*> code_env;
+    std::optional<std::unique_ptr<wo::lexer>> failed_lexer;
+
+    bool ok = _wo_compile_entry(
+        vpath.c_str(),
+        nullptr,
+        0,
+        std::nullopt,
+        &code_env,
+        &failed_lexer);
+
+    if (ok)
+    {
+        wo_assert(code_env.has_value());
+        return code_env.value();
+    }
+
+    if (out_errors != nullptr && failed_lexer.has_value())
+    {
+        *out_errors = reinterpret_cast<wo_CompileErrors*>(
+            new _wo_CompileErrors(std::move(failed_lexer)));
+    }
+    return nullptr;
 }

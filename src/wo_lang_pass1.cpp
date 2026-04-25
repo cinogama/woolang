@@ -1,9 +1,6 @@
 #include "wo_afx.hpp"
 
-woort_api rslib_std_bad_function()
-{
-    return woort_ret_panic("This function cannot be invoked.");
-}
+#include "wo_internal_native_function.hpp"
 
 namespace wo
 {
@@ -6438,7 +6435,7 @@ namespace wo
 
             if (extern_function == nullptr
                 && config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
-                extern_function = rslib_std_bad_function;
+                extern_function = &internal_native::bad_function;
         }
         else
         {

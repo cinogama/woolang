@@ -11,11 +11,6 @@
 #include <vector>
 #include <string>
 
-inline woort_api test_debug(void)
-{
-    return woort_ret_string("woolang 1.15~!");
-}
-
 namespace wo
 {
     class rslib_extern_symbols
@@ -28,7 +23,6 @@ namespace wo
             wo_assert(_current_wo_lib_handle == nullptr);
 
             woort_ExternLibFunc funcs[] = {
-                {"test_debug", (void*)&test_debug},
                 WOORT_EXTERN_LIB_FUNC_END,
             };
 
