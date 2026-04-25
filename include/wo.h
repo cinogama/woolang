@@ -1,22 +1,33 @@
 #pragma once
-// Woolang Header
-//
-// Here will have woolang c api;
-//
+
+/**
+ * @brief Woolang C API
+ *
+ * High-level public API for the Woolang scripting language.
+ * Provides compiler, virtual file system, runtime integration,
+ * LSP service, and utility functions.
+ * Depends on woort.h for low-level runtime types.
+ */
+
+/** @brief Woolang version encoded as (major, minor, patch, tweak). */
 #define WO_VERSION WO_VERSION_WRAP(1, 15, 0, 0)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
+/** @brief Low-level runtime API (VM, IR compiler, bytecode). */
 #include "woort.h"
 
 #ifdef __cplusplus
 #include <cstdint>
 #include <cstddef>
 #include <clocale>
+/** @brief Begin a C-linkage block for C++ compatibility. */
 #define WO_FORCE_CAPI \
     extern "C"        \
     {
+/** @brief End a C-linkage block for C++ compatibility. */
 #define WO_FORCE_CAPI_END }
+/** @brief Cross-platform alignment specifier. */
 #define WO_DECLARE_ALIGNAS(VAL) alignas(VAL)
 #else
 #include <stdint.h>
@@ -29,6 +40,7 @@
 #define WO_DECLARE_ALIGNAS(VAL) _Alignas(VAL)
 #endif
 
+/** @brief DLL import symbol (Win32) or extern (other platforms). */
 #ifdef _WIN32
 #define WO_IMPORT __declspec(dllimport)
 #define WO_EXPORT __declspec(dllexport)
@@ -37,13 +49,14 @@
 #define WO_EXPORT extern
 #endif
 
+/** @brief Select import or export based on whether woolang is being built or consumed. */
 #ifdef WO_IMPL
-#define WO_STRICTLY_BOOL
 #define WO_IMPORT_OR_EXPORT WO_EXPORT
 #else
 #define WO_IMPORT_OR_EXPORT WO_IMPORT
 #endif
 
+/** @brief Public API visibility: empty for static lib, import/export for shared lib. */
 #ifdef WO_STATIC_LIB
 #define WO_API
 #else
@@ -52,9 +65,23 @@
 
 WO_FORCE_CAPI
 
+/** @brief Reserve BYTECOUNT bytes of padding inside a struct. */
 #define WO_STRUCT_TAKE_PLACE(BYTECOUNT) uint8_t _take_palce_[BYTECOUNT]
 
-// Return WO_FALSE to abort vm.
+/**
+ * @brief Runtime error/failure handler callback.
+ *
+ * When a runtime error occurs, this callback is invoked.
+ * Return WO_FALSE to abort the VM, WO_TRUE to continue (if possible).
+ *
+ * @param vm_may_null  The VM instance that triggered the error (may be NULL).
+ * @param src_file     Source file where the error occurred.
+ * @param lineno       Line number where the error occurred.
+ * @param functionname Function name where the error occurred.
+ * @param rterrcode    Runtime error code identifier.
+ * @param reason       Human-readable error description.
+ * @return true to continue execution, false to abort the VM.
+ */
 typedef bool (*wo_fail_handler_t)(
     /* OPTIONAL */ woort_VMRuntime* vm_may_null,
     const char* src_file,
@@ -63,58 +90,124 @@ typedef bool (*wo_fail_handler_t)(
     uint32_t rterrcode,
     const char* reason);
 
+/** @brief Opaque handle to a loaded dynamic library. */
 typedef void* wo_dylib_handle_t;
 
+/**
+ * @brief Method for unloading a dynamic library.
+ */
 typedef enum _wo_dylib_unload_method_t
 {
+    /** @brief No operation. */
     WO_DYLIB_NONE = 0,
 
-    // WO_DYLIB_UNREF: Reduces the number of references to the specified library,
-    //  and when the last reference is released, removes the library instance from
-    //  the reference table.
+    /**
+     * @brief Decrement the library reference count.
+     *
+     * When the last reference is released, the library instance is removed
+     * from the reference table.
+     */
     WO_DYLIB_UNREF = 1 << 0,
 
-    // WO_DYLIB_BURY: Removes the library from the lookup table without changing
-    //  the reference count of the library.
+    /**
+     * @brief Remove the library from the lookup table without changing the reference count.
+     */
     WO_DYLIB_BURY = 1 << 1,
 
+    /** @brief Unref and bury the library in one operation. */
     WO_DYLIB_UNREF_AND_BURY = WO_DYLIB_UNREF | WO_DYLIB_BURY,
 
 } wo_dylib_unload_method_t;
 
+/**
+ * @brief Output formatting style for diagnostic messages.
+ */
 typedef enum _wo_inform_style_t
 {
+    /** @brief Default style with colors if supported. */
     WO_DEFAULT = 0,
 
+    /** @brief No output (silent mode). */
     WO_NOTHING = 1,
+
+    /** @brief Force colored output via ANSI escape codes. */
     WO_NEED_COLOR = 2,
 
 } wo_inform_style_t;
 
+/**
+ * @brief A name-to-address pair for registering external library functions.
+ */
 typedef struct _wo_extern_lib_func_pair
 {
-    const char* m_name;
-    void* m_func_addr;
+    const char* m_name;       /**< @brief Function name as seen in Woolang. */
+    void* m_func_addr;        /**< @brief Pointer to the C function implementation. */
 } wo_extern_lib_func_t;
 
+/** @brief Opaque handle to a virtual file. */
 typedef struct _wo_virtual_file* wo_virtual_file_t;
+
+/** @brief Opaque iterator for enumerating virtual files. */
 typedef struct _wo_virtual_file_iter* wo_virtual_file_iter_t;
 
+/** @brief Opaque handle to a pinned GC value (prevents collection). */
 typedef struct _wo_pin_value* wo_pin_value;
+
+/** @brief Opaque handle to a weak reference (non-owning GC pointer). */
 typedef struct _wo_weak_ref* wo_weak_ref;
 
+/** @brief Sentinel terminator for wo_extern_lib_func_t arrays. */
 #define WO_EXTERN_LIB_FUNC_END \
     wo_extern_lib_func_t { nullptr, nullptr }
+/** @brief Trigger a fatal runtime error (aborts the process). */
 #define wo_fail(ERRID, ...) abort()
+
+/** @brief Trigger a fatal execution error on the given VM (aborts the process). */
 #define wo_execute_fail(VM, ERRID, REASON) abort()
 
+/* ========== Version & Locale API ========== */
+
+/**
+ * @brief Get the Git commit SHA from which woolang was built.
+ * @return A null-terminated C string containing the commit SHA.
+ */
 WO_API const char* wo_commit_sha(void);
+
+/**
+ * @brief Get the compile date/time string.
+ * @return A null-terminated C string containing the compile timestamp.
+ */
 WO_API const char* wo_compile_date(void);
+
+/**
+ * @brief Get the woolang version string.
+ * @return A version string in the form "major.minor.patch.tweak" (e.g. "1.15.0.0").
+ */
 WO_API const char* wo_version(void);
+
+/**
+ * @brief Get the woolang version as a packed 64-bit integer.
+ * @return The version encoded as a 64-bit integer.
+ */
 WO_API uint64_t wo_version_int(void);
 
+/**
+ * @brief Get the system locale name.
+ * @return A null-terminated C string with the locale name (e.g. "en_US.UTF-8").
+ */
 WO_API const char* wo_locale_name(void);
 
+/* ========== Lifecycle API ========== */
+
+/**
+ * @brief Initialize the woolang runtime.
+ *
+ * Must be called once before any other woolang API functions.
+ * The macro form additionally calls setlocale(LC_CTYPE, wo_locale_name()).
+ *
+ * @param argc  Argument count (as passed to main).
+ * @param argv  Argument vector (as passed to main).
+ */
 WO_API void wo_init(int argc, char** argv);
 #define wo_init(argc, argv)                    \
     do                                         \
@@ -122,98 +215,321 @@ WO_API void wo_init(int argc, char** argv);
         wo_init(argc, argv);                   \
         setlocale(LC_CTYPE, wo_locale_name()); \
     } while (0)
+
+/**
+ * @brief Shut down the woolang runtime and run a cleanup callback.
+ *
+ * @param do_after_shutdown  Optional callback invoked after shutdown is complete.
+ * @param custom_data        User data passed to the callback.
+ */
 WO_API void wo_finish(void (*do_after_shutdown)(void*), void* custom_data);
 
+/* ========== Virtual File System API ========== */
+
+/**
+ * @brief Register a virtual binary file in the in-memory file system.
+ *
+ * @param filepath       Virtual path to register the data at.
+ * @param data           Pointer to the binary data.
+ * @param len            Length of the binary data in bytes.
+ * @param enable_modify  Whether the virtual file content can be modified.
+ * @return true on success, false on failure.
+ */
 WO_API bool wo_virtual_binary(
     const char* filepath,
     const void* data,
     size_t len,
     bool enable_modify);
+
+/**
+ * @brief Register a virtual source file in the in-memory file system.
+ *
+ * @param filepath       Virtual path to register the source at.
+ * @param data           Null-terminated source code string.
+ * @param enable_modify  Whether the virtual file content can be modified.
+ * @return true on success, false on failure.
+ */
 WO_API bool wo_virtual_source(
     const char* filepath,
     const char* data,
     bool enable_modify);
 
+/**
+ * @brief Open a virtual file by path.
+ * @param filepath  Virtual path of the file to open.
+ * @return A virtual file handle, or NULL if not found.
+ */
 WO_API wo_virtual_file_t wo_open_virtual_file(const char* filepath);
+
+/**
+ * @brief Get the path of a virtual file.
+ * @param file  The virtual file handle.
+ * @return The file path string.
+ */
 WO_API const char* wo_virtual_file_path(wo_virtual_file_t file);
+
+/**
+ * @brief Get the data pointer and length of a virtual file.
+ * @param file  The virtual file handle.
+ * @param len   Output parameter receiving the data length in bytes.
+ * @return A pointer to the file data.
+ */
 WO_API const void* wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
+
+/**
+ * @brief Close a virtual file handle and release its resources.
+ * @param file  The virtual file handle to close.
+ */
 WO_API void wo_close_virtual_file(wo_virtual_file_t file);
 
+/**
+ * @brief Create an iterator over all registered virtual files.
+ * @return A new virtual file iterator handle.
+ */
 WO_API wo_virtual_file_iter_t wo_open_virtual_file_iter(void);
-WO_API const char* /* may null */ wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
+
+/**
+ * @brief Advance the virtual file iterator and return the next file path.
+ * @param iter  The virtual file iterator.
+ * @return The next file path, or NULL when exhausted.
+ */
+WO_API /* OPTIONAL */ const char* wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
+
+/**
+ * @brief Destroy a virtual file iterator.
+ * @param iter  The iterator to destroy.
+ */
 WO_API void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
 
+/**
+ * @brief Remove a virtual file from the in-memory file system.
+ * @param filepath  Virtual path of the file to remove.
+ * @return true on success, false if the file was not found.
+ */
 WO_API bool wo_remove_virtual_file(const char* filepath);
 
-// Load woolang source/file/binary and get compiled CodeEnv without a VM.
-// Returns woort_CodeEnv* on success (caller must woort_CodeEnv_drop() it).
-// On failure, returns NULL. If out_errors != NULL, *out_errors is set to
-// a wo_CompileErrors object that can be iterated (caller must free it).
+/* ========== Compile API ========== */
 
+/**
+ * @brief A single compile error or informational message.
+ */
 typedef struct _wo_CompileErrorInfo
 {
-    const char* m_file_name;
-    const char* m_message;
-    size_t      m_begin_row;
-    size_t      m_begin_col;
-    size_t      m_end_row;
-    size_t      m_end_col;
-    int         m_is_error; // 1 = error, 0 = information
+    const char* m_file_name;   /**< @brief Source file name. */
+    const char* m_message;     /**< @brief Error or information message text. */
+    size_t      m_begin_row;   /**< @brief Start row (1-based). */
+    size_t      m_begin_col;   /**< @brief Start column (1-based). */
+    size_t      m_end_row;     /**< @brief End row (1-based). */
+    size_t      m_end_col;     /**< @brief End column (1-based). */
+    int         m_is_error;    /**< @brief 1 = error, 0 = information. */
 } wo_CompileErrorInfo;
 
+/** @brief Opaque iterator for enumerating compile errors. */
 typedef struct _wo_CompileErrors wo_CompileErrors;
 
+/** @brief Default entry point function name. */
 #define WO_DEFAULT_ENTRY "@entry"
 
+/**
+ * @brief Compile Woolang source code and produce a CodeEnv without a VM.
+ *
+ * @param virtual_src_path  Virtual path used for error reporting and module resolution.
+ * @param src               Source code string to compile.
+ * @param out_errors        Optional pointer to receive a compile errors iterator (must be freed).
+ * @return A woort_CodeEnv* on success, or NULL on failure.
+ * @note Caller must woort_CodeEnv_drop() the returned CodeEnv when done.
+ */
 WO_API /* OPTIONAL */ woort_CodeEnv* wo_load_source(
     woort_U8CString virtual_src_path,
     woort_U8CString src,
     /* OPTIONAL */ wo_CompileErrors** out_errors);
 
+/**
+ * @brief Load and compile a source file and produce a CodeEnv without a VM.
+ *
+ * @param virtual_src_path  Path to the source file to load.
+ * @param out_errors        Optional pointer to receive compile errors (must be freed).
+ * @return A woort_CodeEnv* on success, or NULL on failure.
+ * @note Caller must woort_CodeEnv_drop() the returned CodeEnv when done.
+ */
 WO_API /* OPTIONAL */ woort_CodeEnv* wo_load_file(
     woort_U8CString virtual_src_path,
     /* OPTIONAL */ wo_CompileErrors** out_errors);
 
+/**
+ * @brief Load a precompiled binary and produce a CodeEnv without a VM.
+ *
+ * @param virtual_src_path  Virtual path used for error reporting.
+ * @param buffer            Pointer to the compiled binary data.
+ * @param length            Length of the binary data.
+ * @param out_errors        Optional pointer to receive compile errors (must be freed).
+ * @return A woort_CodeEnv* on success, or NULL on failure.
+ * @note Caller must woort_CodeEnv_drop() the returned CodeEnv when done.
+ */
 WO_API /* OPTIONAL */ woort_CodeEnv* wo_load_binary(
     woort_U8CString virtual_src_path,
     const void* buffer,
     size_t length,
     /* OPTIONAL */ wo_CompileErrors** out_errors);
 
-// Iterate compile errors. Returns pointer to internal wo_CompileErrorInfo
-// (valid until next call or wo_compile_errors_free). Returns NULL when exhausted.
+/**
+ * @brief Advance the compile errors iterator and return the next error.
+ *
+ * @param errors  The compile errors iterator.
+ * @return A pointer to the next wo_CompileErrorInfo, or NULL when exhausted.
+ * @note The returned pointer is valid until the next call to this function or
+ *       wo_compile_errors_free().
+ */
 WO_API wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors);
 
-// Free the compile errors iterator.
+/**
+ * @brief Free a compile errors iterator.
+ * @param errors  The compile errors iterator to free.
+ */
 WO_API void wo_compile_errors_free(wo_CompileErrors* errors);
 
-// Get a formatted compile error string (rich output with source snippets and colors).
-// style: WO_DEFAULT, WO_NOTHING, or WO_NEED_COLOR.
-// Returns a thread-local C string, valid until the next call.
+/**
+ * @brief Get a formatted compile error string with source snippets and colors.
+ *
+ * @param errors  The compile errors iterator.
+ * @param style   Output style: WO_DEFAULT, WO_NOTHING, or WO_NEED_COLOR.
+ * @return A thread-local C string, valid until the next call to this function.
+ */
 WO_API const char* wo_get_compile_error(
     wo_CompileErrors* errors,
     wo_inform_style_t style);
 
+/* ========== String / Unicode Conversion API ========== */
+
+/**
+ * @brief Get the Unicode code point at a byte index in a UTF-8 string.
+ * @param str    The UTF-8 string.
+ * @param index  Byte offset into the string.
+ * @return The Unicode code point at the given position.
+ */
 WO_API char32_t wo_str_get_char(const char* str, size_t index);
+
+/**
+ * @brief Get the Unicode code point at a byte index in a UTF-8 string with explicit length.
+ * @param str    The UTF-8 string.
+ * @param size   Length of the string in bytes.
+ * @param index  Byte offset into the string.
+ * @return The Unicode code point at the given position.
+ */
 WO_API char32_t wo_strn_get_char(const char* str, size_t size, size_t index);
 
+/**
+ * @brief Convert a UTF-8 string to a wide-character string.
+ * @param str  The UTF-8 input string.
+ * @return A wide-character string (thread-local storage, valid until next call).
+ */
 WO_API const wchar_t* wo_str_to_wstr(const char* str);
+
+/**
+ * @brief Convert a UTF-8 string (with explicit length) to a wide-character string.
+ * @param str   The UTF-8 input string.
+ * @param size  Length of the string in bytes.
+ * @return A wide-character string (thread-local storage).
+ */
 WO_API const wchar_t* wo_strn_to_wstr(const char* str, size_t size);
+
+/**
+ * @brief Convert a wide-character string to a UTF-8 string.
+ * @param str  The wide-character input string.
+ * @return A UTF-8 string (thread-local storage).
+ */
 WO_API const char* wo_wstr_to_str(const wchar_t* str);
+
+/**
+ * @brief Convert a wide-character string (with explicit length) to a UTF-8 string.
+ * @param str   The wide-character input string.
+ * @param size  Length of the string in wide characters.
+ * @return A UTF-8 string (thread-local storage).
+ */
 WO_API const char* wo_wstrn_to_str(const wchar_t* str, size_t size);
 
+/**
+ * @brief Convert a UTF-8 string to a UTF-16 string.
+ * @param str  The UTF-8 input string.
+ * @return A UTF-16 string (thread-local storage).
+ */
 WO_API const char16_t* wo_str_to_u16str(const char* str);
+
+/**
+ * @brief Convert a UTF-8 string (with explicit length) to a UTF-16 string.
+ * @param str   The UTF-8 input string.
+ * @param size  Length of the string in bytes.
+ * @return A UTF-16 string (thread-local storage).
+ */
 WO_API const char16_t* wo_strn_to_u16str(const char* str, size_t size);
+
+/**
+ * @brief Convert a UTF-16 string to a UTF-8 string.
+ * @param str  The UTF-16 input string.
+ * @return A UTF-8 string (thread-local storage).
+ */
 WO_API const char* wo_u16str_to_str(const char16_t* str);
+
+/**
+ * @brief Convert a UTF-16 string (with explicit length) to a UTF-8 string.
+ * @param str   The UTF-16 input string.
+ * @param size  Length of the string in UTF-16 code units.
+ * @return A UTF-8 string (thread-local storage).
+ */
 WO_API const char* wo_u16strn_to_str(const char16_t* str, size_t size);
 
+/**
+ * @brief Convert a UTF-8 string to a UTF-32 string.
+ * @param str  The UTF-8 input string.
+ * @return A UTF-32 string (thread-local storage).
+ */
 WO_API const char32_t* wo_str_to_u32str(const char* str);
+
+/**
+ * @brief Convert a UTF-8 string (with explicit length) to a UTF-32 string.
+ * @param str   The UTF-8 input string.
+ * @param size  Length of the string in bytes.
+ * @return A UTF-32 string (thread-local storage).
+ */
 WO_API const char32_t* wo_strn_to_u32str(const char* str, size_t size);
+
+/**
+ * @brief Convert a UTF-32 string to a UTF-8 string.
+ * @param str  The UTF-32 input string.
+ * @return A UTF-8 string (thread-local storage).
+ */
 WO_API const char* wo_u32str_to_str(const char32_t* str);
+
+/**
+ * @brief Convert a UTF-32 string (with explicit length) to a UTF-8 string.
+ * @param str   The UTF-32 input string.
+ * @param size  Length of the string in UTF-32 code units.
+ * @return A UTF-8 string (thread-local storage).
+ */
 WO_API const char* wo_u32strn_to_str(const char32_t* str, size_t size);
 
+/* ========== CRC64 API ========== */
+
+/**
+ * @brief Accumulate a single byte into a CRC-64 checksum.
+ * @param byte  The byte to incorporate.
+ * @param crc   The current CRC-64 value (use 0 to start).
+ * @return The updated CRC-64 checksum.
+ */
 WO_API int64_t wo_crc64_u8(uint8_t byte, int64_t crc);
+
+/**
+ * @brief Compute the CRC-64 checksum of a null-terminated string.
+ * @param text  The input string.
+ * @return The CRC-64 checksum.
+ */
 WO_API int64_t wo_crc64_str(const char* text);
+
+/**
+ * @brief Compute the CRC-64 checksum of a file's contents.
+ * @param filepath  Path to the file.
+ * @return The CRC-64 checksum, or 0 on error.
+ */
 WO_API int64_t wo_crc64_file(const char* filepath);
 
 #if defined(WO_IMPL)
@@ -223,407 +539,791 @@ WO_API int64_t wo_crc64_file(const char* filepath);
 #define WO_NEED_OPCODE_API 1
 #endif
 
-#if defined(WO_NEED_LSP_API)
-// Following API named with wo_lsp_... will be used for getting meta-data by language-service.
+/* ========== LSP (Language Server Protocol) API ========== */
 
+#if defined(WO_NEED_LSP_API)
+/**
+ * @brief LSP API provides metadata about Woolang source code for language tooling.
+ *
+ * All functions prefixed with wo_lspv2_ are used to retrieve structured information
+ * about compiled source code: scopes, symbols, types, expressions, and macros.
+ */
+
+/** @brief Severity level for LSP diagnostic messages. */
 typedef enum _wo_lsp_error_level
 {
-    WO_LSP_ERROR,
-    WO_LSP_INFORMATION,
+    WO_LSP_ERROR,          /**< @brief Compilation error. */
+    WO_LSP_INFORMATION,    /**< @brief Informational message. */
 
 } wo_lsp_error_level;
 
-// LSPv2 API
+/** @name LSPv2 Common Types */
+/**@{*/
+
+/** @brief Source location spanning a range in a file. */
 typedef struct _wo_lspv2_location
 {
-    const char* m_file_name;
-    size_t m_begin_location[2]; // An array stores row & col
-    size_t m_end_location[2];   // An array stores row & col
+    const char* m_file_name;         /**< @brief Source file path. */
+    size_t m_begin_location[2];      /**< @brief Start position [row, col] (0-based). */
+    size_t m_end_location[2];        /**< @brief End position [row, col] (0-based). */
 } wo_lspv2_location;
 
+/** @brief Opaque handle to compiled source metadata. */
 typedef struct _wo_lspv2_source_meta wo_lspv2_source_meta;
+
+/** @brief Opaque handle to a lexical scope. */
 typedef struct _wo_lspv2_scope wo_lspv2_scope;
+
+/** @brief Opaque iterator over sub-scopes. */
 typedef struct _wo_lspv2_scope_iter wo_lspv2_scope_iter;
+
+/** @brief Opaque handle to a symbol definition. */
 typedef struct _wo_lspv2_symbol wo_lspv2_symbol;
+
+/** @brief Opaque iterator over symbols. */
 typedef struct _wo_lspv2_symbol_iter wo_lspv2_symbol_iter;
 
+/** @brief Information about a lexical scope. */
 typedef struct _wo_lspv2_scope_info
 {
-    const char* m_name; // null if not namespace
-    bool m_has_location;
-    wo_lspv2_location m_location;
+    /* OPTIONAL */ const char* m_name; /**< @brief Namespace name, or NULL for anonymous scopes. */
+    bool m_has_location;               /**< @brief Whether m_location is valid. */
+    wo_lspv2_location m_location;      /**< @brief Scope span in source. */
 } wo_lspv2_scope_info;
 
+/** @brief Kind of a symbol definition. */
 typedef enum _wo_lspv2_symbol_kind
 {
-    WO_LSPV2_SYMBOL_VARIBALE,
-    WO_LSPV2_SYMBOL_TYPE,
-    WO_LSPV2_SYMBOL_ALIAS,
+    WO_LSPV2_SYMBOL_VARIBALE,  /**< @brief Variable binding. */
+    WO_LSPV2_SYMBOL_TYPE,      /**< @brief Type definition. */
+    WO_LSPV2_SYMBOL_ALIAS,     /**< @brief Type alias. */
 
 } wo_lspv2_symbol_kind;
 
+/** @brief Opaque handle to a resolved type. */
 typedef struct _wo_lspv2_type wo_lspv2_type;
+
+/** @brief Opaque handle to a compile-time constant value. */
 typedef struct _wo_lspv2_constant wo_lspv2_constant;
 
+/** @brief Information about a compile-time constant. */
 typedef struct _wo_lspv2_constant_info
 {
-    const char* m_expr;
+    const char* m_expr; /**< @brief Constant expression as a string. */
 
 } wo_lspv2_constant_info;
 
+/** @brief Kind of a template parameter. */
 typedef enum _wo_lspv2_template_param_kind
 {
-    WO_LSPV2_TEMPLATE_PARAM_TYPE,
-    WO_LSPV2_TEMPLATE_PARAM_CONSTANT,
+    WO_LSPV2_TEMPLATE_PARAM_TYPE,      /**< @brief Type template parameter. */
+    WO_LSPV2_TEMPLATE_PARAM_CONSTANT,  /**< @brief Constant template parameter. */
 
-}wo_lspv2_template_param_kind;
+} wo_lspv2_template_param_kind;
 
+/** @brief A template parameter declaration. */
 typedef struct _wo_lspv2_template_param
 {
-    wo_lspv2_template_param_kind m_kind;
-    const char* m_name;
+    wo_lspv2_template_param_kind m_kind; /**< @brief Parameter kind (type or constant). */
+    const char* m_name;                  /**< @brief Parameter name. */
 
-}wo_lspv2_template_param;
+} wo_lspv2_template_param;
 
+/** @brief A template argument binding. */
 typedef struct _wo_lspv2_template_argument
 {
-    wo_lspv2_template_param_kind m_kind;
-    wo_lspv2_type* m_type;
-    wo_lspv2_constant* m_constant_may_null;
+    wo_lspv2_template_param_kind m_kind;                    /**< @brief Argument kind (type or constant). */
+    /* OPTIONAL */ wo_lspv2_type* m_type;                   /**< @brief Resolved type, or NULL for constant args. */
+    /* OPTIONAL */ wo_lspv2_constant* m_constant_may_null;  /**< @brief Constant value, or NULL for type args. */
 
-}wo_lspv2_template_argument;
+} wo_lspv2_template_argument;
 
+/** @brief Information about a symbol definition. */
 typedef struct _wo_lspv2_symbol_info
 {
-    wo_lspv2_symbol_kind m_type;
-    const char* m_name;
-    size_t m_template_params_count;
-    const _wo_lspv2_template_param* m_template_params;
-    bool m_has_location;
-    wo_lspv2_location m_location;
+    wo_lspv2_symbol_kind m_type;                      /**< @brief Symbol kind. */
+    const char* m_name;                               /**< @brief Symbol name. */
+    size_t m_template_params_count;                   /**< @brief Number of template parameters. */
+    const _wo_lspv2_template_param* m_template_params; /**< @brief Template parameter array. */
+    bool m_has_location;                              /**< @brief Whether m_location is valid. */
+    wo_lspv2_location m_location;                     /**< @brief Symbol definition location. */
 } wo_lspv2_symbol_info;
 
+/** @brief Opaque iterator over compile errors from LSP compilation. */
 typedef struct _wo_lspv2_error_iter wo_lspv2_error_iter;
+
+/** @brief A single LSP diagnostic message. */
 typedef struct _wo_lspv2_error_info
 {
-    wo_lsp_error_level m_level;
-    size_t m_depth;
-    const char* m_describe;
-    wo_lspv2_location m_location;
+    wo_lsp_error_level m_level;  /**< @brief Severity level. */
+    size_t m_depth;              /**< @brief Nesting depth within the compilation unit. */
+    const char* m_describe;      /**< @brief Human-readable error description. */
+    wo_lspv2_location m_location; /**< @brief Source location of the error. */
 
 } wo_lspv2_error_info;
 
+/** @brief Opaque iterator over expression collections. */
 typedef struct _wo_lspv2_expr_collection_iter wo_lspv2_expr_collection_iter;
+
+/** @brief Opaque handle to a collection of expressions (one per source file). */
 typedef struct _wo_lspv2_expr_collection wo_lspv2_expr_collection;
+
+/** @brief Information about an expression collection. */
 typedef struct _wo_lspv2_expr_collection_info
 {
-    const char* m_file_name;
+    const char* m_file_name; /**< @brief Source file name for this collection. */
 } wo_lspv2_expr_collection_info;
 
+/** @brief Resolved type information. */
 typedef struct _wo_lspv2_type_info
 {
-    const char* m_name;
-    wo_lspv2_symbol* m_type_symbol;
-    size_t m_template_arguments_count;
-    const wo_lspv2_template_argument* m_template_arguments;
+    const char* m_name;                         /**< @brief Type display name. */
+    wo_lspv2_symbol* m_type_symbol;             /**< @brief The symbol that defines this type. */
+    size_t m_template_arguments_count;          /**< @brief Number of template arguments. */
+    const wo_lspv2_template_argument* m_template_arguments; /**< @brief Template argument bindings. */
 } wo_lspv2_type_info;
 
+/** @brief Opaque iterator over expressions. */
 typedef struct _wo_lspv2_expr_iter wo_lspv2_expr_iter;
+
+/** @brief Opaque handle to a typed expression node. */
 typedef struct _wo_lspv2_expr wo_lspv2_expr;
+
+/** @brief Information about a typed expression. */
 typedef struct _wo_lspv2_expr_info
 {
-    wo_lspv2_type* m_type;
-    wo_lspv2_location m_location;
-    wo_lspv2_symbol* m_symbol_may_null;
-    bool m_is_value_expr;       // false if type.
-    wo_lspv2_constant* m_const_value_may_null; // null if not const or is type.
-    size_t m_template_arguments_count;
-    const wo_lspv2_template_argument* m_template_arguments; // null if not template instance.
+    wo_lspv2_type* m_type;                              /**< @brief Resolved type of the expression. */
+    wo_lspv2_location m_location;                       /**< @brief Source location of the expression. */
+    /* OPTIONAL */ wo_lspv2_symbol* m_symbol_may_null;  /**< @brief Referenced symbol, if any. */
+    bool m_is_value_expr;                               /**< @brief true if value expression, false if type expression. */
+    /* OPTIONAL */ wo_lspv2_constant* m_const_value_may_null; /**< @brief Compile-time constant value, or NULL. */
+    size_t m_template_arguments_count;                         /**< @brief Number of template argument bindings. */
+    /* OPTIONAL */ const wo_lspv2_template_argument* m_template_arguments; /**< @brief Template arguments, or NULL. */
 } wo_lspv2_expr_info;
 
+/** @brief Detailed struct type member information. */
 typedef struct _wo_lspv2_type_struct_info
 {
-    size_t m_member_count;
-    const char** m_member_names;
-    wo_lspv2_type** m_member_types;
+    size_t m_member_count;         /**< @brief Number of struct members. */
+    const char** m_member_names;   /**< @brief Array of member names. */
+    wo_lspv2_type** m_member_types; /**< @brief Array of member types. */
 
 } wo_lspv2_type_struct_info;
 
+/** @brief Opaque handle to a macro definition. */
 typedef struct _wo_lspv2_macro wo_lspv2_macro;
+
+/** @brief Opaque iterator over macro definitions. */
 typedef struct _wo_lspv2_macro_iter wo_lspv2_macro_iter;
+
+/** @brief Information about a macro definition. */
 typedef struct _wo_lspv2_macro_info
 {
-    const char* m_name;
-    wo_lspv2_location m_location;
+    const char* m_name;            /**< @brief Macro name. */
+    wo_lspv2_location m_location;  /**< @brief Macro definition location. */
 } wo_lspv2_macro_info;
 
+/**
+ * @brief Lexer token types for the Woolang tokenizer (LSP use).
+ */
 typedef enum _wo_lspv2_lexer_token
 {
-    WO_LSPV2_TOKEN_EOF = -1,
-    WO_LSPV2_TOKEN_ERROR = 0,
-    WO_LSPV2_TOKEN_EMPTY,                // [empty]
-    WO_LSPV2_TOKEN_IDENTIFIER,           // identifier.
-    WO_LSPV2_TOKEN_LITERAL_INTEGER,      // 1 233 0x123456 0b1101001 032
-    WO_LSPV2_TOKEN_LITERAL_HANDLE,       // 0L 256L 0xFFL
-    WO_LSPV2_TOKEN_LITERAL_REAL,         // 0.2  0.
-    WO_LSPV2_TOKEN_LITERAL_STRING,       // "helloworld"
-    WO_LSPV2_TOKEN_LITERAL_RAW_STRING,   // @ raw_string @
-    WO_LSPV2_TOKEN_LITERAL_CHAR,         // 'x'
-    WO_LSPV2_TOKEN_FORMAT_STRING_BEGIN,  // F"..{
-    WO_LSPV2_TOKEN_FORMAT_STRING,        // }..{ 
-    WO_LSPV2_TOKEN_FORMAT_STRING_END,    // }.."
-    WO_LSPV2_TOKEN_SEMICOLON,            // ;
-    WO_LSPV2_TOKEN_COMMA,                // ,
-    WO_LSPV2_TOKEN_ADD,                  // +
-    WO_LSPV2_TOKEN_SUB,                  // - 
-    WO_LSPV2_TOKEN_MUL,                  // * 
-    WO_LSPV2_TOKEN_DIV,                  // / 
-    WO_LSPV2_TOKEN_MOD,                  // % 
-    WO_LSPV2_TOKEN_ASSIGN,               // =
-    WO_LSPV2_TOKEN_ADD_ASSIGN,           // +=
-    WO_LSPV2_TOKEN_SUB_ASSIGN,           // -= 
-    WO_LSPV2_TOKEN_MUL_ASSIGN,           // *=
-    WO_LSPV2_TOKEN_DIV_ASSIGN,           // /= 
-    WO_LSPV2_TOKEN_MOD_ASSIGN,           // %= 
-    WO_LSPV2_TOKEN_VALUE_ASSIGN,         // :=
-    WO_LSPV2_TOKEN_VALUE_ADD_ASSIGN,     // +:=
-    WO_LSPV2_TOKEN_VALUE_SUB_ASSIGN,     // -:= 
-    WO_LSPV2_TOKEN_VALUE_MUL_ASSIGN,     // *:=
-    WO_LSPV2_TOKEN_VALUE_DIV_ASSIGN,     // /:= 
-    WO_LSPV2_TOKEN_VALUE_MOD_ASSIGN,     // %:= 
-    WO_LSPV2_TOKEN_EQUAL,                // ==
-    WO_LSPV2_TOKEN_NOT_EQUAL,            // !=
-    WO_LSPV2_TOKEN_LARG_OR_EQUAL,        // >=
-    WO_LSPV2_TOKEN_LESS_OR_EQUAL,        // <=
-    WO_LSPV2_TOKEN_LESS,                 // <
-    WO_LSPV2_TOKEN_LARG,                 // >
-    WO_LSPV2_TOKEN_LAND,                 // &&
-    WO_LSPV2_TOKEN_LOR,                  // ||
-    WO_LSPV2_TOKEN_OR,                   // |
-    WO_LSPV2_TOKEN_LNOT,                 // !
-    WO_LSPV2_TOKEN_SCOPEING,             // ::
-    WO_LSPV2_TOKEN_TEMPLATE_USING_BEGIN, // :<
-    WO_LSPV2_TOKEN_TYPECAST,             // :
-    WO_LSPV2_TOKEN_INDEX_POINT,          // .
-    WO_LSPV2_TOKEN_DOUBLE_INDEX_POINT,   // .. [Reserved]
-    WO_LSPV2_TOKEN_VARIADIC_SIGN,        // ...
-    WO_LSPV2_TOKEN_INDEX_BEGIN,          // '['
-    WO_LSPV2_TOKEN_INDEX_END,            // ']'
-    WO_LSPV2_TOKEN_DIRECT,               // '->'
-    WO_LSPV2_TOKEN_INV_DIRECT,           // '<|'
-    WO_LSPV2_TOKEN_FUNCTION_RESULT,      // '=>'
-    WO_LSPV2_TOKEN_BIND_MONAD,           // '=>>'
-    WO_LSPV2_TOKEN_MAP_MONAD,            // '->>'
-    WO_LSPV2_TOKEN_LEFT_BRACKETS,        // (
-    WO_LSPV2_TOKEN_RIGHT_BRACKETS,       // )
-    WO_LSPV2_TOKEN_LEFT_CURLY_BRACES,    // {
-    WO_LSPV2_TOKEN_RIGHT_CURLY_BRACES,   // }
-    WO_LSPV2_TOKEN_QUESTION,             // ?
-    WO_LSPV2_TOKEN_IMPORT,
-    WO_LSPV2_TOKEN_EXPORT,
-    WO_LSPV2_TOKEN_NIL,
-    WO_LSPV2_TOKEN_TRUE,
-    WO_LSPV2_TOKEN_FALSE,
-    WO_LSPV2_TOKEN_WHILE,
-    WO_LSPV2_TOKEN_IF,
-    WO_LSPV2_TOKEN_ELSE,
-    WO_LSPV2_TOKEN_NAMESPACE,
-    WO_LSPV2_TOKEN_FOR,
-    WO_LSPV2_TOKEN_EXTERN,
-    WO_LSPV2_TOKEN_LET,
-    WO_LSPV2_TOKEN_MUT,
-    WO_LSPV2_TOKEN_FUNC,
-    WO_LSPV2_TOKEN_RETURN,
-    WO_LSPV2_TOKEN_USING,
-    WO_LSPV2_TOKEN_ALIAS,
-    WO_LSPV2_TOKEN_ENUM,
-    WO_LSPV2_TOKEN_AS,
-    WO_LSPV2_TOKEN_IS,
-    WO_LSPV2_TOKEN_TYPEOF,
-    WO_LSPV2_TOKEN_PRIVATE,
-    WO_LSPV2_TOKEN_PUBLIC,
-    WO_LSPV2_TOKEN_PROTECTED,
-    WO_LSPV2_TOKEN_STATIC,
-    WO_LSPV2_TOKEN_BREAK,
-    WO_LSPV2_TOKEN_CONTINUE,
-    WO_LSPV2_TOKEN_LAMBDA,
-    WO_LSPV2_TOKEN_AT,
-    WO_LSPV2_TOKEN_DO,
-    WO_LSPV2_TOKEN_WHERE,
-    WO_LSPV2_TOKEN_OPERATOR,
-    WO_LSPV2_TOKEN_UNION,
-    WO_LSPV2_TOKEN_MATCH,
-    WO_LSPV2_TOKEN_STRUCT,
-    WO_LSPV2_TOKEN_IMMUT,
-    WO_LSPV2_TOKEN_TYPEID,
-    WO_LSPV2_TOKEN_DEFER,
-    WO_LSPV2_TOKEN_MACRO,
-    WO_LSPV2_TOKEN_LINE_COMMENT,
-    WO_LSPV2_TOKEN_BLOCK_COMMENT,
-    WO_LSPV2_TOKEN_SHEBANG_COMMENT,
-    WO_LSPV2_TOKEN_UNKNOWN_TOKEN,
+    WO_LSPV2_TOKEN_EOF = -1,                /**< @brief End of input. */
+    WO_LSPV2_TOKEN_ERROR = 0,               /**< @brief Lexer error. */
+    WO_LSPV2_TOKEN_EMPTY,                   /**< @brief Empty token. */
+    WO_LSPV2_TOKEN_IDENTIFIER,              /**< @brief Identifier. */
+    WO_LSPV2_TOKEN_LITERAL_INTEGER,         /**< @brief Integer literal (e.g. 1, 0x1234). */
+    WO_LSPV2_TOKEN_LITERAL_HANDLE,          /**< @brief Handle literal (e.g. 0L, 0xFFL). */
+    WO_LSPV2_TOKEN_LITERAL_REAL,            /**< @brief Real literal (e.g. 0.2). */
+    WO_LSPV2_TOKEN_LITERAL_STRING,          /**< @brief String literal ("hello"). */
+    WO_LSPV2_TOKEN_LITERAL_RAW_STRING,      /**< @brief Raw string literal (@ raw @). */
+    WO_LSPV2_TOKEN_LITERAL_CHAR,            /**< @brief Character literal ('x'). */
+    WO_LSPV2_TOKEN_FORMAT_STRING_BEGIN,     /**< @brief Format string begin (F"..{). */
+    WO_LSPV2_TOKEN_FORMAT_STRING,           /**< @brief Format string middle (}..{). */
+    WO_LSPV2_TOKEN_FORMAT_STRING_END,       /**< @brief Format string end (}.."). */
+    WO_LSPV2_TOKEN_SEMICOLON,               /**< @brief ; */
+    WO_LSPV2_TOKEN_COMMA,                   /**< @brief , */
+    WO_LSPV2_TOKEN_ADD,                     /**< @brief + */
+    WO_LSPV2_TOKEN_SUB,                     /**< @brief - */
+    WO_LSPV2_TOKEN_MUL,                     /**< @brief * */
+    WO_LSPV2_TOKEN_DIV,                     /**< @brief / */
+    WO_LSPV2_TOKEN_MOD,                     /**< @brief % */
+    WO_LSPV2_TOKEN_ASSIGN,                  /**< @brief = */
+    WO_LSPV2_TOKEN_ADD_ASSIGN,              /**< @brief += */
+    WO_LSPV2_TOKEN_SUB_ASSIGN,              /**< @brief -= */
+    WO_LSPV2_TOKEN_MUL_ASSIGN,              /**< @brief *= */
+    WO_LSPV2_TOKEN_DIV_ASSIGN,              /**< @brief /= */
+    WO_LSPV2_TOKEN_MOD_ASSIGN,              /**< @brief %= */
+    WO_LSPV2_TOKEN_VALUE_ASSIGN,            /**< @brief := */
+    WO_LSPV2_TOKEN_VALUE_ADD_ASSIGN,        /**< @brief +:= */
+    WO_LSPV2_TOKEN_VALUE_SUB_ASSIGN,        /**< @brief -:= */
+    WO_LSPV2_TOKEN_VALUE_MUL_ASSIGN,        /**< @brief *:= */
+    WO_LSPV2_TOKEN_VALUE_DIV_ASSIGN,        /**< @brief /:= */
+    WO_LSPV2_TOKEN_VALUE_MOD_ASSIGN,        /**< @brief %:= */
+    WO_LSPV2_TOKEN_EQUAL,                   /**< @brief == */
+    WO_LSPV2_TOKEN_NOT_EQUAL,               /**< @brief != */
+    WO_LSPV2_TOKEN_LARG_OR_EQUAL,           /**< @brief >= */
+    WO_LSPV2_TOKEN_LESS_OR_EQUAL,           /**< @brief <= */
+    WO_LSPV2_TOKEN_LESS,                    /**< @brief < */
+    WO_LSPV2_TOKEN_LARG,                    /**< @brief > */
+    WO_LSPV2_TOKEN_LAND,                    /**< @brief && */
+    WO_LSPV2_TOKEN_LOR,                     /**< @brief || */
+    WO_LSPV2_TOKEN_OR,                      /**< @brief | */
+    WO_LSPV2_TOKEN_LNOT,                    /**< @brief ! */
+    WO_LSPV2_TOKEN_SCOPEING,                /**< @brief :: */
+    WO_LSPV2_TOKEN_TEMPLATE_USING_BEGIN,    /**< @brief :< */
+    WO_LSPV2_TOKEN_TYPECAST,                /**< @brief : */
+    WO_LSPV2_TOKEN_INDEX_POINT,             /**< @brief . */
+    WO_LSPV2_TOKEN_DOUBLE_INDEX_POINT,      /**< @brief .. [Reserved] */
+    WO_LSPV2_TOKEN_VARIADIC_SIGN,           /**< @brief ... */
+    WO_LSPV2_TOKEN_INDEX_BEGIN,             /**< @brief '[' */
+    WO_LSPV2_TOKEN_INDEX_END,               /**< @brief ']' */
+    WO_LSPV2_TOKEN_DIRECT,                  /**< @brief -> */
+    WO_LSPV2_TOKEN_INV_DIRECT,              /**< @brief <| */
+    WO_LSPV2_TOKEN_FUNCTION_RESULT,         /**< @brief => */
+    WO_LSPV2_TOKEN_BIND_MONAD,              /**< @brief =>> */
+    WO_LSPV2_TOKEN_MAP_MONAD,               /**< @brief ->> */
+    WO_LSPV2_TOKEN_LEFT_BRACKETS,           /**< @brief ( */
+    WO_LSPV2_TOKEN_RIGHT_BRACKETS,          /**< @brief ) */
+    WO_LSPV2_TOKEN_LEFT_CURLY_BRACES,       /**< @brief { */
+    WO_LSPV2_TOKEN_RIGHT_CURLY_BRACES,      /**< @brief } */
+    WO_LSPV2_TOKEN_QUESTION,                /**< @brief ? */
 
-}wo_lspv2_lexer_token;
+    /* Keywords */
+    WO_LSPV2_TOKEN_IMPORT,                  /**< @brief import */
+    WO_LSPV2_TOKEN_EXPORT,                  /**< @brief export */
+    WO_LSPV2_TOKEN_NIL,                     /**< @brief nil */
+    WO_LSPV2_TOKEN_TRUE,                    /**< @brief true */
+    WO_LSPV2_TOKEN_FALSE,                   /**< @brief false */
+    WO_LSPV2_TOKEN_WHILE,                   /**< @brief while */
+    WO_LSPV2_TOKEN_IF,                      /**< @brief if */
+    WO_LSPV2_TOKEN_ELSE,                    /**< @brief else */
+    WO_LSPV2_TOKEN_NAMESPACE,               /**< @brief namespace */
+    WO_LSPV2_TOKEN_FOR,                     /**< @brief for */
+    WO_LSPV2_TOKEN_EXTERN,                  /**< @brief extern */
+    WO_LSPV2_TOKEN_LET,                     /**< @brief let */
+    WO_LSPV2_TOKEN_MUT,                     /**< @brief mut */
+    WO_LSPV2_TOKEN_FUNC,                    /**< @brief func */
+    WO_LSPV2_TOKEN_RETURN,                  /**< @brief return */
+    WO_LSPV2_TOKEN_USING,                   /**< @brief using */
+    WO_LSPV2_TOKEN_ALIAS,                   /**< @brief alias */
+    WO_LSPV2_TOKEN_ENUM,                    /**< @brief enum */
+    WO_LSPV2_TOKEN_AS,                      /**< @brief as */
+    WO_LSPV2_TOKEN_IS,                      /**< @brief is */
+    WO_LSPV2_TOKEN_TYPEOF,                  /**< @brief typeof */
+    WO_LSPV2_TOKEN_PRIVATE,                 /**< @brief private */
+    WO_LSPV2_TOKEN_PUBLIC,                  /**< @brief public */
+    WO_LSPV2_TOKEN_PROTECTED,               /**< @brief protected */
+    WO_LSPV2_TOKEN_STATIC,                  /**< @brief static */
+    WO_LSPV2_TOKEN_BREAK,                   /**< @brief break */
+    WO_LSPV2_TOKEN_CONTINUE,                /**< @brief continue */
+    WO_LSPV2_TOKEN_LAMBDA,                  /**< @brief lambda */
+    WO_LSPV2_TOKEN_AT,                      /**< @brief @ */
+    WO_LSPV2_TOKEN_DO,                      /**< @brief do */
+    WO_LSPV2_TOKEN_WHERE,                   /**< @brief where */
+    WO_LSPV2_TOKEN_OPERATOR,                /**< @brief operator */
+    WO_LSPV2_TOKEN_UNION,                   /**< @brief union */
+    WO_LSPV2_TOKEN_MATCH,                   /**< @brief match */
+    WO_LSPV2_TOKEN_STRUCT,                  /**< @brief struct */
+    WO_LSPV2_TOKEN_IMMUT,                   /**< @brief immut */
+    WO_LSPV2_TOKEN_TYPEID,                  /**< @brief typeid */
+    WO_LSPV2_TOKEN_DEFER,                   /**< @brief defer */
+    WO_LSPV2_TOKEN_MACRO,                   /**< @brief macro */
 
+    /* Comments */
+    WO_LSPV2_TOKEN_LINE_COMMENT,            /**< @brief Line comment (//). */
+    WO_LSPV2_TOKEN_BLOCK_COMMENT,           /**< @brief Block comment (/* *-/). */
+    WO_LSPV2_TOKEN_SHEBANG_COMMENT,         /**< @brief Shebang comment (#!). */
+    WO_LSPV2_TOKEN_UNKNOWN_TOKEN,           /**< @brief Unknown/unrecognized token. */
+
+} wo_lspv2_lexer_token;
+
+/** @brief Opaque handle to the LSP lexer. */
 typedef struct _wo_lspv2_lexer wo_lspv2_lexer;
+
+/** @brief Information about a single lexer token. */
 typedef struct _wo_lspv2_token_info
 {
-    wo_lspv2_lexer_token m_token;
-
-    const void* m_token_serial;
-    size_t m_token_length;
-    wo_lspv2_location m_location;
+    wo_lspv2_lexer_token m_token;   /**< @brief Token type. */
+    const void* m_token_serial;     /**< @brief Token serialized representation. */
+    size_t m_token_length;          /**< @brief Length of the token text. */
+    wo_lspv2_location m_location;   /**< @brief Source location of the token. */
 
 } wo_lspv2_token_info;
 
+/** @} */ /* end LSPv2 Common Types */
+
+/* ========== LSPv2 Functions ========== */
+
+/**
+ * @brief Query the LSPv2 API sub-version.
+ * @return Sub-version number for feature detection.
+ */
 WO_API size_t wo_lspv2_sub_version(void);
 
+/**
+ * @brief Compile source code to a source_meta for LSP analysis.
+ * @param virtual_src_path  Virtual path of the source file.
+ * @param src               Source code string to compile.
+ * @return A wo_lspv2_source_meta handle, or NULL on failure.
+ */
 WO_API wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     const char* virtual_src_path,
     const char* src);
+
+/**
+ * @brief Free a source_meta handle.
+ * @param meta  The source metadata to free.
+ */
 WO_API void wo_lspv2_meta_free(wo_lspv2_source_meta* meta);
 
-WO_API wo_lspv2_error_iter* /* null if not exist */wo_lspv2_compile_err_iter(
+/**
+ * @brief Create an iterator over compile errors in a source_meta.
+ * @param meta  The source metadata.
+ * @return An error iterator, or NULL if no errors exist.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_error_iter* wo_lspv2_compile_err_iter(
     wo_lspv2_source_meta* meta);
-WO_API wo_lspv2_error_info* /* null if end */wo_lspv2_compile_err_next(
+
+/**
+ * @brief Advance the error iterator and return the next error.
+ * @param iter  The error iterator.
+ * @return The next error info, or NULL when exhausted.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_error_info* wo_lspv2_compile_err_next(
     wo_lspv2_error_iter* iter);
+
+/**
+ * @brief Free an error info object.
+ * @param info  The error info to free.
+ */
 WO_API void wo_lspv2_err_info_free(wo_lspv2_error_info* info);
 
-WO_API const char* /* Thread local */ wo_lspv2_token_info_enstring(
+/**
+ * @brief Convert a token serial+length pair to a thread-local string.
+ * @param p    Pointer to token serial data.
+ * @param len  Length of the token data.
+ * @return A thread-local C string, valid until the next call.
+ */
+WO_API const char* /* thread-local */ wo_lspv2_token_info_enstring(
     const void* p, size_t len);
 
-// Macro API
-WO_API wo_lspv2_macro_iter* /* null if grammar failed */
+/** @name LSP Macro API */
+/**@{*/
+
+/**
+ * @brief Create an iterator over macro definitions in source metadata.
+ * @param meta  The source metadata.
+ * @return A macro iterator, or NULL if grammar analysis failed.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_macro_iter*
 wo_lspv2_meta_macro_iter(wo_lspv2_source_meta* meta);
-WO_API wo_lspv2_macro* /* null if end */ wo_lspv2_macro_next(wo_lspv2_macro_iter* iter);
+
+/**
+ * @brief Advance the macro iterator and return the next macro.
+ * @param iter  The macro iterator.
+ * @return The next macro handle, or NULL when exhausted.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_macro* wo_lspv2_macro_next(wo_lspv2_macro_iter* iter);
+
+/**
+ * @brief Get information about a macro definition.
+ * @param macro  The macro handle.
+ * @return Macro info (must be freed with wo_lspv2_macro_info_free).
+ */
 WO_API wo_lspv2_macro_info* wo_lspv2_macro_get_info(wo_lspv2_macro* macro);
+
+/**
+ * @brief Free macro info.
+ * @param info  The macro info to free.
+ */
 WO_API void wo_lspv2_macro_info_free(wo_lspv2_macro_info* info);
 
-// Scope API
-WO_API wo_lspv2_scope* /* null if grammar failed */
+/**@}*/
+
+/** @name LSP Scope API */
+/**@{*/
+
+/**
+ * @brief Get the global scope from source metadata.
+ * @param meta  The source metadata.
+ * @return The global scope, or NULL if grammar analysis failed.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_scope*
 wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta);
+
+/**
+ * @brief Create an iterator over sub-scopes within a scope.
+ * @param scope  The parent scope.
+ * @return A sub-scope iterator.
+ */
 WO_API wo_lspv2_scope_iter* wo_lspv2_scope_sub_scope_iter(wo_lspv2_scope* scope);
-WO_API wo_lspv2_scope* /* null if end */ wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter);
+
+/**
+ * @brief Advance the sub-scope iterator and return the next scope.
+ * @param iter  The sub-scope iterator.
+ * @return The next scope handle, or NULL when exhausted.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_scope* wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter);
+
+/**
+ * @brief Get information about a scope.
+ * @param scope  The scope handle.
+ * @return Scope info (must be freed with wo_lspv2_scope_info_free).
+ */
 WO_API wo_lspv2_scope_info* wo_lspv2_scope_get_info(wo_lspv2_scope* scope);
+
+/**
+ * @brief Free scope info.
+ * @param info  The scope info to free.
+ */
 WO_API void wo_lspv2_scope_info_free(wo_lspv2_scope_info* info);
 
-// Symbol API
+/**@}*/
+
+/** @name LSP Symbol API */
+/**@{*/
+
+/**
+ * @brief Create an iterator over symbols in a scope.
+ * @param scope  The scope handle.
+ * @return A symbol iterator.
+ */
 WO_API wo_lspv2_symbol_iter* wo_lspv2_scope_symbol_iter(wo_lspv2_scope* scope);
-WO_API wo_lspv2_symbol* /* null if end */ wo_lspv2_scope_symbol_next(wo_lspv2_symbol_iter* iter);
+
+/**
+ * @brief Advance the symbol iterator and return the next symbol.
+ * @param iter  The symbol iterator.
+ * @return The next symbol handle, or NULL when exhausted.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_symbol* wo_lspv2_scope_symbol_next(wo_lspv2_symbol_iter* iter);
+
+/**
+ * @brief Get information about a symbol.
+ * @param symbol  The symbol handle.
+ * @return Symbol info (must be freed with wo_lspv2_symbol_info_free).
+ */
 WO_API wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol);
+
+/**
+ * @brief Free symbol info.
+ * @param info  The symbol info to free.
+ */
 WO_API void wo_lspv2_symbol_info_free(wo_lspv2_symbol_info* info);
 
-// Expr API
+/**@}*/
+
+/** @name LSP Expression API */
+/**@{*/
+
+/**
+ * @brief Create an iterator over expression collections in source metadata.
+ * @param meta  The source metadata.
+ * @return An expression collection iterator.
+ */
 WO_API wo_lspv2_expr_collection_iter* wo_lspv2_meta_expr_collection_iter(
     wo_lspv2_source_meta* meta);
-WO_API wo_lspv2_expr_collection* /* null if end */ wo_lspv2_expr_collection_next(
+
+/**
+ * @brief Advance the expression collection iterator.
+ * @param iter  The collection iterator.
+ * @return The next expression collection, or NULL when exhausted.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_expr_collection* wo_lspv2_expr_collection_next(
     wo_lspv2_expr_collection_iter* iter);
+
+/**
+ * @brief Free an expression collection.
+ * @param collection  The expression collection to free.
+ */
 WO_API void wo_lspv2_expr_collection_free(wo_lspv2_expr_collection* collection);
+
+/**
+ * @brief Get info about an expression collection.
+ * @param collection  The expression collection.
+ * @return Collection info (must be freed).
+ */
 WO_API wo_lspv2_expr_collection_info* wo_lspv2_expr_collection_get_info(
     wo_lspv2_expr_collection* collection);
+
+/**
+ * @brief Free expression collection info.
+ * @param collection  The expression collection info to free.
+ */
 WO_API void wo_lspv2_expr_collection_info_free(wo_lspv2_expr_collection_info* collection);
-WO_API wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_range(
+
+/**
+ * @brief Find expressions within a given source range in a collection.
+ * @param collection  The expression collection.
+ * @param begin_row   Start row.
+ * @param begin_col   Start column.
+ * @param end_row     End row.
+ * @param end_col     End column.
+ * @return An expression iterator, or NULL if no matches found.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_expr_iter* wo_lspv2_expr_collection_get_by_range(
     wo_lspv2_expr_collection* collection,
     size_t begin_row,
     size_t begin_col,
     size_t end_row,
     size_t end_col);
-WO_API wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* iter);
+
+/**
+ * @brief Advance the expression iterator and return the next expression.
+ * @param iter  The expression iterator.
+ * @return The next expression handle, or NULL when exhausted.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_expr* wo_lspv2_expr_next(wo_lspv2_expr_iter* iter);
+
+/**
+ * @brief Get information about an expression.
+ * @param expr  The expression handle.
+ * @return Expression info (must be freed).
+ */
 WO_API wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr);
+
+/** @brief Free expression info. */
 WO_API void wo_lspv2_expr_info_free(wo_lspv2_expr_info*);
 
-// Type API
+/**@}*/
+
+/** @name LSP Type API */
+/**@{*/
+
+/**
+ * @brief Get information about a resolved type.
+ * @param type  The type handle.
+ * @param meta  The source metadata (for resolving references).
+ * @return Type info (must be freed).
+ */
 WO_API wo_lspv2_type_info* wo_lspv2_type_get_info(
     wo_lspv2_type* type, wo_lspv2_source_meta* meta);
+
+/** @brief Free type info. */
 WO_API void wo_lspv2_type_info_free(wo_lspv2_type_info* info);
-WO_API wo_lspv2_type_struct_info* /* null if not struct */ wo_lspv2_type_get_struct_info(
+
+/**
+ * @brief Get struct member information for a struct type.
+ * @param type  The type handle.
+ * @param meta  The source metadata.
+ * @return Struct info, or NULL if the type is not a struct.
+ */
+WO_API /* OPTIONAL */ wo_lspv2_type_struct_info* wo_lspv2_type_get_struct_info(
     wo_lspv2_type* type, wo_lspv2_source_meta* meta);
+
+/** @brief Free struct type info. */
 WO_API void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info);
 
-// Constant API
+/**@}*/
+
+/** @name LSP Constant API */
+/**@{*/
+
+/**
+ * @brief Get information about a compile-time constant.
+ * @param constant  The constant handle.
+ * @param meta      The source metadata.
+ * @return Constant info (must be freed).
+ */
 WO_API wo_lspv2_constant_info* wo_lspv2_constant_get_info(
     wo_lspv2_constant* constant, wo_lspv2_source_meta* meta);
+
+/** @brief Free constant info. */
 WO_API void wo_lspv2_constant_info_free(wo_lspv2_constant_info* info);
 
-// Lexer API
+/**@}*/
+
+/** @name LSP Lexer API */
+/**@{*/
+
+/**
+ * @brief Create a lexer for tokenizing Woolang source code.
+ * @param src  The source code to tokenize.
+ * @return A new lexer handle.
+ */
 WO_API wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src);
+
+/** @brief Destroy a lexer handle. */
 WO_API void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer);
+
+/**
+ * @brief Peek at the next token without consuming it.
+ * @param lexer  The lexer handle.
+ * @return Token info for the next token.
+ */
 WO_API wo_lspv2_token_info* wo_lspv2_lexer_peek(wo_lspv2_lexer* lexer);
+
+/**
+ * @brief Consume (advance past) the current token.
+ * @param lexer  The lexer handle.
+ */
 WO_API void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer);
+
+/** @brief Free token info. */
 WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
-#endif
+
+/**@}*/
+
+#endif /* WO_NEED_LSP_API */
+
+/* ========== Runtime Error Codes ========== */
 
 #if defined(WO_NEED_ERROR_CODES)
 
+/** @brief User-initiated panic. */
 #   define WO_FAIL_USER_PANIC 0xD001
+/** @brief Feature not supported. */
 #   define WO_FAIL_NOT_SUPPORT 0xD002
+/** @brief Type mismatch error. */
 #   define WO_FAIL_TYPE_FAIL 0xD003
+/** @brief Attempt to access a nil value. */
 #   define WO_FAIL_ACCESS_NIL 0xD004
+/** @brief Index out of bounds. */
 #   define WO_FAIL_INDEX_FAIL 0xD005
+/** @brief Function call failure. */
 #   define WO_FAIL_CALL_FAIL 0xD006
+/** @brief Bad dynamic library. */
 #   define WO_FAIL_BAD_LIB 0xD007
+/** @brief Unexpected internal error. */
 #   define WO_FAIL_UNEXPECTED 0xD008
+/** @brief Stack overflow. */
 #   define WO_FAIL_STACKOVERFLOW 0xD009
+/** @brief Debuggee communication failure. */
 #   define WO_FAIL_DEBUGGEE_FAIL 0xD00A
+/** @brief Execution engine failure. */
 #   define WO_FAIL_EXECUTE_FAIL 0xD00B
+/** @brief Bad binary format. */
 #   define WO_FAIL_BAD_FORMAT 0xD00C
+/** @brief GC guard violation detected. */
 #   define WO_FAIL_GC_GUARD_VIOLATION 0xD00D
 
 #endif
 
+/* ========== ANSI Escape Code Macros ========== */
+
 #if defined(WO_NEED_ANSI_CONTROL)
 
-// You can use this macro to specify ANSI_XXX as a wide character string.
-// NOTE: After use, you MUST re-define as nothing.
+/**
+ * @name ANSI Terminal Control
+ * @brief Macros for ANSI escape code sequences.
+ *
+ * You can use these macros to specify ANSI_XXX as a wide character string.
+ * NOTE: After use, you MUST re-define them as nothing to avoid collisions.
+ * @{
+ */
+
+/** @brief ANSI escape sequence introducer. */
 #   define ANSI_ESC "\033["
+/** @brief ANSI sequence terminator. */
 #   define ANSI_END "m"
+/** @brief Reset all attributes. */
 #   define ANSI_RST ANSI_ESC "0m"
+/** @brief Bold / increased intensity. */
 #   define ANSI_HIL ANSI_ESC "1m"
+/** @brief Faint / decreased intensity. */
 #   define ANSI_FAINT ANSI_ESC "2m"
+/** @brief Italic. */
 #   define ANSI_ITALIC ANSI_ESC "3m"
+/** @brief Underline. */
 #   define ANSI_UNDERLNE ANSI_ESC "4m"
+/** @brief No underline. */
 #   define ANSI_NUNDERLNE ANSI_ESC "24m"
+/** @brief Slow blink. */
 #   define ANSI_SLOW_BLINK ANSI_ESC "5m"
+/** @brief Fast blink. */
 #   define ANSI_FAST_BLINK ANSI_ESC "6m"
+/** @brief Inverse / reverse video. */
 #   define ANSI_INV ANSI_ESC "7m"
+/** @brief Conceal / fade. */
 #   define ANSI_FADE ANSI_ESC "8m"
+
+/** @name Foreground Colors */
+/**@{*/
+/** @brief Black foreground. */
 #   define ANSI_BLK ANSI_ESC "30m"
+/** @brief Gray foreground (bright black). */
 #   define ANSI_GRY ANSI_ESC "1;30m"
+/** @brief Red foreground. */
 #   define ANSI_RED ANSI_ESC "31m"
+/** @brief Bright red foreground. */
 #   define ANSI_HIR ANSI_ESC "1;31m"
+/** @brief Green foreground. */
 #   define ANSI_GRE ANSI_ESC "32m"
+/** @brief Bright green foreground. */
 #   define ANSI_HIG ANSI_ESC "1;32m"
+/** @brief Yellow foreground. */
 #   define ANSI_YEL ANSI_ESC "33m"
+/** @brief Bright yellow foreground. */
 #   define ANSI_HIY ANSI_ESC "1;33m"
+/** @brief Blue foreground. */
 #   define ANSI_BLU ANSI_ESC "34m"
+/** @brief Bright blue foreground. */
 #   define ANSI_HIB ANSI_ESC "1;34m"
+/** @brief Magenta foreground. */
 #   define ANSI_MAG ANSI_ESC "35m"
+/** @brief Bright magenta foreground. */
 #   define ANSI_HIM ANSI_ESC "1;35m"
+/** @brief Cyan foreground. */
 #   define ANSI_CLY ANSI_ESC "36m"
+/** @brief Bright cyan foreground. */
 #   define ANSI_HIC ANSI_ESC "1;36m"
+/** @brief White foreground. */
 #   define ANSI_WHI ANSI_ESC "37m"
+/** @brief Bright white foreground. */
 #   define ANSI_HIW ANSI_ESC "1;37m"
+/**@}*/
+
+/** @name Background Colors */
+/**@{*/
+/** @brief Black background. */
 #   define ANSI_BBLK ANSI_ESC "40m"
+/** @brief Gray background (bright black). */
 #   define ANSI_BGRY ANSI_ESC "1;40m"
+/** @brief Red background. */
 #   define ANSI_BRED ANSI_ESC "41m"
+/** @brief Bright red background. */
 #   define ANSI_BHIR ANSI_ESC "1;41m"
+/** @brief Green background. */
 #   define ANSI_BGRE ANSI_ESC "42m"
+/** @brief Bright green background. */
 #   define ANSI_BHIG ANSI_ESC "1;42m"
+/** @brief Yellow background. */
 #   define ANSI_BYEL ANSI_ESC "43m"
+/** @brief Bright yellow background. */
 #   define ANSI_BHIY ANSI_ESC "1;43m"
+/** @brief Blue background. */
 #   define ANSI_BBLU ANSI_ESC "44m"
+/** @brief Bright blue background. */
 #   define ANSI_BHIB ANSI_ESC "1;44m"
+/** @brief Magenta background. */
 #   define ANSI_BMAG ANSI_ESC "45m"
+/** @brief Bright magenta background. */
 #   define ANSI_BHIM ANSI_ESC "1;45m"
+/** @brief Cyan background. */
 #   define ANSI_BCLY ANSI_ESC "46m"
+/** @brief Bright cyan background. */
 #   define ANSI_BHIC ANSI_ESC "1;46m"
+/** @brief White background. */
 #   define ANSI_BWHI ANSI_ESC "47m"
+/** @brief Bright white background. */
 #   define ANSI_BHIW ANSI_ESC "1;47m"
+/**@}*/
+
+/** @} */ /* end ANSI Terminal Control group */
+
 #endif
 
 WO_FORCE_CAPI_END
+
+/** @brief Undefine the public-facing WO_API to allow redefinition for internal use. */
 #undef WO_API
 
+/**
+ * @brief Redefine WO_API for internal implementation use (always dllexport).
+ *
+ * This definition is only active after the public API declarations are closed,
+ * and is used by the woolang implementation source files.
+ */
 #ifdef _WIN32
 #ifdef __cplusplus
 #define WO_API extern "C" WO_EXPORT
@@ -638,5 +1338,5 @@ WO_FORCE_CAPI_END
 #endif
 #endif
 
-#endif // End of WO_MSVC_RC_INCLUDE
-// NOTE: must contain a empty line following this line, .rc file will need it.
+#endif /* End of WO_MSVC_RC_INCLUDE */
+/* NOTE: must contain an empty line following this line, .rc file will need it. */

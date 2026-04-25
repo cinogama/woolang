@@ -883,7 +883,7 @@ WO_API const char* wo_get_compile_error(
     return _vm_compile_errors.c_str();
 }
 
-woort_CodeEnv* wo_load_binary(
+/* OPTIONAL */woort_CodeEnv* wo_load_binary(
     woort_U8CString virtual_src_path,
     const void* buffer,
     size_t length,
@@ -930,7 +930,7 @@ woort_CodeEnv* wo_load_binary(
     return nullptr;
 }
 
-woort_CodeEnv* wo_load_source(
+/* OPTIONAL */woort_CodeEnv* wo_load_source(
     woort_U8CString virtual_src_path,
     woort_U8CString src,
     /* OPTIONAL */ wo_CompileErrors** out_errors)
@@ -938,7 +938,7 @@ woort_CodeEnv* wo_load_source(
     return wo_load_binary(virtual_src_path, src, strlen(src), out_errors);
 }
 
-woort_CodeEnv* wo_load_file(
+/* OPTIONAL */woort_CodeEnv* wo_load_file(
     woort_U8CString virtual_src_path,
     /* OPTIONAL */ wo_CompileErrors** out_errors)
 {
