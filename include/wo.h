@@ -163,6 +163,8 @@ typedef struct _wo_CompileErrorInfo
 
 typedef struct _wo_CompileErrors wo_CompileErrors;
 
+#define WO_DEFAULT_ENTRY "@entry"
+
 WO_API /* OPTIONAL */ woort_CodeEnv* wo_load_source(
     woort_U8CString virtual_src_path,
     woort_U8CString src,

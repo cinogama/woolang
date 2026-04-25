@@ -37,7 +37,7 @@ int main(int argc, char** argv)
                     goto label_run_failed;
                 }
 
-                if (!woort_load_extern_const(v, cenv, "@entry"))
+                if (!woort_load_extern_const(v, cenv, WO_DEFAULT_ENTRY))
                 {
                     std::cerr << "Failed to run: no entry found." << std::endl;
                     ret = -4;
