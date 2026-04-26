@@ -66,19 +66,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 #endif
 }
 
-// ======== Stdlib source strings (embedded virtual files) ========
-const char* wo_stdlib_src_path       = u8"woo/std.wo";
-const char* wo_stdlib_src_data       = u8""; // TODO: fill with stdlib .wo source
-
-const char* wo_stdlib_debug_src_path  = u8"woo/std_debug.wo";
-const char* wo_stdlib_debug_src_data  = u8""; // TODO
-
-const char* wo_stdlib_macro_src_path  = u8"woo/std_macro.wo";
-const char* wo_stdlib_macro_src_data  = u8""; // TODO
-
-const char* wo_stdlib_shell_src_path  = u8"woo/std_shell.wo";
-const char* wo_stdlib_shell_src_data  = u8""; // TODO
-
 woort_api helloworld(void)
 {
     printf("Helloworld: %s\n", woort_string(0));
@@ -140,10 +127,10 @@ void wo_init(int argc, char** argv)
     if (enable_std_package)
     {
         wo_virtual_source(wo_stdlib_src_path, wo_stdlib_src_data, false);
-        //wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, false);
-        //wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
-        //if (wo::config::ENABLE_SHELL_PACKAGE)
-        //    wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, false);
+        wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, false);
+        wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
+        if (wo::config::ENABLE_SHELL_PACKAGE)
+            wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, false);
     }
 
     wo::lexer::init_char_lookup_table();

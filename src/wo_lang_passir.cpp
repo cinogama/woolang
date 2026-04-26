@@ -1606,7 +1606,7 @@ namespace wo
                         m_ircontext.c().addi(
                             v,
                             v,
-                            m_ircontext.c().load_imm_box_int((woort_Int)fact_argument_to_pop));
+                            m_ircontext.c().load_imm_int((woort_Int)fact_argument_to_pop));
                         m_ircontext.c().pushchk(v);
 
                         fact_argument_to_pop = 0;
@@ -1614,7 +1614,7 @@ namespace wo
                     else
                     {
                         m_ircontext.c().pushchk(
-                            m_ircontext.c().load_imm_box_int((woort_Int)fact_argument_to_pop));
+                            m_ircontext.c().load_imm_int((woort_Int)fact_argument_to_pop));
                     }
                 }
 

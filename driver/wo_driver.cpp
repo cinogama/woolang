@@ -17,8 +17,10 @@ int main(int argc, char** argv)
         woort_codeenv* cenv = wo_load_file(argv[1], &compile_error);
         if (cenv != NULL)
         {
-            woort_vm* vmm = woort_vm_create();
+            woort_CodeEnv_dumps(cenv);
 
+            woort_vm* vmm = woort_vm_create();
+            
             if (vmm == NULL)
             {
                 std::cerr << "Failed to create VM instance: out of memory." << std::endl;
