@@ -1603,10 +1603,13 @@ namespace wo
                         woort_IRValue* const v =
                             node->m_IR_unpack_counter_if_in_variadic_func.value();
 
-                        m_ircontext.c().addi(
-                            v,
-                            v,
-                            m_ircontext.c().load_imm_int((woort_Int)fact_argument_to_pop));
+                        if (fact_argument_to_pop != 0)
+                        {
+                            m_ircontext.c().addi(
+                                v,
+                                v,
+                                m_ircontext.c().load_imm_int((woort_Int)fact_argument_to_pop));
+                        }
                         m_ircontext.c().pushchk(v);
 
                         fact_argument_to_pop = 0;
@@ -3772,7 +3775,7 @@ namespace wo
                                 m_ircontext.c().ldidxstruct(v, container_opnum, fast_index);
                                 if (need_box.has_value())
                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
-                                    
+
                                 if (target_irvalue == nullptr)
                                     m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                             }
@@ -4456,7 +4459,7 @@ namespace wo
                                 wo_error("Unknown operator.");
                                 break;
                             }
-                            
+
                             woort_IRValue* const v = m_ircontext.c().new_value();
 
                             (m_ircontext.c().*binary_op)(

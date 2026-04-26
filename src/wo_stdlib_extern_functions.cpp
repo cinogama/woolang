@@ -38,13 +38,19 @@ namespace wo::stdlib
         const woort_Int argn = woort_int(0);
         for (woort_Int i = 1; i <= argn; ++i)
         {
-            if (!woort_serialize_dynbox(s, (woort_value)i, WOORT_SERIALIZE_FLAG_NONE))
-                return woort_ret_panic("Out of memory.");
-
             if (i != 1)
                 wo::wo_stdout << " ";
 
-            wo::wo_stdout << woort_string(s);
+            if (woort_unbox_type((woort_value)i) == WOORT_BOX_VALUE_TYPE_STRING)
+                wo::wo_stdout << woort_string((woort_value)i);
+            else
+            {
+                if (!woort_serialize_dynbox(s, (woort_value)i, WOORT_SERIALIZE_FLAG_NONE))
+                    return woort_ret_panic("Out of memory.");
+
+                wo::wo_stdout << woort_string(s);
+            }
+
         }
         return woort_ret_void();
     }
