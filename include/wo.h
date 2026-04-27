@@ -90,35 +90,6 @@ typedef bool (*wo_fail_handler_t)(
     uint32_t rterrcode,
     const char* reason);
 
-/** @brief Opaque handle to a loaded dynamic library. */
-typedef void* wo_dylib_handle_t;
-
-/**
- * @brief Method for unloading a dynamic library.
- */
-typedef enum _wo_dylib_unload_method_t
-{
-    /** @brief No operation. */
-    WO_DYLIB_NONE = 0,
-
-    /**
-     * @brief Decrement the library reference count.
-     *
-     * When the last reference is released, the library instance is removed
-     * from the reference table.
-     */
-    WO_DYLIB_UNREF = 1 << 0,
-
-    /**
-     * @brief Remove the library from the lookup table without changing the reference count.
-     */
-    WO_DYLIB_BURY = 1 << 1,
-
-    /** @brief Unref and bury the library in one operation. */
-    WO_DYLIB_UNREF_AND_BURY = WO_DYLIB_UNREF | WO_DYLIB_BURY,
-
-} wo_dylib_unload_method_t;
-
 /**
  * @brief Output formatting style for diagnostic messages.
  */

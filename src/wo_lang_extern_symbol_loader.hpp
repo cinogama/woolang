@@ -4,13 +4,13 @@
 #       include "wo.h"
 #endif
 #include "wo_assert.hpp"
-#include "wo_shared_ptr.hpp"
 #include "wo_global_setting.hpp"
 #include "wo_stdlib_extern_functions.hpp"
 
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <memory>
 
 namespace wo
 {
@@ -27,13 +27,13 @@ namespace wo
             wo::stdlib::register_all(&funcs);
 
             _current_wo_lib_handle =
-                woort_fake_lib("woolang", funcs, NULL);
+                woort_dylib_fake("woolang", funcs, NULL);
         }
         static void free_wo_lib()
         {
             wo_assert(_current_wo_lib_handle != nullptr);
 
-            woort_unload_lib(_current_wo_lib_handle, WOORT_DYLIB_UNREF_AND_BURY);
+            woort_dylib_unload(_current_wo_lib_handle, WOORT_DYLIB_UNREF_AND_BURY);
             _current_wo_lib_handle = nullptr;
         }
 
@@ -43,21 +43,21 @@ namespace wo
 
             extern_lib_guard(const std::string& libpath, const std::string& script_path)
             {
-                m_extern_library = woort_load_lib(
+                m_extern_library = woort_dylib_load(
                     libpath.c_str(),
                     libpath.c_str(),
                     script_path.c_str(), false);
 
                 if (m_extern_library != nullptr)
                 {
-                    if (auto* entry = (woort_NativeFunction)woort_load_func(m_extern_library, "wolib_entry"))
+                    if (auto* entry = (woort_NativeFunction)woort_dylib_load_func(m_extern_library, "woolib_entry"))
                         entry();
                 }
             }
             woort_NativeFunction load_func(const char* funcname)
             {
                 if (m_extern_library != nullptr)
-                    return (woort_NativeFunction)woort_load_func(m_extern_library, funcname);
+                    return (woort_NativeFunction)woort_dylib_load_func(m_extern_library, funcname);
 
                 return nullptr;
             }
@@ -65,17 +65,17 @@ namespace wo
             {
                 if (m_extern_library != nullptr)
                 {
-                    if (auto* leave = (woort_NativeFunction)woort_load_func(m_extern_library, "wolib_exit"))
+                    if (auto* leave = (woort_NativeFunction)woort_dylib_load_func(m_extern_library, "woolib_exit"))
                         leave();
 
-                    woort_unload_lib(m_extern_library, WOORT_DYLIB_UNREF);
+                    woort_dylib_unload(m_extern_library, WOORT_DYLIB_UNREF);
                 }
             }
         };
 
         struct extern_lib_set
         {
-            using extern_lib = shared_pointer<extern_lib_guard>;
+            using extern_lib = std::unique_ptr<extern_lib_guard>;
             using srcpath_externlib_pairs =
                 std::unordered_map<std::string, std::unordered_map<std::string, extern_lib>>;
 
@@ -92,10 +92,12 @@ namespace wo
                     fnd != srcloadedlibs.end())
                     return fnd->second->load_func(funcname);
 
-                extern_lib elib(new extern_lib_guard(libpath, srcpath));
-                srcloadedlibs[libpath] = elib;
+                extern_lib elib = std::make_unique<extern_lib_guard>(libpath, srcpath);
+                woort_NativeFunction const result = elib->load_func(funcname);
 
-                return elib->load_func(funcname);
+                srcloadedlibs.emplace(libpath, std::move(elib));
+
+                return result;
             }
 
             // Collect all loaded library handles for binding to CodeEnv
@@ -116,7 +118,7 @@ namespace wo
 
         static woort_NativeFunction get_global_symbol(const char* symbol)
         {
-            return (woort_NativeFunction)woort_load_func(
+            return (woort_NativeFunction)woort_dylib_load_func(
                 _current_wo_lib_handle, symbol);
         }
 
