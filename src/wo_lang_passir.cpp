@@ -1158,10 +1158,8 @@ namespace wo
                             if (need_box.has_value())
                             {
                                 woort_IRValue* const v = m_ircontext.c().new_value();
-                                m_ircontext.c().mov(
-                                    v,
-                                    m_ircontext.c().load_imm_closure(node));
-                                m_ircontext.c().boxdyn(v, need_box.value(), v);
+                                m_ircontext.c().boxdyn(
+                                    v, need_box.value(), m_ircontext.c().load_imm_closure(node));
                                 m_ircontext.c().store(
                                     std::get<woort_IRStaticIndex>(target), v);
                             }
@@ -1323,10 +1321,6 @@ namespace wo
                     else
                     {
                         make_result_target = m_ircontext.c().new_value();
-                        result.set_result_stack_temp(
-                            m_ircontext,
-                            make_result_target,
-                            node->m_LANG_determined_type.value());
                     }
 
                     uint32_t elem_count = (uint32_t)node->m_elements.size();
@@ -1354,6 +1348,13 @@ namespace wo
                     if (need_write_back_to_static.has_value())
                     {
                         m_ircontext.c().store(need_write_back_to_static.value(), make_result_target);
+                    }
+                    else if (!asigned_target.has_value())
+                    {
+                        result.set_result_stack_temp(
+                            m_ircontext,
+                            make_result_target,
+                            node->m_LANG_determined_type.value());
                     }
                 });
         }
@@ -1421,10 +1422,6 @@ namespace wo
                     else
                     {
                         make_result_target = m_ircontext.c().new_value();
-                        result.set_result_stack_temp(
-                            m_ircontext,
-                            make_result_target,
-                            node->m_LANG_determined_type.value());
                     }
 
                     const uint32_t elem_count = (uint32_t)node->m_elements.size();
@@ -1436,6 +1433,13 @@ namespace wo
                     if (need_write_back_to_static.has_value())
                     {
                         m_ircontext.c().store(need_write_back_to_static.value(), make_result_target);
+                    }
+                    else if (!asigned_target.has_value())
+                    {
+                        result.set_result_stack_temp(
+                            m_ircontext,
+                            make_result_target,
+                            node->m_LANG_determined_type.value());
                     }
                 });
         }
@@ -1497,10 +1501,6 @@ namespace wo
                     else
                     {
                         make_result_target = m_ircontext.c().new_value();
-                        result.set_result_stack_temp(
-                            m_ircontext,
-                            make_result_target,
-                            node->m_LANG_determined_type.value());
                     }
 
                     const uint32_t elem_count = (uint32_t)node->m_elements.size();
@@ -1512,6 +1512,13 @@ namespace wo
                     if (need_write_back_to_static.has_value())
                     {
                         m_ircontext.c().store(need_write_back_to_static.value(), make_result_target);
+                    }
+                    else if (!asigned_target.has_value())
+                    {
+                        result.set_result_stack_temp(
+                            m_ircontext,
+                            make_result_target,
+                            node->m_LANG_determined_type.value());
                     }
                 });
         }
@@ -2057,8 +2064,6 @@ namespace wo
                         woort_IRValue* const* const target_irvalue =
                             std::get_if<woort_IRValue*>(&target);
 
-                        wo_assert(!need_box.has_value() || need_box.value() == WOORT_BOX_VALUE_TYPE_BOOL);
-
                         if (target_irvalue == nullptr)
                         {
                             woort_IRValue* const v = m_ircontext.c().new_value();
@@ -2069,7 +2074,7 @@ namespace wo
                                 opnum_to_check);
 
                             if (need_box.has_value())
-                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_BOOL, v);
+                                m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                         }
@@ -2084,7 +2089,7 @@ namespace wo
 
                             if (need_box)
                                 m_ircontext.c().boxdyn(
-                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_BOOL, *target_irvalue);
+                                    *target_irvalue, need_box.value(), *target_irvalue);
                         }
                     }
                     else
@@ -2291,15 +2296,13 @@ namespace wo
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
 
-                                        wo_assert(!need_box.has_value() || need_box.value() == WOORT_BOX_VALUE_TYPE_INT);
-
                                         if (target_irvalue == nullptr)
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().rtoi(v, opnum_to_cast);
 
                                             if (need_box)
-                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_INT, v);
+                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
@@ -2309,7 +2312,7 @@ namespace wo
                                             if (need_box)
                                                 m_ircontext.c().boxdyn(
                                                     *target_irvalue,
-                                                    WOORT_BOX_VALUE_TYPE_INT,
+                                                    need_box.value(),
                                                     *target_irvalue);
                                         }
                                     }
@@ -2329,15 +2332,13 @@ namespace wo
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
 
-                                        wo_assert(!need_box.has_value() || need_box.value() == WOORT_BOX_VALUE_TYPE_INT);
-
                                         if (target_irvalue == nullptr)
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_INT);
 
                                             if (need_box)
-                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_INT, v);
+                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
@@ -2348,7 +2349,7 @@ namespace wo
 
                                             if (need_box)
                                                 m_ircontext.c().boxdyn(
-                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_INT, *target_irvalue);
+                                                    *target_irvalue, need_box.value(), *target_irvalue);
                                         }
                                     }
                                     else
@@ -2377,15 +2378,13 @@ namespace wo
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
 
-                                        wo_assert(!need_box.has_value() || need_box.value() == WOORT_BOX_VALUE_TYPE_REAL);
-
                                         if (target_irvalue == nullptr)
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().itor(v, opnum_to_cast);
 
                                             if (need_box)
-                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_REAL, v);
+                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
@@ -2394,7 +2393,7 @@ namespace wo
                                             m_ircontext.c().itor(*target_irvalue, opnum_to_cast);
                                             if (need_box)
                                                 m_ircontext.c().boxdyn(
-                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_REAL, *target_irvalue);
+                                                    *target_irvalue, need_box.value(), *target_irvalue);
                                         }
                                     }
                                     else
@@ -2412,16 +2411,14 @@ namespace wo
                                         auto& [need_box, target] = target_storage.value();
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
-
-                                        wo_assert(!need_box.has_value() || need_box.value() == WOORT_BOX_VALUE_TYPE_REAL);
-
+                                        
                                         if (target_irvalue == nullptr)
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_REAL);
 
                                             if (need_box)
-                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_REAL, v);
+                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
@@ -2432,7 +2429,7 @@ namespace wo
 
                                             if (need_box)
                                                 m_ircontext.c().boxdyn(
-                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_REAL, *target_irvalue);
+                                                    *target_irvalue, need_box.value(), *target_irvalue);
                                         }
                                     }
                                     else
@@ -2460,15 +2457,13 @@ namespace wo
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
 
-                                        wo_assert(!need_box.has_value() || need_box.value() == WOORT_BOX_VALUE_TYPE_BOOL);
-
                                         if (target_irvalue == nullptr)
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().nei(v, opnum_to_cast, m_ircontext.c().load_imm_int(0));
 
                                             if (need_box)
-                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_BOOL, v);
+                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
@@ -2479,7 +2474,7 @@ namespace wo
 
                                             if (need_box)
                                                 m_ircontext.c().boxdyn(
-                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_BOOL, *target_irvalue);
+                                                    *target_irvalue, need_box.value(), *target_irvalue);
                                         }
                                     }
                                     else
@@ -2499,15 +2494,13 @@ namespace wo
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
 
-                                        wo_assert(!need_box.has_value() || need_box.value() == WOORT_BOX_VALUE_TYPE_BOOL);
-
                                         if (target_irvalue == nullptr)
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().nei(v, opnum_to_cast, m_ircontext.c().load_imm_real(0.));
 
                                             if (need_box)
-                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_BOOL, v);
+                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
@@ -2538,15 +2531,13 @@ namespace wo
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
 
-                                        wo_assert(!need_box.has_value() || need_box.value() == WOORT_BOX_VALUE_TYPE_BOOL);
-
                                         if (target_irvalue == nullptr)
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_BOOL);
 
                                             if (need_box)
-                                                m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_BOOL, v);
+                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                                         }
@@ -2557,7 +2548,7 @@ namespace wo
 
                                             if (need_box)
                                                 m_ircontext.c().boxdyn(
-                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_BOOL, *target_irvalue);
+                                                    *target_irvalue, need_box.value(), *target_irvalue);
                                         }
                                     }
                                     else
@@ -2995,14 +2986,12 @@ namespace wo
                             woort_IRValue* const* const target_irvalue =
                                 std::get_if<woort_IRValue*>(&target);
 
-                            wo_assert(!need_box.has_value() || need_box.value() == WOORT_BOX_VALUE_TYPE_BOOL);
-
                             if (target_irvalue == nullptr)
                             {
                                 if (need_box.has_value())
                                     m_ircontext.c().boxdyn(
                                         shortcut_evaled_value,
-                                        WOORT_BOX_VALUE_TYPE_BOOL,
+                                        need_box.value(),
                                         shortcut_evaled_value);
 
                                 m_ircontext.c().store(
@@ -3014,7 +3003,7 @@ namespace wo
                                 if (need_box.has_value())
                                     m_ircontext.c().boxdyn(
                                         *target_irvalue,
-                                        WOORT_BOX_VALUE_TYPE_BOOL,
+                                        need_box.value(),
                                         shortcut_evaled_value);
                                 else
                                     m_ircontext.c().mov(
@@ -3673,15 +3662,18 @@ namespace wo
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
-                        const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
+                        const auto& target_storage = 
+                            result.get_assign_target(node->m_LANG_determined_type.value());
 
                         lang_TypeInstance* container_type_instance =
                             node->m_container->m_LANG_determined_type.value();
                         auto* determined_container_type =
                             container_type_instance->get_determined_type().value();
 
-                        const bool is_need_box = target_storage.has_value()
-                            && target_storage.value().first;
+                        std::optional<woort_BoxValueType> need_box = std::nullopt;
+
+                        if (target_storage.has_value())
+                            need_box = target_storage.value().first;
 
                         switch (determined_container_type->m_base_type)
                         {
@@ -3695,7 +3687,7 @@ namespace wo
                                 node->m_LANG_determined_type.value()->get_determined_type().has_value()
                                 && node->m_LANG_determined_type.value()->get_determined_type().value()->m_base_type
                                 == lang_TypeInstance::DeterminedType::DYNAMIC;
-                            const bool use_x_variant = is_need_box || result_is_dynamic;
+                            const bool use_x_variant = need_box.has_value() || result_is_dynamic;
 
                             const lang_TypeInstance* const result_type_for_set =
                                 use_x_variant
@@ -3728,8 +3720,8 @@ namespace wo
                                 else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRING)
                                 {
                                     m_ircontext.c().ldidxstring(v, container_opnum, index_opnum);
-                                    if (is_need_box)
-                                        m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_INT, v);
+                                    if (need_box.has_value())
+                                        m_ircontext.c().boxdyn(v, need_box.value(), v);
                                 }
                                 else
                                 {
@@ -3773,8 +3765,8 @@ namespace wo
                                 else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRING)
                                 {
                                     m_ircontext.c().ldidxstring(v, container_opnum, index_opnum);
-                                    if (is_need_box)
-                                        m_ircontext.c().boxdyn(v, WOORT_BOX_VALUE_TYPE_INT, v);
+                                    if (need_box.has_value())
+                                        m_ircontext.c().boxdyn(v, need_box.value(), v);
                                 }
                                 else
                                 {
