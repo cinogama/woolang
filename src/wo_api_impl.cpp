@@ -3,7 +3,7 @@
 
 #include "wo_source_file_manager.hpp"
 #include "wo_compiler_parser.hpp"
-#include "wo_stdlib.hpp"
+#include "wo_stdlib_embedded.inc"
 #include "wo_lang_grammar_loader.hpp"
 #include "wo_crc_64.hpp"
 
@@ -126,11 +126,11 @@ void wo_init(int argc, char** argv)
 
     if (enable_std_package)
     {
-        wo_virtual_source(wo_stdlib_src_path, wo_stdlib_src_data, false);
-        wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, false);
-        wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
-        if (wo::config::ENABLE_SHELL_PACKAGE)
-            wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, false);
+        for (size_t i = 0; i < woo_embedded_file_count; ++i)
+            wo_virtual_source(
+                woo_embedded_files[i].path,
+                woo_embedded_files[i].data,
+                false);
     }
 
     wo::lexer::init_char_lookup_table();

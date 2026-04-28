@@ -16,6 +16,42 @@ endif()
 file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/wo_commit_sha.hpp
     "\"${GIT_COMMIT_HASH}\"\n")
 
+# ---- Scan woo/ directory and generate embedded file header ----
+file(GLOB WOO_FILES "${PROJECT_SOURCE_DIR}/woo/*.wo")
+
+set(WOO_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/gen")
+set(WOO_GEN_HEADER "${WOO_GEN_DIR}/wo_stdlib_embedded.inc")
+file(MAKE_DIRECTORY "${WOO_GEN_DIR}")
+
+set(EMBED_CONTENT "#pragma once\n\nstruct WooEmbeddedFile { const char* path; const char* data; };\n\n")
+
+foreach(WOO_FILE ${WOO_FILES})
+    get_filename_component(WOO_FNAME ${WOO_FILE} NAME)
+    string(REPLACE "." "_" WOO_VARNAME ${WOO_FNAME})
+    file(READ ${WOO_FILE} WOO_DATA)
+    string(APPEND EMBED_CONTENT
+        "// woo/${WOO_FNAME}\n"
+        "static const char woo_data_${WOO_VARNAME}_str[] = u8R\"WE3MBD("
+        "${WOO_DATA}"
+        ")WE3MBD\";\n\n")
+endforeach()
+
+string(APPEND EMBED_CONTENT
+    "static const WooEmbeddedFile woo_embedded_files[] = {\n")
+foreach(WOO_FILE ${WOO_FILES})
+    get_filename_component(WOO_FNAME ${WOO_FILE} NAME)
+    string(REPLACE "." "_" WOO_VARNAME ${WOO_FNAME})
+    string(APPEND EMBED_CONTENT
+        "    {\"woo/${WOO_FNAME}\", woo_data_${WOO_VARNAME}_str},\n")
+endforeach()
+string(APPEND EMBED_CONTENT "};\n")
+
+list(LENGTH WOO_FILES WOO_COUNT)
+string(APPEND EMBED_CONTENT
+    "static const size_t woo_embedded_file_count = ${WOO_COUNT};\n")
+
+file(WRITE "${WOO_GEN_HEADER}" "${EMBED_CONTENT}")
+
 file(GLOB_RECURSE woo_src_cpp *.cpp)
 file(GLOB_RECURSE woo_src_hpp *.hpp)
 
@@ -69,7 +105,8 @@ endif()
 target_precompile_headers(woolang PRIVATE wo_afx.hpp)
 
 target_include_directories(woolang
-    PUBLIC "../3rd/woort/include")
+    PUBLIC "../3rd/woort/include"
+    PRIVATE "${WOO_GEN_DIR}")
 
 target_link_libraries(woolang 
     PRIVATE woolang_options

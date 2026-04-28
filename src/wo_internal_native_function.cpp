@@ -12,6 +12,10 @@ namespace wo::internal_native
     {
         return woort_ret_panic("This function cannot be invoked.");
     }
+    woort_api panic(void)
+    {
+        return woort_ret_panic("%s", woort_string(0));
+    }
     woort_api print(void)
     {
         woort_value s;

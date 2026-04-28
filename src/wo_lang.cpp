@@ -3142,7 +3142,7 @@ namespace wo
                 }
             }
             /* FALLTHROW */
-            [[fallthrow]];
+            [[fallthrough]];
         case Request::PUSH_RESULT_AND_IGNORE:
             ctx.c().pushchk(ctx.c().load_imm_const(result));
             break;
