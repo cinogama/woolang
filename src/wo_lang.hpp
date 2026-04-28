@@ -556,6 +556,9 @@ namespace wo
             // The pdinode used for generate debug info.
             std::optional<ast::AstBase*> m_pdi_node;
 
+            // When process box request, use this type instead of fact type.
+            std::optional<lang_TypeInstance*> m_treat_as_type;
+
             std::optional<std::pair<std::optional<woort_BoxValueType>, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
                 get_assign_target(lang_TypeInstance* t) const noexcept;
 
@@ -615,6 +618,7 @@ namespace wo
         void eval_action_and_ignore();
 
         void eval_for_upper();
+        void eval_for_upper_as_type(lang_TypeInstance* specify_type);
         void eval_for_upper_box();
         void cleanup_for_eval_upper();
 

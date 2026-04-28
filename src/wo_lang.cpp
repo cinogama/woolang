@@ -1459,7 +1459,7 @@ namespace wo
 
                     ++argument_place;
                 }
-                
+
                 if (!anylize_pass(
                     lex,
                     eval_function->m_body,
@@ -2768,6 +2768,16 @@ namespace wo
         // Make a duplicated eval request (For FAILED recover).
         m_eval_result_storage_target.push(m_eval_result_storage_target.top());
     }
+    void BytecodeGenerateContext::eval_for_upper_as_type(lang_TypeInstance* specify_type)
+    {
+        wo_assert(!m_eval_result_storage_target.empty());
+
+        // Make a duplicated eval request (For FAILED recover).
+        EvalResult /* dup */ e = m_eval_result_storage_target.top();
+
+        e.m_treat_as_type.emplace(specify_type);
+        m_eval_result_storage_target.emplace(std::move(e));
+    }
     void BytecodeGenerateContext::eval_for_upper_box()
     {
         wo_assert(!m_eval_result_storage_target.empty());
@@ -2848,12 +2858,14 @@ namespace wo
     std::optional<std::pair<std::optional<woort_BoxValueType>, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
         BytecodeGenerateContext::EvalResult::get_assign_target(lang_TypeInstance* t) const noexcept
     {
+        lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
+
         std::optional<woort_BoxValueType> need_to_box_as = std::nullopt;
         if (m_request == Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET)
         {
             woort_BoxValueType woort_box_target_type;
 
-            if (t->is_need_to_box_in_IR(&woort_box_target_type))
+            if (require_type->is_need_to_box_in_IR(&woort_box_target_type))
                 need_to_box_as.emplace(woort_box_target_type);
         }
 
@@ -2869,16 +2881,17 @@ namespace wo
     }
 
     void BytecodeGenerateContext::EvalResult::set_result_stack_temp(
-        BytecodeGenerateContext& ctx, const woort_IRValue* result, const lang_TypeInstance* type) noexcept
+        BytecodeGenerateContext& ctx, const woort_IRValue* result, const lang_TypeInstance* t) noexcept
     {
         wo_assert(m_result_type == ResultKind::PENDING);
+        lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
 
         switch (m_request)
         {
         case Request::GET_BOXED_RESULT_FOR_READONLY:
         {
             woort_BoxValueType box_type;
-            if (type->is_need_to_box_in_IR(&box_type))
+            if (require_type->is_need_to_box_in_IR(&box_type))
             {
                 m_result_type = ResultKind::RESULT_STACK_TEMP;
                 m_result_stack = ctx.c().new_value();
@@ -2896,7 +2909,7 @@ namespace wo
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
         {
             woort_BoxValueType box_type;
-            if (type->is_need_to_box_in_IR(&box_type))
+            if (require_type->is_need_to_box_in_IR(&box_type))
             {
                 ctx.c().pushboxdyn(box_type, result);
                 break;
@@ -2914,16 +2927,17 @@ namespace wo
         }
     }
     void BytecodeGenerateContext::EvalResult::set_result_stack_var(
-        BytecodeGenerateContext& ctx, woort_IRValue* result, const lang_TypeInstance* type) noexcept
+        BytecodeGenerateContext& ctx, woort_IRValue* result, const lang_TypeInstance* t) noexcept
     {
         wo_assert(m_result_type == ResultKind::PENDING);
+        lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
 
         switch (m_request)
         {
         case Request::GET_BOXED_RESULT_FOR_READONLY:
         {
             woort_BoxValueType box_type;
-            if (type->is_need_to_box_in_IR(&box_type))
+            if (require_type->is_need_to_box_in_IR(&box_type))
             {
                 m_result_type = ResultKind::RESULT_STACK_TEMP;
                 m_result_stack = ctx.c().new_value();
@@ -2942,7 +2956,7 @@ namespace wo
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
         {
             woort_BoxValueType box_type;
-            if (type->is_need_to_box_in_IR(&box_type))
+            if (require_type->is_need_to_box_in_IR(&box_type))
             {
                 ctx.c().pushboxdyn(box_type, result);
                 break;
@@ -2961,16 +2975,17 @@ namespace wo
         }
     }
     void BytecodeGenerateContext::EvalResult::set_result_static(
-        BytecodeGenerateContext& ctx, woort_IRStaticIndex result, const lang_TypeInstance* type) noexcept
+        BytecodeGenerateContext& ctx, woort_IRStaticIndex result, const lang_TypeInstance* t) noexcept
     {
         wo_assert(m_result_type == ResultKind::PENDING);
+        lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
 
         switch (m_request)
         {
         case Request::GET_BOXED_RESULT_FOR_READONLY:
         {
             woort_BoxValueType box_type;
-            if (type->is_need_to_box_in_IR(&box_type))
+            if (require_type->is_need_to_box_in_IR(&box_type))
             {
                 m_result_type = ResultKind::RESULT_STACK_TEMP;
                 m_result_stack = ctx.c().new_value();
@@ -2992,7 +3007,7 @@ namespace wo
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
         {
             woort_BoxValueType box_type;
-            if (type->is_need_to_box_in_IR(&box_type))
+            if (require_type->is_need_to_box_in_IR(&box_type))
             {
                 woort_IRValue* const temp = ctx.c().new_value();
                 ctx.c().load(temp, result);
@@ -3015,16 +3030,17 @@ namespace wo
         BytecodeGenerateContext& ctx,
         const woort_IRValue* structure,
         uint32_t index,
-        const lang_TypeInstance* type) noexcept
+        const lang_TypeInstance* t) noexcept
     {
         wo_assert(m_result_type == ResultKind::PENDING);
+        lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
 
         switch (m_request)
         {
         case Request::GET_BOXED_RESULT_FOR_READONLY:
         {
             woort_BoxValueType box_type;
-            if (type->is_need_to_box_in_IR(&box_type))
+            if (require_type->is_need_to_box_in_IR(&box_type))
             {
                 m_result_type = ResultKind::RESULT_STACK_TEMP;
                 m_result_stack = ctx.c().new_value();
@@ -3045,7 +3061,7 @@ namespace wo
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
         {
             woort_BoxValueType box_type;
-            if (type->is_need_to_box_in_IR(&box_type))
+            if (require_type->is_need_to_box_in_IR(&box_type))
             {
                 switch (box_type)
                 {
@@ -3085,15 +3101,48 @@ namespace wo
         {
         case Request::GET_BOXED_RESULT_FOR_READONLY:
             m_result_type = ResultKind::RESULT_STACK_TEMP;
-            m_result_stack = const_cast<woort_IRValue*>(ctx.c().load_imm_box_const(result));
-            break;
+            if (!m_treat_as_type.has_value())
+            {
+                m_result_stack = const_cast<woort_IRValue*>(ctx.c().load_imm_box_const(result));
+                break;
+            }
+            else
+            {
+                woort_BoxValueType box_type;
+                if (m_treat_as_type.value()->is_need_to_box_in_IR(&box_type))
+                {
+                    m_result_stack = ctx.c().new_value();
+                    ctx.c().mov(m_result_stack, ctx.c().load_imm_const(result));
+                    ctx.c().boxdyn(m_result_stack, box_type, m_result_stack);
+
+                    break;
+                }
+            }
+            /* FALLTHROW */
+            [[fallthrow]];
         case Request::GET_RESULT_FOR_READONLY:
             m_result_type = ResultKind::RESULT_STACK_TEMP;
             m_result_stack = const_cast<woort_IRValue*>(ctx.c().load_imm_const(result));
             break;
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
-            ctx.c().pushchk(ctx.c().load_imm_box_const(result));
-            break;
+            if (!m_treat_as_type.has_value())
+            {
+                ctx.c().pushchk(ctx.c().load_imm_box_const(result));
+                break;
+            }
+            else
+            {
+                woort_BoxValueType box_type;
+                if (m_treat_as_type.value()->is_need_to_box_in_IR(&box_type))
+                {
+                    m_result_stack = ctx.c().new_value();
+                    ctx.c().pushboxdyn(box_type, ctx.c().load_imm_const(result));
+
+                    break;
+                }
+            }
+            /* FALLTHROW */
+            [[fallthrow]];
         case Request::PUSH_RESULT_AND_IGNORE:
             ctx.c().pushchk(ctx.c().load_imm_const(result));
             break;
