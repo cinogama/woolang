@@ -1,10 +1,16 @@
 #include "wo_afx.hpp"
 
+#include "wo_internal_native_function.hpp"
 #include "wo_stdlib_extern_functions.hpp"
 
 // ======== Stdlib source strings (embedded virtual files) ========
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = u8R"(
+namespace unsafe
+{
+    extern("woostd_return_it_self")
+    public func cast<T, F>(v: F)=> T;
+}
 namespace std
 {
     extern("woostd_print")
@@ -29,49 +35,11 @@ const char* wo_stdlib_shell_src_data = u8""; // TODO
 
 namespace wo::stdlib
 {
-    static woort_api woostd_print(void)
-    {
-        woort_value s;
-        if (!woort_push_reserve(1, &s))
-            return woort_ret_panic("Failed to reserve stack.");
-
-        const woort_Int argn = woort_int(0);
-        for (woort_Int i = 1; i <= argn; ++i)
-        {
-            if (i != 1)
-                wo::wo_stdout << " ";
-
-            if (woort_unbox_type((woort_value)i) == WOORT_BOX_VALUE_TYPE_STRING)
-                wo::wo_stdout << woort_string((woort_value)i);
-            else
-            {
-                if (!woort_serialize_dynbox(s, (woort_value)i, WOORT_SERIALIZE_FLAG_NONE))
-                    return woort_ret_panic("Out of memory.");
-
-                wo::wo_stdout << woort_string(s);
-            }
-
-        }
-        return woort_ret_void();
-    }
-
     void register_all(woort_ExternLibFunc** out_table)
     {
         static woort_ExternLibFunc funcs[] = {
-            {"woostd_print", &woostd_print},
-            // ======== TODO: String ========
-
-            // ======== TODO: Char ========
-
-            // ======== TODO: Array ========
-
-            // ======== TODO: Map ========
-
-            // ======== TODO: I/O ========
-
-            // ======== TODO: Bit ========
-
-            // ======== TODO: Misc ========
+            {"woostd_return_it_self", &wo::internal_native::return_it_self},
+            {"woostd_print", &wo::internal_native::print},
 
             WOORT_EXTERN_LIB_FUNC_END,
         };

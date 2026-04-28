@@ -632,7 +632,7 @@ namespace wo
         const woort_IRValue* get_eval_result();
         void pop_eval_result();
 
-        bool eval_result_just_ignored() const noexcept;
+        bool is_eval_result_just_ignored() const noexcept;
         bool upper_need_box() const noexcept;
         bool upper_need_get_result() const noexcept;
         bool upper_need_assign() const noexcept;

@@ -2578,7 +2578,7 @@ namespace wo
         m_evaled_result_storage.pop();
         return r;
     }
-    bool BytecodeGenerateContext::eval_result_just_ignored() const noexcept
+    bool BytecodeGenerateContext::is_eval_result_just_ignored() const noexcept
     {
         auto& top_eval_state = m_eval_result_storage_target.top();
         return top_eval_state.m_request == EvalResult::Request::IGNORE_RESULT;
@@ -2634,7 +2634,7 @@ namespace wo
     {
         auto& top_eval_state = m_eval_result_storage_target.top();
 
-        if (!eval_result_just_ignored())
+        if (!is_eval_result_just_ignored())
         {
             bool need_pop_pdi = false;
             if (top_eval_state.m_pdi_node.has_value())
@@ -2803,14 +2803,14 @@ namespace wo
     void BytecodeGenerateContext::eval_to_assign_if_not_ignore(
         woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode)
     {
-        if (eval_result_just_ignored())
+        if (is_eval_result_just_ignored())
             eval_and_ignore();
         else
             eval_to_assign(target, pdinode);
     }
     void BytecodeGenerateContext::do_eval_if_not_ignore(void(BytecodeGenerateContext::* method)())
     {
-        if (eval_result_just_ignored())
+        if (is_eval_result_just_ignored())
             eval_and_ignore();
         else
         {

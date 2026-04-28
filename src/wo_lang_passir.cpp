@@ -898,7 +898,7 @@ namespace wo
         switch (node->m_pattern->node_type)
         {
         case AstBase::AST_PATTERN_TAKEPLACE:
-            m_ircontext.eval_result_just_ignored();
+            m_ircontext.eval_and_ignore();
             if (!pass_final_value(lex, node->m_init_value))
                 // Failed 
                 return FAILED;
@@ -956,7 +956,7 @@ namespace wo
                         if (function.has_value())
                         {
                             // We still eval the function to let compiler know the function.
-                            m_ircontext.eval_result_just_ignored();
+                            m_ircontext.eval_and_ignore();
                             if (!pass_final_value(lex, function.value()))
                                 // Failed 
                                 return FAILED;
@@ -1523,6 +1523,8 @@ namespace wo
                         if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST
                             && &internal_native::return_it_self == externed_function)
                         {
+                            // TODO: RISK IN BOXED TYPE, WE NEED DO EXTRA CAST?
+                            
                             // Optimized for rslib_std_return_itself.
                             m_ircontext.eval_for_upper();
                             WO_CONTINUE_PROCESS(node->m_arguments.front());
@@ -1622,7 +1624,7 @@ namespace wo
                 }
 
                 // Ok, invoke finished.
-                if (m_ircontext.eval_result_just_ignored())
+                if (m_ircontext.is_eval_result_just_ignored())
                 {
                     if (node->m_IR_invoking_function_near.has_value())
                     {
@@ -3439,7 +3441,7 @@ namespace wo
                     emit_optimized_jcc_negated(m_ircontext.c(), binop, left_val, right_val,
                         m_ircontext.c().named_label(node, "#cond_false"));
 
-                    if (m_ircontext.eval_result_just_ignored())
+                    if (m_ircontext.is_eval_result_just_ignored())
                     {
                         m_ircontext.eval_and_ignore();
                     }
@@ -3480,7 +3482,7 @@ namespace wo
                 const woort_IRValue* const cond = m_ircontext.get_eval_result();
                 m_ircontext.c().jccz(cond, m_ircontext.c().named_label(node, "#cond_false"));
 
-                if (m_ircontext.eval_result_just_ignored())
+                if (m_ircontext.is_eval_result_just_ignored())
                 {
                     m_ircontext.eval_and_ignore();
                 }
@@ -3521,7 +3523,7 @@ namespace wo
                     else
                         m_ircontext.eval_to_assign(v, std::nullopt);
                 }
-                else if (m_ircontext.eval_result_just_ignored())
+                else if (m_ircontext.is_eval_result_just_ignored())
                 {
                     m_ircontext.eval_and_ignore();
                 }
@@ -3543,7 +3545,7 @@ namespace wo
                 m_ircontext.c().bind(m_ircontext.c().named_label(node, "#cond_end"));
 
                 if (node->m_IR_cond_eval_result.has_value()
-                    || m_ircontext.eval_result_just_ignored())
+                    || m_ircontext.is_eval_result_just_ignored())
                 {
                     m_ircontext.apply_eval_result(
                         [&](BytecodeGenerateContext::EvalResult& result)
@@ -4192,7 +4194,7 @@ namespace wo
                     switch (node->m_assign_type)
                     {
                     case AstValueAssign::ASSIGN:
-                        if (m_ircontext.eval_result_just_ignored())
+                        if (m_ircontext.is_eval_result_just_ignored())
                             m_ircontext.pop_eval_result();
                         else
                             eval_result_for_upper = m_ircontext.get_eval_result();
@@ -4200,7 +4202,7 @@ namespace wo
                     default:
                         if (node->m_LANG_overload_call.has_value())
                         {
-                            if (m_ircontext.eval_result_just_ignored())
+                            if (m_ircontext.is_eval_result_just_ignored())
                                 m_ircontext.pop_eval_result();
                             else
                                 eval_result_for_upper = m_ircontext.get_eval_result();
