@@ -1395,7 +1395,8 @@ namespace wo
                     std::optional<woort_IRStaticIndex> need_write_back_to_static =
                         std::nullopt;
 
-                    const auto& asigned_target = result.get_assign_target(node->m_LANG_determined_type.value());
+                    const auto& asigned_target =
+                        result.get_assign_target(node->m_LANG_determined_type.value());
 
                     std::optional<woort_BoxValueType> need_box;
 
@@ -1566,7 +1567,7 @@ namespace wo
                             && &internal_native::return_it_self == externed_function)
                         {
                             // TODO: RISK IN BOXED TYPE, WE NEED DO EXTRA CAST?
-                            
+
                             // Optimized for rslib_std_return_itself.
                             m_ircontext.eval_for_upper_as_type(node->m_LANG_determined_type.value());
                             WO_CONTINUE_PROCESS(node->m_arguments.front());
@@ -2411,7 +2412,7 @@ namespace wo
                                         auto& [need_box, target] = target_storage.value();
                                         woort_IRValue* const* const target_irvalue =
                                             std::get_if<woort_IRValue*>(&target);
-                                        
+
                                         if (target_irvalue == nullptr)
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
@@ -3662,143 +3663,19 @@ namespace wo
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
-                        const auto& target_storage = 
-                            result.get_assign_target(node->m_LANG_determined_type.value());
+                        lang_TypeInstance* const result_type_instance =
+                            node->m_LANG_determined_type.value();
 
-                        lang_TypeInstance* container_type_instance =
+                        const auto& asigned_target =
+                            result.get_assign_target(result_type_instance);
+
+                        lang_TypeInstance* const container_type_instance =
                             node->m_container->m_LANG_determined_type.value();
-                        auto* determined_container_type =
+                        auto* const determined_container_type =
                             container_type_instance->get_determined_type().value();
 
-                        std::optional<woort_BoxValueType> need_box = std::nullopt;
-
-                        if (target_storage.has_value())
-                            need_box = target_storage.value().first;
-
-                        switch (determined_container_type->m_base_type)
-                        {
-                        case lang_TypeInstance::DeterminedType::ARRAY:
-                        case lang_TypeInstance::DeterminedType::VECTOR:
-                        case lang_TypeInstance::DeterminedType::STRING:
-                        case lang_TypeInstance::DeterminedType::DICTIONARY:
-                        case lang_TypeInstance::DeterminedType::MAPPING:
-                        {
-                            const bool result_is_dynamic =
-                                node->m_LANG_determined_type.value()->get_determined_type().has_value()
-                                && node->m_LANG_determined_type.value()->get_determined_type().value()->m_base_type
-                                == lang_TypeInstance::DeterminedType::DYNAMIC;
-                            const bool use_x_variant = need_box.has_value() || result_is_dynamic;
-
-                            const lang_TypeInstance* const result_type_for_set =
-                                use_x_variant
-                                ? m_origin_types.m_dynamic.m_type_instance
-                                : node->m_LANG_determined_type.value();
-
-                            auto* index_opnum = m_ircontext.get_eval_result();
-                            auto* container_opnum = m_ircontext.get_eval_result();
-
-                            wo_assert(!node->m_LANG_fast_index_for_struct.has_value());
-
-                            if (target_storage.has_value())
-                            {
-                                const auto& [_, target] = target_storage.value();
-                                woort_IRValue* const* const target_irvalue =
-                                    std::get_if<woort_IRValue*>(&target);
-
-                                woort_IRValue* const v = target_irvalue
-                                    ? *target_irvalue
-                                    : m_ircontext.c().new_value();
-
-                                if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::ARRAY
-                                    || determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::VECTOR)
-                                {
-                                    if (use_x_variant)
-                                        m_ircontext.c().ldidxvecx(v, container_opnum, index_opnum);
-                                    else
-                                        m_ircontext.c().ldidxvec(v, container_opnum, index_opnum);
-                                }
-                                else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRING)
-                                {
-                                    m_ircontext.c().ldidxstring(v, container_opnum, index_opnum);
-                                    if (need_box.has_value())
-                                        m_ircontext.c().boxdyn(v, need_box.value(), v);
-                                }
-                                else
-                                {
-                                    auto* key_type_instance =
-                                        determined_container_type->m_external_type_description.m_dictionary_or_mapping->m_key_type;
-                                    auto* key_determined_type =
-                                        key_type_instance->get_determined_type().value();
-
-                                    switch (key_determined_type->m_base_type)
-                                    {
-                                    case lang_TypeInstance::DeterminedType::INTEGER:
-                                        m_ircontext.c().ldidxdicti(v, container_opnum, index_opnum);
-                                        break;
-                                    case lang_TypeInstance::DeterminedType::REAL:
-                                        m_ircontext.c().ldidxdictr(v, container_opnum, index_opnum);
-                                        break;
-                                    case lang_TypeInstance::DeterminedType::BOOLEAN:
-                                        m_ircontext.c().ldidxdictb(v, container_opnum, index_opnum);
-                                        break;
-                                    default:
-                                        m_ircontext.c().ldidxdictx(v, container_opnum, index_opnum);
-                                        break;
-                                    }
-                                }
-
-                                if (target_irvalue == nullptr)
-                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                            }
-                            else
-                            {
-                                woort_IRValue* const v = m_ircontext.c().new_value();
-
-                                if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::ARRAY
-                                    || determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::VECTOR)
-                                {
-                                    if (use_x_variant)
-                                        m_ircontext.c().ldidxvecx(v, container_opnum, index_opnum);
-                                    else
-                                        m_ircontext.c().ldidxvec(v, container_opnum, index_opnum);
-                                }
-                                else if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRING)
-                                {
-                                    m_ircontext.c().ldidxstring(v, container_opnum, index_opnum);
-                                    if (need_box.has_value())
-                                        m_ircontext.c().boxdyn(v, need_box.value(), v);
-                                }
-                                else
-                                {
-                                    auto* key_type_instance =
-                                        determined_container_type->m_external_type_description.m_dictionary_or_mapping->m_key_type;
-                                    auto* key_determined_type =
-                                        key_type_instance->get_determined_type().value();
-
-                                    switch (key_determined_type->m_base_type)
-                                    {
-                                    case lang_TypeInstance::DeterminedType::INTEGER:
-                                        m_ircontext.c().ldidxdicti(v, container_opnum, index_opnum);
-                                        break;
-                                    case lang_TypeInstance::DeterminedType::REAL:
-                                        m_ircontext.c().ldidxdictr(v, container_opnum, index_opnum);
-                                        break;
-                                    case lang_TypeInstance::DeterminedType::BOOLEAN:
-                                        m_ircontext.c().ldidxdictb(v, container_opnum, index_opnum);
-                                        break;
-                                    default:
-                                        m_ircontext.c().ldidxdictx(v, container_opnum, index_opnum);
-                                        break;
-                                    }
-                                }
-
-                                result.set_result_stack_temp(
-                                    m_ircontext, v, result_type_for_set);
-                            }
-                            break;
-                        }
-                        case lang_TypeInstance::DeterminedType::STRUCT:
-                        case lang_TypeInstance::DeterminedType::TUPLE:
+                        if (determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::STRUCT
+                            || determined_container_type->m_base_type == lang_TypeInstance::DeterminedType::TUPLE)
                         {
                             auto* container_opnum = m_ircontext.get_eval_result();
 
@@ -3806,9 +3683,9 @@ namespace wo
 
                             const uint32_t fast_index = (uint32_t)node->m_LANG_fast_index_for_struct.value();
 
-                            if (target_storage.has_value())
+                            if (asigned_target.has_value())
                             {
-                                const auto& [need_box, target] = target_storage.value();
+                                const auto& [need_box, target] = asigned_target.value();
                                 woort_IRValue* const* const target_irvalue =
                                     std::get_if<woort_IRValue*>(&target);
 
@@ -3828,12 +3705,165 @@ namespace wo
                                 result.set_result_struct_index(
                                     m_ircontext, container_opnum, fast_index, node->m_LANG_determined_type.value());
                             }
-                            break;
                         }
-                        default:
-                            wo_error("Unknown type.");
-                            break;
+                        else
+                        {
+                            woort_IRValue* make_result_target = nullptr;
+
+                            std::optional<woort_IRStaticIndex> need_write_back_to_static =
+                                std::nullopt;
+
+                            std::optional<woort_BoxValueType> need_box;
+
+                            auto* const determined_result_type =
+                                result_type_instance->get_determined_type().value();
+
+                            if (asigned_target.has_value())
+                            {
+                                const auto& [nb, target] = asigned_target.value();
+                                need_box = nb;
+
+                                woort_IRValue* const* const target_irvalue =
+                                    std::get_if<woort_IRValue*>(&target);
+
+                                if (target_irvalue == nullptr)
+                                {
+                                    need_write_back_to_static.emplace(
+                                        std::get<woort_IRStaticIndex>(target));
+
+                                    make_result_target = m_ircontext.c().new_value();
+                                }
+                                else
+                                {
+                                    make_result_target = *target_irvalue;
+                                }
+                            }
+                            else
+                                make_result_target = m_ircontext.c().new_value();
+
+                            bool use_x_variant = determined_result_type->m_base_type ==
+                                lang_TypeInstance::DeterminedType::base_type::DYNAMIC;
+
+                            bool need_extra_box_for_unsafe_cast_optimize = false;
+                            if (need_box.has_value())
+                            {
+                                woort_BoxValueType box_type;
+                                if (result_type_instance->is_need_to_box_in_IR(&box_type))
+                                {
+                                    if (box_type != need_box.value())
+                                        need_extra_box_for_unsafe_cast_optimize = true;
+                                    else if (!use_x_variant)
+                                        use_x_variant = true;
+                                }
+                            }
+
+                            switch (determined_container_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::ARRAY:
+                            case lang_TypeInstance::DeterminedType::VECTOR:
+                            {
+                                auto* index_opnum = m_ircontext.get_eval_result();
+                                auto* container_opnum = m_ircontext.get_eval_result();
+
+                                if (use_x_variant)
+                                    m_ircontext.c().ldidxvecx(
+                                        make_result_target, container_opnum, index_opnum);
+                                else
+                                    m_ircontext.c().ldidxvec(
+                                        make_result_target, container_opnum, index_opnum);
+
+                                break;
+                            }
+                            case lang_TypeInstance::DeterminedType::DICTIONARY:
+                            case lang_TypeInstance::DeterminedType::MAPPING:
+                            {
+                                auto* index_opnum = m_ircontext.get_eval_result();
+                                auto* container_opnum = m_ircontext.get_eval_result();
+
+                                auto* key_type_instance =
+                                    determined_container_type->m_external_type_description.m_dictionary_or_mapping->m_key_type;
+                                auto* key_determined_type =
+                                    key_type_instance->get_determined_type().value();
+
+                                if (use_x_variant)
+                                {
+                                    switch (key_determined_type->m_base_type)
+                                    {
+                                    case lang_TypeInstance::DeterminedType::INTEGER:
+                                        m_ircontext.c().ldidxdictix(make_result_target, container_opnum, index_opnum);
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::REAL:
+                                        m_ircontext.c().ldidxdictrx(make_result_target, container_opnum, index_opnum);
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                        m_ircontext.c().ldidxdictbx(make_result_target, container_opnum, index_opnum);
+                                        break;
+                                    default:
+                                        m_ircontext.c().ldidxdictxx(make_result_target, container_opnum, index_opnum);
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    switch (key_determined_type->m_base_type)
+                                    {
+                                    case lang_TypeInstance::DeterminedType::INTEGER:
+                                        m_ircontext.c().ldidxdicti(make_result_target, container_opnum, index_opnum);
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::REAL:
+                                        m_ircontext.c().ldidxdictr(make_result_target, container_opnum, index_opnum);
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                        m_ircontext.c().ldidxdictb(make_result_target, container_opnum, index_opnum);
+                                        break;
+                                    default:
+                                        m_ircontext.c().ldidxdictx(make_result_target, container_opnum, index_opnum);
+                                        break;
+                                    }
+                                }
+
+                                if (need_extra_box_for_unsafe_cast_optimize)
+                                    m_ircontext.c().boxdyn(
+                                        make_result_target, need_box.value(), make_result_target);
+
+                                break;
+                            }
+                            case lang_TypeInstance::DeterminedType::STRING:
+                            {
+                                auto* index_opnum = m_ircontext.get_eval_result();
+                                auto* container_opnum = m_ircontext.get_eval_result();
+
+                                m_ircontext.c().ldidxstring(make_result_target, container_opnum, index_opnum);
+                                if (need_box.has_value())
+                                    m_ircontext.c().boxdyn(make_result_target, need_box.value(), make_result_target);
+                                break;
+                            }
+                            case lang_TypeInstance::DeterminedType::STRUCT:
+                            case lang_TypeInstance::DeterminedType::TUPLE:
+                            default:
+                                wo_error("Unknown type.");
+                            }
+
+                            if (asigned_target.has_value())
+                            {
+                                if (need_extra_box_for_unsafe_cast_optimize)
+                                    m_ircontext.c().boxdyn(
+                                        make_result_target, need_box.value(), make_result_target);
+
+                                if (need_write_back_to_static.has_value())
+                                {
+                                    m_ircontext.c().store(need_write_back_to_static.value(), make_result_target);
+                                }
+                            }
+                            else
+                            {
+                                result.set_result_stack_temp(
+                                    m_ircontext,
+                                    make_result_target,
+                                    node->m_LANG_determined_type.value());
+                            }
                         }
+                        /////////////////////////////////////////////////////////////////////////
                     }
                 );
                 break;

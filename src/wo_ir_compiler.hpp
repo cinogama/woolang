@@ -216,6 +216,10 @@ namespace wo
         void ldidxdictr(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
         void ldidxdictb(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
         void ldidxdictx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldidxdictix(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldidxdictrx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldidxdictbx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldidxdictxx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
 
         /* --- Index Store --- */
         void stidxveci(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);

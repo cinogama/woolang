@@ -3119,7 +3119,7 @@ namespace wo
                 }
             }
             /* FALLTHROW */
-            [[fallthrow]];
+            [[fallthrough]];
         case Request::GET_RESULT_FOR_READONLY:
             m_result_type = ResultKind::RESULT_STACK_TEMP;
             m_result_stack = const_cast<woort_IRValue*>(ctx.c().load_imm_const(result));
