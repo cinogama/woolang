@@ -557,7 +557,7 @@ namespace wo
             std::optional<ast::AstBase*> m_pdi_node;
 
             // When process box request, use this type instead of fact type.
-            std::optional<lang_TypeInstance*> m_treat_as_type;
+            std::optional<const lang_TypeInstance*> m_treat_as_type;
 
             std::optional<std::pair<std::optional<woort_BoxValueType>, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
                 get_assign_target(lang_TypeInstance* t) const noexcept;
@@ -582,9 +582,9 @@ namespace wo
             void set_result_const(
                 BytecodeGenerateContext& ctx, 
                 const ast::ConstantValue& result) noexcept;
-            void set_result_const_idx_no_need_box(
+            void set_result_const_closure(
                 BytecodeGenerateContext& ctx,
-                woort_IRConstantIndex result) noexcept;
+                ast::AstValueFunction* val) noexcept;
             void set_result_junk(
                 BytecodeGenerateContext& ctx) noexcept;
         };

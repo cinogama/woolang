@@ -2858,7 +2858,7 @@ namespace wo
     std::optional<std::pair<std::optional<woort_BoxValueType>, std::variant<woort_IRValue*, woort_IRStaticIndex>>>
         BytecodeGenerateContext::EvalResult::get_assign_target(lang_TypeInstance* t) const noexcept
     {
-        lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
+        const lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
 
         std::optional<woort_BoxValueType> need_to_box_as = std::nullopt;
         if (m_request == Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET)
@@ -2884,7 +2884,7 @@ namespace wo
         BytecodeGenerateContext& ctx, const woort_IRValue* result, const lang_TypeInstance* t) noexcept
     {
         wo_assert(m_result_type == ResultKind::PENDING);
-        lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
+        const lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
 
         switch (m_request)
         {
@@ -2930,7 +2930,7 @@ namespace wo
         BytecodeGenerateContext& ctx, woort_IRValue* result, const lang_TypeInstance* t) noexcept
     {
         wo_assert(m_result_type == ResultKind::PENDING);
-        lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
+        const lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
 
         switch (m_request)
         {
@@ -2978,7 +2978,7 @@ namespace wo
         BytecodeGenerateContext& ctx, woort_IRStaticIndex result, const lang_TypeInstance* t) noexcept
     {
         wo_assert(m_result_type == ResultKind::PENDING);
-        lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
+        const lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
 
         switch (m_request)
         {
@@ -3033,7 +3033,7 @@ namespace wo
         const lang_TypeInstance* t) noexcept
     {
         wo_assert(m_result_type == ResultKind::PENDING);
-        lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
+        const lang_TypeInstance* const require_type = m_treat_as_type.value_or(t);
 
         switch (m_request)
         {
@@ -3152,20 +3152,47 @@ namespace wo
             abort();
         }
     }
-    void BytecodeGenerateContext::EvalResult::set_result_const_idx_no_need_box(
+    void BytecodeGenerateContext::EvalResult::set_result_const_closure(
         BytecodeGenerateContext& ctx,
-        woort_IRConstantIndex result) noexcept
+        ast::AstValueFunction* val) noexcept
     {
         wo_assert(m_result_type == ResultKind::PENDING);
+        woort_IRConstantIndex result = ctx.c().imm_closure(val);
 
         switch (m_request)
         {
         case Request::GET_BOXED_RESULT_FOR_READONLY:
+            if (m_treat_as_type.has_value())
+            {
+                m_result_type = ResultKind::RESULT_STACK_TEMP;
+
+                woort_BoxValueType box_type;
+                if (m_treat_as_type.value()->is_need_to_box_in_IR(&box_type))
+                {
+                    m_result_stack = ctx.c().new_value();
+                    ctx.c().mov(m_result_stack, ctx.c().fetch_constant(result));
+                    ctx.c().boxdyn(m_result_stack, box_type, m_result_stack);
+                    break;
+                }
+            }
+            /* FALLTHROW */
+            [[fallthrough]];
         case Request::GET_RESULT_FOR_READONLY:
             m_result_type = ResultKind::RESULT_STACK_TEMP;
             m_result_stack = const_cast<woort_IRValue*>(ctx.c().fetch_constant(result));
             break;
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
+            if (m_treat_as_type.has_value())
+            {
+                woort_BoxValueType box_type;
+                if (m_treat_as_type.value()->is_need_to_box_in_IR(&box_type))
+                {
+                    ctx.c().pushboxdyn(box_type, ctx.c().fetch_constant(result));
+                    break;
+                }
+            }
+            /* FALLTHROW */
+            [[fallthrough]];
         case Request::PUSH_RESULT_AND_IGNORE:
             ctx.c().pushchk(ctx.c().fetch_constant(result));
             break;
