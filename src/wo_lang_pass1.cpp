@@ -1590,22 +1590,22 @@ namespace wo
     {
         auto decided_function_return_type =
             [&](lang_TypeInstance* ret_type)
-        {
-            std::vector<lang_TypeInstance*> parameters;
-            for (auto& param : node->m_parameters)
-                parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
-
-            node->m_LANG_determined_type = m_origin_types.create_function_type(
-                node->m_is_variadic, parameters, ret_type);
-
-            wo_assert(node->m_LANG_determined_type.has_value());
-
-            if (node->m_LANG_value_instance_to_update)
             {
-                node->m_LANG_value_instance_to_update.value()->m_determined_type =
-                    node->m_LANG_determined_type;
-            }
-        };
+                std::vector<lang_TypeInstance*> parameters;
+                for (auto& param : node->m_parameters)
+                    parameters.push_back(param->m_type.value()->m_LANG_determined_type.value());
+
+                node->m_LANG_determined_type = m_origin_types.create_function_type(
+                    node->m_is_variadic, parameters, ret_type);
+
+                wo_assert(node->m_LANG_determined_type.has_value());
+
+                if (node->m_LANG_value_instance_to_update)
+                {
+                    node->m_LANG_value_instance_to_update.value()->m_determined_type =
+                        node->m_LANG_determined_type;
+                }
+            };
 
         // Huston, we have a problem.
         if (state == UNPROCESSED)
@@ -1699,7 +1699,7 @@ namespace wo
                 if (node->m_LANG_determined_return_type.has_value() == false)
                 {
                     // Donot have return sentence? mark function return type as void / nothing.
-                    if (! node->m_LANG_function_body_end_with_return_flag_for_IR)
+                    if (!node->m_LANG_function_body_end_with_return_flag_for_IR)
                         node->m_LANG_determined_return_type = m_origin_types.m_void.m_type_instance;
                     else
                         // Function have no `return`, but end with return check passed, it means function
@@ -1709,7 +1709,7 @@ namespace wo
                 else if (node->m_LANG_determined_return_type.value() != m_origin_types.m_void.m_type_instance)
                 {
                     // Have return sentence, and function not return explicitly, error!
-                    if (! node->m_LANG_function_body_end_with_return_flag_for_IR)
+                    if (!node->m_LANG_function_body_end_with_return_flag_for_IR)
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, node,
                             WO_ERR_FUNCTION_MAY_NO_RETURN_VALUE);
@@ -6418,47 +6418,99 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstExternInformation)
     {
-        wo_assert(state == UNPROCESSED);
-        // Mark return type as extern.
-
-        auto* function_instance = get_current_function().value();
-
-        woort_NativeFunction extern_function;
-
-        if (node->m_extern_from_library.has_value())
+        if (state == UNPROCESSED)
         {
-            extern_function = rslib_extern_symbols::get_lib_symbol(
-                node->source_location.source_file->c_str(),
-                node->m_extern_from_library.value()->c_str(),
-                node->m_extern_symbol->c_str(),
-                m_ircontext.m_extern_libs);
+            WO_CONTINUE_PROCESS(node->m_extern_symbol);
 
-            if (extern_function == nullptr
-                && config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
-                extern_function = &internal_native::bad_function;
+            if (node->m_extern_from_library.has_value())
+                WO_CONTINUE_PROCESS(node->m_extern_from_library.value());
+
+            return HOLD;
         }
-        else
+        else if (state == HOLD)
         {
-            extern_function =
-                rslib_extern_symbols::get_global_symbol(
-                    node->m_extern_symbol->c_str());
+            // Check if `m_extern_symbol` & `m_extern_from_library` is a constant string.
+
+            bool constant_check_failed = false;
+
+            if (node->m_extern_from_library.has_value())
+            {
+                AstValueBase* const lib_name = node->m_extern_from_library.value();
+                if (!lib_name->m_evaled_const_value.has_value())
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, lib_name,
+                        WO_ERR_EXTERN_LIB_SHOULD_BE_CONSTANT);
+                    constant_check_failed = true;
+                }
+                else if (lib_name->m_LANG_determined_type.value() != m_origin_types.m_string.m_type_instance)
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, lib_name,
+                        WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                        get_type_name(lib_name->m_LANG_determined_type.value()),
+                        get_type_name(m_origin_types.m_string.m_type_instance));
+                    constant_check_failed = true;
+                }
+            }
+            if (!node->m_extern_symbol->m_evaled_const_value.has_value())
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, node->m_extern_symbol,
+                    WO_ERR_EXTERN_NAME_SHOULD_BE_CONSTANT);
+                constant_check_failed = true;
+            }
+            else if (node->m_extern_symbol->m_LANG_determined_type.value() != m_origin_types.m_string.m_type_instance)
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, node->m_extern_symbol,
+                    WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED,
+                    get_type_name(node->m_extern_symbol->m_LANG_determined_type.value()),
+                    get_type_name(m_origin_types.m_string.m_type_instance));
+                constant_check_failed = true;
+            }
+
+            if (constant_check_failed)
+                return FAILED;
+
+            auto* function_instance = get_current_function().value();
+
+            woort_NativeFunction extern_function;
+
+            if (node->m_extern_from_library.has_value())
+            {
+                extern_function = rslib_extern_symbols::get_lib_symbol(
+                    node->source_location.source_file->c_str(),
+                    node->m_extern_from_library.value()->m_evaled_const_value.value().value_pstring()->c_str(),
+                    node->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str(),
+                    m_ircontext.m_extern_libs);
+
+                if (extern_function == nullptr
+                    && config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
+                    extern_function = &internal_native::bad_function;
+            }
+            else
+            {
+                extern_function =
+                    rslib_extern_symbols::get_global_symbol(
+                        node->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str());
+            }
+
+            if (extern_function != nullptr)
+                node->m_IR_externed_function = extern_function;
+            else
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION,
+                    node->m_extern_from_library.has_value()
+                        ? node->m_extern_from_library.value()->m_evaled_const_value.value().value_pstring()->c_str()
+                        : "woolang",
+                    node->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str());
+
+                return FAILED;
+            }
+            function_instance->m_LANG_extern_information = node;
+
+            function_instance->m_LANG_determined_return_type =
+                function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
+
         }
-
-        if (extern_function != nullptr)
-            node->m_IR_externed_function = extern_function;
-        else
-        {
-            lex.record_lang_error(lexer::msglevel_t::error, node,
-                WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION,
-                node->m_extern_from_library.value_or(WO_PSTR(woolang))->c_str(),
-                node->m_extern_symbol->c_str());
-
-            return FAILED;
-        }
-        function_instance->m_LANG_extern_information = node;
-
-        function_instance->m_LANG_determined_return_type =
-            function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
 
         return OKAY;
     }

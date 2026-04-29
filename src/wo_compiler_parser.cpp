@@ -882,8 +882,8 @@ namespace wo
                                     auto& follow_set = FOLLOW_READ(fr);
 
                                     auto place = std::find_if(
-                                        follow_set.begin(), 
-                                        follow_set.end(), 
+                                        follow_set.begin(),
+                                        follow_set.end(),
                                         [&](const te& t)
                                         {
                                             return t.t_type == out_lex;
@@ -897,7 +897,7 @@ namespace wo
                             goto error_handle_fail;
                         }
 
-                        if (! node_stack.empty())
+                        if (!node_stack.empty())
                         {
                             state_stack.pop_back();
                             sym_stack.pop_back();
@@ -1074,10 +1074,7 @@ namespace wo
             if (std::holds_alternative<grammar::te>(s))
             {
                 const grammar::te& v = std::get<grammar::te>(s);
-                if (v.t_name == "")
-                    ost << " token: " << v.t_type << " ";
-                else
-                    ost << v.t_name;
+                ost << v;
             }
             else
                 ost << (std::get<grammar::nt>(s).nt_name);
@@ -1091,19 +1088,15 @@ namespace wo
     }
     std::ostream& operator<<(std::ostream& ost, const grammar::terminal& ter)
     {
-        if (ter.t_name == "")
-        {
-            if (ter.t_type == lex_type::l_eof)
-                ost << "$";
-            else if (ter.t_type == lex_type::l_semicolon)
-                ost << ";";
-            else if (ter.t_type == lex_type::l_comma)
-                ost << ",";
-            else
-                ost << "token: " << (lex_type_base_t)ter.t_type;
-        }
+        if (ter.t_type == lex_type::l_eof)
+            ost << "$";
+        else if (ter.t_type == lex_type::l_semicolon)
+            ost << ";";
+        else if (ter.t_type == lex_type::l_comma)
+            ost << ",";
         else
-            ost << ter.t_name;
+            ost << "Tkn[" << (int)ter.t_type << "]";
+
         return ost;
     }
     std::ostream& operator<<(std::ostream& ost, const grammar::nonterminal& noter)

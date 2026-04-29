@@ -1280,24 +1280,17 @@ namespace wo
         };
         struct AstExternInformation : public AstBase
         {
-            wo_pstring_t                    m_extern_symbol;
-            std::optional<wo_pstring_t>     m_extern_from_library;
-            uint32_t                        m_attribute_flags;
+            AstValueBase*                   m_extern_symbol;
+            std::optional<AstValueBase*>    m_extern_from_library;
 
             std::optional<woort_NativeFunction> m_IR_externed_function;
-
-            enum extern_attribute : uint32_t
-            {
-                REPEATABLE = 1 << 0,
-            };
 
         private:
             AstExternInformation(const AstExternInformation&);
         public:
             AstExternInformation(
-                wo_pstring_t extern_symbol,
-                const std::optional<wo_pstring_t>& extern_from_library,
-                uint32_t attribute_flags);
+                AstValueBase* extern_symbol,
+                const std::optional<AstValueBase*>& extern_from_library);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstValueIROpnum : public AstValueBase

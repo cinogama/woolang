@@ -1716,53 +1716,24 @@ namespace wo
         }
         auto pass_extern::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            token symbol;
-            std::optional<token> library = std::nullopt;
+            AstValueBase* symbol;
+            std::optional<AstValueBase*> library = std::nullopt;
             std::optional<AstList*> attributes = std::nullopt;
 
-            if (input.size() == 7)
+            if (input.size() == 6)
             {
-                library = WO_NEED_TOKEN(2);
-                symbol = WO_NEED_TOKEN(4);
-                if (!WO_IS_EMPTY(5))
-                    attributes = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
+                library = WO_NEED_AST_VALUE(2);
+                symbol = WO_NEED_AST_VALUE(4);
             }
             else
             {
-                wo_assert(input.size() == 5);
-                symbol = WO_NEED_TOKEN(2);
-                if (!WO_IS_EMPTY(3))
-                    attributes = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
-            }
-
-            uint32_t attribute_mask = 0;
-            if (attributes)
-            {
-                for (auto& attribute : attributes.value()->m_list)
-                {
-                    wo_assert(attribute->node_type == AstBase::AST_TOKEN);
-                    AstToken* attribute_token = static_cast<AstToken*>(attribute);
-
-                    wo_assert(attribute_token->m_token.type == lex_type::l_identifier);
-
-                    if (attribute_token->m_token.identifier == "repeat")
-                        attribute_mask |= AstExternInformation::REPEATABLE;
-                    else
-                        return token{
-                        lex.record_lang_error(
-                            lexer::msglevel_t::error,
-                            attribute,
-                            WO_ERR_UNKNOWN_EXTERN_ATTRIB,
-                            attribute_token->m_token.identifier.c_str()) };
-                }
+                wo_assert(input.size() == 4);
+                symbol = WO_NEED_AST_VALUE(2);
             }
 
             return new AstExternInformation(
-                wo::wstring_pool::get_pstr(symbol.identifier),
-                library
-                ? std::optional(wo::wstring_pool::get_pstr(library->identifier))
-                : std::nullopt,
-                attribute_mask);
+                symbol,
+                library);
         }
     }
 

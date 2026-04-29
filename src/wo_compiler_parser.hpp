@@ -377,28 +377,19 @@ namespace wo
         struct terminal
         {
             lex_type t_type;
-            std::string t_name;
 
-            terminal(lex_type type, const std::string& name = "") :
-                t_type(type),
-                t_name(name)
+            terminal(lex_type type) :
+                t_type(type)
             {
-
             }
 
             bool operator <(const terminal& n)const
             {
-                if (t_name == "" || n.t_name == "")
-                    return t_type < n.t_type;
-                if (t_type != n.t_type)
-                    return t_type < n.t_type;
-                return t_name < n.t_name;
+                return t_type < n.t_type;
             }
             bool operator ==(const terminal& n)const
             {
-                if (t_name == "" || n.t_name == "")
-                    return t_type == n.t_type;
-                return t_type == n.t_type && t_name == n.t_name;
+                return t_type == n.t_type;
             }
         };
 

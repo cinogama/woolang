@@ -2834,27 +2834,29 @@ namespace wo
             : AstBase(AST_EXTERN_INFORMATION)
             , m_extern_symbol(item.m_extern_symbol)
             , m_extern_from_library(item.m_extern_from_library)
-            , m_attribute_flags(item.m_attribute_flags)
             , m_IR_externed_function(std::nullopt)
         {
         }
         AstExternInformation::AstExternInformation(
-            wo_pstring_t extern_symbol,
-            const std::optional<wo_pstring_t>& extern_from_library,
-            uint32_t attribute_flags)
+            AstValueBase* extern_symbol,
+            const std::optional<AstValueBase*>& extern_from_library)
             : AstBase(AST_EXTERN_INFORMATION)
             , m_extern_symbol(extern_symbol)
             , m_extern_from_library(extern_from_library)
-            , m_attribute_flags(attribute_flags)
             , m_IR_externed_function(std::nullopt)
         {
         }
-        AstBase* AstExternInformation::make_dup(std::optional<AstBase*> exist_instance, ContinuesList&) const
+        AstBase* AstExternInformation::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             AstExternInformation* new_instance = exist_instance
                 ? static_cast<AstExternInformation*>(exist_instance.value())
                 : new AstExternInformation(*this)
                 ;
+
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_extern_symbol));
+            if (new_instance->m_extern_from_library.has_value())
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_extern_from_library.value()));
+
             return new_instance;
         }
 

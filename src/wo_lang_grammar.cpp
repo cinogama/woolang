@@ -227,23 +227,15 @@ namespace wo
             P(EXTERN_FROM, pass_extern, (
                 TE(l_extern), 
                 TE(l_left_brackets),
-                TE(l_literal_string), 
+                NT(EXPRESSION),
                 TE(l_comma), 
-                TE(l_literal_string),
-                NT(EXTERN_ATTRIBUTES),
+                NT(EXPRESSION),
                 TE(l_right_brackets)));
             P(EXTERN_FROM, pass_extern, (
                 TE(l_extern), 
                 TE(l_left_brackets), 
-                TE(l_literal_string), 
-                NT(EXTERN_ATTRIBUTES),
+                NT(EXPRESSION),
                 TE(l_right_brackets)));
-            P(EXTERN_ATTRIBUTES, pass_empty, (TE(l_empty)));
-            P(EXTERN_ATTRIBUTES, pass_direct<1>, (TE(l_comma), NT(EXTERN_ATTRIBUTE_LIST)));
-            P(EXTERN_ATTRIBUTE_LIST, pass_create_list<0>, (NT(EXTERN_ATTRIBUTE)));
-            P(EXTERN_ATTRIBUTE_LIST, pass_append_list<2, 0>, (
-                NT(EXTERN_ATTRIBUTE_LIST), TE(l_comma), NT(EXTERN_ATTRIBUTE)));
-            P(EXTERN_ATTRIBUTE, pass_token, (TE(l_identifier)));
             P(FUNC_DEFINE_WITH_NAME, pass_func_def_extn, (
                 NT(EXTERN_FROM), 
                 NT(DECL_ATTRIBUTE), 
