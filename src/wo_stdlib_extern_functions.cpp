@@ -9,6 +9,7 @@ namespace wo::stdlib
     {
         static woort_ExternLibFunc funcs[] = {
             {"woostd_return_it_self", &wo::internal_native::return_it_self},
+            {"woostd_bad_function", &wo::internal_native::bad_function},
             {"woostd_panic", &wo::internal_native::panic},
             {"woostd_print", &wo::internal_native::print},
 

@@ -29,11 +29,23 @@ foreach(WOO_FILE ${WOO_FILES})
     get_filename_component(WOO_FNAME ${WOO_FILE} NAME)
     string(REPLACE "." "_" WOO_VARNAME ${WOO_FNAME})
     file(READ ${WOO_FILE} WOO_DATA)
+    string(LENGTH "${WOO_DATA}" DATA_LEN)
+
+    set(MAX_CHUNK 16000)
+
     string(APPEND EMBED_CONTENT
         "// woo/${WOO_FNAME}\n"
-        "static const char woo_data_${WOO_VARNAME}_str[] = u8R\"WE3MBD("
-        "${WOO_DATA}"
-        ")WE3MBD\";\n\n")
+        "static const char woo_data_${WOO_VARNAME}_str[] =\n")
+
+    set(OFFSET 0)
+    while(OFFSET LESS DATA_LEN)
+        string(SUBSTRING "${WOO_DATA}" ${OFFSET} ${MAX_CHUNK} CHUNK)
+        string(APPEND EMBED_CONTENT
+            "    u8R\"WE3MBD(${CHUNK})WE3MBD\"\n")
+        math(EXPR OFFSET "${OFFSET} + ${MAX_CHUNK}")
+    endwhile()
+
+    string(APPEND EMBED_CONTENT "    ;\n\n")
 endforeach()
 
 string(APPEND EMBED_CONTENT

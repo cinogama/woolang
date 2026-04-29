@@ -447,7 +447,7 @@ namespace wo
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
                 }
 
-                // 8. User defined type can cast oto basic type, basic type can cast to user defined type.
+                // 8. User defined type can cast to basic type, basic type can cast to user defined type.
                 std::pair<
                     lang_TypeInstance::DeterminedType::base_type,
                     OriginTypeHolder::OriginNoTemplateSymbolAndInstance OriginTypeHolder::*>
