@@ -128,7 +128,6 @@ namespace wo
         l_immut,
         l_typeid,
         l_defer,
-        l_dyn,
         l_macro,
         l_line_comment,
         l_block_comment,

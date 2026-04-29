@@ -746,11 +746,10 @@ namespace wo
         };
         struct AstFunctionParameterDeclare : public AstBase
         {
-            bool m_is_dyn;
             AstPatternBase* m_pattern;
             std::optional<AstTypeHolder*> m_type;// Will be update in AstValueFunction pass and not NULLOPT.
 
-            AstFunctionParameterDeclare(bool dyn, AstPatternBase* m_pattern, std::optional<AstTypeHolder*> m_type);
+            AstFunctionParameterDeclare(AstPatternBase* m_pattern, std::optional<AstTypeHolder*> m_type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstExternInformation;

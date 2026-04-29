@@ -189,7 +189,6 @@ struct NAME : public astnode_builder                    \
         WO_AST_BUILDER(pass_pattern_for_assign);
         WO_AST_BUILDER(pass_reverse_vardef);
         WO_AST_BUILDER(pass_func_argument);
-        WO_AST_BUILDER(pass_func_dyn_argument);
         WO_AST_BUILDER(pass_do_void_cast);
         WO_AST_BUILDER(pass_assign_operation);
         WO_AST_BUILDER(pass_binary_operation);

@@ -1695,10 +1695,8 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstFunctionParameterDeclare::AstFunctionParameterDeclare(
-            bool dyn, AstPatternBase* m_pattern, std::optional<AstTypeHolder*> m_type)
+        AstFunctionParameterDeclare::AstFunctionParameterDeclare(AstPatternBase* m_pattern, std::optional<AstTypeHolder*> m_type)
             : AstBase(AST_FUNCTION_PARAMETER_DECLARE)
-            , m_is_dyn(dyn)
             , m_pattern(m_pattern)
             , m_type(m_type)
         {
@@ -1707,7 +1705,7 @@ namespace wo
         {
             AstFunctionParameterDeclare* new_instance = exist_instance
                 ? static_cast<AstFunctionParameterDeclare*>(exist_instance.value())
-                : new AstFunctionParameterDeclare(m_is_dyn, m_pattern, m_type)
+                : new AstFunctionParameterDeclare(m_pattern, m_type)
                 ;
             out_continues.push_back(AstBase::make_holder(&new_instance->m_pattern));
             if (m_type)
@@ -2711,7 +2709,6 @@ namespace wo
 
                     auto* union_creator_param_pattern = new AstPatternSingle(false, WO_PSTR(_val), std::nullopt);
                     auto* union_creator_param_decl = new AstFunctionParameterDeclare(
-                        false,
                         union_creator_param_pattern,
                         creator_param_type);
                     auto* union_creator_function = new AstValueFunction(

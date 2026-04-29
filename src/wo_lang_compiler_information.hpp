@@ -80,7 +80,6 @@
 #define WO_ERR_EXTERN_NAME_SHOULD_BE_CONSTANT u8"指定的外部函数符号名应当是一个常量"
 #define WO_ERR_CONSTRAINT_FAILED u8"约束条件不满足"
 #define WO_ERR_NOT_IN_REIFICATION_TEMPLATE_FUNC u8"无法在缺少泛型上下文的情况下实例化匿名泛型函数"
-#define WO_ERR_DYN_PARAM_NOT_IN_EXTERN u8"非外部导入函数不允许使用 `dyn` 修饰参数"
 #define WO_ERR_UNMATCHED_RETURN_TYPE_NAMED u8"返回类型不匹配：实际返回 `%s`, 但声明或推导为 `%s`"
 #define WO_ERR_UNMATCHED_ARRAY_ELEMENT_TYPE_NAMED u8"数组元素类型不匹配：当前为 `%s`, 但预期为 `%s`"
 #define WO_ERR_UNMATCHED_DICT_KEY_TYPE_NAMED u8"字典键类型不匹配：当前为 `%s`, 但预期为 `%s`"
