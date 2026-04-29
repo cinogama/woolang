@@ -39,6 +39,13 @@ namespace std
                 | is_result:<T>
                 ? declval:<result::ok_t<T>>()
                 | bad:<{"T should be a option or result."}>());
+        public let is_based_on<BaseT, T> =
+            0 != typeid(
+                func(n: BaseT)
+                {
+                    using _B = T;
+                    do n: _B;
+                });
     }
     
     public func iterator<T>(v: T)
@@ -146,24 +153,45 @@ namespace std
             return rand_real(from, to);
         }
     }
-    extern("woostd_break_yield")
+    extern("woostd_yield")
         public func yield()=> void;
-    extern("woostd_thread_sleep")
+    extern("woostd_sleep")
         public func sleep(tm: real)=> void;
-    extern("woostd_get_args")
+    extern("woostd_cmdlines")
         public func cmdlines()=> array<string>;
     extern("woostd_get_exe_path")
         public func host_path()=> string;
-    extern("woostd_equal_byte")
+    extern("woostd_is_same")
         public func is_same<LT, RT>(a: LT, b: RT)=> bool;
     extern("woostd_make_dup")
         public func dup<T>(dupval: T)=> T;
 }
+namespace dynamic
+{
+    let __dynbox_variant_names_with_table<Ts, NameTable: (string, string, string, string)> =
+        0 == tuple::length:<Ts> ? ""
+            | ((std::type_traits::is_based_on:<int, tuple::car_t<Ts>>
+                    || std::type_traits::is_based_on:<handle, tuple::car_t<Ts>>) ? NameTable.0
+                | std::type_traits::is_based_on:<real, tuple::car_t<Ts>> ? NameTable.1
+                | std::type_traits::is_based_on:<bool, tuple::car_t<Ts>> ? NameTable.2
+                | NameTable.3)
+            + __dynbox_variant_names_with_table:<tuple::cdr_t<Ts>, {NameTable}>;
+            
+    public let box_variant_name<Name: string, Ts> =
+        Name + "_" + __dynbox_variant_names_with_table:<Ts, {("i", "r", "b", "x")}>;
+    public let unbox_variant_name<Name: string, Ts> =
+        Name + "_" + __dynbox_variant_names_with_table:<Ts, {("u", "u", "u", "x")}>;
+        
+    extern("woostd_serialize")
+        public func serialize(self: dynamic)=> option<string>;
+    extern("woostd_dynamic_deserialize")
+        public func deserialize(datstr: string)=> option<dynamic>;
+}
 public union option<T>
 {
     value(T),
-    none
-    }
+    none,
+}
 namespace option
 {
     public alias item_t<T> =
@@ -469,13 +497,6 @@ namespace result
             }
         }
 }
-namespace dynamic
-{
-    extern("woostd_serialize")
-        public func serialize(self: dynamic)=> option<string>;
-    extern("woostd_dynamic_deserialize")
-        public func deserialize(datstr: string)=> option<dynamic>;
-}
 public using cchar = char;
 namespace char
 {
@@ -592,7 +613,7 @@ namespace array
 {
     public alias item_t<AT> =
         typeof(std::declval:<AT>()->\<T>_: array<T> = std::declval:<T>(););
-    extern("woostd_array_create")
+    extern(dynamic::box_variant_name:<{"woostd_array_create"}, (T)>)
         public func create<T>(sz: int, init_val: T)=> array<T>;
     extern("woostd_serialize")
         public func serialize<T>(self: array<T>)=> option<string>;
@@ -640,9 +661,9 @@ namespace array
         do newarr->shrink(newsz);
         return newarr as vec<T>->unsafe::cast:<array<T>>;
     }
-    extern("woostd_array_get")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_get"}, (T)>)
         public func get<T>(a: array<T>, index: int)=> option<T>;
-    extern("woostd_array_get_or_default")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_get_or_default"}, (T)>)
         public func get_or<T>(a: array<T>, index: int, val: T)=> T;
     public func get_or_do<T>(a: array<T>, index: int, f: ()=> T)=> T
     {
@@ -652,7 +673,7 @@ namespace array
             none? return f();
         }
     }
-    extern("woostd_array_find")
+    extern(dynamic::box_variant_name:<{"woostd_array_find"}, (T)>)
         public func find<T>(val: array<T>, elem: T)=> option<int>;
     public func find_if<T>(val: array<T>, judger:(T)=> bool)=> option<int>
     {
@@ -717,7 +738,7 @@ namespace array
     }
     public using iterator<T> = gchandle
     {
-        extern("woostd_array_iter_next")
+        extern(dynamic::unbox_variant_name:<{"woostd_array_iter_next"}, (T)>)
             public func next<T>(iter: iterator<T>)=> option<T>;
     }
     extern("woostd_array_iter")
@@ -730,13 +751,13 @@ namespace array
         public func sub_len<T>(self: array<T>, begin: int, count: int)=> array<T>;
     extern("woostd_array_sub_range")
         public func sub_range<T>(self: array<T>, begin: int, end: int)=> array<T>;
-    extern("woostd_array_front")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_front"}, (T)>)
         public func front<T>(val: array<T>)=> option<T>;
-    extern("woostd_array_back")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_back"}, (T)>)
         public func back<T>(val: array<T>)=> option<T>;
-    extern("woostd_array_front_val")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_front_val"}, (T)>)
         public func unwrap_front<T>(val: array<T>)=> T;
-    extern("woostd_array_back_val")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_back_val"}, (T)>)
         public func unwrap_back<T>(val: array<T>)=> T;
 }
 namespace vec
