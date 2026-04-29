@@ -170,7 +170,7 @@ namespace dynamic
 {
     let __dynbox_variant_name_with_table<T, NameTable: (string, string, string, string)> =
         (std::type_traits::is_based_on:<int, T>
-            || std::type_traits::is_based_on:<handle, T) ? NameTable.0
+            || std::type_traits::is_based_on:<handle, T>) ? NameTable.0
         | std::type_traits::is_based_on:<real, T> ? NameTable.1
         | std::type_traits::is_based_on:<bool, T> ? NameTable.2
         | NameTable.3;
@@ -183,6 +183,10 @@ namespace dynamic
         Name + "_"
             + __dynbox_variant_name_with_table:<KT, {("i", "r", "b", "x")}>
             + __dynbox_variant_name_with_table:<VT, {("u", "u", "u", "x")}>;
+    public let kv_box_variant_name<Name: string, KT, VT> =
+        Name + "_"
+            + __dynbox_variant_name_with_table:<KT, {("i", "r", "b", "x")}>
+            + __dynbox_variant_name_with_table:<VT, {("i", "r", "b", "x")}>;
     public let kv_unbox_variant_name<Name: string, KT, VT> =
         Name + "_"
             + __dynbox_variant_name_with_table:<KT, {("u", "u", "u", "x")}>
@@ -798,9 +802,9 @@ namespace vec
         public func swap<T>(val: vec<T>, another: vec<T>)=> void;
     extern("woostd_array_copy")
         public func copy<T, CT>(val: vec<T>, another: CT)=> void
-            where another is array<T> || another is vec<T>;
-        extern(dynamic::unbox_variant_name:<{"woostd_array_get"}, T>)
-            public func get<T>(a: vec<T>, index: int)=> option<T>;
+            where another is array<T> || another is vec<T>;;
+    extern(dynamic::unbox_variant_name:<{"woostd_array_get"}, T>)
+        public func get<T>(a: vec<T>, index: int)=> option<T>;
     extern(dynamic::unbox_variant_name:<{"woostd_array_get_or_default"}, T>)
         public func get_or<T>(a: vec<T>, index: int, val: T)=> T;
     public func get_or_do<T>(a: vec<T>, index: int, f: ()=> T)=> T
@@ -948,11 +952,11 @@ namespace dict
                 return option::value(k);
         return option::none;
     }
-    extern(dynamic::map_variant_name<{"woostd_map_only_get"}, KT, VT>)
+    extern(dynamic::map_variant_name:<{"woostd_map_only_get"}, KT, VT>)
         public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<VT>;
-    extern(dynamic::box_variant_name<{"woostd_map_find"}, KT>)
+    extern(dynamic::box_variant_name:<{"woostd_map_find"}, KT>)
         public func contains<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
-    extern(dynamic::map_variant_name<{"woostd_map_find"}, KT, VT>)
+    extern(dynamic::map_variant_name:<{"woostd_map_get_or_default"}, KT, VT>)
         public func get_or<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
     public func get_or_do<KT, VT>(self: dict<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
@@ -1026,10 +1030,10 @@ namespace map
         return result;
     }
     extern("woostd_map_create")
-        public func create<KT, VT>(sz: int)=> map<KT, VT>;
+        public func create<KT, VT>(reserving_sz: int)=> map<KT, VT>;
     extern("woostd_map_reserve")
         public func reserve<KT, VT>(self: map<KT, VT>, newsz: int)=> void;
-    extern("woostd_map_set")
+    extern(dynamic::kv_box_variant_name:<{"woostd_map_set"}, KT, VT>)
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
     extern("woostd_map_len")
         public func len<KT, VT>(self: map<KT, VT>)=> int;
@@ -1044,15 +1048,15 @@ namespace map
                 return option::value(k);
         return option::none;
     }
-    extern("woostd_map_find")
+    extern(dynamic::box_variant_name:<{"woostd_map_find"}, KT>)
         public func contains<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
-    extern("woostd_map_only_get")
+    extern(dynamic::map_variant_name:<{"woostd_map_only_get"}, KT, VT>)
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
-    extern("woostd_map_get_or_default")
+    extern(dynamic::map_variant_name:<{"woostd_map_get_or_default"}, KT, VT>)
         public func get_or<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
-    extern("woostd_map_get_or_set_default")
+    extern(dynamic::kv_box_variant_name:<{"woostd_map_get_or_set_default"}, KT, VT>)
         public func get_or_set<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
-    extern("woostd_map_get_or_set_default_do")
+    extern(dynamic::kv_box_variant_name:<{"woostd_map_get_or_set_default_do"}, KT, VT>)
         public func get_or_set_do<KT, VT>(self: map<KT, VT>, index: KT, defalt_do: ()=>VT)=> VT;
     public func get_or_do<KT, VT>(self: map<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
@@ -1066,20 +1070,20 @@ namespace map
         public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
     extern("woostd_map_copy")
         public func copy<KT, VT, CT>(val: map<KT, VT>, another: CT)=> void
-            where another is dict<KT, VT> || another is map<KT, VT>;
-        extern("woostd_map_keys")
-            public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>;
+            where another is dict<KT, VT> || another is map<KT, VT>;;
+    extern("woostd_map_keys")
+        public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>;
     extern("woostd_map_vals")
         public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>;
     extern("woostd_map_empty")
         public func empty<KT, VT>(self: map<KT, VT>)=> bool;
-    extern("woostd_map_remove")
+    extern(dynamic::box_variant_name:<{"woostd_map_remove"}, KT>)
         public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
     extern("woostd_map_clear")
         public func clear<KT, VT>(self: map<KT, VT>)=> void;
     public using iterator<KT, VT> = gchandle
     {
-        extern("woostd_map_iter_next")
+        extern(dynamic::kv_unbox_variant_name:<{"woostd_map_iter_next"}, KT, VT>)
             public func next<KT, VT>(iter: iterator<KT, VT>)=> option<(KT, VT)>;
     }
     extern("woostd_map_iter")
