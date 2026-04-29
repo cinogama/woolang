@@ -1,7 +1,5 @@
 #include "wo_afx.hpp"
 
-#include "wo_internal_native_function.hpp"
-
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -6483,7 +6481,7 @@ namespace wo
 
                 if (extern_function == nullptr
                     && config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
-                    extern_function = &internal_native::bad_function;
+                    extern_function = rslib_extern_symbols::g_builtin_bad_function;
             }
             else
             {

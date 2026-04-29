@@ -39,13 +39,6 @@ namespace std
                 | is_result:<T>
                 ? declval:<result::ok_t<T>>()
                 | bad:<{"T should be a option or result."}>());
-        public let is_needbox<T> =
-            0 != typeid(
-                func(d: dynamic)
-                {
-                    using _D = T;
-                    do d: _D;
-                });
     }
     
     public func iterator<T>(v: T)
@@ -87,17 +80,17 @@ namespace std
         print(......);
         print("\n");
     }
-
+    
     public func input<T>(validator: (T)=>bool)=> T
         where declval:<T>() is int
-            || declval:<T>() is real
-            || declval:<T>() is string;
+        || declval:<T>() is real
+        || declval:<T>() is string;
     {
         while (true)
         {
             if (declval:<T>() is int)
             {
-                extern("woostd_input_readint") 
+                extern("woostd_input_readint")
                     func input_int()=> int;
                 let result = input_int();
                 if (validator(result))
@@ -105,7 +98,7 @@ namespace std
             }
             else if (declval:<T>() is real)
             {
-                extern("woostd_input_readreal") 
+                extern("woostd_input_readreal")
                     func input_real()=> real;
                 let result = input_real();
                 if (validator(result))
@@ -113,7 +106,7 @@ namespace std
             }
             else
             {
-                extern("woostd_input_readstring") 
+                extern("woostd_input_readstring")
                     func input_string()=> string;
                 let result = input_string();
                 if (validator(result))
@@ -121,19 +114,19 @@ namespace std
             }
         }
     }
-
+    
     public func input_line<T>(parser: (string)=>option<T>)=> T
     {
         while (true)
         {
-            extern("woostd_input_readline") 
-            public func _input_line()=> string;
+            extern("woostd_input_readline")
+                public func _input_line()=> string;
             match (parser(_input_line()))
             {
-            value(result)?
-                return result;
-            none?
-                ; // do nothing
+                value(result)?
+                    return result;
+                none?
+                    ; // do nothing
             }
         }
     }
@@ -142,18 +135,18 @@ namespace std
     {
         if (from is int)
         {
-            extern("woostd_randomint") 
-            func rand_int(from: int, to: int)=> int;
+            extern("woostd_randomint")
+                func rand_int(from: int, to: int)=> int;
             return rand_int(from, to);
         }
         else
         {
-            extern("woostd_randomreal") 
-            func rand_real(from: real, to: real)=> real;
+            extern("woostd_randomreal")
+                func rand_real(from: real, to: real)=> real;
             return rand_real(from, to);
         }
     }
-    extern("woostd_break_yield") 
+    extern("woostd_break_yield")
         public func yield()=> void;
     extern("woostd_thread_sleep")
         public func sleep(tm: real)=> void;
@@ -163,17 +156,17 @@ namespace std
         public func host_path()=> string;
     extern("woostd_equal_byte")
         public func is_same<LT, RT>(a: LT, b: RT)=> bool;
-    extern("woostd_make_dup", repeat)
+    extern("woostd_make_dup")
         public func dup<T>(dupval: T)=> T;
 }
 public union option<T>
 {
     value(T),
     none
-}
+    }
 namespace option
 {
-    public alias item_t<T> = 
+    public alias item_t<T> =
         typeof(std::declval:<T>()->\<E>_: option<E> = std::declval:<E>(););
     public func ret<T>(elem: T)=> option<T>
     {
@@ -181,131 +174,131 @@ namespace option
     }
     public func map<T, R>(self: option<T>, functor: (T)=> R)
         => option<R>
-    {
-        match(self)
         {
-        value(x)?
-            return option::value(functor(x));
-        none?
-            return option::none;
+            match(self)
+            {
+                value(x)?
+                    return option::value(functor(x));
+                none?
+                    return option::none;
+            }
         }
-    }
     public func map_or<T, R>(self: option<T>, functor: (T)=> R, default: R)
         => R
-    {
-        match(self)
         {
-        value(x)?
-            return functor(x);
-        none?
-            return default;
+            match(self)
+            {
+                value(x)?
+                    return functor(x);
+                none?
+                    return default;
+            }
         }
-    }
     public func map_or_do<T, R>(self: option<T>, functor: (T)=> R, default: ()=> R)
         => R
-    {
-        match(self)
         {
-        value(x)?
-            return functor(x);
-        none?
-            return default();
+            match(self)
+            {
+                value(x)?
+                    return functor(x);
+                none?
+                    return default();
+            }
         }
-    }
     public func bind<T, R>(self: option<T>, functor: (T)=> option<R>)
         => option<R>
-    {
-        match(self)
         {
-        value(u)? return functor(u);
-        none? return option::none;
+            match(self)
+            {
+                value(u)? return functor(u);
+                none? return option::none;
+            }
         }
-    }
     public func bind_or<T, R>(self: option<T>, functor: (T)=> option<R>, default: R)
     {
         match(self)
         {
-        value(u)? return functor(u)->or(default);
-        none? return default;
+            value(u)? return functor(u)->or(default);
+            none? return default;
         }
     }
     public func bind_or_do<T, R>(self: option<T>, functor: (T)=> option<R>, default: ()=> R)
     {
         match(self)
         {
-        value(u)? return functor(u)->or_do(default);
-        none? return default();
+            value(u)? return functor(u)->or_do(default);
+            none? return default();
         }
     }
     public func or<T>(self: option<T>, default: T)
         => T
-    {
-        match(self)
         {
-        value(x)? return x;
-        none? return default;
+            match(self)
+            {
+                value(x)? return x;
+                none? return default;
+            }
         }
-    }
     public func or_do<T>(self: option<T>, default: ()=> T)
         => T
-    {
-        match(self)
         {
-        value(x)? return x;
-        none? return default();
+            match(self)
+            {
+                value(x)? return x;
+                none? return default();
+            }
         }
-    }
     public func or_bind<T>(self: option<T>, functor: ()=> option<T>)
         => option<T>
-    {
-        match(self)
         {
-        value(_)? return self;
-        none? return functor();
+            match(self)
+            {
+                value(_)? return self;
+                none? return functor();
+            }
         }
-    }
     public func unwrap<T>(self: option<T>)=> T
     {
         match(self)
         {
-        value(x)? return x;
-        none? return std::panic("`unwrap` called on a `option::none`.");
+            value(x)? return x;
+            none? return std::panic("`unwrap` called on a `option::none`.");
         }
     }
     public func is_value<T>(self: option<T>)=> bool
     {
         match(self)
         {
-        value(_)? return true;
-        none? return false;
+            value(_)? return true;
+            none? return false;
         }
     }
     public func is_none<T>(self: option<T>)=> bool
     {
         match(self)
         {
-        value(_)? return false;
-        none? return true;
+            value(_)? return false;
+            none? return true;
         }
     }
     public func ok_or<T, F>(self: option<T>, err: F)
         => result<T, F>
-    {
-        match(self)
         {
-        value(x)? return result::ok(x);
-        none? return result::err(err);
+            match(self)
+            {
+                value(x)? return result::ok(x);
+                none? return result::err(err);
+            }
         }
-    }
     public func ok_or_do<T, F>(self: option<T>, err: ()=> F)
         => result<T, F>
-    {
-        match(self)
         {
-        value(x)? return result::ok(x);
-        none? return result::err(err());
+            match(self)
+            {
+                value(x)? return result::ok(x);
+                none? return result::err(err());
+            }
         }
-    }
 }
 public union result<T, F>
 {
@@ -478,7 +471,7 @@ namespace result
 }
 namespace dynamic
 {
-    extern("woostd_serialize", repeat)
+    extern("woostd_serialize")
         public func serialize(self: dynamic)=> option<string>;
     extern("woostd_dynamic_deserialize")
         public func deserialize(datstr: string)=> option<dynamic>;
@@ -511,30 +504,30 @@ namespace char
 }
 namespace string
 {
-    extern("woostd_take_token") 
-    public func take_token(datstr: string, expect_str: string)=> option<string>;
-    extern("woostd_take_string") 
-    public func take_string(datstr: string)=> option<(string, string)>;
-    extern("woostd_take_int") 
-    public func take_int(datstr: string)=> option<(string, int)>;
-    extern("woostd_take_real") 
-    public func take_real(datstr: string)=> option<(string, real)>;
+    extern("woostd_take_token")
+        public func take_token(datstr: string, expect_str: string)=> option<string>;
+    extern("woostd_take_string")
+        public func take_string(datstr: string)=> option<(string, string)>;
+    extern("woostd_take_int")
+        public func take_int(datstr: string)=> option<(string, int)>;
+    extern("woostd_take_real")
+        public func take_real(datstr: string)=> option<(string, real)>;
     extern("woostd_create_wchars_from_str")
-    public func chars(buf: string)=> array<char>;
+        public func chars(buf: string)=> array<char>;
     extern("woostd_create_chars_from_str")
-    public func cchars(buf: string)=> array<cchar>;
-    extern("woostd_get_ascii_val_from_str") 
-    public func get_cchar(val: string, index: int)=> cchar;
-    extern("woostd_str_char_len") 
-    public func len(val: string)=> int;
-    extern("woostd_str_byte_len") 
-    public func byte_len(val: string)=> int;
+        public func cchars(buf: string)=> array<cchar>;
+    extern("woostd_get_ascii_val_from_str")
+        public func get_cchar(val: string, index: int)=> cchar;
+    extern("woostd_str_char_len")
+        public func len(val: string)=> int;
+    extern("woostd_str_byte_len")
+        public func byte_len(val: string)=> int;
     extern("woostd_string_sub")
-    public func sub(val: string, begin: int)=> string;
+        public func sub(val: string, begin: int)=> string;
     extern("woostd_string_sub_len")
-    public func sub_len(val: string, begin: int, length: int)=> string;
+        public func sub_len(val: string, begin: int, length: int)=> string;
     extern("woostd_string_sub_range")
-    public func sub_range(val: string, begin: int, end: int)=> string;
+        public func sub_range(val: string, begin: int, end: int)=> string;
     extern("woostd_string_toupper")
         public func upper(val: string)=> string;
     extern("woostd_string_tolower")
@@ -576,32 +569,34 @@ namespace string
     using spliter_t = gchandle
     {
         extern("woostd_string_split_iter")
-        public func next(self: spliter_t)=> option<string>;
+            public func next(self: spliter_t)=> option<string>;
     }
     public func append<CharOrCCharT>(val: string, ch: CharOrCCharT)=> string
         where ch is char || ch is cchar;
     {
         if (ch is char)
         {
-            extern("woostd_string_append_char")func _append_char(val: string, ch: char)=> string;
+            extern("woostd_string_append_char")
+                func _append_char(val: string, ch: char)=> string;
             return _append_char(val, ch);
         }
         else
         {
-            extern("woostd_string_append_cchar")func _append_cchar(val: string, ch: cchar)=> string;
+            extern("woostd_string_append_cchar")
+                func _append_cchar(val: string, ch: cchar)=> string;
             return _append_cchar(val, ch);
         }
     }
 }
 namespace array
 {
-    public alias item_t<AT> = 
+    public alias item_t<AT> =
         typeof(std::declval:<AT>()->\<T>_: array<T> = std::declval:<T>(););
-    extern("woostd_array_create", repeat) 
+    extern("woostd_array_create")
         public func create<T>(sz: int, init_val: T)=> array<T>;
-    extern("woostd_serialize", repeat) 
+    extern("woostd_serialize")
         public func serialize<T>(self: array<T>)=> option<string>;
-    extern("woostd_parse_array_from_string", repeat)
+    extern("woostd_deserialize_array")
         public func deserialize(val: string)=> option<array<dynamic>>;
     public func append<T>(self: array<T>, elem: T)=> array<T>
     {
@@ -621,17 +616,17 @@ namespace array
         newarr->insert(index, insert_value);
         return newarr->unsafe::cast:<array<T>>;
     }
-    extern("woostd_create_str_by_wchar", repeat) 
+    extern("woostd_create_str_by_wchar")
         public func str(buf: array<char>)=> string;
-    extern("woostd_create_str_by_ascii", repeat) 
+    extern("woostd_create_str_by_ascii")
         public func cstr(buf: array<cchar>)=> string;
-    extern("woostd_array_len", repeat) 
+    extern("woostd_array_len")
         public func len<T>(val: array<T>)=> int;
-    extern("woostd_make_dup", repeat)
+    extern("woostd_make_dup")
         public func dup<T>(val: array<T>)=> array<T>;
-    extern("woostd_make_dup", repeat)
+    extern("woostd_make_dup")
         public func to_vec<T>(val: array<T>)=> vec<T>;
-    extern("woostd_array_empty", repeat)
+    extern("woostd_array_empty")
         public func empty<T>(val: array<T>)=> bool;
     public func resize<T>(val: array<T>, newsz: int, init_val: T)=> array<T>
     {
@@ -645,19 +640,19 @@ namespace array
         do newarr->shrink(newsz);
         return newarr as vec<T>->unsafe::cast:<array<T>>;
     }
-    extern("woostd_array_get", repeat)
+    extern("woostd_array_get")
         public func get<T>(a: array<T>, index: int)=> option<T>;
-    extern("woostd_array_get_or_default", repeat)
+    extern("woostd_array_get_or_default")
         public func get_or<T>(a: array<T>, index: int, val: T)=> T;
     public func get_or_do<T>(a: array<T>, index: int, f: ()=> T)=> T
     {
         match (a->get(index))
         {
-        value(v)? return v;
-        none? return f();
+            value(v)? return v;
+            none? return f();
         }
     }
-    extern("woostd_array_find", repeat)
+    extern("woostd_array_find")
         public func find<T>(val: array<T>, elem: T)=> option<int>;
     public func find_if<T>(val: array<T>, judger:(T)=> bool)=> option<int>
     {
@@ -665,8 +660,8 @@ namespace array
         for (let v : val)
             if (judger(v))
                 return option::value(count);
-            else
-                count += 1;
+        else
+            count += 1;
         return option::none;
     }
     public func forall<T>(val: array<T>, functor: (T)=> bool)=> array<T>
@@ -722,94 +717,94 @@ namespace array
     }
     public using iterator<T> = gchandle
     {
-        extern("woostd_array_iter_next", repeat)
+        extern("woostd_array_iter_next")
             public func next<T>(iter: iterator<T>)=> option<T>;
     }
-    extern("woostd_array_iter", repeat)
+    extern("woostd_array_iter")
         public func iter<T>(val: array<T>)=> iterator<T>;
-    extern("woostd_array_connect", repeat)
+    extern("woostd_array_connect")
         public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
-    extern("woostd_array_sub", repeat)
-    public func sub<T>(self: array<T>, begin: int)=> array<T>;
-    extern("woostd_array_subto", repeat)
-    public func sub_len<T>(self: array<T>, begin: int, count: int)=> array<T>;
-    extern("woostd_array_sub_range", repeat)
-    public func sub_range<T>(self: array<T>, begin: int, end: int)=> array<T>;
-    extern("woostd_array_front", repeat)
-    public func front<T>(val: array<T>)=> option<T>;
-    extern("woostd_array_back", repeat)
-    public func back<T>(val: array<T>)=> option<T>;
-    extern("woostd_array_front_val", repeat)
-    public func unwrap_front<T>(val: array<T>)=> T;
-    extern("woostd_array_back_val", repeat)
-    public func unwrap_back<T>(val: array<T>)=> T;
+    extern("woostd_array_sub")
+        public func sub<T>(self: array<T>, begin: int)=> array<T>;
+    extern("woostd_array_subto")
+        public func sub_len<T>(self: array<T>, begin: int, count: int)=> array<T>;
+    extern("woostd_array_sub_range")
+        public func sub_range<T>(self: array<T>, begin: int, end: int)=> array<T>;
+    extern("woostd_array_front")
+        public func front<T>(val: array<T>)=> option<T>;
+    extern("woostd_array_back")
+        public func back<T>(val: array<T>)=> option<T>;
+    extern("woostd_array_front_val")
+        public func unwrap_front<T>(val: array<T>)=> T;
+    extern("woostd_array_back_val")
+        public func unwrap_back<T>(val: array<T>)=> T;
 }
 namespace vec
 {
-    public alias item_t<AT> = 
+    public alias item_t<AT> =
         typeof(std::declval:<AT>()->\<T>_: vec<T> = std::declval:<T>(););
-    extern("woostd_array_create", repeat) 
+    extern("woostd_array_create")
         public func create<T>(sz: int, init_val: T)=> vec<T>;
-    extern("woostd_serialize", repeat) 
+    extern("woostd_serialize")
         public func serialize<T>(self: vec<T>)=> option<string>;
-    extern("woostd_parse_array_from_string", repeat) 
+    extern("woostd_deserialize_array")
         public func deserialize(val: string)=> option<vec<dynamic>>;
-    extern("woostd_create_str_by_wchar", repeat) 
+    extern("woostd_create_str_by_wchar")
         public func str(buf: vec<char>)=> string;
-    extern("woostd_create_str_by_ascii", repeat) 
+    extern("woostd_create_str_by_ascii")
         public func cstr(buf: vec<cchar>)=> string;
-    extern("woostd_array_len", repeat) 
+    extern("woostd_array_len")
         public func len<T>(val: vec<T>)=> int;
-    extern("woostd_make_dup", repeat)
+    extern("woostd_make_dup")
         public func dup<T>(val: vec<T>)=> vec<T>;
-    extern("woostd_make_dup", repeat)
+    extern("woostd_make_dup")
         public func to_array<T>(val: vec<T>)=> array<T>;
-    extern("woostd_array_empty", repeat)
+    extern("woostd_array_empty")
         public func empty<T>(val: vec<T>)=> bool;
-    extern("woostd_array_resize") 
+    extern("woostd_array_resize")
         public func resize<T>(val: vec<T>, newsz: int, init_val: T)=> void;
     extern("woostd_array_shrink")
         public func shrink<T>(val: vec<T>, newsz: int)=> bool;
-    extern("woostd_array_insert") 
+    extern("woostd_array_insert")
         public func insert<T>(val: vec<T>, insert_place: int, insert_val: T)=> void;
     extern("woostd_array_swap")
         public func swap<T>(val: vec<T>, another: vec<T>)=> void;
-    extern("woostd_array_copy") 
+    extern("woostd_array_copy")
         public func copy<T, CT>(val: vec<T>, another: CT)=> void
             where another is array<T> || another is vec<T>;
-    extern("woostd_array_get", repeat)
-        public func get<T>(a: vec<T>, index: int)=> option<T>;
-    extern("woostd_array_get_or_default", repeat)
+        extern("woostd_array_get")
+            public func get<T>(a: vec<T>, index: int)=> option<T>;
+    extern("woostd_array_get_or_default")
         public func get_or<T>(a: vec<T>, index: int, val: T)=> T;
     public func get_or_do<T>(a: vec<T>, index: int, f: ()=> T)=> T
     {
         match (a->get(index))
         {
-        value(v)? return v;
-        none? return f();
+            value(v)? return v;
+            none? return f();
         }
     }
-    extern("woostd_array_add") 
+    extern("woostd_array_add")
         public func add<T>(val: vec<T>, elem: T)=> void;
-    extern("woostd_array_connect", repeat)
+    extern("woostd_array_connect")
         public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
-    extern("woostd_array_sub", repeat)
-    public func sub<T>(self: vec<T>, begin: int)=> vec<T>;
-    extern("woostd_array_subto", repeat)
-    public func sub_len<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
-    extern("woostd_array_sub_range", repeat)
-    public func sub_range<T>(self: vec<T>, begin: int, end: int)=> vec<T>;
-    extern("woostd_array_pop") 
-        public func pop<T>(val: vec<T>)=> option<T>;  
-    extern("woostd_array_dequeue") 
-        public func dequeue<T>(val: vec<T>)=> option<T>;  
-    extern("woostd_array_pop_val") 
-        public func unwrap_pop<T>(val: vec<T>)=> T;  
-    extern("woostd_array_dequeue_val") 
-        public func unwrap_dequeue<T>(val: vec<T>)=> T;  
+    extern("woostd_array_sub")
+        public func sub<T>(self: vec<T>, begin: int)=> vec<T>;
+    extern("woostd_array_subto")
+        public func sub_len<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
+    extern("woostd_array_sub_range")
+        public func sub_range<T>(self: vec<T>, begin: int, end: int)=> vec<T>;
+    extern("woostd_array_pop")
+        public func pop<T>(val: vec<T>)=> option<T>;
+    extern("woostd_array_dequeue")
+        public func dequeue<T>(val: vec<T>)=> option<T>;
+    extern("woostd_array_pop_val")
+        public func unwrap_pop<T>(val: vec<T>)=> T;
+    extern("woostd_array_dequeue_val")
+        public func unwrap_dequeue<T>(val: vec<T>)=> T;
     extern("woostd_array_remove")
         public func remove<T>(val: vec<T>, index: int)=> bool;
-    extern("woostd_array_find", repeat)
+    extern("woostd_array_find")
         public func find<T>(val: vec<T>, elem: T)=> option<int>;
     public func find_if<T>(val: vec<T>, judger:(T)=> bool)=> option<int>
     {
@@ -817,8 +812,8 @@ namespace vec
         for (let v : val)
             if (judger(v))
                 return option::value(count);
-            else
-                count += 1;
+        else
+            count += 1;
         return option::none;
     }
     extern("woostd_array_clear")
@@ -857,7 +852,7 @@ namespace vec
     {
         if (self->empty)
             return option::none;
-        
+            
         let mut result = self[0];
         for (let mut i = 1; i < self->len; i+=1)
             result = reducer(result, self[i]);
@@ -875,29 +870,29 @@ namespace vec
     }
     public using iterator<T> = gchandle
     {
-        extern("woostd_array_iter_next", repeat)
+        extern("woostd_array_iter_next")
             public func next<T>(iter: iterator<T>)=> option<T>;
     }
-    extern("woostd_array_iter", repeat)
+    extern("woostd_array_iter")
         public func iter<T>(val: vec<T>)=> iterator<T>;
-    extern("woostd_array_front", repeat)
-    public func front<T>(val: vec<T>)=> option<T>;
-    extern("woostd_array_back", repeat)
-    public func back<T>(val: vec<T>)=> option<T>;
-    extern("woostd_array_front_val", repeat)
-    public func unwrap_front<T>(val: vec<T>)=> T;
-    extern("woostd_array_back_val", repeat)
-    public func unwrap_back<T>(val: vec<T>)=> T;
+    extern("woostd_array_front")
+        public func front<T>(val: vec<T>)=> option<T>;
+    extern("woostd_array_back")
+        public func back<T>(val: vec<T>)=> option<T>;
+    extern("woostd_array_front_val")
+        public func unwrap_front<T>(val: vec<T>)=> T;
+    extern("woostd_array_back_val")
+        public func unwrap_back<T>(val: vec<T>)=> T;
 }
 namespace dict
 {
-    public alias item_t<DT> = 
+    public alias item_t<DT> =
         typeof(std::declval:<DT>()->\<KT, VT>_: dict<KT, VT> = std::declval:<(KT, VT)>(););
     public alias key_t<DT> = typeof(std::declval:<dict::item_t<DT>>().0);
     public alias val_t<DT> = typeof(std::declval:<dict::item_t<DT>>().1);
-    extern("woostd_serialize", repeat) 
+    extern("woostd_serialize")
         public func serialize<KT, VT>(self: dict<KT, VT>)=> option<string>;
-    extern("woostd_parse_map_from_string", repeat) 
+    extern("woostd_deserialize_map")
         public func deserialize(val: string)=> option<dict<dynamic, dynamic>>;
     public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=> dict<RK, RV>)=> dict<RK, RV>
     {
@@ -913,38 +908,38 @@ namespace dict
         newmap->set(key, val);
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
-    extern("woostd_map_len", repeat) 
+    extern("woostd_map_len")
         public func len<KT, VT>(self: dict<KT, VT>)=> int;
-    extern("woostd_make_dup", repeat)
+    extern("woostd_make_dup")
         public func dup<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
-    extern("woostd_make_dup", repeat)
+    extern("woostd_make_dup")
         public func to_map<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
     public func find_if<KT, VT>(self: dict<KT, VT>, judger:(KT, VT)=> bool)=> option<KT>
     {
         for (let (k, v) : self)
             if (judger(k, v))
                 return option::value(k);
-        return option::none;            
+        return option::none;
     }
-    extern("woostd_map_only_get", repeat) 
+    extern("woostd_map_only_get")
         public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<VT>;
-    extern("woostd_map_find", repeat) 
+    extern("woostd_map_find")
         public func contains<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
-    extern("woostd_map_get_or_default", repeat) 
+    extern("woostd_map_get_or_default")
         public func get_or<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
     public func get_or_do<KT, VT>(self: dict<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
         match (self->get(index))
         {
-        value(v)? return v;
-        none? return f();
+            value(v)? return v;
+            none? return f();
         }
     }
-    extern("woostd_map_keys", repeat)
+    extern("woostd_map_keys")
         public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>;
-    extern("woostd_map_vals", repeat)
+    extern("woostd_map_vals")
         public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>;
-    extern("woostd_map_empty", repeat)
+    extern("woostd_map_empty")
         public func empty<KT, VT>(self: dict<KT, VT>)=> bool;
     public func erase<KT, VT>(self: dict<KT, VT>, index: KT)=> dict<KT, VT>
     {
@@ -954,10 +949,10 @@ namespace dict
     }
     public using iterator<KT, VT> = gchandle
     {
-        extern("woostd_map_iter_next", repeat)
+        extern("woostd_map_iter_next")
             public func next<KT, VT>(iter: iterator<KT, VT>)=> option<(KT, VT)>;
     }
-    extern("woostd_map_iter", repeat)
+    extern("woostd_map_iter")
         public func iter<KT, VT>(self: dict<KT, VT>)=> iterator<KT, VT>;
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)=> dict<KT, VT>
     {
@@ -987,14 +982,13 @@ namespace dict
 }
 namespace map
 {
-    public alias item_t<DT> = 
+    public alias item_t<DT> =
         typeof(std::declval:<DT>()->\<KT, VT>_: map<KT, VT> = std::declval:<(KT, VT)>(););
     public alias key_t<DT> = typeof(std::declval:<map::item_t<DT>>().0);
     public alias val_t<DT> = typeof(std::declval:<map::item_t<DT>>().1);
-    extern("woostd_serialize", repeat) 
+    extern("woostd_serialize")
         public func serialize<KT, VT>(self: map<KT, VT>)=> option<string>;
-                    
-    extern("woostd_parse_map_from_string", repeat) 
+    extern("woostd_deserialize_map")
         public func deserialize(val: string)=> option<map<dynamic, dynamic>>;
     public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)=> map<RK, RV>
     {
@@ -1008,49 +1002,49 @@ namespace map
         public func create<KT, VT>(sz: int)=> map<KT, VT>;
     extern("woostd_map_reserve")
         public func reserve<KT, VT>(self: map<KT, VT>, newsz: int)=> void;
-    extern("woostd_map_set") 
+    extern("woostd_map_set")
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
-    extern("woostd_map_len", repeat) 
+    extern("woostd_map_len")
         public func len<KT, VT>(self: map<KT, VT>)=> int;
-    extern("woostd_make_dup", repeat)
+    extern("woostd_make_dup")
         public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
-    extern("woostd_make_dup", repeat)
+    extern("woostd_make_dup")
         public func to_dict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
     public func find_if<KT, VT>(self: map<KT, VT>, judger:(KT, VT)=> bool)=> option<KT>
     {
         for (let (k, v) : self)
             if (judger(k, v))
                 return option::value(k);
-        return option::none;            
+        return option::none;
     }
-    extern("woostd_map_find", repeat) 
+    extern("woostd_map_find")
         public func contains<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
-    extern("woostd_map_only_get", repeat) 
+    extern("woostd_map_only_get")
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
-    extern("woostd_map_get_or_default", repeat) 
+    extern("woostd_map_get_or_default")
         public func get_or<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
-    extern("woostd_map_get_or_set_default") 
+    extern("woostd_map_get_or_set_default")
         public func get_or_set<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
-    extern("woostd_map_get_or_set_default_do") 
+    extern("woostd_map_get_or_set_default_do")
         public func get_or_set_do<KT, VT>(self: map<KT, VT>, index: KT, defalt_do: ()=>VT)=> VT;
     public func get_or_do<KT, VT>(self: map<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
         match (self->get(index))
         {
-        value(v)? return v;
-        none? return f();
+            value(v)? return v;
+            none? return f();
         }
     }
-    extern("woostd_map_swap") 
+    extern("woostd_map_swap")
         public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
-    extern("woostd_map_copy") 
+    extern("woostd_map_copy")
         public func copy<KT, VT, CT>(val: map<KT, VT>, another: CT)=> void
             where another is dict<KT, VT> || another is map<KT, VT>;
-    extern("woostd_map_keys", repeat)
-        public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>;
-    extern("woostd_map_vals", repeat)
+        extern("woostd_map_keys")
+            public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>;
+    extern("woostd_map_vals")
         public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>;
-    extern("woostd_map_empty", repeat)
+    extern("woostd_map_empty")
         public func empty<KT, VT>(self: map<KT, VT>)=> bool;
     extern("woostd_map_remove")
         public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
@@ -1058,10 +1052,10 @@ namespace map
         public func clear<KT, VT>(self: map<KT, VT>)=> void;
     public using iterator<KT, VT> = gchandle
     {
-        extern("woostd_map_iter_next", repeat)
+        extern("woostd_map_iter_next")
             public func next<KT, VT>(iter: iterator<KT, VT>)=> option<(KT, VT)>;
     }
-    extern("woostd_map_iter", repeat)
+    extern("woostd_map_iter")
         public func iter<KT, VT>(self: map<KT, VT>)=> iterator<KT, VT>;
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
     {
@@ -1095,19 +1089,19 @@ namespace int
         public func to_hex(val: int)=> string;
     extern("woostd_int_to_oct")
         public func to_oct(val: int)=> string;
-    extern("woostd_bit_or") 
+    extern("woostd_bit_or")
         public func bor(a: int, b: int)=> int;
-    extern("woostd_bit_and") 
+    extern("woostd_bit_and")
         public func band(a: int, b: int)=> int;
-    extern("woostd_bit_xor") 
+    extern("woostd_bit_xor")
         public func bxor(a: int, b: int)=> int;
-    extern("woostd_bit_not") 
+    extern("woostd_bit_not")
         public func bnot(a: int)=> int;
-    extern("woostd_bit_shl") 
+    extern("woostd_bit_shl")
         public func bshl(a: int, b: int)=> int;
-    extern("woostd_bit_shr") 
+    extern("woostd_bit_shr")
         public func bshr(a: int, b: int)=> int;
-    extern("woostd_bit_ashr") 
+    extern("woostd_bit_ashr")
         public func bashr(a: int, b: int)=> int;
 }
 namespace gchandle
@@ -1118,8 +1112,8 @@ namespace gchandle
 namespace tuple
 {
     alias _nth_t<T, Idx: int> = typeof(std::declval:<T>()[Idx]);
-    let _length_counter<T, Len: int> = 
-        typeid:<_nth_t:<T, {Len}>> != 0 
+    let _length_counter<T, Len: int> =
+        typeid:<_nth_t:<T, {Len}>> != 0
             ? _length_counter:<T, {Len + 1}>
             | Len;
     public let length<T> =
@@ -1129,21 +1123,21 @@ namespace tuple
     public alias nth_t<T, N: int> = typeof(
         length:<T> > N && N >= 0
             ? std::declval:<_nth_t:<T, {N}>>()
-            | std::bad:<{F"tuple index: {N} out of bounds: {length:<T>}"}>()); 
+            | std::bad:<{F"tuple index: {N} out of bounds: {length:<T>}"}>());
     public alias car_t<T> = nth_t<T, {0}>;
     public alias nthcdr_t<T, N: int> = typeof(
         length:<T> > N && N >= 0
             ? (std::declval:<nth_t:<T, {N}>>(), std::declval:<nthcdr_t<T, {N + 1}>>()...)
             | length:<T> == N
-                ? ()
-                | std::bad:<{F"tuple index: {N} out of bounds: {length:<T>}"}>());
+            ? ()
+            | std::bad:<{F"tuple index: {N} out of bounds: {length:<T>}"}>());
     public alias cdr_t<T> = nthcdr_t:<T, {1}>;
     public let is_empty<T> = length:<T> == 0;
-    public let is_lat<T> = is_empty:<T> 
+    public let is_lat<T> = is_empty:<T>
         ? true
         | std::type_traits::is_tuple:<car_t<T>>
-            ? false
-            | is_lat:<cdr_t<T>>;
+        ? false
+        | is_lat:<cdr_t<T>>;
     public func car<T>(t: T)
         where length:<T> > 0;
     {

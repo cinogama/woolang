@@ -1,7 +1,5 @@
 #include "wo_afx.hpp"
 
-#include "wo_internal_native_function.hpp"
-
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -1564,7 +1562,7 @@ namespace wo
                     {
                         auto* externed_function = extern_information->m_IR_externed_function.value();
                         if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST
-                            && &internal_native::return_it_self == externed_function)
+                            && rslib_extern_symbols::g_builtin_return_it_self == externed_function)
                         {
                             // TODO: RISK IN BOXED TYPE, WE NEED DO EXTRA CAST?
 

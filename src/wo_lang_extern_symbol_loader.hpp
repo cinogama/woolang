@@ -5,7 +5,6 @@
 #endif
 #include "wo_assert.hpp"
 #include "wo_global_setting.hpp"
-#include "wo_stdlib_extern_functions.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -16,25 +15,20 @@ namespace wo
 {
     class rslib_extern_symbols
     {
-        inline static woort_Dylib* _current_wo_lib_handle = nullptr;
-
     public:
-        static void init_wo_lib()
+        inline static woort_NativeFunction g_builtin_return_it_self = nullptr;
+        inline static woort_NativeFunction g_builtin_bad_function = nullptr;
+
+        static void cache_builtin_pointers()
         {
-            wo_assert(_current_wo_lib_handle == nullptr);
-
-            woort_ExternLibFunc* funcs = nullptr;
-            wo::stdlib::register_all(&funcs);
-
-            _current_wo_lib_handle =
-                woort_dylib_fake("woolang", funcs, NULL);
-        }
-        static void free_wo_lib()
-        {
-            wo_assert(_current_wo_lib_handle != nullptr);
-
-            woort_dylib_unload(_current_wo_lib_handle, WOORT_DYLIB_UNREF_AND_BURY);
-            _current_wo_lib_handle = nullptr;
+            woort_Dylib* lib = woort_get_builtin_lib();
+            if (lib != nullptr)
+            {
+                g_builtin_return_it_self =
+                    (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_return_it_self");
+                g_builtin_bad_function =
+                    (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_bad_function");
+            }
         }
 
         struct extern_lib_guard
@@ -119,7 +113,7 @@ namespace wo
         static woort_NativeFunction get_global_symbol(const char* symbol)
         {
             return (woort_NativeFunction)woort_dylib_load_func(
-                _current_wo_lib_handle, symbol);
+                woort_get_builtin_lib(), symbol);
         }
 
         static woort_NativeFunction get_lib_symbol(const char* src, const char* lib, const char* symb, extern_lib_set& elibs)

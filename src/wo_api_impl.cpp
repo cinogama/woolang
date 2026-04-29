@@ -47,8 +47,6 @@ void _wo_warning(
 
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
-    wo::rslib_extern_symbols::free_wo_lib();
-
     woort_shutdown();
 
     // Ready to shutdown.
@@ -140,11 +138,11 @@ void wo_init(int argc, char** argv)
     wo::LangContext::init_lang_processers();
 #endif
 
-    // Start up WooRT.
+    // Start up WooRT (this also registers built-in native functions).
     woort_init();
 
-    // Initialize the self-module handle for global extern("func") lookups
-    wo::rslib_extern_symbols::init_wo_lib();
+    // Cache commonly-used built-in function pointers for the compiler.
+    wo::rslib_extern_symbols::cache_builtin_pointers();
 }
 
 const char* wo_locale_name(void)
