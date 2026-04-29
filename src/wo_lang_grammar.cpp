@@ -428,10 +428,11 @@ namespace wo
             P(ARGDEFINE, pass_create_list<0>, (TE(l_empty)));
             P(ARGDEFINE, pass_create_list<0>, (NT(ARGDEFINE_VAR_ITEM)));
             P(ARGDEFINE, pass_append_list<2, 0>, (NT(ARGDEFINE), TE(l_comma), NT(ARGDEFINE_VAR_ITEM)));
-            P(ARGDEFINE_VAR_ITEM, pass_func_argument, (NT(DEFINE_PATTERN), NT(TYPE_DECL_MAY_EMPTY)));
+            P(ARGDEFINE_VAR_ITEM, pass_func_dyn_argument, (TE(l_dyn), NT(DEFINE_PATTERN), NT(ARGDEFINE_TYPE_DECL_MAY_EMPTY)));
+            P(ARGDEFINE_VAR_ITEM, pass_func_argument, (NT(DEFINE_PATTERN), NT(ARGDEFINE_TYPE_DECL_MAY_EMPTY)));
             P(ARGDEFINE_VAR_ITEM, pass_token, (TE(l_variadic_sign)));
-            P(TYPE_DECL_MAY_EMPTY, pass_direct<0>, (NT(TYPE_DECLEAR)));
-            P(TYPE_DECL_MAY_EMPTY, pass_empty, (TE(l_empty)));
+            P(ARGDEFINE_TYPE_DECL_MAY_EMPTY, pass_direct<0>, (NT(TYPE_DECLEAR)));
+            P(ARGDEFINE_TYPE_DECL_MAY_EMPTY, pass_empty, (TE(l_empty)));
             P(LOGICAL_OR, pass_direct<0>, (NT(LOGICAL_AND)));
             P(LOGICAL_OR, pass_binary_operation, (NT(LOGICAL_OR), TE(l_lor), NT(LOGICAL_AND)));
             P(LOGICAL_AND, pass_direct<0>, (NT(EQUATION)));

@@ -799,6 +799,7 @@ typedef enum _wo_lspv2_lexer_token
     WO_LSPV2_TOKEN_IMMUT,                   /**< @brief immut */
     WO_LSPV2_TOKEN_TYPEID,                  /**< @brief typeid */
     WO_LSPV2_TOKEN_DEFER,                   /**< @brief defer */
+    WO_LSPV2_TOKEN_DYN,                     /**< @brief dyn */
     WO_LSPV2_TOKEN_MACRO,                   /**< @brief macro */
 
     /* Comments */

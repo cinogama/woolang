@@ -63,6 +63,7 @@ namespace wo
         {"continue", {lex_type::l_continue}},
         {"defer", {lex_type::l_defer}},
         {"do", {lex_type::l_do}},
+        {"dyn", {lex_type::l_dyn}},
         {"else", {lex_type::l_else}},
         {"enum", {lex_type::l_enum}},
         {"export", {lex_type::l_export}},
@@ -108,8 +109,7 @@ namespace wo
         , m_cached_size(0)
         , m_readed_size(0)
         , m_eof_flag(false)
-    {
-    }
+    {}
 
     bool lexer::CachedIStream::fill()
     {

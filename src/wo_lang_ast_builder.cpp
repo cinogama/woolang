@@ -966,7 +966,17 @@ namespace wo
             if (!WO_IS_EMPTY(1))
                 type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
 
-            return new AstFunctionParameterDeclare(pattern, type);
+            return new AstFunctionParameterDeclare(false, pattern, type);
+        }
+        auto pass_func_dyn_argument::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        {
+            AstPatternBase* pattern = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(1));
+            std::optional<AstTypeHolder*> type = std::nullopt;
+
+            if (!WO_IS_EMPTY(2))
+                type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
+
+            return new AstFunctionParameterDeclare(true, pattern, type);
         }
         auto pass_do_void_cast::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1804,6 +1814,7 @@ namespace wo
             WO_AST_BUILDER(pass_pattern_for_assign);
             WO_AST_BUILDER(pass_reverse_vardef);
             WO_AST_BUILDER(pass_func_argument);
+            WO_AST_BUILDER(pass_func_dyn_argument);
             WO_AST_BUILDER(pass_do_void_cast);
             WO_AST_BUILDER(pass_assign_operation);
             WO_AST_BUILDER(pass_binary_operation);
