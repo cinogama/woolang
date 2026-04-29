@@ -764,7 +764,7 @@ namespace vec
 {
     public alias item_t<AT> =
         typeof(std::declval:<AT>()->\<T>_: vec<T> = std::declval:<T>(););
-    extern("woostd_array_create")
+    extern(dynamic::box_variant_name:<{"woostd_array_create"}, (T)>)
         public func create<T>(sz: int, init_val: T)=> vec<T>;
     extern("woostd_serialize")
         public func serialize<T>(self: vec<T>)=> option<string>;
@@ -782,20 +782,20 @@ namespace vec
         public func to_array<T>(val: vec<T>)=> array<T>;
     extern("woostd_array_empty")
         public func empty<T>(val: vec<T>)=> bool;
-    extern("woostd_array_resize")
+    extern(dynamic::box_variant_name:<{"woostd_array_resize"}, (T)>)
         public func resize<T>(val: vec<T>, newsz: int, init_val: T)=> void;
     extern("woostd_array_shrink")
         public func shrink<T>(val: vec<T>, newsz: int)=> bool;
-    extern("woostd_array_insert")
+    extern(dynamic::box_variant_name:<{"woostd_array_insert"}, (T)>)
         public func insert<T>(val: vec<T>, insert_place: int, insert_val: T)=> void;
     extern("woostd_array_swap")
         public func swap<T>(val: vec<T>, another: vec<T>)=> void;
     extern("woostd_array_copy")
         public func copy<T, CT>(val: vec<T>, another: CT)=> void
             where another is array<T> || another is vec<T>;
-        extern("woostd_array_get")
+        extern(dynamic::unbox_variant_name:<{"woostd_array_get"}, (T)>)
             public func get<T>(a: vec<T>, index: int)=> option<T>;
-    extern("woostd_array_get_or_default")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_get_or_default"}, (T)>)
         public func get_or<T>(a: vec<T>, index: int, val: T)=> T;
     public func get_or_do<T>(a: vec<T>, index: int, f: ()=> T)=> T
     {
@@ -805,7 +805,7 @@ namespace vec
             none? return f();
         }
     }
-    extern("woostd_array_add")
+    extern(dynamic::box_variant_name:<{"woostd_array_add"}, (T)>)
         public func add<T>(val: vec<T>, elem: T)=> void;
     extern("woostd_array_connect")
         public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
@@ -815,17 +815,17 @@ namespace vec
         public func sub_len<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
     extern("woostd_array_sub_range")
         public func sub_range<T>(self: vec<T>, begin: int, end: int)=> vec<T>;
-    extern("woostd_array_pop")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_pop"}, (T)>)
         public func pop<T>(val: vec<T>)=> option<T>;
-    extern("woostd_array_dequeue")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_dequeue"}, (T)>)
         public func dequeue<T>(val: vec<T>)=> option<T>;
-    extern("woostd_array_pop_val")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_pop_val"}, (T)>)
         public func unwrap_pop<T>(val: vec<T>)=> T;
-    extern("woostd_array_dequeue_val")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_dequeue_val"}, (T)>)
         public func unwrap_dequeue<T>(val: vec<T>)=> T;
     extern("woostd_array_remove")
         public func remove<T>(val: vec<T>, index: int)=> bool;
-    extern("woostd_array_find")
+    extern(dynamic::box_variant_name:<{"woostd_array_find"}, (T)>)
         public func find<T>(val: vec<T>, elem: T)=> option<int>;
     public func find_if<T>(val: vec<T>, judger:(T)=> bool)=> option<int>
     {
@@ -891,18 +891,18 @@ namespace vec
     }
     public using iterator<T> = gchandle
     {
-        extern("woostd_array_iter_next")
+        extern(dynamic::unbox_variant_name:<{"woostd_array_iter_next"}, (T)>)
             public func next<T>(iter: iterator<T>)=> option<T>;
     }
     extern("woostd_array_iter")
         public func iter<T>(val: vec<T>)=> iterator<T>;
-    extern("woostd_array_front")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_front"}, (T)>)
         public func front<T>(val: vec<T>)=> option<T>;
-    extern("woostd_array_back")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_back"}, (T)>)
         public func back<T>(val: vec<T>)=> option<T>;
-    extern("woostd_array_front_val")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_front_val"}, (T)>)
         public func unwrap_front<T>(val: vec<T>)=> T;
-    extern("woostd_array_back_val")
+    extern(dynamic::unbox_variant_name:<{"woostd_array_back_val"}, (T)>)
         public func unwrap_back<T>(val: vec<T>)=> T;
 }
 namespace dict
