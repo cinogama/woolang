@@ -1686,6 +1686,18 @@ namespace wo
             }
             case AstValueFunction::HOLD_FOR_BODY_EVAL:
             {
+                if (!node->m_LANG_extern_information.has_value())
+                {
+                    for (auto& param : node->m_parameters)
+                    {
+                        if (param->m_is_dyn)
+                        {
+                            lex.record_lang_error(lexer::msglevel_t::error, param,
+                                WO_ERR_DYN_PARAM_NOT_IN_EXTERN);
+                            return FAILED;
+                        }
+                    }
+                }
                 end_last_function();
                 if (node->m_LANG_determined_template_arguments.has_value())
                     end_last_scope();
