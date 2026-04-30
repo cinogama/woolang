@@ -159,7 +159,7 @@ namespace std
         public func sleep(tm: real)=> void;
     extern("woostd_cmdlines")
         public func cmdlines()=> array<string>;
-    extern("woostd_get_exe_path")
+    extern("woostd_host_path")
         public func host_path()=> string;
     extern("woostd_is_same")
         public func is_same<LT, RT>(a: LT, b: RT)=> bool;
@@ -625,7 +625,7 @@ namespace array
         typeof(std::declval:<AT>()->\<T>_: array<T> = std::declval:<T>(););
     extern(dynamic::box_variant_name:<{"woostd_array_create"}, T>)
         public func create<T>(sz: int, init_val: T)=> array<T>;
-    extern("woostd_serialize")
+    extern("woostd_serialize_array")
         public func serialize<T>(self: array<T>)=> option<string>;
     extern("woostd_deserialize_array")
         public func deserialize(val: string)=> option<array<dynamic>>;
@@ -757,7 +757,7 @@ namespace array
         public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
     extern("woostd_array_sub")
         public func sub<T>(self: array<T>, begin: int)=> array<T>;
-    extern("woostd_array_subto")
+    extern("woostd_array_sub_to")
         public func sub_len<T>(self: array<T>, begin: int, count: int)=> array<T>;
     extern("woostd_array_sub_range")
         public func sub_range<T>(self: array<T>, begin: int, end: int)=> array<T>;
@@ -776,7 +776,7 @@ namespace vec
         typeof(std::declval:<AT>()->\<T>_: vec<T> = std::declval:<T>(););
     extern(dynamic::box_variant_name:<{"woostd_array_create"}, T>)
         public func create<T>(sz: int, init_val: T)=> vec<T>;
-    extern("woostd_serialize")
+    extern("woostd_serialize_array")
         public func serialize<T>(self: vec<T>)=> option<string>;
     extern("woostd_deserialize_array")
         public func deserialize(val: string)=> option<vec<dynamic>>;
@@ -821,7 +821,7 @@ namespace vec
         public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
     extern("woostd_array_sub")
         public func sub<T>(self: vec<T>, begin: int)=> vec<T>;
-    extern("woostd_array_subto")
+    extern("woostd_array_sub_to")
         public func sub_len<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
     extern("woostd_array_sub_range")
         public func sub_range<T>(self: vec<T>, begin: int, end: int)=> vec<T>;
@@ -921,7 +921,7 @@ namespace dict
         typeof(std::declval:<DT>()->\<KT, VT>_: dict<KT, VT> = std::declval:<(KT, VT)>(););
     public alias key_t<DT> = typeof(std::declval:<dict::item_t<DT>>().0);
     public alias val_t<DT> = typeof(std::declval:<dict::item_t<DT>>().1);
-    extern("woostd_serialize")
+    extern("woostd_serialize_map")
         public func serialize<KT, VT>(self: dict<KT, VT>)=> option<string>;
     extern("woostd_deserialize_map")
         public func deserialize(val: string)=> option<dict<dynamic, dynamic>>;
@@ -1017,7 +1017,7 @@ namespace map
         typeof(std::declval:<DT>()->\<KT, VT>_: map<KT, VT> = std::declval:<(KT, VT)>(););
     public alias key_t<DT> = typeof(std::declval:<map::item_t<DT>>().0);
     public alias val_t<DT> = typeof(std::declval:<map::item_t<DT>>().1);
-    extern("woostd_serialize")
+    extern("woostd_serialize_map")
         public func serialize<KT, VT>(self: map<KT, VT>)=> option<string>;
     extern("woostd_deserialize_map")
         public func deserialize(val: string)=> option<map<dynamic, dynamic>>;
