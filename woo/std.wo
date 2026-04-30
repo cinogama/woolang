@@ -97,7 +97,7 @@ namespace std
         {
             if (declval:<T>() is int)
             {
-                extern("woostd_input_readint")
+                extern("woostd_input_read_i")
                     func input_int()=> int;
                 let result = input_int();
                 if (validator(result))
@@ -105,7 +105,7 @@ namespace std
             }
             else if (declval:<T>() is real)
             {
-                extern("woostd_input_readreal")
+                extern("woostd_input_read_r")
                     func input_real()=> real;
                 let result = input_real();
                 if (validator(result))
@@ -113,7 +113,7 @@ namespace std
             }
             else
             {
-                extern("woostd_input_readstring")
+                extern("woostd_input_read_s")
                     func input_string()=> string;
                 let result = input_string();
                 if (validator(result))
@@ -137,22 +137,13 @@ namespace std
             }
         }
     }
-    public func rand<T>(from: T, to: T)=> T
-        where from is int || from is real;
-    {
-        if (from is int)
-        {
-            extern("woostd_randomint")
-                func rand_int(from: int, to: int)=> int;
-            return rand_int(from, to);
-        }
-        else
-        {
-            extern("woostd_randomreal")
-                func rand_real(from: real, to: real)=> real;
-            return rand_real(from, to);
-        }
-    }
+    extern(std::type_traits::is_same:<T, int>
+        ? "woostd_random_i"
+        | "woostd_random_r")
+        public func rand<T>(from: T, to: T)=> T
+            where
+        std::type_traits::is_same:<T, int>
+        || std::type_traits::is_same:<T, real>;;
     extern("woostd_yield")
         public func yield()=> void;
     extern("woostd_sleep")
@@ -163,18 +154,27 @@ namespace std
         public func host_path()=> string;
     extern("woostd_is_same")
         public func is_same<LT, RT>(a: LT, b: RT)=> bool;
-    extern("woostd_make_dup")
+    extern((dynamic::type_traits::need_box:<T> || std::type_traits::is_based_on<string, T>)
+        ? "woostd_return_it_self"
+        | "woostd_make_dup")
         public func dup<T>(dupval: T)=> T;
 }
 namespace dynamic
 {
+    namespace type_traits
+    {
+        public let need_box<T> =
+            std::is_based_on:<int, T>
+                || std::is_based_on:<handle, T>
+                || std::is_based_on:<real, T>
+                || std::is_based_on:<bool, T>;
+    }
     let __dynbox_variant_name_with_table<T, NameTable: (string, string, string, string)> =
         (std::type_traits::is_based_on:<int, T>
             || std::type_traits::is_based_on:<handle, T>) ? NameTable.0
         | std::type_traits::is_based_on:<real, T> ? NameTable.1
         | std::type_traits::is_based_on:<bool, T> ? NameTable.2
         | NameTable.3;
-        
     public let box_variant_name<Name: string, T> =
         Name + "_" + __dynbox_variant_name_with_table:<T, {("i", "r", "b", "x")}>;
     public let unbox_variant_name<Name: string, T> =
@@ -191,7 +191,6 @@ namespace dynamic
         Name + "_"
             + __dynbox_variant_name_with_table:<KT, {("u", "u", "u", "x")}>
             + __dynbox_variant_name_with_table:<VT, {("u", "u", "u", "x")}>;
-            
     extern("woostd_serialize")
         public func serialize(self: dynamic)=> option<string>;
     extern("woostd_dynamic_deserialize")
