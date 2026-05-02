@@ -139,7 +139,7 @@ void wo_init(int argc, char** argv)
 #endif
 
     // Start up WooRT (this also registers built-in native functions).
-    woort_init();
+    woort_init(argc, argv);
 
     // Cache commonly-used built-in function pointers for the compiler.
     wo::rslib_extern_symbols::cache_builtin_pointers();
