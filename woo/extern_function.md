@@ -35,8 +35,8 @@ organized by the Woolang namespace in which they appear.
 
 | Extern Symbol | Line |
 |---|---|
-| `woostd_serialize` | 195 |
-| `woostd_dynamic_deserialize` | 197 |
+| `woostd_serialize_dynamic` | 195 |
+| `woostd_deserialize_dynamic` | 197 |
 
 ## `char`
 

@@ -154,7 +154,7 @@ namespace std
         public func host_path()=> string;
     extern("woostd_is_same")
         public func is_same<LT, RT>(a: LT, b: RT)=> bool;
-    extern((dynamic::type_traits::need_box:<T> || std::type_traits::is_based_on<string, T>)
+    extern((dynamic::type_traits::need_box:<T> || std::type_traits::is_based_on:<string, T>)
         ? "woostd_return_it_self"
         | "woostd_make_dup")
         public func dup<T>(dupval: T)=> T;
@@ -191,9 +191,9 @@ namespace dynamic
         Name + "_"
             + __dynbox_variant_name_with_table:<KT, {("u", "u", "u", "x")}>
             + __dynbox_variant_name_with_table:<VT, {("u", "u", "u", "x")}>;
-    extern("woostd_serialize")
+    extern("woostd_serialize_dynamic")
         public func serialize(self: dynamic)=> option<string>;
-    extern("woostd_dynamic_deserialize")
+    extern("woostd_deserialize_dynamic")
         public func deserialize(datstr: string)=> option<dynamic>;
 }
 public union option<T>
