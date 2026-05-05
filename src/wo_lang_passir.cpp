@@ -791,7 +791,7 @@ namespace wo
         else if (state == HOLD)
         {
             m_ircontext.c().jmp(m_ircontext.c().named_label(node->m_IR_match.value(), "#match_end"));
-            m_ircontext.c().bind(m_ircontext.c().named_label(node, "#match_case_end_"));
+            m_ircontext.c().bind(m_ircontext.c().named_label(node, "#match_case_end"));
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
