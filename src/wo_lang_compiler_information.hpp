@@ -15,6 +15,7 @@
 #define WO_SEE_HERE u8"参见"
 #define WO_SEE_ALSO u8"另见"
 #define WO_TERM_EXCEPTED u8"应当是"
+#define WO_STACK_OVERFLOW u8"栈溢出"
 
 #define WO_TOO_MANY_ERROR(count) u8"错误数量过多(已达上限), 仅显示前 " + std::to_string(count) +  u8" 条错误, 编译终止"
 

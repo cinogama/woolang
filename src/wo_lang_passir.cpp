@@ -2815,25 +2815,25 @@ namespace wo
 
                             if (unpack_requirement.m_unpack_all)
                             {
-                                for (uint32_t i = 0; i < tuple_elem_count; ++i)
+                                for (uint32_t i = tuple_elem_count; i > 0; --i)
                                 {
                                     woort_BoxValueType box_type;
 
-                                    if (i < unpack_requirement.m_require_unpack_count
-                                        || !tuple_info->m_element_types[i]->is_need_to_box_in_IR(&box_type))
-                                        m_ircontext.c().pushidxstruct(unpacking_opnum, i);
+                                    if (i - 1 < unpack_requirement.m_require_unpack_count
+                                        || !tuple_info->m_element_types[i - 1]->is_need_to_box_in_IR(&box_type))
+                                        m_ircontext.c().pushidxstruct(unpacking_opnum, i - 1);
                                     else
                                     {
                                         switch (box_type)
                                         {
                                         case WOORT_BOX_VALUE_TYPE_INT:
-                                            m_ircontext.c().pushidxstboxi(unpacking_opnum, i);
+                                            m_ircontext.c().pushidxstboxi(unpacking_opnum, i - 1);
                                             break;
                                         case WOORT_BOX_VALUE_TYPE_REAL:
-                                            m_ircontext.c().pushidxstboxr(unpacking_opnum, i);
+                                            m_ircontext.c().pushidxstboxr(unpacking_opnum, i - 1);
                                             break;
                                         case WOORT_BOX_VALUE_TYPE_BOOL:
-                                            m_ircontext.c().pushidxstboxb(unpacking_opnum, i);
+                                            m_ircontext.c().pushidxstboxb(unpacking_opnum, i - 1);
                                             break;
                                         default:
                                             /* Unexpected */
@@ -2847,8 +2847,8 @@ namespace wo
                                 // If require to unpack 0 argument, just skip & ignore.
                                 if (unpack_requirement.m_require_unpack_count != 0)
                                 {
-                                    for (uint32_t i = 0; i < (uint32_t)unpack_requirement.m_require_unpack_count; ++i)
-                                        m_ircontext.c().pushidxstruct(unpacking_opnum, i);
+                                    for (uint32_t i = (uint32_t)unpack_requirement.m_require_unpack_count; i > 0; --i)
+                                        m_ircontext.c().pushidxstruct(unpacking_opnum, i - 1);
                                 }
                             }
                         }

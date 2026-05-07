@@ -87,7 +87,7 @@ namespace wo
         wo_assert(m_entry_function.has_value());
 
         const woort_IRConstantIndex entry_function_index = alloc_constant();
-        register_extern_symbols(WO_DEFAULT_ENTRY, entry_function_index);
+        register_extern_symbols(WOORT_DEFAULT_ENTRY, entry_function_index);
 
         woort_CodeEnv* cenv;
         if (!woort_IRCompiler_finish(m_ircompiler, &cenv))

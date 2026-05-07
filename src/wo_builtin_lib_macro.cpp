@@ -63,12 +63,33 @@ static woort_api builtin_macro_lexer_next()
 
 static woort_api builtin_macro_lexer_current_path()
 {
-    return woort_ret_void();
+    wo::lexer* const lexer_instance =
+        static_cast<wo::lexer*>(woort_pointer(0));
+
+    return woort_ret_string(
+        lexer_instance->get_source_path()->c_str());
 }
 
 static woort_api builtin_macro_lexer_current_location()
 {
-    return woort_ret_void();
+    wo::lexer* const lexer_instance =
+        static_cast<wo::lexer*>(woort_pointer(0));
+
+    woort_value s;
+    if (!woort_push_reserve(1, &s))
+        return woort_ret_panic("Stack overflow.");
+
+    woort_set_struct(WOORT_RETURN_SLOT, 2);
+
+    const auto* token = lexer_instance->peek(true);
+
+    woort_set_int(s, static_cast<woort_Int>(token->m_lex_type));
+    woort_struct_set(WOORT_RETURN_SLOT, 0, s);
+
+    woort_set_string(s, token->m_token_text.c_str());
+    woort_struct_set(WOORT_RETURN_SLOT, 1, s);
+
+    return woort_ret();
 }
 
 static const woort_ExternLibFunc g_macro_funcs[] =

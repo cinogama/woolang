@@ -39,15 +39,7 @@ int main(int argc, char** argv)
                     goto label_run_failed;
                 }
 
-                if (!woort_load_extern_const(v, cenv, WO_DEFAULT_ENTRY))
-                {
-                    std::cerr << "Failed to run: no entry found." << std::endl;
-                    ret = -4;
-
-                    goto label_run_failed;
-                }
-
-                if (woort_invoke(v, v) == WOORT_VM_CALL_STATUS_NORMAL)
+                if (woort_bootup_codeenv(v, cenv) == WOORT_VM_CALL_STATUS_NORMAL)
                     ret = (int)woort_int(v);
                 else
                     ret = -1;

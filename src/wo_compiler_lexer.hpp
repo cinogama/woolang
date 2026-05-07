@@ -183,6 +183,8 @@ namespace wo
             size_t          m_token_end[2];
         };
     private:
+        using declared_macro_map_t =
+            std::unordered_map<std::string, std::optional<std::unique_ptr<macro>>>;
         using imported_source_path_set_t =
             std::unordered_set<wo_pstring_t>;
         using who_import_me_map_t =
@@ -246,6 +248,7 @@ namespace wo
         struct SharedContext
         {
             std::vector<compiler_message_list_t> m_error_frame;
+            declared_macro_map_t m_declared_macro_list;
 
             // NOTE: Following wo_pstring_t only used in pass1.
             imported_source_path_set_t m_linked_script_path_set;
@@ -467,26 +470,29 @@ namespace wo
         void drop_source_stream_for_lspv2();
     };
 
-    //class macro
-    //{
-    //public:
-    //    std::string macro_name;
-    //    wo_vm _macro_action_vm;
+    class macro
+    {
+    public:
+        std::string macro_name;
+        std::optional<woort_vm*> _macro_vm;
+        std::optional<woort_codeenv*> _macro_codes;
 
-    //    size_t   begin_row;
-    //    size_t   begin_col;
-    //    size_t   end_row;
-    //    size_t   end_col;
-    //    wo_pstring_t filename;
+        size_t   begin_row;
+        size_t   begin_col;
+        size_t   end_row;
+        size_t   end_col;
+        wo_pstring_t filename;
 
-    //    macro(lexer& lex, lexer::peeked_token_t* peeked_token);
+        macro(lexer& lex, lexer::peeked_token_t* peeked_token);
 
-    //    ~macro()
-    //    {
-    //        if (_macro_action_vm)
-    //            wo_close_vm(_macro_action_vm);
-    //    }
-    //};
+        ~macro()
+        {
+            if (_macro_vm.has_value())
+                woort_vm_close(_macro_vm.value());
+            if (_macro_codes.has_value())
+                woort_codeenv_drop(_macro_codes.value());
+        }
+    };
 }
 
 #ifdef ANSI_WIDE_CHAR_SIGN

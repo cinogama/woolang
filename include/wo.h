@@ -298,9 +298,6 @@ typedef struct _wo_CompileErrorInfo
 /** @brief Opaque iterator for enumerating compile errors. */
 typedef struct _wo_CompileErrors wo_CompileErrors;
 
-/** @brief Default entry point function name. */
-#define WO_DEFAULT_ENTRY "@entry"
-
 /**
  * @brief Compile Woolang source code and produce a CodeEnv without a VM.
  *
