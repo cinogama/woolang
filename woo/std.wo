@@ -799,7 +799,7 @@ namespace vec
     extern("woostd_array_swap")
         public func swap<T>(val: vec<T>, another: vec<T>)=> void;
     extern("woostd_array_copy")
-        public func copy<T, CT>(val: vec<T>, another: CT)=> void
+        public func copy_from<T, CT>(val: vec<T>, another: CT)=> void
             where another is array<T> || another is vec<T>;;
     extern(dynamic::type_traits::extern_symbol_variant_ur:<{"woostd_array_get"}, T>)
         public func get<T>(a: vec<T>, index: int)=> option<T>;
@@ -1123,7 +1123,7 @@ namespace map
     extern("woostd_map_swap")
         public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
     extern("woostd_map_copy")
-        public func copy<KT, VT, CT>(val: map<KT, VT>, another: CT)=> void
+        public func copy_from<KT, VT, CT>(val: map<KT, VT>, another: CT)=> void
             where another is dict<KT, VT> || another is map<KT, VT>;;
     extern("woostd_map_keys")
         public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>;
