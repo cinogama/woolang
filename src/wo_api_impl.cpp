@@ -8,6 +8,7 @@
 #include "wo_crc_64.hpp"
 
 #include "wo_ir_compiler.hpp"
+#include "wo_builtin_lib_macro.hpp"
 
 [[noreturn]]
 void _wo_assert(
@@ -47,6 +48,7 @@ void _wo_warning(
 
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
+    wo::builtin_macro_lib_shutdown();
     woort_shutdown();
 
     // Ready to shutdown.
@@ -143,6 +145,9 @@ void wo_init(int argc, char** argv)
 
     // Cache commonly-used built-in function pointers for the compiler.
     wo::rslib_extern_symbols::cache_builtin_pointers();
+
+    // Register the "woolang/compiler" fake library for macro extern functions.
+    wo::builtin_macro_lib_bootup();
 }
 
 const char* wo_locale_name(void)
