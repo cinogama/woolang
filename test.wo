@@ -1,7 +1,0 @@
-import woo::std;
-
-let a = "Hello world";
-for (let s : a->split(" "))
-{
-	std::println(s);
-}

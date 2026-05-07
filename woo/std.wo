@@ -954,10 +954,10 @@ namespace dict
         dynamic::type_traits::extern_symbol_variant:<
         {"woostd_map_only_get"},
         (KT, VT),
-        (
+        {(
             dynamic::type_traits::irbx,
             dynamic::type_traits::ur,
-        )>)
+        )}>)
         public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<VT>;
     extern(dynamic::type_traits::extern_symbol_variant_irbx:<{"woostd_map_find"}, KT>)
         public func contains<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
@@ -965,10 +965,10 @@ namespace dict
         dynamic::type_traits::extern_symbol_variant:<
         {"woostd_map_get_or_default"},
         (KT, VT),
-        (
+        {(
             dynamic::type_traits::irbx,
             dynamic::type_traits::ur,
-        )>)
+        )}>)
         public func get_or<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
     public func get_or_do<KT, VT>(self: dict<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
@@ -996,10 +996,10 @@ namespace dict
             dynamic::type_traits::extern_symbol_variant:<
             {"woostd_map_iter_next"},
             (KT, VT),
-            (
+            {(
                 dynamic::type_traits::ur,
                 dynamic::type_traits::ur,
-            )>)
+            )}>)
             public func next<KT, VT>(iter: iterator<KT, VT>)=> option<(KT, VT)>;
     }
     extern("woostd_map_iter")
@@ -1056,10 +1056,10 @@ namespace map
         dynamic::type_traits::extern_symbol_variant:<
         {"woostd_map_set"},
         (KT, VT),
-        (
+        {(
             dynamic::type_traits::irbx,
             dynamic::type_traits::irbx,
-        )>)
+        )}>)
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
     extern("woostd_map_len")
         public func len<KT, VT>(self: map<KT, VT>)=> int;
@@ -1080,37 +1080,37 @@ namespace map
         dynamic::type_traits::extern_symbol_variant:<
         {"woostd_map_only_get"},
         (KT, VT),
-        (
+        {(
             dynamic::type_traits::irbx,
             dynamic::type_traits::ur,
-        )>)
+        )}>)
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
     extern(
         dynamic::type_traits::extern_symbol_variant:<
         {"woostd_map_get_or_default"},
         (KT, VT),
-        (
+        {(
             dynamic::type_traits::irbx,
             dynamic::type_traits::ur,
-        )>)
+        )}>)
         public func get_or<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
     extern(
         dynamic::type_traits::extern_symbol_variant:<
         {"woostd_map_get_or_set_default"},
         (KT, VT),
-        (
+        {(
             dynamic::type_traits::irbx,
             dynamic::type_traits::irbx,
-        )>)
+        )}>)
         public func get_or_set<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
     extern(
         dynamic::type_traits::extern_symbol_variant:<
         {"woostd_map_get_or_set_default_do"},
         (KT, VT),
-        (
+        {(
             dynamic::type_traits::irbx,
             dynamic::type_traits::irbx,
-        )>)
+        )}>)
         public func get_or_set_do<KT, VT>(self: map<KT, VT>, index: KT, defalt_do: ()=>VT)=> VT;
     public func get_or_do<KT, VT>(self: map<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
@@ -1141,10 +1141,10 @@ namespace map
             dynamic::type_traits::extern_symbol_variant:<
             {"woostd_map_iter_next"},
             (KT, VT),
-            (
+            {(
                 dynamic::type_traits::ur,
                 dynamic::type_traits::ur,
-            )>)
+            )}>)
             public func next<KT, VT>(iter: iterator<KT, VT>)=> option<(KT, VT)>;
     }
     extern("woostd_map_iter")
