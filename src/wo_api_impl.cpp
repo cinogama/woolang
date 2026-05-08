@@ -597,7 +597,7 @@ static std::string _dump_src_info(
                         append_result += ANSI_UNDERLNE;
 
                     append_result +=
-                        " " WO_HERE;
+                        " " WO_MSG_HERE;
 
                     if (style == WO_NEED_COLOR)
                         append_result += ANSI_NUNDERLNE;
@@ -701,7 +701,7 @@ static std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_
     {
         if (err_info.m_layer != 0)
         {
-            auto see_also = last_depth >= err_info.m_layer ? WO_SEE_ALSO : WO_SEE_HERE;
+            auto see_also = last_depth >= err_info.m_layer ? WO_MSG_SEE_ALSO : WO_MSG_SEE_HERE;
             if (style == WO_NEED_COLOR)
                 _vm_compile_errors
                 += std::string(err_info.m_layer, ' ')
@@ -747,7 +747,7 @@ static std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_
     }
 
     if (lex->get_current_error_frame().size() >= WO_MAX_ERROR_COUNT)
-        _vm_compile_errors += WO_TOO_MANY_ERROR(WO_MAX_ERROR_COUNT) + "\n";
+        _vm_compile_errors += WO_MSG_TOO_MANY_ERROR(WO_MAX_ERROR_COUNT) + "\n";
 
     return _vm_compile_errors;
 }

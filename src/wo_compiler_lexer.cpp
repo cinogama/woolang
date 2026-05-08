@@ -145,7 +145,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         lexer::msglevel_t::error,
                         WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
                         macro_name.c_str(),
-                        "TODO;");
+                        woort_vm_get_runtime_error(macro_runtime_vm));
                 }
                 (void)woort_vm_swap(last_vm);
             }
@@ -1870,7 +1870,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             produce_lexer_error(msglevel_t::error,
                 WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
                 macro_instance->macro_name.c_str(),
-                WO_STACK_OVERFLOW);
+                WO_MSG_STACK_OVERFLOW);
    
             return false;
         }
@@ -1890,12 +1890,12 @@ extern func macro_entry(lexer: std::lexer)=> string
         woort_set_pointer(s + 0, this);
         if (woort_invoke(s + 0, s + 1) != WOORT_VM_CALL_STATUS_NORMAL)
         {
-            (void)woort_vm_swap(last);
-
             produce_lexer_error(msglevel_t::error,
                 WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
                 macro_instance->macro_name.c_str(),
-                "TODO;");
+                woort_vm_get_runtime_error(macro_instance->_macro_vm.value()));
+
+            (void)woort_vm_swap(last);
 
             return false;
         }
