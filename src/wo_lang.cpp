@@ -1334,6 +1334,7 @@ namespace wo
         // Final process, generate bytecode.
         // NOTE: After 1.15. we will create a entry function for init job.
         woort_IRFunction* entry_function = m_ircontext.c().push_function(0, 0);
+        woort_IRFunction_set_name(entry_function, WOORT_DEFAULT_ENTRY);
         m_ircontext.c().set_entry_function(entry_function);
 
         // Entry function cannot be invoked twice, check it.
@@ -1418,6 +1419,10 @@ namespace wo
                     m_ircontext.c().push_function(
                         (uint32_t)eval_function->m_parameters.size() + (eval_function->m_is_variadic ? 1 : 0),
                         (uint32_t)eval_function->m_LANG_captured_context.m_captured_variables.size()));
+
+                woort_IRFunction_set_name(
+                    eval_function->m_IR_function.value(),
+                    get_function_name(eval_function));
 
                 // Update captured variable / param's storage.
                 uint32_t argument_place = 0;
