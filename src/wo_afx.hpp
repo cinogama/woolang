@@ -10,7 +10,6 @@
 #include "wo_os_api.hpp"
 #include "wo_global_setting.hpp"
 #include "wo_io.hpp"
-#include "wo_utf8.hpp"
 
 #include <list>
 #include <forward_list>
@@ -25,9 +24,7 @@
 #include <optional>
 #include <memory>
 #include <iostream>
-#include <memory>
 #include <string>
-#include <iostream>
 #include <sstream>
 #include <new>
 #include <tuple>

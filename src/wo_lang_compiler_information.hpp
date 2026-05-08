@@ -38,7 +38,7 @@
 #define WO_ERR_LINE_NEED_INTEGER_AS_ROW u8"此处需要提供整数字面量作为行号"
 #define WO_ERR_LINE_NEED_INTEGER_AS_COL u8"此处需要提供整数字面量作为列号"
 #define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR u8"宏编译失败"
-#define WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR u8"执行宏 `%s` 时出错: %s"
+#define WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR u8"执行宏 `%s` 时发生错误: %s"
 #define WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH u8"未知的转义序列: `\\%c`"
 #define WO_ERR_INVALID_TOKEN_MACRO_CONTROLOR u8"宏 `%s` 生成了非法的词法标记"
 #define WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID u8"不允许嵌套的格式化字符串"
