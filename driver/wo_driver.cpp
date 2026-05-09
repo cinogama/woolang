@@ -45,6 +45,7 @@ int main(int argc, char** argv)
                 (void)woort_vm_swap(NULL);
             }
             woort_codeenv_drop(cenv);
+            woort_vm_close(vmm);
         }
         else
         {
@@ -69,7 +70,6 @@ int main(int argc, char** argv)
         std::cout << "    woolang <path> [options...]" << std::endl;
 
     }
-
     wo_finish(nullptr, nullptr);
     return ret;
 }

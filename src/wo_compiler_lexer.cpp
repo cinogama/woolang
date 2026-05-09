@@ -1877,6 +1877,8 @@ extern func macro_entry(lexer: std::lexer)=> string
 
 #if WO_ENABLE_RUNTIME_CHECK
         auto found =
+#else
+        (void)
 #endif
             woort_load_extern_const(
                 s + 1,
