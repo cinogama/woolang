@@ -44,33 +44,47 @@ void _wo_warning(
     wo::wo_stderr << "Line : " << line << wo::wo_endl;
 }
 
+void wo_handle_ctrl_c(/* OPTIONAL */ void(*handler)(int))
+{
+    signal(SIGINT, handler);
+}
+
+void _wo_ctrl_c_signal_handler(int)
+{
+    // CTRL + C
+    wo::wo_stderr
+        << ANSI_HIR "CTRL+C" ANSI_RST
+        << ": Trying to breakdown all virtual-machine by default debuggee immediately."
+        << wo::wo_endl;
+
+    static size_t _wo_ctrl_c_hit_count = 0;
+    static size_t _wo_last_ctrl_c_time = 0;
+
+    auto _ctrl_c_time = time(NULL);
+    if (_ctrl_c_time - _wo_last_ctrl_c_time < 2)
+    {
+        if (_wo_ctrl_c_hit_count >= 4)
+            wo_error("Panic termination.");
+        else
+        {
+            wo::wo_stderr
+                << ANSI_HIY "CTRL+C" ANSI_RST
+                << ": Continue pressing Ctrl+C `" ANSI_HIG
+                << 4 - _wo_ctrl_c_hit_count
+                << ANSI_RST "` time(s) to trigger a panic termination"
+                << wo::wo_endl;
+        }
+    }
+    else
+        _wo_ctrl_c_hit_count = 0;
+
+    _wo_last_ctrl_c_time = _ctrl_c_time;
+    ++_wo_ctrl_c_hit_count;
+
+    wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
+}
+
 #undef wo_init
-
-void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
-{
-    wo::builtin_macro_lib_shutdown();
-    woort_shutdown();
-
-    // Ready to shutdown.
-    if (do_after_shutdown != nullptr)
-        do_after_shutdown(custom_data);
-
-    wo::wstring_pool::shutdown_global_str_pool();
-
-    wo::shutdown_virtual_binary();
-    wo::wo_shutdown_locale_and_args();
-
-#ifndef WO_DISABLE_COMPILER
-    wo::LangContext::shutdown_lang_processers();
-    wo::shutdown_woolang_grammar();
-#endif
-}
-
-woort_api helloworld(void)
-{
-    printf("Helloworld: %s\n", woort_string(0));
-    return woort_ret_void();
-}
 
 void wo_init(int argc, char** argv)
 {
@@ -118,6 +132,9 @@ void wo_init(int argc, char** argv)
         }
     }
 
+    if (enable_ctrl_c_to_debug)
+        wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
+
     wo::wo_init_locale();
     wo::wstring_pool::init_global_str_pool();
 
@@ -148,6 +165,29 @@ void wo_init(int argc, char** argv)
 
     // Register the "woolang/compiler" fake library for macro extern functions.
     wo::builtin_macro_lib_bootup();
+}
+
+
+void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
+{
+    wo::builtin_macro_lib_shutdown();
+    woort_shutdown();
+
+    // Ready to shutdown.
+    if (do_after_shutdown != nullptr)
+        do_after_shutdown(custom_data);
+
+    wo::wstring_pool::shutdown_global_str_pool();
+
+    wo::shutdown_virtual_binary();
+    wo::wo_shutdown_locale_and_args();
+
+#ifndef WO_DISABLE_COMPILER
+    wo::LangContext::shutdown_lang_processers();
+    wo::shutdown_woolang_grammar();
+#endif
+
+    wo_handle_ctrl_c(nullptr);
 }
 
 const char* wo_locale_name(void)
