@@ -6,6 +6,7 @@
 
 namespace wo
 {
+#ifndef WO_DISABLE_COMPILER
     IRCompiler::IRCompiler()
     {
         m_ircompiler = woort_IRCompiler_create();
@@ -1991,4 +1992,5 @@ namespace wo
     {
         return fetch_constant(imm_box_const(constant));
     }
+#endif
 }

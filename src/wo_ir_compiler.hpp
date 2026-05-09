@@ -8,6 +8,7 @@
 
 #include "wo_const_string_pool.hpp"
 
+#ifndef WO_DISABLE_COMPILER
 namespace wo
 {
     namespace ast
@@ -345,3 +346,4 @@ namespace wo
 
     };
 }
+#endif
