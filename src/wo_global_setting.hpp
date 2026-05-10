@@ -1,4 +1,5 @@
 #pragma once
+#include "woort_platform.h"
 // Here to place some global variable for config..
 #include <cstddef>
 #include <new>
@@ -23,10 +24,8 @@ namespace wo
 
         constexpr auto OS_TYPE =
 #ifdef _WIN32
-#define WO_PLATRORM_OS_WINDOWS
             OSType::WINDOWS
 #elif defined(__linux__)
-#define WO_PLATRORM_OS_LINUX
             OSType::LINUX
 #else
             OSType::UNKNOWN
@@ -47,22 +46,12 @@ namespace wo
         constexpr auto ARCH_TYPE =
 #if defined(_M_IX86) || defined(__i386__)
             ArchMask::X86 | 0;
-#           define WO_PLATFORM_32 
-#           define WO_PLATFORM_X86
-#           define WO_VM_SUPPORT_FAST_NO_ALIGN
 #elif  defined(__x86_64__) || defined(_M_X64) 
             ArchMask::X86 | ArchMask::BIT64;
-#           define WO_PLATFORM_64
-#           define WO_PLATFORM_X64
-#           define WO_VM_SUPPORT_FAST_NO_ALIGN
 #elif  defined(_M_ARM)||defined(__arm__)
             ArchMask::ARM | 0;
-#           define WO_PLATFORM_32 
-#           define WO_PLATFORM_ARM
 #elif  defined(__aarch64__) ||defined(_M_ARM64) 
             ArchMask::ARM | ArchMask::BIT64;
-#           define WO_PLATFORM_64
-#           define WO_PLATFORM_ARM64
 #else
 #   if !defined(WO_PLATFORM_32) && !defined(WO_PLATFORM_64)
 #       error "Unknown platform, you must specify platform manually."

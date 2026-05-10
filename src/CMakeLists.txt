@@ -118,6 +118,7 @@ target_precompile_headers(woolang PRIVATE wo_afx.hpp)
 
 target_include_directories(woolang
     PUBLIC "../3rd/woort/include"
+    PRIVATE "../3rd/woort/src"
     PRIVATE "${WOO_GEN_DIR}")
 
 target_link_libraries(woolang 
