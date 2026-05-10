@@ -57,6 +57,9 @@ void _wo_ctrl_c_signal_handler(int)
         << ": Trying to breakdown all virtual-machine by default debuggee immediately."
         << wo::wo_endl;
 
+    (void)woort_WAIPO_Debugger_attach();
+    woort_VMRuntime_Debugger_breakdown_all_vm();
+
     static size_t _wo_ctrl_c_hit_count = 0;
     static size_t _wo_last_ctrl_c_time = 0;
 
