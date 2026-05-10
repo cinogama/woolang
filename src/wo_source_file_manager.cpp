@@ -70,7 +70,10 @@ namespace wo
         // 2) Read file from rpath
         do
         {
-            *out_real_read_path = wo::work_path() + "/" + filepath;
+            char* workpath = woort_work_path();
+            *out_real_read_path = workpath + ("/" + filepath);
+            woort_free(workpath);
+
             if (is_file_exist_and_readable(*out_real_read_path))
                 return true;
         } while (0);
@@ -78,7 +81,10 @@ namespace wo
         // 3) Read file from exepath
         do
         {
-            *out_real_read_path = wo::exe_path() + "/" + filepath;
+            char* exepath = woort_exe_path();
+            *out_real_read_path = exepath + ("/" + filepath);
+            woort_free(exepath);
+
             if (is_file_exist_and_readable(*out_real_read_path))
                 return true;
         } while (0);

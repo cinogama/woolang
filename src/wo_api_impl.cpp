@@ -93,9 +93,6 @@ void wo_init(int argc, char** argv)
 {
     bool enable_std_package = true;
     bool enable_ctrl_c_to_debug = true;
-    bool enable_vm_pool = true;
-
-    wo::wo_init_args(argc, argv);
 
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
     {
@@ -119,8 +116,6 @@ void wo_init(int argc, char** argv)
                 wo::config::MEMORY_CHUNK_SIZE = (size_t)atoll(argv[++command_idx]);
             else if ("enable-pdb" == current_arg)
                 wo::config::ENABLE_PDB_INFORMATIONS = (bool)atoi(argv[++command_idx]);
-            else if ("enable-vm-pool" == current_arg)
-                enable_vm_pool = (bool)atoi(argv[++command_idx]);
             else if ("enable-halt-when-panic" == current_arg)
                 wo::config::ENABLE_HALT_WHEN_PANIC = (bool)atoi(argv[++command_idx]);
             else if ("enable-runtime-checking-integer-division" == current_arg)
@@ -138,7 +133,6 @@ void wo_init(int argc, char** argv)
     if (enable_ctrl_c_to_debug)
         wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 
-    wo::wo_init_locale();
     wo::wstring_pool::init_global_str_pool();
 
     if (wo::config::GC_WORKER_THREAD_COUNT == 0)
@@ -183,7 +177,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     wo::wstring_pool::shutdown_global_str_pool();
 
     wo::shutdown_virtual_binary();
-    wo::wo_shutdown_locale_and_args();
 
 #ifndef WO_DISABLE_COMPILER
     wo::LangContext::shutdown_lang_processers();
@@ -191,34 +184,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 #endif
 
     wo_handle_ctrl_c(nullptr);
-}
-
-const char* wo_locale_name(void)
-{
-    thread_local static std::string buf;
-    buf = wo::get_locale().name();
-    return buf.c_str();
-}
-const char* wo_exe_path()
-{
-    thread_local static std::string buf;
-    buf = wo::exe_path();
-    return buf.c_str();
-}
-void wo_set_exe_path(const char* path)
-{
-    wo::set_exe_path(path);
-}
-const char* wo_work_path()
-{
-    thread_local static std::string buf;
-    buf = wo::work_path();
-    return buf.c_str();
-}
-
-bool wo_set_work_path(const char* path)
-{
-    return wo::set_work_path(path);
 }
 
 void wo_enable_jit(bool option)

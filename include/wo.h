@@ -162,11 +162,6 @@ WO_API const char* wo_version(void);
  */
 WO_API uint64_t wo_version_int(void);
 
-/**
- * @brief Get the system locale name.
- * @return A null-terminated C string with the locale name (e.g. "en_US.UTF-8").
- */
-WO_API const char* wo_locale_name(void);
 
 /* ========== Lifecycle API ========== */
 
@@ -180,11 +175,11 @@ WO_API const char* wo_locale_name(void);
  * @param argv  Argument vector (as passed to main).
  */
 WO_API void wo_init(int argc, char** argv);
-#define wo_init(argc, argv)                    \
-    do                                         \
-    {                                          \
-        wo_init(argc, argv);                   \
-        setlocale(LC_CTYPE, wo_locale_name()); \
+#define wo_init(argc, argv)                             \
+    do                                                  \
+    {                                                   \
+        wo_init(argc, argv);                            \
+        setlocale(LC_CTYPE, woort_env_locale_name());   \
     } while (0)
 
 /**
