@@ -7,7 +7,6 @@
 #include "wo_lang.hpp"
 #include "wo_utf8.hpp"
 #include "wo_lang_ast.hpp"
-#include "wo_os_api.hpp"
 #include "wo_global_setting.hpp"
 #include "wo_io.hpp"
 

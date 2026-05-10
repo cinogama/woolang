@@ -1,6 +1,6 @@
 #include "wo_afx.hpp"
 
-#include "wo_env_locale.hpp"
+#include "wo_path_util.hpp"
 
 namespace wo
 {

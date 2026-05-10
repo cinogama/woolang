@@ -6,9 +6,9 @@
 #include "wo_stdlib_embedded.inc"
 #include "wo_lang_grammar_loader.hpp"
 #include "wo_crc_64.hpp"
-
 #include "wo_ir_compiler.hpp"
 #include "wo_builtin_lib_macro.hpp"
+#include "wo_path_util.hpp"
 
 [[noreturn]]
 void _wo_assert(

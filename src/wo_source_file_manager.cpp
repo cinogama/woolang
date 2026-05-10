@@ -2,6 +2,7 @@
 
 #include "wo_source_file_manager.hpp"
 #include "wo_compiler_lexer.hpp"
+#include "wo_path_util.hpp"
 
 namespace wo
 {

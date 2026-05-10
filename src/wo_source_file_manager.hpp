@@ -1,5 +1,4 @@
 #pragma once
-#include "wo_env_locale.hpp"
 #include "wo_utf8.hpp"
 
 #include <map>
