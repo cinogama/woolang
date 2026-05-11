@@ -301,17 +301,91 @@ wo::compile_result _wo_compile_impl(
 )
 {
     // 0. Try load binary
+    // WOORT_CODEENV_BINARY_MAGIC = 0x30314345u ("EC10")
     const char* load_binary_failed_reason = nullptr;
     bool is_valid_binary = false;
 
     wo::compile_result compile_result = wo::compile_result::PROCESS_FAILED;
 
     std::optional<woort_CodeEnv*> compile_env_result = std::nullopt;
-    //wo::runtime_env::load_create_env_from_binary(
-    //    virtual_src_path, src, len,
-    //    &load_binary_failed_reason,
-    //    &is_valid_binary);
     std::unique_ptr<wo::lexer> compile_lexer;
+
+    /*
+     * Detect and restore binary format.
+     *
+     * Binary format begins with 4-byte magic 0x30314345u followed by
+     * version, code_size, data_count.
+     *
+     * When the caller passes a memory buffer (src_may_null != nullptr),
+     * it has already registered the buffer in the VFS via wo_virtual_binary
+     * under virtual_src_path.  We construct a "woovf://" URI to open it.
+     *
+     * When loading from a file path (src_may_null == nullptr), we resolve
+     * the path first and peek at the file header to detect binary format.
+     */
+    {
+        bool try_load_binary = false;
+        std::string binary_vfs_path;
+
+        if (src_may_null != nullptr && src_len >= 4)
+        {
+            uint32_t magic;
+            memcpy(&magic, src_may_null, sizeof(uint32_t));
+            if (magic == 0x30314345u)
+            {
+                try_load_binary = true;
+                binary_vfs_path =
+                    std::string("woovf://") + std::string(virtual_src_path);
+            }
+        }
+        else if (src_may_null == nullptr)
+        {
+            /* File path: peek at the header to detect binary format. */
+            if (wo::check_virtual_file_path(
+                    virtual_src_path, std::nullopt, &binary_vfs_path))
+            {
+                woort_VFile* peek_vf = nullptr;
+                if (woort_vfile_open(binary_vfs_path.c_str(), &peek_vf)
+                    && peek_vf != nullptr)
+                {
+                    uint32_t magic = 0;
+                    size_t read_bytes = 0;
+                    if (woort_vfile_read(
+                            peek_vf, &magic, sizeof(magic), &read_bytes)
+                        && read_bytes == sizeof(magic)
+                        && magic == 0x30314345u)
+                    {
+                        try_load_binary = true;
+                    }
+                    woort_vfile_close(peek_vf);
+                }
+            }
+        }
+
+        if (try_load_binary)
+        {
+            is_valid_binary = true;
+
+            woort_VFile* vf = nullptr;
+
+            if (woort_vfile_open(binary_vfs_path.c_str(), &vf) && vf != nullptr)
+            {
+                woort_CodeEnv* env = nullptr;
+                if (woort_CodeEnv_restore_binary(vf, &env))
+                    compile_env_result = env;
+                else
+                    load_binary_failed_reason =
+                        "Failed to restore binary: invalid, corrupted, or version mismatch.";
+
+                woort_vfile_close(vf);
+            }
+            else
+            {
+                load_binary_failed_reason =
+                    "Failed to open virtual file for binary loading.";
+            }
+        }
+    }
 
     if (!compile_env_result.has_value())
     {
