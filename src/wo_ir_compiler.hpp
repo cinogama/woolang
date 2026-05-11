@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstring>
 #include <optional>
 #include <stack>
 #include <string_view>
