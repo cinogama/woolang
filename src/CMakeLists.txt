@@ -83,14 +83,8 @@ target_include_directories(woolang_library_options
     INTERFACE "../3rd/asmjit/src"
     INTERFACE "../3rd/mingw-std-threads")
 
-if (WO_SUPPORT_ASMJIT)
-    target_compile_definitions(woolang_library_options INTERFACE -DWO_JIT_SUPPORT_ASMJIT=1) 
-endif()
 if (WO_DISABLE_COMPILER)
     target_compile_definitions(woolang_library_options INTERFACE -DWO_DISABLE_COMPILER=1)
-endif()
-if (WO_FORCE_GC_OBJ_THREAD_SAFETY)
-    target_compile_definitions(woolang_library_options INTERFACE -DWO_FORCE_GC_OBJ_THREAD_SAFETY=1) 
 endif()
 if (WO_DISABLE_FUNCTION_FOR_WASM)
     target_compile_definitions(woolang_library_options INTERFACE -DWO_DISABLE_FUNCTION_FOR_WASM=1)
@@ -108,10 +102,6 @@ endif()
 if (NOT MSVC)
     target_compile_options(woolang_library_options INTERFACE -pthread)
     target_link_options(woolang_library_options INTERFACE -pthread)
-endif()
-
-if(WO_SUPPORT_ASMJIT)
-    list(APPEND woo_system_libs asmjit)
 endif()
 
 target_precompile_headers(woolang PRIVATE wo_afx.hpp)
