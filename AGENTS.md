@@ -169,8 +169,7 @@ A `compile_result` enum tracks the outcome: if grammar or pass 0 fails, later pa
 ### Formatting
 
 - 4-space indentation.
-- Opening braces on new lines for functions, classes, structs, namespaces, and enums.
-- Opening braces on same line for `if`, `for`, `while`, `switch`.
+- Opening braces on new lines for all constructs (`if`, `for`, `while`, `switch`, functions, classes, structs, namespaces, enums).
 - Spaces around operators: `a + b`, `m_name = name`.
 - No trailing commas in initializer lists or enum values.
 - Chinese comments are acceptable.
@@ -235,4 +234,4 @@ Windows (MSVC x64), Linux (GCC/Clang x64/ARM64), macOS (ARM64).
 
 ## CI
 
-CI runs on GitLab (CI file is `___.gitlab-ci.yml` — renamed from `.gitlab-ci.yml` to disable). Pipelines: build release on each platform, test with JIT on/off, coverage + ASAN on Ubuntu, valgrind memory checks on tags.
+CI runs on GitLab (`.gitlab-ci.yml`). Pipelines: build release on each platform, test with JIT on/off, coverage + ASAN on Ubuntu, valgrind memory checks on tags.
