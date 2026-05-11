@@ -141,7 +141,7 @@ void wo_init(int argc, char** argv)
     if (enable_std_package)
     {
         for (size_t i = 0; i < woo_embedded_file_count; ++i)
-            wo::create_virtual_binary(
+            woort_vfs_create(
                 woo_embedded_files[i].path,
                 woo_embedded_files[i].data,
                 strlen(woo_embedded_files[i].data),
@@ -176,8 +176,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
         do_after_shutdown(custom_data);
 
     wo::wstring_pool::shutdown_global_str_pool();
-
-    wo::shutdown_virtual_binary();
 
 #ifndef WO_DISABLE_COMPILER
     wo::LangContext::shutdown_lang_processers();
@@ -785,7 +783,7 @@ WO_API const char* wo_get_compile_error(
         wo::normalize_path(&vpath);
     }
 
-    if (!wo::create_virtual_binary(vpath.c_str(), buffer, length, true))
+    if (!woort_vfs_create(vpath.c_str(), buffer, length, true))
         return nullptr;
 
     std::optional<woort_CodeEnv*> code_env;

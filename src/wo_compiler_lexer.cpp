@@ -704,7 +704,7 @@ extern func macro_entry(lexer: std::lexer)=> string
     lexer::SharedContext::~SharedContext()
     {
         for (auto vpath : m_temp_virtual_file_path)
-            wo_assure(wo::remove_virtual_binary(vpath));
+            wo_assure(woort_vfs_remove(vpath.c_str()));
     }
     const char* lexer::SharedContext::register_temp_virtual_file(const char* context)
     {
@@ -713,7 +713,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         char temp_path[64];
         (void)snprintf(temp_path, 64, "woo/tmp/%p-%zu", this, m_temp_virtual_file_path.size());
 
-        wo_assure(wo::create_virtual_binary(temp_path, context, strlen(context), true));
+        wo_assure(woort_vfs_create(temp_path, context, strlen(context), true));
 
         return m_temp_virtual_file_path.emplace_back(temp_path).c_str();
     }
