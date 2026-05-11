@@ -141,6 +141,8 @@ namespace wo
     static_assert((int)lex_type::l_eof == WO_LSPV2_TOKEN_EOF);
     static_assert((int)lex_type::l_unknown_token == WO_LSPV2_TOKEN_UNKNOWN_TOKEN);
 
+    class macro;
+
     class lexer
     {
         friend class macro;
