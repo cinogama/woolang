@@ -141,9 +141,10 @@ void wo_init(int argc, char** argv)
     if (enable_std_package)
     {
         for (size_t i = 0; i < woo_embedded_file_count; ++i)
-            wo_virtual_source(
+            wo::create_virtual_binary(
                 woo_embedded_files[i].path,
                 woo_embedded_files[i].data,
+                strlen(woo_embedded_files[i].data),
                 false);
     }
 
@@ -191,98 +192,7 @@ void wo_enable_jit(bool option)
     wo::config::ENABLE_JUST_IN_TIME = option;
 }
 
-bool wo_virtual_binary(
-    const char* filepath,
-    const void* data,
-    size_t len,
-    bool enable_modify)
-{
-    return wo::create_virtual_binary(filepath, data, len, enable_modify);
-}
-bool wo_virtual_source(const char* filepath, const char* data, bool enable_modify)
-{
-    return wo_virtual_binary(filepath, data, strlen(data), enable_modify);
-}
 
-struct _wo_virtual_file
-{
-    std::string m_path;
-    std::string m_buffer;
-
-    _wo_virtual_file(const _wo_virtual_file&) = delete;
-    _wo_virtual_file(_wo_virtual_file&&) = delete;
-    _wo_virtual_file& operator = (const _wo_virtual_file&) = delete;
-    _wo_virtual_file& operator = (_wo_virtual_file&&) = delete;
-
-    ~_wo_virtual_file() = default;
-    _wo_virtual_file() = default;
-};
-
-wo_virtual_file_t wo_open_virtual_file(const char* filepath)
-{
-    _wo_virtual_file* vfinstance = new _wo_virtual_file;
-
-    if (wo::check_and_read_virtual_source(
-        filepath,
-        std::nullopt,
-        &vfinstance->m_path,
-        &vfinstance->m_buffer))
-    {
-        return vfinstance;
-    }
-
-    delete vfinstance;
-    return nullptr;
-}
-const char* wo_virtual_file_path(wo_virtual_file_t file)
-{
-    return file->m_path.c_str();
-}
-const void* wo_virtual_file_data(wo_virtual_file_t file, size_t* len)
-{
-    *len = file->m_buffer.size();
-    return file->m_buffer.c_str();
-}
-void wo_close_virtual_file(wo_virtual_file_t file)
-{
-    delete file;
-}
-
-bool wo_remove_virtual_file(const char* filepath)
-{
-    return wo::remove_virtual_binary(filepath);
-}
-
-struct _wo_virtual_file_iter
-{
-    std::vector<std::string> m_paths;
-    size_t m_index;
-};
-wo_virtual_file_iter_t wo_open_virtual_file_iter(void)
-{
-    auto* result = new _wo_virtual_file_iter();
-    result->m_index = 0;
-
-    auto paths = wo::get_all_virtual_file_path();
-    for (auto& p : paths)
-    {
-        result->m_paths.push_back(p);
-    }
-    return result;
-}
-const char* wo_next_virtual_file_iter(wo_virtual_file_iter_t iter)
-{
-    if (iter->m_index >= iter->m_paths.size())
-    {
-        wo_assert(iter->m_index == iter->m_paths.size());
-        return nullptr;
-    }
-    return iter->m_paths[iter->m_index++].c_str();
-}
-void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter)
-{
-    delete iter;
-}
 
 wo::compile_result _wo_compile_impl(
     const char* virtual_src_path,
@@ -317,7 +227,7 @@ wo::compile_result _wo_compile_impl(
      * version, code_size, data_count.
      *
      * When the caller passes a memory buffer (src_may_null != nullptr),
-     * it has already registered the buffer in the VFS via wo_virtual_binary
+     * it has already registered the buffer in the VFS via woort_vfs_create
      * under virtual_src_path.  We construct a "woovf://" URI to open it.
      *
      * When loading from a file path (src_may_null == nullptr), we resolve
@@ -875,7 +785,7 @@ WO_API const char* wo_get_compile_error(
         wo::normalize_path(&vpath);
     }
 
-    if (!wo_virtual_binary(vpath.c_str(), buffer, length, true))
+    if (!wo::create_virtual_binary(vpath.c_str(), buffer, length, true))
         return nullptr;
 
     std::optional<woort_CodeEnv*> code_env;

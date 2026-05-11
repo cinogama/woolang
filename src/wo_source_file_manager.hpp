@@ -12,11 +12,6 @@ namespace wo
 {
     class lexer;
 
-#define VIRTUAL_FILE_SCHEME_M "woovf://"
-#define VIRTUAL_FILE_SCHEME_LEN 8
-    static_assert(
-        sizeof(VIRTUAL_FILE_SCHEME_M) == VIRTUAL_FILE_SCHEME_LEN + 1);
-
     void shutdown_virtual_binary();
 
     bool create_virtual_binary(const std::string& filepath, const void* data, size_t length, bool enable_modify);

@@ -4,7 +4,7 @@
  * @brief Woolang C API
  *
  * High-level public API for the Woolang scripting language.
- * Provides compiler, virtual file system, runtime integration,
+ * Provides compiler, runtime integration,
  * LSP service, and utility functions.
  * Depends on woort.h for low-level runtime types.
  */
@@ -115,12 +115,6 @@ typedef struct _wo_extern_lib_func_pair
     void* m_func_addr;        /**< @brief Pointer to the C function implementation. */
 } wo_extern_lib_func_t;
 
-/** @brief Opaque handle to a virtual file. */
-typedef struct _wo_virtual_file* wo_virtual_file_t;
-
-/** @brief Opaque iterator for enumerating virtual files. */
-typedef struct _wo_virtual_file_iter* wo_virtual_file_iter_t;
-
 /** @brief Opaque handle to a pinned GC value (prevents collection). */
 typedef struct _wo_pin_value* wo_pin_value;
 
@@ -189,90 +183,6 @@ WO_API void wo_init(int argc, char** argv);
  * @param custom_data        User data passed to the callback.
  */
 WO_API void wo_finish(void (*do_after_shutdown)(void*), void* custom_data);
-
-/* ========== Virtual File System API ========== */
-
-/**
- * @brief Register a virtual binary file in the in-memory file system.
- *
- * @param filepath       Virtual path to register the data at.
- * @param data           Pointer to the binary data.
- * @param len            Length of the binary data in bytes.
- * @param enable_modify  Whether the virtual file content can be modified.
- * @return true on success, false on failure.
- */
-WO_API bool wo_virtual_binary(
-    const char* filepath,
-    const void* data,
-    size_t len,
-    bool enable_modify);
-
-/**
- * @brief Register a virtual source file in the in-memory file system.
- *
- * @param filepath       Virtual path to register the source at.
- * @param data           Null-terminated source code string.
- * @param enable_modify  Whether the virtual file content can be modified.
- * @return true on success, false on failure.
- */
-WO_API bool wo_virtual_source(
-    const char* filepath,
-    const char* data,
-    bool enable_modify);
-
-/**
- * @brief Open a virtual file by path.
- * @param filepath  Virtual path of the file to open.
- * @return A virtual file handle, or NULL if not found.
- */
-WO_API wo_virtual_file_t wo_open_virtual_file(const char* filepath);
-
-/**
- * @brief Get the path of a virtual file.
- * @param file  The virtual file handle.
- * @return The file path string.
- */
-WO_API const char* wo_virtual_file_path(wo_virtual_file_t file);
-
-/**
- * @brief Get the data pointer and length of a virtual file.
- * @param file  The virtual file handle.
- * @param len   Output parameter receiving the data length in bytes.
- * @return A pointer to the file data.
- */
-WO_API const void* wo_virtual_file_data(wo_virtual_file_t file, size_t* len);
-
-/**
- * @brief Close a virtual file handle and release its resources.
- * @param file  The virtual file handle to close.
- */
-WO_API void wo_close_virtual_file(wo_virtual_file_t file);
-
-/**
- * @brief Create an iterator over all registered virtual files.
- * @return A new virtual file iterator handle.
- */
-WO_API wo_virtual_file_iter_t wo_open_virtual_file_iter(void);
-
-/**
- * @brief Advance the virtual file iterator and return the next file path.
- * @param iter  The virtual file iterator.
- * @return The next file path, or NULL when exhausted.
- */
-WO_API /* OPTIONAL */ const char* wo_next_virtual_file_iter(wo_virtual_file_iter_t iter);
-
-/**
- * @brief Destroy a virtual file iterator.
- * @param iter  The iterator to destroy.
- */
-WO_API void wo_close_virtual_file_iter(wo_virtual_file_iter_t iter);
-
-/**
- * @brief Remove a virtual file from the in-memory file system.
- * @param filepath  Virtual path of the file to remove.
- * @return true on success, false if the file was not found.
- */
-WO_API bool wo_remove_virtual_file(const char* filepath);
 
 /* ========== Compile API ========== */
 
