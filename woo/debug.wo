@@ -1,0 +1,33 @@
+import woo::std;
+
+namespace std
+{
+    namespace debug
+    {
+        public using callstack = struct{
+            public function_name: string,
+            public file_name: string,
+            public location: option<((int, int), (int, int))>,
+        }
+        {
+            public func to_string(self: callstack)
+            {
+                match (self.location)
+                {
+                    none?
+                        return F"{self.function_name} at {self.file_name}";
+                    value(((begin_row, begin_col), _))?
+                        return F"{self.function_name} at {self.file_name}:{begin_row + 1}:{begin_col + 1}";
+                }
+            }
+            
+            using iter = gchandle
+            {
+                extern("woostd_trace_iter_next")
+                    public func next(self: iter)=> option<callstack>;
+            }
+        }
+        extern("woostd_trace_begin")
+            public func traceback(layer: int)=> callstack::iter;
+    }
+}
