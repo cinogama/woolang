@@ -214,16 +214,19 @@ wo::compile_result _wo_compile_impl(
     std::unique_ptr<wo::lexer> compile_lexer;
 
     std::optional<woort_VFile*> source_file_instance;
+    std::string real_file_path;
+
     if (src_may_null != nullptr)
     {
+        real_file_path = virtual_src_path;
+        wo::normalize_path(&real_file_path);
+
         woort_VFile* vfile;
         if (woort_vfile_open_reader(src_may_null, src_len, &vfile))
             source_file_instance.emplace(vfile);
     }
     else
     {
-        std::string real_file_path;
-
         if (wo::check_virtual_file_path(
             virtual_src_path,
             std::nullopt,
@@ -239,9 +242,10 @@ wo::compile_result _wo_compile_impl(
     std::optional<woort_CodeEnv_RestoreResult> binary_loading_failed = std::nullopt;
     if (source_file_instance.has_value())
     {
+        woort_VFile* const f = source_file_instance.value();
+
         woort_CodeEnv* v;
-        const woort_CodeEnv_RestoreResult r =
-            woort_CodeEnv_restore_binary(source_file_instance.value(), &v);
+        const woort_CodeEnv_RestoreResult r = woort_CodeEnv_restore_binary(f, &v);
         switch (r)
         {
         case WOORT_CODEENV_RESTORE_OK:
@@ -250,6 +254,7 @@ wo::compile_result _wo_compile_impl(
             break;
         case WOORT_CODEENV_RESTORE_FAIL_MAGIC_DOESNT_MATCH:
             // Not binary, continue compiling.
+            (void)woort_vfile_seek(f, 0, SEEK_SET);
             break;
         default:
             // Failed.
@@ -259,18 +264,23 @@ wo::compile_result _wo_compile_impl(
 
     if (!compile_env_result.has_value())
     {
-        std::string wvspath = virtual_src_path;
+        std::optional<std::unique_ptr<std::istream>> source_stream;
+        if (source_file_instance.has_value())
+        {
+            source_stream.emplace(
+                std::unique_ptr<std::istream>(
+                    std::make_unique<wo::vfile_istream>(source_file_instance.value())));
+        }
+
+        compile_lexer = std::make_unique<wo::lexer>(
+            append_macro_define_to_this_lexer,
+            wo::wstring_pool::get_pstr(real_file_path),
+            std::move(source_stream));
+
         if (binary_loading_failed.has_value())
         {
             // Is Woolang format binary, but failed to load.
             // Failed to load binary, maybe broken or version missing.
-            wo_assert(load_binary_failed_reason != nullptr);
-
-            compile_lexer = std::make_unique<wo::lexer>(
-                append_macro_define_to_this_lexer,
-                wo::wstring_pool::get_pstr(wvspath),
-                std::make_unique<std::istringstream>(std::string()));
-
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error,
                 woort_CodeEnv_restore_failed_desc(binary_loading_failed.value()));
@@ -278,40 +288,6 @@ wo::compile_result _wo_compile_impl(
         else
         {
             // 1. Prepare lexer..
-            if (src_may_null != nullptr)
-            {
-                // Load from virtual source.
-                wo::normalize_path(&wvspath);
-
-                compile_lexer = std::make_unique<wo::lexer>(
-                    append_macro_define_to_this_lexer,
-                    wo::wstring_pool::get_pstr(wvspath),
-                    std::make_unique<std::istringstream>(
-                        std::string((const char*)src_may_null, src_len)));
-            }
-            else
-            {
-                // Load from real file.
-                std::string real_file_path;
-
-                std::optional<std::unique_ptr<std::istream>> content_stream =
-                    std::nullopt;
-
-                if (wo::check_virtual_file_path(
-                    wvspath,
-                    std::nullopt,
-                    &real_file_path))
-                {
-                    content_stream =
-                        wo::open_virtual_file_stream(real_file_path);
-                }
-
-                compile_lexer = std::make_unique<wo::lexer>(
-                    append_macro_define_to_this_lexer,
-                    wo::wstring_pool::get_pstr(real_file_path),
-                    std::move(content_stream));
-            }
-
 #ifndef WO_DISABLE_COMPILER
             if (!compile_lexer->has_error())
             {
