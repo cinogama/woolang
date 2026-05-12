@@ -1084,13 +1084,24 @@ namespace wo
         {
             if (node->m_value.has_value())
             {
-                m_ircontext.begin_eval_readonly();
+                if (node->m_LANG_defer_instances.empty())
+                    m_ircontext.begin_eval_readonly();
+                else
+                {
+                    woort_IRValue* v = m_ircontext.c().new_value();
+                    m_ircontext.eval_to_assign(v, node);
+
+                    node->m_IR_return_value_may_none.emplace(v);
+                }
 
                 if (!pass_final_value(lex, node->m_value.value()))
                     return FAILED;
 
-                node->m_IR_return_value_may_none.emplace(
-                    m_ircontext.get_eval_result());
+                if (node->m_IR_return_value_may_none.has_value())
+                    m_ircontext.pop_eval_result();
+                else
+                    node->m_IR_return_value_may_none.emplace(
+                        m_ircontext.get_eval_result());
             }
 
             WO_CONTINUE_PROCESS_LIST(node->m_LANG_defer_instances);
@@ -3589,6 +3600,7 @@ namespace wo
                         [&](BytecodeGenerateContext::EvalResult& result)
                         {
                             wo_assert(!result.get_assign_target(node->m_LANG_determined_type.value()).has_value());
+                            m_ircontext.pop_eval_result();
 
                             result.set_result_stack_temp(
                                 m_ircontext, node->m_IR_cond_eval_result.value(),

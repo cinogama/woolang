@@ -50,12 +50,12 @@ private func _test_compare<AT, BT>(a: AT, b :BT)
 
 public func print_traceback()
 {
-    let (finished, ts) = std::debug::traceback(8 + 3);
-    for (let (n, t) : ts->iter |> iterator::skip(3) |> iterator::enumerate)
+    let result = std::debug::traceback(9 + 3);
+    for (let (n, t) : result->iter |> iterator::skip(3) |> iterator::enumerate |> iterator::take(8))
     {
         std::println(F"{n}:", t->to_string);
     }
-    if (!finished)
+    if (result->len >= 9)
         std::println("...");
 }
 

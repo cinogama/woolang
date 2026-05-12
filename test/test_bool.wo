@@ -35,8 +35,7 @@ namespace test_bool
 
         dynx = dynx as int: bool: dynamic;
         test_assure(dynx is bool);
-        test_assure(1 == dynx->unsafe::cast:<int>); // Holy shit! type will not realy cast, 
-                                                      // But equb ignored it !
+        test_assure(0b01100 == dynx->unsafe::cast:<int>); // Holy shit!
 
     }
 }

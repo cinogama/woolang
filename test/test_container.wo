@@ -22,7 +22,7 @@ namespace test_container
         test_assure(b[2] == 3);
         test_assure(b->len == 3);
 
-        a->copy(b);
+        a->copy_from(b);
         b->add(233);
 
         test_assure(a[0] == 1);
@@ -50,7 +50,7 @@ namespace test_container
         test_assure(b["pi"] == 3.14);
         test_assure(b->len == 1);
 
-        a->copy(b);
+        a->copy_from(b);
         b["gratio"] = 0.618;
 
         test_assure(a["pi"] == 3.14);
@@ -170,7 +170,8 @@ namespace test_container
         let x = []mut: vec<string>;
         for (let mut i = 0; i < 100000; i += 1)
             x->add(F"str_{i}");
-        do x->forall(\s = s->begin_with("0"););
+        test_equal(x->forall(\s = s->begin_with("0");)->len, 0);
+        test_equal(x->forall(\s = s->begin_with("str_");)->len, 100000);
 
         let y = all(["hello", "world"])->iter
             |> iterator::enumerate

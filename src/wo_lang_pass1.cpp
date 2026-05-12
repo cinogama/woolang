@@ -116,7 +116,8 @@ namespace wo
             {
                 // TODO: Give typename.
                 lex.record_lang_error(lexer::msglevel_t::error, pattern,
-                    WO_ERR_UNEXPECTED_MATCH_TYPE_FOR_TUPLE);
+                    WO_ERR_UNEXPECTED_MATCH_TYPE_FOR_TUPLE,
+                    get_type_name(init_value_type.value()));
             }
             return false;
         }
@@ -994,6 +995,9 @@ namespace wo
             break;
         case ConstantValue::Type::INTEGER:
             node->m_LANG_determined_type = m_origin_types.m_int.m_type_instance;
+            break;
+        case ConstantValue::Type::HANDLE:
+            node->m_LANG_determined_type = m_origin_types.m_handle.m_type_instance;
             break;
         case ConstantValue::Type::REAL:
             node->m_LANG_determined_type = m_origin_types.m_real.m_type_instance;
@@ -6497,8 +6501,8 @@ namespace wo
                 lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION,
                     node->m_extern_from_library.has_value()
-                        ? node->m_extern_from_library.value()->m_evaled_const_value.value().value_pstring()->c_str()
-                        : "woolang",
+                    ? node->m_extern_from_library.value()->m_evaled_const_value.value().value_pstring()->c_str()
+                    : "woolang",
                     node->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str());
 
                 return FAILED;

@@ -486,7 +486,6 @@ namespace wo
         wo_pstring_t filename;
 
         macro(lexer& lex, lexer::peeked_token_t* peeked_token);
-
         ~macro()
         {
             if (_macro_vm.has_value())
@@ -494,6 +493,11 @@ namespace wo
             if (_macro_codes.has_value())
                 woort_codeenv_drop(_macro_codes.value());
         }
+
+        macro(const macro&) = delete;
+        macro(macro&&) = delete;
+        macro& operator = (const macro&) = delete;
+        macro& operator = (macro&&) = delete;
     };
 }
 

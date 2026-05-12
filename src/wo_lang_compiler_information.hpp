@@ -69,7 +69,7 @@
 #define WO_ERR_UNEXPECTED_TEMPLATE_COUNT u8"需要 %zu 个泛型参数, 但提供了 %zu 个"
 #define WO_ERR_EXPECTED_TEMPLATE_ARGUMENT u8"`%s` 需要指定泛型参数"
 #define WO_ERR_UNEXPECTED_TEMPLATE_ARGUMENT u8"`%s` 不是泛型目标, 不需要泛型参数"
-#define WO_ERR_UNEXPECTED_MATCH_TYPE_FOR_TUPLE u8"匹配操作需要元组类型"
+#define WO_ERR_UNEXPECTED_MATCH_TYPE_FOR_TUPLE u8"此处期待一个元组类型，但是提供的是 `%s`"
 #define WO_ERR_UNEXPECTED_MATCH_COUNT_FOR_TUPLE u8"需要 %zu 个元素的元组, 但提供了 %zu 个元素"
 #define WO_ERR_VALUE_TYPE_DETERMINED_FAILED u8"无法确定表达式类型"
 #define WO_ERR_TYPE_DETERMINED_FAILED u8"无法确定类型"
