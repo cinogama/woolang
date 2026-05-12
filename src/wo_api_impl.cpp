@@ -91,6 +91,9 @@ void _wo_ctrl_c_signal_handler(int)
 
 void wo_init(int argc, char** argv)
 {
+    // Start up WooRT (this also registers built-in native functions).
+    woort_init(argc, argv);
+
     bool enable_std_package = true;
     bool enable_ctrl_c_to_debug = true;
 
@@ -141,11 +144,11 @@ void wo_init(int argc, char** argv)
     if (enable_std_package)
     {
         for (size_t i = 0; i < woo_embedded_file_count; ++i)
-            woort_vfs_create(
+            wo_assure(woort_vfs_create(
                 woo_embedded_files[i].path,
                 woo_embedded_files[i].data,
                 strlen(woo_embedded_files[i].data),
-                false);
+                false));
     }
 
     wo::lexer::init_char_lookup_table();
@@ -154,9 +157,6 @@ void wo_init(int argc, char** argv)
     wo::init_woolang_grammar(); // Create grammar when init.
     wo::LangContext::init_lang_processers();
 #endif
-
-    // Start up WooRT (this also registers built-in native functions).
-    woort_init(argc, argv);
 
     // Cache commonly-used built-in function pointers for the compiler.
     wo::rslib_extern_symbols::cache_builtin_pointers();
@@ -190,12 +190,10 @@ void wo_enable_jit(bool option)
     wo::config::ENABLE_JUST_IN_TIME = option;
 }
 
-
-
 wo::compile_result _wo_compile_impl(
     const char* virtual_src_path,
     /* OPTIONAL */ const void* src_may_null,
-    size_t                      src_len,
+    size_t src_len,
     const std::optional<wo::lexer*>&
     append_macro_define_to_this_lexer,
     std::optional<woort_CodeEnv*>*
@@ -210,95 +208,59 @@ wo::compile_result _wo_compile_impl(
 {
     // 0. Try load binary
     // WOORT_CODEENV_BINARY_MAGIC = 0x30314345u ("EC10")
-    const char* load_binary_failed_reason = nullptr;
-    bool is_valid_binary = false;
-
     wo::compile_result compile_result = wo::compile_result::PROCESS_FAILED;
 
     std::optional<woort_CodeEnv*> compile_env_result = std::nullopt;
     std::unique_ptr<wo::lexer> compile_lexer;
 
-    /*
-     * Detect and restore binary format.
-     *
-     * Binary format begins with 4-byte magic 0x30314345u followed by
-     * version, code_size, data_count.
-     *
-     * When the caller passes a memory buffer (src_may_null != nullptr),
-     * it has already registered the buffer in the VFS via woort_vfs_create
-     * under virtual_src_path.  We construct a "woovf://" URI to open it.
-     *
-     * When loading from a file path (src_may_null == nullptr), we resolve
-     * the path first and peek at the file header to detect binary format.
-     */
+    std::optional<woort_VFile*> source_file_instance;
+    if (src_may_null != nullptr)
     {
-        bool try_load_binary = false;
-        std::string binary_vfs_path;
+        woort_VFile* vfile;
+        if (woort_vfile_open_reader(src_may_null, src_len, &vfile))
+            source_file_instance.emplace(vfile);
+    }
+    else
+    {
+        std::string real_file_path;
 
-        if (src_may_null != nullptr && src_len >= 4)
+        if (wo::check_virtual_file_path(
+            virtual_src_path,
+            std::nullopt,
+            &real_file_path))
         {
-            uint32_t magic;
-            memcpy(&magic, src_may_null, sizeof(uint32_t));
-            if (magic == 0x30314345u)
-            {
-                try_load_binary = true;
-                binary_vfs_path =
-                    std::string("woovf://") + std::string(virtual_src_path);
-            }
+            woort_VFile* vfile;
+            if (woort_vfile_open(real_file_path.c_str(), &vfile))
+                source_file_instance.emplace(vfile);
         }
-        else if (src_may_null == nullptr)
+    }
+
+    // Try loading binary.
+    std::optional<woort_CodeEnv_RestoreResult> binary_loading_failed = std::nullopt;
+    if (source_file_instance.has_value())
+    {
+        woort_CodeEnv* v;
+        const woort_CodeEnv_RestoreResult r =
+            woort_CodeEnv_restore_binary(source_file_instance.value(), &v);
+        switch (r)
         {
-            /* File path: peek at the header to detect binary format. */
-            if (wo::check_virtual_file_path(
-                    virtual_src_path, std::nullopt, &binary_vfs_path))
-            {
-                woort_VFile* peek_vf = nullptr;
-                if (woort_vfile_open(binary_vfs_path.c_str(), &peek_vf)
-                    && peek_vf != nullptr)
-                {
-                    uint32_t magic = 0;
-                    size_t read_bytes = 0;
-                    if (woort_vfile_read(
-                            peek_vf, &magic, sizeof(magic), &read_bytes)
-                        && read_bytes == sizeof(magic)
-                        && magic == 0x30314345u)
-                    {
-                        try_load_binary = true;
-                    }
-                    woort_vfile_close(peek_vf);
-                }
-            }
-        }
-
-        if (try_load_binary)
-        {
-            is_valid_binary = true;
-
-            woort_VFile* vf = nullptr;
-
-            if (woort_vfile_open(binary_vfs_path.c_str(), &vf) && vf != nullptr)
-            {
-                woort_CodeEnv* env = nullptr;
-                if (woort_CodeEnv_restore_binary(vf, &env))
-                    compile_env_result = env;
-                else
-                    load_binary_failed_reason =
-                        "Failed to restore binary: invalid, corrupted, or version mismatch.";
-
-                woort_vfile_close(vf);
-            }
-            else
-            {
-                load_binary_failed_reason =
-                    "Failed to open virtual file for binary loading.";
-            }
+        case WOORT_CODEENV_RESTORE_OK:
+            // Ok.
+            compile_env_result.emplace(v);
+            break;
+        case WOORT_CODEENV_RESTORE_FAIL_MAGIC_DOESNT_MATCH:
+            // Not binary, continue compiling.
+            break;
+        default:
+            // Failed.
+            binary_loading_failed.emplace(r);
         }
     }
 
     if (!compile_env_result.has_value())
     {
         std::string wvspath = virtual_src_path;
-        if (is_valid_binary)
+        if (binary_loading_failed.has_value())
         {
             // Is Woolang format binary, but failed to load.
             // Failed to load binary, maybe broken or version missing.
@@ -311,7 +273,7 @@ wo::compile_result _wo_compile_impl(
 
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error,
-                load_binary_failed_reason);
+                woort_CodeEnv_restore_failed_desc(binary_loading_failed.value()));
         }
         else
         {
@@ -409,7 +371,7 @@ wo::compile_result _wo_compile_impl(
 bool _wo_compile_entry(
     const char* virtual_src_path,
     /* OPTIONAL */ const void* src_may_null,
-    size_t                      src_len,
+    size_t src_len,
     const std::optional<wo::lexer*>& append_macro_define_to_this_lexer,
     std::optional<woort_CodeEnv*>* out_env_if_success,
     std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed)
@@ -832,7 +794,7 @@ WO_API const char* wo_get_compile_error(
     std::optional<woort_CodeEnv*> code_env;
     std::optional<std::unique_ptr<wo::lexer>> failed_lexer;
 
-    bool ok = _wo_compile_entry(
+    const bool ok = _wo_compile_entry(
         vpath.c_str(),
         nullptr,
         0,
