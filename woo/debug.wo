@@ -15,19 +15,13 @@ namespace std
                 match (self.location)
                 {
                     none?
-                        return F"{self.function_name} at {self.file_name}";
+                        return F"{self.function_name} ({self.file_name})";
                     value(((begin_row, begin_col), _))?
-                        return F"{self.function_name} at {self.file_name}:{begin_row + 1}:{begin_col + 1}";
+                        return F"{self.function_name} ({self.file_name}:{begin_row + 1}:{begin_col + 1})";
                 }
             }
-            
-            using iter = gchandle
-            {
-                extern("woostd_trace_iter_next")
-                    public func next(self: iter)=> option<callstack>;
-            }
         }
-        extern("woostd_trace_begin")
-            public func traceback(layer: int)=> callstack::iter;
+        extern("woostd_debug_trace_callstack")
+            public func traceback(layer_count: int)=> array<callstack>;
     }
 }
