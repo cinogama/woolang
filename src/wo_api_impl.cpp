@@ -270,6 +270,9 @@ wo::compile_result _wo_compile_impl(
             source_stream.emplace(
                 std::unique_ptr<std::istream>(
                     std::make_unique<wo::vfile_istream>(source_file_instance.value())));
+
+            // File instance will be freed by `wo::vfile_istream`.
+            source_file_instance.reset();
         }
 
         compile_lexer = std::make_unique<wo::lexer>(
@@ -322,6 +325,10 @@ wo::compile_result _wo_compile_impl(
     else
         // Load binary success. 
         compile_result = wo::compile_result::PROCESS_OK;
+
+    // Close file if need.
+    if (source_file_instance.has_value())
+        woort_vfile_close(source_file_instance.value());
 
     // Compile finished.
     if (compile_env_result.has_value())
