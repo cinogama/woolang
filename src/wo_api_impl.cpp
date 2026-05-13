@@ -408,6 +408,7 @@ struct _wo_CompileErrors
         m_current_info.m_end_row = 0;
         m_current_info.m_end_col = 0;
         m_current_info.m_is_error = 0;
+        m_current_info.m_layer = 0;
     }
 
     _wo_CompileErrors(const _wo_CompileErrors&) = delete;
@@ -418,9 +419,6 @@ struct _wo_CompileErrors
 
 wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors)
 {
-    if (errors == nullptr)
-        return nullptr;
-
     auto& msg_list = errors->m_lexer.value()->get_current_error_frame();
     if (errors->m_current_index >= msg_list.size())
         return nullptr;
@@ -434,6 +432,7 @@ wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors)
     errors->m_current_info.m_end_col = msg.m_range_end[1];
     errors->m_current_info.m_is_error =
         (msg.m_level == wo::lexer::msglevel_t::error) ? 1 : 0;
+    errors->m_current_info.m_layer = msg.m_layer;
 
     return &errors->m_current_info;
 }
@@ -506,7 +505,7 @@ static std::string _dump_src_info(
                 snprintf(buf, 20, "      | ");
                 std::string append_result = buf;
 
-                if (style == WO_NEED_COLOR)
+                if (style == WO_COLORFUL)
                     append_result += errmsg.m_level == wo::lexer::msglevel_t::error
                     ? ANSI_HIR
                     : ANSI_HIC;
@@ -528,13 +527,13 @@ static std::string _dump_src_info(
                     append_result +=
                         std::string("~\\");
 
-                    if (style == WO_NEED_COLOR)
+                    if (style == WO_COLORFUL)
                         append_result += ANSI_UNDERLNE;
 
                     append_result +=
                         " " WO_MSG_HERE;
 
-                    if (style == WO_NEED_COLOR)
+                    if (style == WO_COLORFUL)
                         append_result += ANSI_NUNDERLNE;
 
                     append_result += "_";
@@ -566,7 +565,7 @@ static std::string _dump_src_info(
                     }
                 }
 
-                if (style == WO_NEED_COLOR)
+                if (style == WO_COLORFUL)
                     append_result += ANSI_RST;
 
                 result += std::string(depth == 0 ? 0 : depth + 1, ' ') + append_result;
@@ -637,7 +636,7 @@ static std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_
         if (err_info.m_layer != 0)
         {
             auto see_also = last_depth >= err_info.m_layer ? WO_MSG_SEE_ALSO : WO_MSG_SEE_HERE;
-            if (style == WO_NEED_COLOR)
+            if (style == WO_COLORFUL)
                 _vm_compile_errors
                 += std::string(err_info.m_layer, ' ')
                 + ANSI_HIY + see_also + ANSI_RST
@@ -653,7 +652,7 @@ static std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_
 
         if (src_file_path != err_info.m_filename)
         {
-            if (style == WO_NEED_COLOR)
+            if (style == WO_COLORFUL)
                 _vm_compile_errors +=
                 ANSI_HIR "In file: '" ANSI_RST
                 + (src_file_path = err_info.m_filename)
@@ -666,7 +665,7 @@ static std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_
         }
 
         if (err_info.m_layer == 0)
-            _vm_compile_errors += err_info.to_string(style & WO_NEED_COLOR) + "\n";
+            _vm_compile_errors += err_info.to_string(style == WO_COLORFUL) + "\n";
 
         // Print source informations..
         _vm_compile_errors +=
@@ -691,9 +690,6 @@ WO_API const char* wo_get_compile_error(
     wo_CompileErrors* errors,
     wo_inform_style_t style)
 {
-    if (style == WO_DEFAULT)
-        style = wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL ? WO_NEED_COLOR : WO_NOTHING;
-
     thread_local std::string _vm_compile_errors;
     _vm_compile_errors.clear();
 

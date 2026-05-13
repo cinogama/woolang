@@ -95,14 +95,11 @@ typedef bool (*wo_fail_handler_t)(
  */
 typedef enum _wo_inform_style_t
 {
-    /** @brief Default style with colors if supported. */
-    WO_DEFAULT = 0,
+    /** @brief Use ANSI Console control encode to make text colorful. */
+    WO_COLORFUL = 0,
 
-    /** @brief No output (silent mode). */
-    WO_NOTHING = 1,
-
-    /** @brief Force colored output via ANSI escape codes. */
-    WO_NEED_COLOR = 2,
+    /** @brief Just get plaim text. */
+    WO_PLAIM,
 
 } wo_inform_style_t;
 
@@ -198,6 +195,7 @@ typedef struct _wo_CompileErrorInfo
     size_t      m_end_row;     /**< @brief End row (1-based). */
     size_t      m_end_col;     /**< @brief End column (1-based). */
     int         m_is_error;    /**< @brief 1 = error, 0 = information. */
+    size_t      m_layer;       /**< @brief Depth. */
 } wo_CompileErrorInfo;
 
 /** @brief Opaque iterator for enumerating compile errors. */

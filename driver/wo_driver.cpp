@@ -83,7 +83,7 @@ int main(int argc, char** argv)
         {
             if (compile_error != nullptr)
             {
-                std::cerr << wo_get_compile_error(compile_error, WO_DEFAULT)
+                std::cerr << wo_get_compile_error(compile_error, WO_COLORFUL)
                           << std::endl;
                 wo_compile_errors_free(compile_error);
             }
