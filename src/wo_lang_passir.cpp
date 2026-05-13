@@ -3248,6 +3248,12 @@ namespace wo
                             break;
                         }
 
+                        if (binary_op == &IRCompiler::divi || binary_op == &IRCompiler::modi)
+                        {
+                            check_and_generate_check_ir_for_divi_and_modi(
+                                m_ircontext, node->m_left, node->m_right, left_opnum, right_opnum);
+                        }
+
                         const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
                         if (target_storage.has_value())
                         {
@@ -3258,12 +3264,6 @@ namespace wo
                             if (target_irvalue == nullptr)
                             {
                                 woort_IRValue* const v = m_ircontext.c().new_value();
-
-                                if (binary_op == &IRCompiler::divi || binary_op == &IRCompiler::modi)
-                                {
-                                    check_and_generate_check_ir_for_divi_and_modi(
-                                        m_ircontext, node->m_left, node->m_right, left_opnum, right_opnum);
-                                }
                                 (m_ircontext.c().*binary_op)(v, left_opnum, right_opnum);
 
                                 if (need_box.has_value())
