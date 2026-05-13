@@ -669,6 +669,46 @@ namespace wo
             abondon();
     }
 
+    void IRCompiler::chkdivil(const woort_IRValue* a)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_CHKDIVIL(cur, a))
+            abondon();
+    }
+
+    void IRCompiler::chkdivir(const woort_IRValue* a)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_CHKDIVIR(cur, a))
+            abondon();
+    }
+
+    void IRCompiler::chkdivirz(const woort_IRValue* a)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_CHKDIVIRZ(cur, a))
+            abondon();
+    }
+
+    void IRCompiler::chkdivilr(const woort_IRValue* a, const woort_IRValue* b)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_CHKDIVILR(cur, a, b))
+            abondon();
+    }
+
     void IRCompiler::lti(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b)
     {
         if (is_abondoned())

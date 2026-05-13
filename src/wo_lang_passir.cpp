@@ -2743,40 +2743,40 @@ namespace wo
         BytecodeGenerateContext& bgc,
         const std::optional<ast::AstValueBase*>& left,
         ast::AstValueBase* right,
-        opnum::opnumbase* left_opnum,
-        opnum::opnumbase* right_opnum)
+        const woort_IRValue* left_opnum,
+        const woort_IRValue* right_opnum)
     {
-        //if (!config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION)
-        //    // Skip runtime check if disabled.
-        //    return;
+        if (!config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION)
+            // Skip runtime check if disabled.
+            return;
 
-        //if (right->m_evaled_const_value.has_value())
-        //{
-        //    int64_t right_value = right->m_evaled_const_value.value().value_integer();
-        //    wo_assert(right_value != 0);
-        //    wo_assert(!left.has_value() || !left.value()->m_evaled_const_value.has_value());
+        if (right->m_evaled_const_value.has_value())
+        {
+            int64_t right_value = right->m_evaled_const_value.value().value_integer();
+            wo_assert(right_value != 0);
+            wo_assert(!left.has_value() || !left.value()->m_evaled_const_value.has_value());
 
-        //    if (right_value == -1)
-        //        // Need check l
-        //        bgc.c().ext_cdivil(*left_opnum);
+            if (right_value == -1)
+                // Need check l
+                bgc.c().chkdivil(left_opnum);
 
-        //    // Otherwise, no need to check.
-        //}
-        //else if (left.has_value() && left.value()->m_evaled_const_value.has_value())
-        //{
-        //    int64_t left_value = left.value()->m_evaled_const_value.value().value_integer();
-        //    if (left_value == INT64_MIN)
-        //        // Need check r
-        //        bgc.c().ext_cdivir(*right_opnum);
-        //    else
-        //        // Need check rz
-        //        bgc.c().ext_cdivirz(*right_opnum);
-        //}
-        //else
-        //{
-        //    // Left & right both not constant.
-        //    bgc.c().ext_cdivilr(*left_opnum, *right_opnum);
-        //}
+            // Otherwise, no need to check.
+        }
+        else if (left.has_value() && left.value()->m_evaled_const_value.has_value())
+        {
+            int64_t left_value = left.value()->m_evaled_const_value.value().value_integer();
+            if (left_value == INT64_MIN)
+                // Need check r
+                bgc.c().chkdivir(right_opnum);
+            else
+                // Need check rz
+                bgc.c().chkdivir(right_opnum);
+        }
+        else
+        {
+            // Left & right both not constant.
+            bgc.c().chkdivilr(left_opnum, right_opnum);
+        }
     }
 
     WO_PASS_PROCESSER(AstFakeValueUnpack)
@@ -3259,6 +3259,11 @@ namespace wo
                             {
                                 woort_IRValue* const v = m_ircontext.c().new_value();
 
+                                if (binary_op == &IRCompiler::divi || binary_op == &IRCompiler::modi)
+                                {
+                                    check_and_generate_check_ir_for_divi_and_modi(
+                                        m_ircontext, node->m_left, node->m_right, left_opnum, right_opnum);
+                                }
                                 (m_ircontext.c().*binary_op)(v, left_opnum, right_opnum);
 
                                 if (need_box.has_value())
@@ -4413,6 +4418,15 @@ namespace wo
                                 break;
                             }
 
+                            if (binary_op == &IRCompiler::divi || binary_op == &IRCompiler::modi)
+                            {
+                                check_and_generate_check_ir_for_divi_and_modi(
+                                    m_ircontext, 
+                                    std::nullopt,
+                                    node->m_right, 
+                                    assign_expr_result_opnum, 
+                                    right_value_result);
+                            }
                             (m_ircontext.c().*binary_op)(
                                 assign_expr_result_opnum,
                                 assign_expr_result_opnum,
@@ -4562,6 +4576,15 @@ namespace wo
 
                             woort_IRValue* const v = m_ircontext.c().new_value();
 
+                            if (binary_op == &IRCompiler::divi || binary_op == &IRCompiler::modi)
+                            {
+                                check_and_generate_check_ir_for_divi_and_modi(
+                                    m_ircontext,
+                                    std::nullopt,
+                                    node->m_right,
+                                    assign_expr_result_opnum,
+                                    right_value_result);
+                            }
                             (m_ircontext.c().*binary_op)(
                                 v,
                                 assign_expr_result_opnum,

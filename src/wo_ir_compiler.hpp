@@ -170,6 +170,10 @@ namespace wo
         void divi(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b);
         void modi(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b);
         void negi(woort_IRValue* dst, const woort_IRValue* src);
+        void chkdivil(const woort_IRValue* a);
+        void chkdivir(const woort_IRValue* a);
+        void chkdivirz(const woort_IRValue* a);
+        void chkdivilr(const woort_IRValue* a, const woort_IRValue* b);
 
         /* --- Integer Comparison --- */
         void lti(woort_IRValue* dst, const woort_IRValue* a, const woort_IRValue* b);
