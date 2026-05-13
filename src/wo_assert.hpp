@@ -3,7 +3,6 @@
 #include "wo.h"
 
 #include "wo_macro.hpp"
-#include "wo_io.hpp"
 
 #define wo_static_assert_size(VAR, SIZE) \
 static_assert(sizeof(VAR) == SIZE, "'" #VAR "' should be " #SIZE " byte.")

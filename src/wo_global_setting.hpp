@@ -66,63 +66,7 @@ namespace wo
     }
     namespace config
     {
-        inline bool ENABLE_OUTPUT_ANSI_COLOR_CTRL = true;
         inline bool ENABLE_CHECK_GRAMMAR_AND_UPDATE = false;
-
-        /*
-        * ENABLE_JUST_IN_TIME = true
-        * --------------------------------------------------------------------
-        *   Woolang will use asmjit to generate code in runtime.
-        * --------------------------------------------------------------------
-        */
-        inline bool ENABLE_JUST_IN_TIME =
-#if defined(NDEBUG) && defined(WO_JIT_SUPPORT_ASMJIT)
-            true
-#else
-            false
-#endif
-            ;
-
-        /*
-        * ENABLE_PDB_INFORMATIONS = true
-        * --------------------------------------------------------------------
-        *   Woolang will generate pdb information for programs.
-        * --------------------------------------------------------------------
-        */
-        inline bool ENABLE_PDB_INFORMATIONS = true;
-
-        /*
-        * ENABLE_SHELL_PACKAGE = true
-        * --------------------------------------------------------------------
-        *   Woolang will enable woo/shell.wo for execute shell command.
-        * --------------------------------------------------------------------
-        */
-        inline bool ENABLE_SHELL_PACKAGE = true;
-
-        /*
-        * MEMORY_CHUNK_SIZE = 512MB/128MB
-        * --------------------------------------------------------------------
-        *   Maximum managed heap memory used by Woolang.
-        *
-        *     Managed heap memory is not equivalent to all used memory. This area
-        *   is only used to store GC objects.
-        * --------------------------------------------------------------------
-        */
-        inline size_t MEMORY_CHUNK_SIZE =
-#ifdef WO_PLATFORM_64
-            1024ull * 1024ull * 1024ull;
-#else
-            128ull * 1024ull * 1024ull;
-#endif
-
-        /*
-        * ENABLE_HALT_WHEN_PANIC = false
-        * --------------------------------------------------------------------
-        *   Whether to allow the thread to be terminated directly instead of
-        *   blocking when PANIC occurs.
-        * --------------------------------------------------------------------
-        */
-        inline bool ENABLE_HALT_WHEN_PANIC = false;
 
         /*
         * ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false
@@ -184,19 +128,5 @@ namespace wo
         * --------------------------------------------------------------------
         */
         inline bool ENABLE_SKIP_INVOKE_UNSAFE_CAST = true;
-
-        /*
-        * GC_WORKER_THREAD_COUNT = [1/4 of hardware_concurrency] or 1(in wasm)
-        * --------------------------------------------------------------------
-        *   The number of threads used by the GC worker.
-        * --------------------------------------------------------------------
-        *
-        */
-        inline size_t GC_WORKER_THREAD_COUNT =
-#if WO_DISABLE_FUNCTION_FOR_WASM
-            1;
-#else
-            std::max(((size_t)std::thread::hardware_concurrency()) / 4, (size_t)1);
-#endif
     }
 }

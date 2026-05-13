@@ -66,12 +66,14 @@ namespace wo
         else
         {
 #endif
-            wo_stdout <<
+            std::cout
+                <<
                 ANSI_HIY
                 "WooGramma: "
                 ANSI_RST
                 "Syntax update detected, LR table cache is being regenerating..."
-                << wo_endl;
+                <<
+                std::endl;
 
             using SL = wo::grammar::symlist;
 
@@ -110,30 +112,30 @@ namespace wo
                 NT(DECL_ATTRIBUTE), TE(l_using), NT(SCOPED_LIST_NORMAL), TE(l_semicolon)));
             P(DECLARE_NEW_TYPE, pass_using_type_as, (
                 NT(DECL_ATTRIBUTE),
-                TE(l_using), 
+                TE(l_using),
                 NT(IDENTIFIER),
                 NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
-                TE(l_assign), 
+                TE(l_assign),
                 NT(TYPE)));
             P(SENTENCE, pass_using_typename_space, (NT(DECLARE_NEW_TYPE), NT(SENTENCE_BLOCK_MAY_SEMICOLON)));
             P(SENTENCE_BLOCK_MAY_SEMICOLON, pass_empty, (TE(l_semicolon)));
             P(SENTENCE_BLOCK_MAY_SEMICOLON, pass_direct<0>, (NT(SENTENCE_BLOCK)));
             P(SENTENCE, pass_alias_type_as, (
-                NT(DECL_ATTRIBUTE), 
-                TE(l_alias), 
+                NT(DECL_ATTRIBUTE),
+                TE(l_alias),
                 NT(IDENTIFIER),
-                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY), 
+                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
                 TE(l_assign),
                 NT(TYPE),
                 TE(l_semicolon)));
             //////////////////////////////////////////////////////////////////////////////////////////////
             P(SENTENCE, pass_direct<0>, (NT(DECL_ENUM)));
             P(DECL_ENUM, pass_enum_finalize, (
-                NT(DECL_ATTRIBUTE), 
+                NT(DECL_ATTRIBUTE),
                 TE(l_enum),
-                NT(AST_TOKEN_IDENTIFER), 
-                TE(l_left_curly_braces), 
-                NT(ENUM_ITEMS), 
+                NT(AST_TOKEN_IDENTIFER),
+                TE(l_left_curly_braces),
+                NT(ENUM_ITEMS),
                 TE(l_right_curly_braces)));
             P(ENUM_ITEMS, pass_direct<0>, (NT(ENUM_ITEM_LIST), NT(COMMA_MAY_EMPTY)));
             P(ENUM_ITEM_LIST, pass_create_list<0>, (NT(ENUM_ITEM)));
@@ -186,27 +188,27 @@ namespace wo
             P(CONSTRAINT_LIST, pass_append_list<2, 0>, (NT(CONSTRAINT_LIST), TE(l_comma), NT(EXPRESSION)));
             P(SENTENCE, pass_direct<0>, (NT(FUNC_DEFINE_WITH_NAME)));
             P(FUNC_DEFINE_WITH_NAME, pass_func_def_named, (
-                NT(DECL_ATTRIBUTE), 
-                TE(l_func), 
+                NT(DECL_ATTRIBUTE),
+                TE(l_func),
                 NT(AST_TOKEN_IDENTIFER),
-                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY), 
+                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
                 TE(l_left_brackets),
                 NT(ARGDEFINE),
-                TE(l_right_brackets), 
-                NT(RETURN_TYPE_DECLEAR_MAY_EMPTY), 
-                NT(WHERE_CONSTRAINT_WITH_SEMICOLON), 
+                TE(l_right_brackets),
+                NT(RETURN_TYPE_DECLEAR_MAY_EMPTY),
+                NT(WHERE_CONSTRAINT_WITH_SEMICOLON),
                 NT(SENTENCE_BLOCK)));
             P(FUNC_DEFINE_WITH_NAME, pass_func_def_oper, (
-                NT(DECL_ATTRIBUTE), 
-                TE(l_func), 
-                TE(l_operator), 
-                NT(OVERLOADINGABLE_OPERATOR), 
-                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY), 
-                TE(l_left_brackets), 
-                NT(ARGDEFINE), 
-                TE(l_right_brackets), 
-                NT(RETURN_TYPE_DECLEAR_MAY_EMPTY), 
-                NT(WHERE_CONSTRAINT_WITH_SEMICOLON), 
+                NT(DECL_ATTRIBUTE),
+                TE(l_func),
+                TE(l_operator),
+                NT(OVERLOADINGABLE_OPERATOR),
+                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
+                TE(l_left_brackets),
+                NT(ARGDEFINE),
+                TE(l_right_brackets),
+                NT(RETURN_TYPE_DECLEAR_MAY_EMPTY),
+                NT(WHERE_CONSTRAINT_WITH_SEMICOLON),
                 NT(SENTENCE_BLOCK)));
             P(OVERLOADINGABLE_OPERATOR, pass_token, (TE(l_add)));
             P(OVERLOADINGABLE_OPERATOR, pass_token, (TE(l_sub)));
@@ -225,41 +227,41 @@ namespace wo
             P(OVERLOADINGABLE_OPERATOR, pass_token, (TE(l_index_begin), TE(l_index_end)));
             //////////////////////////////////////////////////////////////////////////////////////////////
             P(EXTERN_FROM, pass_extern, (
-                TE(l_extern), 
+                TE(l_extern),
                 TE(l_left_brackets),
                 NT(EXPRESSION),
-                TE(l_comma), 
+                TE(l_comma),
                 NT(EXPRESSION),
                 TE(l_right_brackets)));
             P(EXTERN_FROM, pass_extern, (
-                TE(l_extern), 
-                TE(l_left_brackets), 
+                TE(l_extern),
+                TE(l_left_brackets),
                 NT(EXPRESSION),
                 TE(l_right_brackets)));
             P(FUNC_DEFINE_WITH_NAME, pass_func_def_extn, (
-                NT(EXTERN_FROM), 
-                NT(DECL_ATTRIBUTE), 
-                TE(l_func), 
+                NT(EXTERN_FROM),
+                NT(DECL_ATTRIBUTE),
+                TE(l_func),
                 NT(AST_TOKEN_IDENTIFER),
-                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY), 
-                TE(l_left_brackets), 
-                NT(ARGDEFINE), 
-                TE(l_right_brackets), 
+                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
+                TE(l_left_brackets),
+                NT(ARGDEFINE),
+                TE(l_right_brackets),
                 NT(RETURN_TYPE_DECLEAR),
-                NT(WHERE_CONSTRAINT_MAY_EMPTY), 
+                NT(WHERE_CONSTRAINT_MAY_EMPTY),
                 TE(l_semicolon)));
             P(FUNC_DEFINE_WITH_NAME, pass_func_def_extn_oper, (
-                NT(EXTERN_FROM), 
-                NT(DECL_ATTRIBUTE), 
-                TE(l_func), 
+                NT(EXTERN_FROM),
+                NT(DECL_ATTRIBUTE),
+                TE(l_func),
                 TE(l_operator),
-                NT(OVERLOADINGABLE_OPERATOR), 
-                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY), 
-                TE(l_left_brackets), 
+                NT(OVERLOADINGABLE_OPERATOR),
+                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
+                TE(l_left_brackets),
                 NT(ARGDEFINE),
-                TE(l_right_brackets), 
-                NT(RETURN_TYPE_DECLEAR), 
-                NT(WHERE_CONSTRAINT_MAY_EMPTY), 
+                TE(l_right_brackets),
+                NT(RETURN_TYPE_DECLEAR),
+                NT(WHERE_CONSTRAINT_MAY_EMPTY),
                 TE(l_semicolon)));
             //////////////////////////////////////////////////////////////////////////////////////////////
             P(SENTENCE, pass_direct<0>, (NT(MAY_LABELED_LOOP)));
@@ -273,22 +275,22 @@ namespace wo
             P(VAR_DEFINE_WITH_SEMICOLON, pass_direct<0>, (NT(VAR_DEFINE_LET_SENTENCE), TE(l_semicolon)));
             P(FORLOOP, pass_for_defined, (
                 TE(l_for),
-                TE(l_left_brackets), 
-                NT(VAR_DEFINE_WITH_SEMICOLON), 
-                NT(MAY_EMPTY_EXPRESSION), 
-                TE(l_semicolon), 
-                NT(MAY_EMPTY_EXPRESSION), 
+                TE(l_left_brackets),
+                NT(VAR_DEFINE_WITH_SEMICOLON),
+                NT(MAY_EMPTY_EXPRESSION),
+                TE(l_semicolon),
+                NT(MAY_EMPTY_EXPRESSION),
                 TE(l_right_brackets),
                 NT(BLOCKED_SENTENCE)));
             P(FORLOOP, pass_for_expr, (
                 TE(l_for),
                 TE(l_left_brackets),
                 NT(MAY_EMPTY_EXPRESSION),
-                TE(l_semicolon), 
-                NT(MAY_EMPTY_EXPRESSION), 
                 TE(l_semicolon),
                 NT(MAY_EMPTY_EXPRESSION),
-                TE(l_right_brackets), 
+                TE(l_semicolon),
+                NT(MAY_EMPTY_EXPRESSION),
+                TE(l_right_brackets),
                 NT(BLOCKED_SENTENCE)));
             P(SENTENCE, pass_break, (TE(l_break), TE(l_semicolon)));
             P(SENTENCE, pass_continue, (TE(l_continue), TE(l_semicolon)));
@@ -299,21 +301,21 @@ namespace wo
             P(MAY_EMPTY_EXPRESSION, pass_empty, (TE(l_empty)));
             P(FOREACH, pass_foreach, (
                 TE(l_for),
-                TE(l_left_brackets), 
-                NT(DECL_ATTRIBUTE), 
+                TE(l_left_brackets),
+                NT(DECL_ATTRIBUTE),
                 TE(l_let),
-                NT(DEFINE_PATTERN), 
-                TE(l_typecast), 
-                NT(EXPRESSION), 
-                TE(l_right_brackets), 
+                NT(DEFINE_PATTERN),
+                TE(l_typecast),
+                NT(EXPRESSION),
+                TE(l_right_brackets),
                 NT(BLOCKED_SENTENCE)));
             P(SENTENCE, pass_direct<0>, (NT(IF)));
             P(IF, pass_if, (
                 TE(l_if),
                 TE(l_left_brackets),
                 NT(EXPRESSION),
-                TE(l_right_brackets), 
-                NT(BLOCKED_SENTENCE), 
+                TE(l_right_brackets),
+                NT(BLOCKED_SENTENCE),
                 NT(ELSE)));
             P(ELSE, pass_empty, (TE(l_empty)));
             P(ELSE, pass_direct<1>, (TE(l_else), NT(BLOCKED_SENTENCE)));
@@ -357,22 +359,22 @@ namespace wo
                 NT(LOGICAL_OR), TE(l_question), NT(EXPRESSION), TE(l_or), NT(EXPRESSION)));
             P(FACTOR, pass_direct<0>, (NT(FUNC_DEFINE)));
             P(FUNC_DEFINE, pass_func_lambda_ml, (
-                NT(DECL_ATTRIBUTE), 
+                NT(DECL_ATTRIBUTE),
                 TE(l_func),
                 NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
                 TE(l_left_brackets),
-                NT(ARGDEFINE), 
+                NT(ARGDEFINE),
                 TE(l_right_brackets),
                 NT(RETURN_TYPE_DECLEAR_MAY_EMPTY),
-                NT(WHERE_CONSTRAINT_WITH_SEMICOLON), 
+                NT(WHERE_CONSTRAINT_WITH_SEMICOLON),
                 NT(SENTENCE_BLOCK)));
             P(FUNC_DEFINE, pass_func_lambda, (
-                TE(l_lambda), 
-                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY), 
+                TE(l_lambda),
+                NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
                 NT(ARGDEFINE),
                 TE(l_assign),
                 NT(RETURN_EXPR_BLOCK_IN_LAMBDA),
-                NT(WHERE_DECL_FOR_LAMBDA), 
+                NT(WHERE_DECL_FOR_LAMBDA),
                 TE(l_semicolon)));
             // May empty
             P(WHERE_DECL_FOR_LAMBDA, pass_empty, (TE(l_empty)));
@@ -613,11 +615,11 @@ namespace wo
             P(SENTENCE, pass_direct<0>, (NT(DECL_UNION)));
             P(DECL_UNION, pass_union_declare, (
                 NT(DECL_ATTRIBUTE),
-                TE(l_union), 
-                NT(AST_TOKEN_IDENTIFER), 
+                TE(l_union),
+                NT(AST_TOKEN_IDENTIFER),
                 NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
-                TE(l_left_curly_braces), 
-                NT(UNION_ITEMS), 
+                TE(l_left_curly_braces),
+                NT(UNION_ITEMS),
                 TE(l_right_curly_braces)));
             P(UNION_ITEMS, pass_direct<0>, (NT(UNION_ITEM_LIST), NT(COMMA_MAY_EMPTY)));
             P(UNION_ITEM_LIST, pass_create_list<0>, (NT(UNION_ITEM)));
@@ -627,10 +629,10 @@ namespace wo
                 NT(IDENTIFIER), TE(l_left_brackets), NT(TYPE), TE(l_right_brackets)));
             P(SENTENCE, pass_direct<0>, (NT(MATCH_BLOCK)));
             P(MATCH_BLOCK, pass_match, (
-                TE(l_match), 
+                TE(l_match),
                 TE(l_left_brackets),
-                NT(EXPRESSION), 
-                TE(l_right_brackets), 
+                NT(EXPRESSION),
+                TE(l_right_brackets),
                 TE(l_left_curly_braces),
                 NT(MATCH_CASES),
                 TE(l_right_curly_braces)));
@@ -646,8 +648,8 @@ namespace wo
             //////////////////////////////////////////////////////////////////////////////////////////////
             P(UNIT, pass_struct_instance, (
                 NT(STRUCT_INSTANCE_BEGIN),
-                TE(l_left_curly_braces), 
-                NT(STRUCT_MEMBER_INITS), 
+                TE(l_left_curly_braces),
+                NT(STRUCT_MEMBER_INITS),
                 TE(l_right_curly_braces)));
             P(STRUCT_INSTANCE_BEGIN, pass_direct<0>, (NT(STRUCTABLE_TYPE_FOR_CONSTRUCT)));
             P(STRUCT_INSTANCE_BEGIN, pass_empty, (TE(l_struct)));
@@ -690,10 +692,10 @@ namespace wo
 
             grammar_instance = std::make_unique<grammar>(produces);
 
-            wo_stdout << ANSI_HIY "WooGramma: " ANSI_RST "Checking LR(1) table..." << wo_endl;
+            std::cout << ANSI_HIY "WooGramma: " ANSI_RST "Checking LR(1) table..." << std::endl;
             if (grammar_instance->check_lr1())
             {
-                wo_stdout << ANSI_HIR "WooGramma: " ANSI_RST "LR(1) have some problem, abort." << wo_endl;
+                std::cout << ANSI_HIR "WooGramma: " ANSI_RST "LR(1) have some problem, abort." << std::endl;
                 exit(-1);
             }
 
@@ -702,7 +704,7 @@ namespace wo
                 using namespace std;
                 const char* tab = "    ";
 
-                wo_stdout << ANSI_HIY "WooGramma: " ANSI_RST "OK, now writting cache..." << wo_endl;
+                std::cout << ANSI_HIY "WooGramma: " ANSI_RST "OK, now writting cache..." << std::endl;
 
                 // Do expe
                 std::string cur_path = GRAMMAR_SRC_FILE;
@@ -710,13 +712,13 @@ namespace wo
                     cur_path = cur_path.substr(0, pos) + "/wo_lang_grammar_lr1_autogen.hpp";
                 else
                 {
-                    wo_stdout << ANSI_HIR "WooGramma: " ANSI_RST "File will be generated to current work path, may have some problem..." << wo_endl;
+                    std::cout << ANSI_HIR "WooGramma: " ANSI_RST "File will be generated to current work path, may have some problem..." << std::endl;
                     exit(-1);
                 }
 
                 std::ofstream cachefile(cur_path);
 
-                wo_stdout << ANSI_HIY "WooGramma: " ANSI_RST "Write to " << cur_path << wo_endl;
+                std::cout << ANSI_HIY "WooGramma: " ANSI_RST "Write to " << cur_path << std::endl;
 
                 cachefile << "// THIS FILE IS AUTO GENERATED BY RSTORABLESCENE." << endl;
                 cachefile << "// IF YOU WANT TO MODIFY GRAMMAR, PLEASE LOOK AT 'wo_lang_grammar.cpp'." << endl;
@@ -944,11 +946,11 @@ namespace wo
                 {
                     if (aim.builder_index == 0)
                     {
-                        wo_stdout
+                        std::cout
                             << ANSI_HIY "WooGramma: " ANSI_RST "Producer: " ANSI_HIR
                             << grammar::lr_item{ grammar::rule{aim, rule}, size_t(-1), grammar::te(grammar::ttype::l_eof) }
                             << ANSI_RST " have no ast builder, using default builder.."
-                            << wo_endl;
+                            << std::endl;
                     }
 
                     cachefile << "   { " << nonte_list[aim.nt_name] << ", " << aim.builder_index << ", " << rule.size() << ", ";
@@ -978,16 +980,16 @@ namespace wo
                 cachefile << "}// end of namespace 'wo'" << endl;
                 cachefile.flush();
 
-                wo_stdout << ANSI_HIG "WooGramma: " ANSI_RST "Finished." << wo_endl;
+                std::cout << ANSI_HIG "WooGramma: " ANSI_RST "Finished." << std::endl;
             }
             else
             {
-                wo_stdout <<
+                std::cout <<
                     ANSI_HIG
                     "WooGramma: "
                     ANSI_RST
                     "Skip generating LR(1) table cache (WO_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE is true)."
-                    << wo_endl;
+                    << std::endl;
             }
 
 #if defined(WO_LANG_GRAMMAR_LR1_AUTO_GENED) && !WO_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE

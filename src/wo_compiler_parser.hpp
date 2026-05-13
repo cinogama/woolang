@@ -20,6 +20,7 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include <map>
 #include <list>
 #include <set>
+#include <iostream>
 
 #define WOOLANG_LR1_OPTIMIZE_LR1_TABLE 1
 

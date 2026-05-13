@@ -8,7 +8,6 @@
 #include "wo_utf8.hpp"
 #include "wo_lang_ast.hpp"
 #include "wo_global_setting.hpp"
-#include "wo_io.hpp"
 
 #include <list>
 #include <forward_list>

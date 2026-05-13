@@ -18,13 +18,13 @@ void _wo_assert(
     const char* judgement,
     const char* reason)
 {
-    wo::wo_stderr << ANSI_HIR "Assert failed: " ANSI_RST << judgement << wo::wo_endl;
+    std::cerr << ANSI_HIR "Assert failed: " ANSI_RST << judgement << std::endl;
     if (reason)
-        wo::wo_stderr << "\t" ANSI_HIY << reason << ANSI_RST << wo::wo_endl;
+        std::cerr << "\t" ANSI_HIY << reason << ANSI_RST << std::endl;
 
-    wo::wo_stderr << "Function : " << function << wo::wo_endl;
-    wo::wo_stderr << "File : " << file << wo::wo_endl;
-    wo::wo_stderr << "Line : " << line << wo::wo_endl;
+    std::cerr << "Function : " << function << std::endl;
+    std::cerr << "File : " << file << std::endl;
+    std::cerr << "Line : " << line << std::endl;
     abort();
 }
 
@@ -35,16 +35,14 @@ void _wo_warning(
     const char* judgement,
     const char* reason)
 {
-    wo::wo_stderr << ANSI_HIY "Warning: " ANSI_RST << judgement << wo::wo_endl;
+    std::cerr << ANSI_HIY "Warning: " ANSI_RST << judgement << std::endl;
     if (reason)
-        wo::wo_stderr << "\t" ANSI_HIY << reason << ANSI_RST << wo::wo_endl;
+        std::cerr << "\t" ANSI_HIY << reason << ANSI_RST << std::endl;
 
-    wo::wo_stderr << "Function : " << function << wo::wo_endl;
-    wo::wo_stderr << "File : " << file << wo::wo_endl;
-    wo::wo_stderr << "Line : " << line << wo::wo_endl;
+    std::cerr << "Function : " << function << std::endl;
+    std::cerr << "File : " << file << std::endl;
+    std::cerr << "Line : " << line << std::endl;
 }
-
-
 
 #undef wo_init
 
@@ -58,41 +56,23 @@ void wo_init(int argc, char** argv)
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
     {
         std::string current_arg = argv[command_idx];
-        if (current_arg.size() >= 2 && current_arg[0] == '-' && current_arg[1] == '-')
+        if (current_arg.size() >= 9 && current_arg.substr(0, 9) == "--woolang")
         {
             current_arg = current_arg.substr(2);
-            if ("enable-std" == current_arg)
+            if ("woolang-enable-std" == current_arg)
                 enable_std_package = atoi(argv[++command_idx]);
-            else if ("enable-shell" == current_arg)
-                wo::config::ENABLE_SHELL_PACKAGE = atoi(argv[++command_idx]);
-            else if ("enable-gc-thread-count" == current_arg)
-                wo::config::GC_WORKER_THREAD_COUNT = (size_t)atoi(argv[++command_idx]);
-            else if ("enable-ansi-color" == current_arg)
-                wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL = atoi(argv[++command_idx]);
-            else if ("enable-jit" == current_arg)
-                wo::config::ENABLE_JUST_IN_TIME = (bool)atoi(argv[++command_idx]);
-            else if ("mem-chunk-size" == current_arg)
-                wo::config::MEMORY_CHUNK_SIZE = (size_t)atoll(argv[++command_idx]);
-            else if ("enable-pdb" == current_arg)
-                wo::config::ENABLE_PDB_INFORMATIONS = (bool)atoi(argv[++command_idx]);
-            else if ("enable-halt-when-panic" == current_arg)
-                wo::config::ENABLE_HALT_WHEN_PANIC = (bool)atoi(argv[++command_idx]);
-            else if ("enable-runtime-checking-integer-division" == current_arg)
+            else if ("woolang-enable-runtime-checking-integer-division" == current_arg)
                 wo::config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = (bool)atoi(argv[++command_idx]);
-            else if ("update-grammar" == current_arg)
+            else if ("woolang-update-grammar" == current_arg)
                 wo::config::ENABLE_CHECK_GRAMMAR_AND_UPDATE = (bool)atoi(argv[++command_idx]);
-            else if ("ignore-not-found-extern-func" == current_arg)
+            else if ("woolang-ignore-not-found-extern-func" == current_arg)
                 wo::config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = (bool)atoi(argv[++command_idx]);
             else
-                wo::wo_stderr <<
-                ANSI_HIR "Woolang: " << ANSI_RST << "unknown setting --" << current_arg << wo::wo_endl;
+                wo_warning(("Unknown command line option named `" + current_arg + "`.").c_str());
         }
     }
 
     wo::wstring_pool::init_global_str_pool();
-
-    if (wo::config::GC_WORKER_THREAD_COUNT == 0)
-        wo::config::GC_WORKER_THREAD_COUNT = 1; // 1 GC-thread at least.
 
     if (enable_std_package)
     {
@@ -134,13 +114,6 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     wo::LangContext::shutdown_lang_processers();
     wo::shutdown_woolang_grammar();
 #endif
-
-    woort_ctrlc_teardown();
-}
-
-void wo_enable_jit(bool option)
-{
-    wo::config::ENABLE_JUST_IN_TIME = option;
 }
 
 wo::compile_result _wo_compile_impl(
