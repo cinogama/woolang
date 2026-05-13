@@ -44,48 +44,7 @@ void _wo_warning(
     wo::wo_stderr << "Line : " << line << wo::wo_endl;
 }
 
-void wo_handle_ctrl_c(/* OPTIONAL */ void(*handler)(int))
-{
-    signal(SIGINT, handler);
-}
 
-void _wo_ctrl_c_signal_handler(int)
-{
-    // CTRL + C
-    wo::wo_stderr
-        << ANSI_HIR "CTRL+C" ANSI_RST
-        << ": Trying to breakdown all virtual-machine by default debuggee immediately."
-        << wo::wo_endl;
-
-    (void)woort_WAIPO_Debugger_attach();
-    woort_VMRuntime_Debugger_breakdown_all_vm();
-
-    static size_t _wo_ctrl_c_hit_count = 0;
-    static time_t _wo_last_ctrl_c_time = 0;
-
-    auto _ctrl_c_time = time(NULL);
-    if (_ctrl_c_time - _wo_last_ctrl_c_time < 2)
-    {
-        if (_wo_ctrl_c_hit_count >= 4)
-            wo_error("Panic termination.");
-        else
-        {
-            wo::wo_stderr
-                << ANSI_HIY "CTRL+C" ANSI_RST
-                << ": Continue pressing Ctrl+C `" ANSI_HIG
-                << 4 - _wo_ctrl_c_hit_count
-                << ANSI_RST "` time(s) to trigger a panic termination"
-                << wo::wo_endl;
-        }
-    }
-    else
-        _wo_ctrl_c_hit_count = 0;
-
-    _wo_last_ctrl_c_time = _ctrl_c_time;
-    ++_wo_ctrl_c_hit_count;
-
-    wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
-}
 
 #undef wo_init
 
@@ -95,7 +54,6 @@ void wo_init(int argc, char** argv)
     woort_init(argc, argv);
 
     bool enable_std_package = true;
-    bool enable_ctrl_c_to_debug = true;
 
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
     {
@@ -107,8 +65,6 @@ void wo_init(int argc, char** argv)
                 enable_std_package = atoi(argv[++command_idx]);
             else if ("enable-shell" == current_arg)
                 wo::config::ENABLE_SHELL_PACKAGE = atoi(argv[++command_idx]);
-            else if ("enable-ctrlc-debug" == current_arg)
-                enable_ctrl_c_to_debug = atoi(argv[++command_idx]);
             else if ("enable-gc-thread-count" == current_arg)
                 wo::config::GC_WORKER_THREAD_COUNT = (size_t)atoi(argv[++command_idx]);
             else if ("enable-ansi-color" == current_arg)
@@ -132,9 +88,6 @@ void wo_init(int argc, char** argv)
                 ANSI_HIR "Woolang: " << ANSI_RST << "unknown setting --" << current_arg << wo::wo_endl;
         }
     }
-
-    if (enable_ctrl_c_to_debug)
-        wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 
     wo::wstring_pool::init_global_str_pool();
 
@@ -182,7 +135,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
     wo::shutdown_woolang_grammar();
 #endif
 
-    wo_handle_ctrl_c(nullptr);
+    woort_ctrlc_teardown();
 }
 
 void wo_enable_jit(bool option)
