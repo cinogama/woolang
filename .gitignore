@@ -356,4 +356,5 @@ _deps
 
 /out/
 /build/
+/msvc/
 /src/wo_commit_sha.hpp
