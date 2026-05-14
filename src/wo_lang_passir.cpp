@@ -1673,6 +1673,7 @@ namespace wo
                         m_ircontext.c().pushchk(
                             m_ircontext.c().load_imm_int((woort_Int)fact_argument_to_pop));
                     }
+                    ++fact_argument_to_pop;
                 }
 
                 // Ok, invoke finished.
