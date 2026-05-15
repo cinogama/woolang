@@ -130,7 +130,7 @@ namespace test_stdlib_extern
     
     func test_misc_functions()
     {        
-        let args = std::args();
+        let args = std::cmdlines();
         test_assure(args->len() >= 0);
         
         let exe_path = std::host_path();

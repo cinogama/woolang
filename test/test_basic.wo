@@ -392,9 +392,10 @@ namespace test_basic
         test_equal(std::type_traits::is_mutable:<mut int>, true);
         test_equal(std::type_traits::is_mutable:<int>, false);
         
-        let (va, vb, vc, vd) = std::platform::version;
-        let (mut va1, mut vb1, mut vc1, mut vd1) = std::platform::version;
-        let (mut va2, vb2, mut vc2, vd2) = std::platform::version;
+        let vv = (1, 2, "3", 4);
+        let (va, vb, vc, vd) = vv;
+        let (mut va1, mut vb1, mut vc1, mut vd1) = vv;
+        let (mut va2, vb2, mut vc2, vd2) = vv;
 
         test_equal(va, va1);
         test_equal(vb, vb1);    

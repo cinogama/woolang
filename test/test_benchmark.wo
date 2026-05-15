@@ -8,9 +8,9 @@ namespace test_benchmark
 {
     func bench(name: string, action: ()=> void)
     {
-        let b = std::time();
+        let b = std::clock();
         action();
-        std::println(name, "cost:", std::time() - b);
+        std::println(name, "cost:", std::clock() - b);
     }
     
     func isprime(n: int)

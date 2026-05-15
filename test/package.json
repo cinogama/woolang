@@ -1,44 +1,25 @@
 {
-    "config" : [
-        "release_x64",
-        "debug_x64"
-    ],
     "dependence" : {
         "buffer" : {
-            "path" : "pkg",
-            "remote" : "https://git.cinogama.net/cinogamaproject/woolangpackages",
-            "version" : "1.0.0"
+            "path" : "pkg"
+        },
+        "dumpling" : {
+            "path" : "pkg"
         },
         "iterator" : {
-            "path" : "pkg",
-            "remote" : "https://git.cinogama.net/cinogamaproject/woolangpackages",
-            "version" : "1.0.0"
+            "path" : "pkg"
         },
         "math" : {
-            "path" : "pkg",
-            "remote" : "https://git.cinogama.net/cinogamaproject/woolangpackages",
-            "version" : "1.0.0"
+            "path" : "pkg"
         },
         "thread" : {
-            "path" : "pkg",
-            "remote" : "https://git.cinogama.net/cinogamaproject/woolangpackages",
-            "version" : "1.0.0"
-        },
-        "vm" : {
-            "path" : "pkg",
-            "remote" : "https://git.cinogama.net/cinogamaproject/woolangpackages",
-            "version" : "1.0.0"
+            "path" : "pkg"
         },
         "worst" : {
-            "path" : "pkg",
-            "remote" : "https://git.cinogama.net/cinogamaproject/woolangpackages",
-            "version" : "1.0.0"
+            "path" : "pkg"
         }
     },
     "name" : "test",
-    "version" : "1.0.0",
-    "woolang" : {
-        "remote" : "https://git.cinogama.net/cinogamaproject",
-        "version" : "1.0.0"
-    }
+    "test_dependence" : {},
+    "woolang" : {}
 }

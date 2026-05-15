@@ -1372,7 +1372,6 @@ namespace wo
             return compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
 
         m_ircontext.c().ret(m_ircontext.c().load_imm_int(0));
-
         m_ircontext.c().pop_function();
 
         for (;;)

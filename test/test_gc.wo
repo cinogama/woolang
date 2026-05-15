@@ -15,8 +15,8 @@ namespace test_gc
     {
         std::println("test_gchandle_work begin");
 
-        let test_begin_time = std::time();
-        while (std::time() - test_begin_time <= TEST_TIME)
+        let test_begin_time = std::clock();
+        while (std::clock() - test_begin_time <= TEST_TIME)
         {
             let arr = [1];
             for (let _: arr)
@@ -40,9 +40,9 @@ namespace test_gc
         let tmp = []mut: vec<vec<int>>;
         let arr_a = [[12345678]mut,]mut, arr_b = []mut: vec<vec<int>>;
 
-        let test_begin_time = std::time();
+        let test_begin_time = std::clock();
 
-        while (std::time() - test_begin_time <= TEST_TIME)
+        while (std::clock() - test_begin_time <= TEST_TIME)
         {
             global_list->add({["Hello"] = "world"}: dynamic);
             global_list->add({["Hello"] = "world"}: dynamic);

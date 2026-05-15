@@ -13,6 +13,8 @@ namespace std
     
     extern("woostd_bad_function")
         public func declval<T>()=> T;
+    extern("woostd_clock")
+        public func clock()=> real;
         
     namespace type_traits
     {

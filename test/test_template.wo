@@ -74,11 +74,11 @@ namespace test_template
     func test_cost_time<T>()
         where !(std::declval:<T>() is dynamic);
     {
-        let begin_time = std::time();
+        let begin_time = std::clock();
         let mut i = 0:T;
         while (i < 1_0000_0000:T)
             i += 1:T;
-        let end_time = std::time();
+        let end_time = std::clock();
 
         std::println(typename_of:<T>(), "cost:", end_time - begin_time, "sec.");
     }

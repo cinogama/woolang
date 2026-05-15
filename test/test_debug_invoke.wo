@@ -16,7 +16,7 @@ namespace test_debug_invoke
 
     func main()
     {
-        test_equal("World?Hello", std::debug::invoke(foo, 0, "World?") as string);
+        test_equal("World?Hello", foo(0, "World?") as string);
     }
 }
 test_function("test_debug_invoke.main", test_debug_invoke::main);

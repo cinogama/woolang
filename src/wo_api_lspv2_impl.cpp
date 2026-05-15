@@ -4,7 +4,7 @@
 
 static_assert(WO_NEED_LSP_API);
 
-constexpr size_t WO_LSPV2_SUB_VERSION = 4;
+constexpr size_t WO_LSPV2_SUB_VERSION = 5;
 
 size_t wo_lspv2_sub_version(void)
 {

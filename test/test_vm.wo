@@ -1,7 +1,7 @@
 import woo::std;
 import test_tool;
 
-import pkg::vm;
+import pkg::dumpling;
 import pkg::buffer;
 import pkg::thread;
 
@@ -9,7 +9,8 @@ namespace test_vm
 {
     func load_and_create_vmm(src:string)
     {
-        let vmm = vm::load("test_vm/test_tmp_script.wo", option::value(src: buffer))->unwrap;
+        let vmm = dumpling::Program::create(
+            "test_vm/test_tmp_script.wo", src: buffer)->unwrap;
         return vmm;
     }
     
@@ -27,17 +28,14 @@ namespace test_vm
                     super_depth_foo(f, s, n - 1);
             }
             
-            func main()
+            extern func main()
             {
                 let mut s = "Helloworld"; 
-                return std::far::wrap(\f: ()=> string = super_depth_foo(f, s, 10000000););
+                return \f: ()=> string = super_depth_foo(f, s, 10000000);;
             }
-            return main();
             "@
             );
-        defer do vmm->close();
-
-        return vmm->bootup(jit)->unwrap->unsafe::cast:<std::far<(()=>string)=>void>>();
+        return vmm->unsafe::load_extern:<(()=>string)=>void>("main")->unwrap;
     }
     
     func main()
@@ -69,10 +67,7 @@ namespace test_vm
             main();
             "@
             );
-            
-        do vmm->bootup(false);
-        do vmm->close();
-        
+                    
         // Test memmory leak
         let mut i = 0;
         while (i < 1000)
@@ -96,9 +91,6 @@ namespace test_vm
                 main();
                 "@
                 );
-                
-            do vmm->bootup(false);
-            do vmm->close();
         }
     }
 }
