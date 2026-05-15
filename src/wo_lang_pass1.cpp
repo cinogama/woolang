@@ -6514,7 +6514,7 @@ namespace wo
 
         }
 
-        return OKAY;
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstNop)
     {

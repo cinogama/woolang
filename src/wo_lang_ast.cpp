@@ -224,28 +224,7 @@ namespace wo
             case Type::FUNCTION:
                 return wo::wstring_pool::get_pstr("<function>");
             case Type::STRUCT:
-            {
-                const auto& constant_struct = value_struct();
-
-                if (constant_struct.m_count == 0)
-                    return wo::wstring_pool::get_pstr("()");
-
-                std::string result = "(\n";
-                for (size_t fidx = 0; fidx < constant_struct.m_count; ++fidx)
-                {
-                    if (fidx != 0)
-                        result += ",\n";
-                    for (size_t d = 0; d <= depth; ++d)
-                        result += "    ";
-                    result += *constant_struct.m_elements[fidx].cast_value_pstring(depth + 1);
-                }
-                result += "\n";
-                for (size_t d = 0; d < depth; ++d)
-                    result += "    ";
-                result += ")";
-
-                return wo::wstring_pool::get_pstr(result);
-            }
+                return wo::wstring_pool::get_pstr("<struct>");
             default:
                 wo_error("Unexpected type.");
             }

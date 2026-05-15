@@ -1566,6 +1566,8 @@ namespace wo
             if (has_invoking_function_near)
             {
                 auto* function = node->m_IR_invoking_function_near.value();
+                m_ircontext.m_being_used_function_instance.insert(function);
+
                 if (function->m_LANG_extern_information.has_value())
                 {
                     auto* extern_information = function->m_LANG_extern_information.value();
@@ -2237,6 +2239,7 @@ namespace wo
                                 // Return a junk value.
                                 result.set_result_junk(m_ircontext);
                             }
+                            return;
                         }
 
                         // Need runtime cast.

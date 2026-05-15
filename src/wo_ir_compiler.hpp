@@ -92,8 +92,8 @@ namespace wo
             woort_IRConstantIndex m_idx;
             std::vector<woort_IRConstantIndex> m_fields;
         };
-        std::map<ast::ConstantValue::StructStorage, TupleImm>
-            m_tuple_imm_pool;
+        std::map<ast::ConstantValue::StructStorage, TupleImm> m_tuple_imm_pool;
+        std::vector<TupleImm*> m_ordered_tuple_imm_list;
 
     public:
         IRCompiler();

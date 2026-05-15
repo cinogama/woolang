@@ -46,7 +46,7 @@ namespace wo
             abondon();
             return nullptr;
         }
-        m_current_functions_stack.push_back(IRFunction{irfunc, {}});
+        m_current_functions_stack.push_back(IRFunction{ irfunc, {} });
         return irfunc;
     }
     void IRCompiler::set_entry_function(woort_IRFunction* f)
@@ -97,27 +97,27 @@ namespace wo
         woort_CodeEnv_lock(cenv);
 
         // Apply constant.
-        for (const auto& [val, cidx]: m_nil_bool_int_handle_imm_pool)
+        for (const auto& [val, cidx] : m_nil_bool_int_handle_imm_pool)
         {
             woort_CodeEnv_set_const_int(cenv, cidx, val);
         }
 
-        for (const auto& [val, cidx]: m_real_imm_pool)
+        for (const auto& [val, cidx] : m_real_imm_pool)
         {
             woort_CodeEnv_set_const_real(cenv, cidx, val);
         }
 
-        for (const auto& [val, cidx]: m_string_imm_pool)
+        for (const auto& [val, cidx] : m_string_imm_pool)
         {
-            woort_CodeEnv_set_const_string(cenv, cidx, val->c_str());
+            woort_CodeEnv_set_const_buffer(cenv, cidx, val->c_str(), val->size());
         }
 
-        for (const auto& [val, cidx]: m_boxed_int_imm_pool)
+        for (const auto& [val, cidx] : m_boxed_int_imm_pool)
         {
             woort_CodeEnv_set_const_box_int(cenv, cidx, val);
         }
 
-        for (const auto& [val, cidx]: m_boxed_real_imm_pool)
+        for (const auto& [val, cidx] : m_boxed_real_imm_pool)
         {
             woort_CodeEnv_set_const_box_real(cenv, cidx, val);
         }
@@ -132,7 +132,7 @@ namespace wo
             woort_CodeEnv_set_const_box_bool(cenv, *m_boxed_false_imm, false);
         }
 
-        for (const auto& [func, cidx]: m_function_imm_pool)
+        for (const auto& [func, cidx] : m_function_imm_pool)
         {
             if (func->m_IR_function.has_value())
             {
@@ -142,13 +142,13 @@ namespace wo
             else
             {
                 woort_CodeEnv_set_const_extern_function(
-                    cenv, 
-                    cidx, 
+                    cenv,
+                    cidx,
                     func->m_LANG_extern_information.value()->m_IR_externed_function.value());
             }
         }
 
-        for (const auto& [func, cidx]: m_closure_imm_pool)
+        for (const auto& [func, cidx] : m_closure_imm_pool)
         {
             if (func->m_IR_function.has_value())
             {
@@ -164,17 +164,20 @@ namespace wo
             }
         }
 
-        for (const auto& [storage, tuple]: m_tuple_imm_pool)
+
+        // NOTE: Make sure tuple constant set at last, and use `m_ordered_tuple_imm_list` 
+        //      instead of walking `m_tuple_imm_pool` to keep order.
+        for (const auto* tuple_imm : m_ordered_tuple_imm_list)
         {
             woort_CodeEnv_set_const_struct(
-                cenv, tuple.m_idx, tuple.m_fields.data(), tuple.m_fields.size());
+                cenv, tuple_imm->m_idx, tuple_imm->m_fields.data(), tuple_imm->m_fields.size());
         }
 
         // Apply entry codes.
         woort_CodeEnv_set_const_script_closure(
             cenv, entry_function_index, get_function(cenv, m_entry_function.value()));
 
-        for (const auto& [sym_name, sym_cidx]: m_extern_symbols)
+        for (const auto& [sym_name, sym_cidx] : m_extern_symbols)
         {
             if (!woort_CodeEnv_register_extern_constant(cenv, sym_name.c_str(), sym_cidx))
             {
@@ -302,7 +305,7 @@ namespace wo
         wo_assert(!m_current_functions_stack.empty());
 
         IRFunction& current = m_current_functions_stack.back();
-        NamedLabelInAst key{ast_node, label_name};
+        NamedLabelInAst key{ ast_node, label_name };
 
         auto it = current.m_local_named_labels.find(key);
         if (it != current.m_local_named_labels.end())
@@ -1757,8 +1760,8 @@ namespace wo
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
         if (!woort_IRFunction_push_srcloc(
-            cur, 
-            node->source_location.source_file->c_str(), 
+            cur,
+            node->source_location.source_file->c_str(),
             (uint32_t)node->source_location.begin_at.row,
             (uint32_t)node->source_location.begin_at.column,
             (uint32_t)node->source_location.end_at.row,
@@ -1992,7 +1995,8 @@ namespace wo
                 }
                 t.m_idx = alloc_constant();
                 woort_IRConstantIndex result_idx = t.m_idx;
-                m_tuple_imm_pool.emplace(struct_data, std::move(t));
+                m_ordered_tuple_imm_list.push_back(
+                    &m_tuple_imm_pool.emplace(struct_data, std::move(t)).first->second);
                 return result_idx;
             }
             return it->second.m_idx;
