@@ -16,13 +16,15 @@ namespace wo
     {
         class vfile_streambuf : public std::streambuf
         {
+            static constexpr size_t BUF_SIZE = 4096;
+
             woort_VFile* m_file;
-            char         m_buf[1];
+            char         m_buf[BUF_SIZE];
 
         public:
             explicit vfile_streambuf(woort_VFile* file) : m_file(file)
             {
-                setg(nullptr, nullptr, nullptr);
+                setg(m_buf, m_buf + BUF_SIZE, m_buf + BUF_SIZE);
             }
 
             ~vfile_streambuf() override
@@ -42,20 +44,36 @@ namespace wo
         protected:
             int underflow() override
             {
-                size_t n = 0;
-                if (!woort_vfile_read(m_file, m_buf, 1, &n) || n == 0)
+                if (gptr() < egptr())
+                    return traits_type::to_int_type(*gptr());
+
+                size_t nread = woort_vfile_read(m_file, m_buf, BUF_SIZE);
+                if (nread == 0)
                     return traits_type::eof();
 
-                setg(m_buf, m_buf, m_buf + 1);
+                setg(m_buf, m_buf, m_buf + nread);
                 return traits_type::to_int_type(m_buf[0]);
             }
 
             std::streamsize xsgetn(char* s, std::streamsize n) override
             {
-                size_t read_bytes = 0;
-                if (!woort_vfile_read(m_file, s, (size_t)n, &read_bytes))
-                    return 0;
-                return (std::streamsize)read_bytes;
+                std::streamsize total = 0;
+                std::streamsize avail = egptr() - gptr();
+
+                if (avail > 0)
+                {
+                    std::streamsize count = avail < n ? avail : n;
+                    std::memcpy(s, gptr(), (size_t)count);
+                    gbump((int)count);
+                    total += count;
+                    if (count >= n)
+                        return total;
+                    s += count;
+                    n -= count;
+                }
+
+                total += (std::streamsize)woort_vfile_read(m_file, s, (size_t)n);
+                return total;
             }
 
             std::streampos seekoff(
@@ -75,7 +93,7 @@ namespace wo
                 if (!woort_vfile_seek(m_file, off, whence))
                     return std::streampos(-1);
 
-                setg(nullptr, nullptr, nullptr);
+                setg(m_buf, m_buf + BUF_SIZE, m_buf + BUF_SIZE);
                 return (std::streampos)woort_vfile_tell(m_file);
             }
 
@@ -86,7 +104,7 @@ namespace wo
                 if (!woort_vfile_seek(m_file, (int64_t)pos, SEEK_SET))
                     return std::streampos(-1);
 
-                setg(nullptr, nullptr, nullptr);
+                setg(m_buf, m_buf + BUF_SIZE, m_buf + BUF_SIZE);
                 return (std::streampos)woort_vfile_tell(m_file);
             }
         };
