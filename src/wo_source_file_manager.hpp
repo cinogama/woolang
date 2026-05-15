@@ -3,6 +3,7 @@
 
 #include <string>
 #include <sstream>
+#include <cstring>
 #include <fstream>
 #include <optional>
 #include <vector>
@@ -63,7 +64,7 @@ namespace wo
                 if (avail > 0)
                 {
                     std::streamsize count = avail < n ? avail : n;
-                    std::memcpy(s, gptr(), (size_t)count);
+                    memcpy(s, gptr(), (size_t)count);
                     gbump((int)count);
                     total += count;
                     if (count >= n)
