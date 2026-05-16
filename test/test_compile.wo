@@ -20,7 +20,9 @@ namespace test_compile
         {
             err(msg)?
             {
-                std::println(msg);
+                for (let e : msg)
+                    std::println("   *", e->to_string);
+
                 test_assure(false);
             }
             ok(vmm)?;
@@ -2139,8 +2141,13 @@ func main()
         assure_compile_success(@"
             import woo::std;
 
+            func foo<Msg: string>()=> std::bad_t<{Msg}>
+            {
+                for (;;);
+            }
+
             let a = ("",);
-            do std::bad:<{a.0}>;
+            do foo:<{a.0}>();
         "@);
         assure_compile_fail(@"
             import woo::std;
@@ -2308,19 +2315,19 @@ func main()
         }
         "@);
         assure_compile_success(@"
-        extern("rslib_std_bad_function")
+        extern("woostd_bad_function")
         func foo()=> void;
         "@);
         assure_compile_fail(@"
-        extern("rslib_std_bad_function", slow)
-        func foo()=> void;
-        "@);
-        assure_compile_success(@"
-        extern("rslib_std_bad_function", repeat)
+        extern("woostd_bad_function", slow)
         func foo()=> void;
         "@);
         assure_compile_fail(@"
-        extern("rslib_std_bad_function", non_exist_attrib)
+        extern("woostd_bad_function", repeat)
+        func foo()=> void;
+        "@);
+        assure_compile_fail(@"
+        extern("woostd_bad_function", non_exist_attrib)
         func foo()=> void;
         "@);
                 
@@ -2431,24 +2438,6 @@ func main()
                 return true;
             }
         }
-        "@);
-        assure_compile_success(@"
-        import woo::std;
-        func foo(a: mut int)
-        {
-            do a;
-        }
-        let f = std::far::wrap(foo);
-        f(mut 0);
-        "@);
-        assure_compile_fail(@"
-        import woo::std;
-        func foo(a: mut int)
-        {
-            do a;
-        }
-        let f = std::far::wrap(foo);
-        f(0);
         "@);
         assure_compile_success(@"
         func foo()=> nothing

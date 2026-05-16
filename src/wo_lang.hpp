@@ -1022,6 +1022,8 @@ namespace wo
         void begin_new_function(ast::AstValueFunction* func_instance);
         void end_last_function();
 
+        bool check_unused_local_variables(lexer& lex);
+
         bool begin_new_namespace(wo_pstring_t name);
         void entry_spcify_namespace(lang_Namespace* namespace_);
         void end_last_namespace();

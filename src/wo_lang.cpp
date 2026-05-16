@@ -1553,6 +1553,35 @@ namespace wo
         wo_assert(get_current_scope()->m_function_instance);
         end_last_scope();
     }
+    bool LangContext::check_unused_local_variables(lexer& lex)
+    {
+        bool have_unused_local_variable = false;
+
+        lang_Scope* scope = get_current_scope();
+        for (auto& [name, symbol] : scope->m_defined_symbols)
+        {
+            if (symbol->m_symbol_kind != lang_Symbol::kind::VARIABLE)
+                continue;
+            if (symbol->m_is_template)
+                continue;
+            if (symbol->m_is_global)
+                continue;
+            if (symbol->m_has_been_used)
+                continue;
+            if (symbol->m_declare_attribute.has_value()
+                && symbol->m_declare_attribute.value()->m_external.has_value())
+                continue;
+            if (!symbol->m_symbol_declare_ast.has_value())
+                continue;
+
+            lex.record_lang_error(lexer::msglevel_t::error,
+                symbol->m_symbol_declare_ast.value(),
+                WO_ERR_UNSED_VARIABLE,
+                get_symbol_name(symbol.get()));
+            have_unused_local_variable = true;
+        }
+        return have_unused_local_variable;
+    }
     lang_Scope* LangContext::begin_new_scope(
         const std::optional<ast::AstBase::source_location_t>& locations)
     {

@@ -11,7 +11,7 @@ namespace test_thread
     let thread_count = 4;
     
     let test_vec = []mut: vec<typeof(nil)>;
-    
+    let test_vec_mx = thread::mutex::create();
     func main()
     {
         let mut i = 0;
@@ -26,6 +26,9 @@ namespace test_thread
                         let mut c = 0;
                         while (c < 100000)
                         {
+                            test_vec_mx->lock();
+                            defer test_vec_mx->unlock();
+
                             test_vec->add(nil);
                             c += 1;
                         }

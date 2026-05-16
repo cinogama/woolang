@@ -495,7 +495,12 @@ namespace wo
             [[fallthrough]];
             case AstScope::HOLD_FOR_DEFER_EVAL:
             {
+                const bool has_unused = check_unused_local_variables(lex);
                 end_last_scope();
+
+                if (has_unused)
+                    return FAILED;
+
                 break;
             }
             default:
@@ -1690,6 +1695,10 @@ namespace wo
             }
             case AstValueFunction::HOLD_FOR_BODY_EVAL:
             {
+                const bool has_unused =
+                    !node->m_LANG_extern_information.has_value()
+                    && check_unused_local_variables(lex);
+
                 end_last_function();
                 if (node->m_LANG_determined_template_arguments.has_value())
                     end_last_scope();
@@ -1697,6 +1706,9 @@ namespace wo
                 node->m_LANG_function_body_end_with_return_flag_for_IR =
                     node->m_LANG_extern_information.has_value()
                     || check_node_type_and_get_end_state(node->m_body) == ast::AstScope::LANG_end_state::END_WITH_RETURN;
+
+                if (has_unused)
+                    return FAILED;
 
                 if (node->m_LANG_determined_return_type.has_value() == false)
                 {
