@@ -109,7 +109,8 @@ namespace wo
 
         for (const auto& [val, cidx] : m_string_imm_pool)
         {
-            woort_CodeEnv_set_const_buffer(cenv, cidx, val->c_str(), val->size());
+            woort_CodeEnv_set_const_buffer(
+                cenv, cidx, val->c_str(), val->size());
         }
 
         for (const auto& [val, cidx] : m_boxed_int_imm_pool)

@@ -8,6 +8,7 @@ import test_tool;
 namespace test_gc
 {
     let mut global_list = []mut: vec<dynamic>;
+    let global_list_mx = thread::mutex::create();
 
     let TEST_TIME = 35.;
 
@@ -44,12 +45,17 @@ namespace test_gc
 
         while (std::clock() - test_begin_time <= TEST_TIME)
         {
-            global_list->add({["Hello"] = "world"}: dynamic);
-            global_list->add({["Hello"] = "world"}: dynamic);
-            global_list->add({["Hello"] = "world"}: dynamic);
+            {
+                global_list_mx->lock();
+                defer global_list_mx->unlock();
 
-            if (std::rand(1, 50000) == 233)
-                global_list->clear();
+                global_list->add({["Hello"] = "world"}: dynamic);
+                global_list->add({["Hello"] = "world"}: dynamic);
+                global_list->add({["Hello"] = "world"}: dynamic);
+
+                if (std::rand(1, 50000) == 233)
+                    global_list->clear();
+            }
 
             tmp->add(arr_a[0]);
             do arr_a->remove(0);
@@ -74,6 +80,10 @@ namespace test_gc
 
             test_assure(arr_a[0][0] == 12345678);
         }
+
+        global_list_mx->lock();
+        defer global_list_mx->unlock();
+        
         global_list->clear();
 
         std::println("test_gc_co/thread id=", id, "finished!");

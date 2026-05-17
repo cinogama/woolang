@@ -20,7 +20,7 @@ import test_exception;
 import test_template;
 import test_operator_overload;
 import test_optional;
-// import test_gc;
+import test_gc;
 import test_dyn_stack;
 import test_tuple;
 import test_struct;
