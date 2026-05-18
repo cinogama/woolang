@@ -920,6 +920,7 @@ namespace wo
         case lang_TypeInstance::DeterminedType::DICTIONARY:
             return WOORT_BOX_VALUE_TYPE_MAP;
         case lang_TypeInstance::DeterminedType::ARRAY:
+        case lang_TypeInstance::DeterminedType::VECTOR:
             return WOORT_BOX_VALUE_TYPE_VEC;
         case lang_TypeInstance::DeterminedType::TUPLE:
         case lang_TypeInstance::DeterminedType::STRUCT:
