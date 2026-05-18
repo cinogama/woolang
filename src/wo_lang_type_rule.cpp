@@ -918,6 +918,7 @@ namespace wo
         case lang_TypeInstance::DeterminedType::GCHANDLE:
             return WOORT_BOX_VALUE_TYPE_GCHANDLE;
         case lang_TypeInstance::DeterminedType::DICTIONARY:
+        case lang_TypeInstance::DeterminedType::MAPPING:
             return WOORT_BOX_VALUE_TYPE_MAP;
         case lang_TypeInstance::DeterminedType::ARRAY:
         case lang_TypeInstance::DeterminedType::VECTOR:
