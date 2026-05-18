@@ -167,14 +167,11 @@ namespace test_container
         test_assure(!dict::deserialize(@"{"\invalid"}"@)->is_value);
 
         // BUG: 221223-JIT-ret pop not work when jit.
-        for (;;)
-        {
-            let x = []mut: vec<string>;
-            for (let mut i = 0; i < 100000; i += 1)
-                x->add(F"str_{i}");
-            test_equal(x->forall(\s = s->begin_with("0");)->len, 0);
-            test_equal(x->forall(\s = s->begin_with("str_");)->len, 100000);
-        }
+        let x = []mut: vec<string>;
+        for (let mut i = 0; i < 100000; i += 1)
+            x->add(F"str_{i}");
+        test_equal(x->forall(\s = s->begin_with("0");)->len, 0);
+        test_equal(x->forall(\s = s->begin_with("str_");)->len, 100000);
 
         let y = all(["hello", "world"])->iter
             |> iterator::enumerate

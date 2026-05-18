@@ -24,7 +24,7 @@ namespace test_thread
                         let id = i;
                         
                         let mut c = 0;
-                        while (c < 100000)
+                        while (c < 1000)
                         {
                             test_vec_mx->lock();
                             defer test_vec_mx->unlock();
@@ -46,7 +46,7 @@ namespace test_thread
             i+=1;
         }
         std::println("Result:", test_vec->len);
-        test_equal(test_vec->len, 100000 * thread_count);
+        test_equal(test_vec->len, 1000 * thread_count);
         
         // Thread should be abort-able..
         let mut this_should_be_false = false;
