@@ -110,12 +110,6 @@ namespace wo
             }
         };
 
-        static woort_NativeFunction get_global_symbol(const char* symbol)
-        {
-            return (woort_NativeFunction)woort_dylib_load_func(
-                woort_get_builtin_lib(), symbol);
-        }
-
         static woort_NativeFunction get_lib_symbol(const char* src, const char* lib, const char* symb, extern_lib_set& elibs)
         {
             return elibs.try_load_func_from_in(src, lib, symb);

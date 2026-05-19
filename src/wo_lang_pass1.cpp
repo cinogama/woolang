@@ -6487,24 +6487,19 @@ namespace wo
 
             woort_NativeFunction extern_function;
 
+            const char* libname = "woolang";
             if (node->m_extern_from_library.has_value())
-            {
-                extern_function = rslib_extern_symbols::get_lib_symbol(
-                    node->source_location.source_file->c_str(),
-                    node->m_extern_from_library.value()->m_evaled_const_value.value().value_pstring()->c_str(),
-                    node->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str(),
-                    m_ircontext.m_extern_libs);
+                libname = node->m_extern_from_library.value()->m_evaled_const_value.value().value_pstring()->c_str();
 
-                if (extern_function == nullptr
-                    && config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
-                    extern_function = rslib_extern_symbols::g_builtin_bad_function;
-            }
-            else
-            {
-                extern_function =
-                    rslib_extern_symbols::get_global_symbol(
-                        node->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str());
-            }
+            extern_function = rslib_extern_symbols::get_lib_symbol(
+                node->source_location.source_file->c_str(),
+                libname,
+                node->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str(),
+                m_ircontext.m_extern_libs);
+
+            if (extern_function == nullptr
+                && config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL)
+                extern_function = rslib_extern_symbols::g_builtin_bad_function;
 
             if (extern_function != nullptr)
                 node->m_IR_externed_function = extern_function;
