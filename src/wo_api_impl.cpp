@@ -162,6 +162,8 @@ wo::compile_result _wo_compile_impl(
             if (woort_vfile_open(real_file_path.c_str(), &vfile))
                 source_file_instance.emplace(vfile);
         }
+        else
+            real_file_path = virtual_src_path;
     }
 
     // Try loading binary.
