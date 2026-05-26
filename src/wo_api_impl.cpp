@@ -238,6 +238,13 @@ wo::compile_result _wo_compile_impl(
                         // Finish!, finalize the compiler.
                         compile_env_result =
                             lang_context->m_ircontext.finalize();
+
+                        if (!compile_env_result.has_value())
+                        {
+                            compile_result = wo::compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
+                            (void)compile_lexer->record_parser_error(
+                                wo::lexer::msglevel_t::error, WO_ERR_OUT_OF_MEMORY);
+                        }
                     }
 
                     if (out_langcontext_if_pass_grammar != nullptr)

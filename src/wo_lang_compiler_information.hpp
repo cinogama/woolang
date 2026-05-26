@@ -162,6 +162,7 @@
 #define WO_ERR_UNABLE_TO_FIND_EXTERN_FUNCTION u8"在库 `%s` 中找不到外部函数 `%s`"
 #define WO_ERR_CANNOT_UNPACK_HERE u8"参数包展开只能在函数参数列表或元组元素列表中使用"
 #define WO_ERR_UNSED_VARIABLE u8"局部变量 `%s` 已声明但未使用"
+#define WO_ERR_OUT_OF_MEMORY u8"内存不足，无法创建代码"
 
 // PASSIR BYTECODE GENERATOR(INFO)
 #define WO_INFO_IN_FUNCTION_NAMED u8"位于函数 `%s` 中"

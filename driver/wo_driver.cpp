@@ -74,8 +74,8 @@ int main(int argc, char** argv)
 
                 label_run_failed:
                     (void)woort_vm_swap(NULL);
+                    woort_vm_close(vmm);
                 }
-                woort_vm_close(vmm);
             }
             woort_codeenv_drop(cenv);
         }
