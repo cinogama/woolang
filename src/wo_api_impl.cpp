@@ -227,7 +227,7 @@ wo::compile_result _wo_compile_impl(
 
                 // NOTE: Drop macro vm if useless.
                 if (!append_macro_define_to_this_lexer.has_value())
-                    compile_lexer->drop_macro_vm();
+                    compile_lexer->drop_macro_vm_and_code_env();
 
                 if (result != nullptr)
                 {

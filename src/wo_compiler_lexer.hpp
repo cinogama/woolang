@@ -269,7 +269,7 @@ namespace wo
 
             [[nodiscard]]
             woort_vm* get_or_create_macro_vm();
-            void drop_macro_vm();
+            void drop_macro_vm_and_code_env();
 
             const char* register_temp_virtual_file(const char* context);
         };
@@ -340,7 +340,7 @@ namespace wo
         void    token_begin_here();
 
     public:
-        void drop_macro_vm();
+        void drop_macro_vm_and_code_env();
 
         size_t get_error_frame_layer() const;
         compiler_message_list_t& get_current_error_frame();
@@ -494,8 +494,7 @@ namespace wo
         macro(lexer& lex, lexer::peeked_token_t* peeked_token);
         ~macro()
         {
-            if (_macro_codes.has_value())
-                woort_codeenv_drop(_macro_codes.value());
+            wo_assert(!_macro_codes.has_value());
         }
 
         macro(const macro&) = delete;

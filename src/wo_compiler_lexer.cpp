@@ -137,7 +137,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 woort_vm* const last_vm = woort_vm_swap(shared_vm);
 
                 // Donot jit to make debug friendly.
-                if (WOORT_VM_CALL_STATUS_NORMAL 
+                if (WOORT_VM_CALL_STATUS_NORMAL
                     != woort_bootup_codeenv(WOORT_IGNORE, _macro_codes.value()))
                 {
                     lex.produce_lexer_error(
@@ -714,8 +714,23 @@ extern func macro_entry(lexer: std::lexer)=> string
             m_macro_vm.emplace(woort_vm_create());
         return m_macro_vm.value();
     }
-    void lexer::SharedContext::drop_macro_vm()
+    void lexer::SharedContext::drop_macro_vm_and_code_env()
     {
+        for (auto& [_name, m] : m_declared_macro_list)
+        {
+            (void)_name;
+
+            if (m.has_value())
+            {
+                auto& codes = m.value()->_macro_codes;
+                if (codes.has_value())
+                {
+                    woort_codeenv_drop(codes.value());
+                    codes.reset();
+                }
+            }
+        }
+
         if (m_macro_vm.has_value())
         {
             woort_vm_close(m_macro_vm.value());
@@ -773,9 +788,9 @@ extern func macro_entry(lexer: std::lexer)=> string
                 source_path.value()->c_str());
         }
     }
-    void lexer::drop_macro_vm()
+    void lexer::drop_macro_vm_and_code_env()
     {
-        m_shared_context->drop_macro_vm();
+        m_shared_context->drop_macro_vm_and_code_env();
     }
     size_t lexer::get_error_frame_layer() const
     {
@@ -1880,7 +1895,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         auto& macro_instance = fnd->second.value();
 
         woort_vm* const shared_vm = m_shared_context->get_or_create_macro_vm();
-        woort_vm* const last = 
+        woort_vm* const last =
             woort_vm_swap(shared_vm);
 
         woort_value s;
@@ -1892,7 +1907,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
                 macro_instance->macro_name.c_str(),
                 WO_MSG_STACK_OVERFLOW);
-   
+
             return false;
         }
 
