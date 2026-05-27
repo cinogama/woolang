@@ -775,36 +775,35 @@ void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info)
 
 struct _wo_lspv2_macro_iter
 {
-    // using macro_iter_t = decltype(wo::LangContext::m_macros)::const_iterator;
-    //macro_iter_t m_current;
-    //macro_iter_t m_end;
+    using macro_iter_t = decltype(wo::LangContext::m_macros)::const_iterator;
+    macro_iter_t m_current;
+    macro_iter_t m_end;
 };
 
 wo_lspv2_macro_iter* wo_lspv2_meta_macro_iter(wo_lspv2_source_meta* meta)
 {
-    //if (meta->m_langcontext_if_passed_grammar.has_value())
-    //{
-    //    auto& macro_list = meta->m_langcontext_if_passed_grammar.value()->m_macros;
-    //    return new _wo_lspv2_macro_iter{
-    //        macro_list.cbegin(),
-    //        macro_list.cend(),
-    //    };
-    //}
+    if (meta->m_langcontext_if_passed_grammar.has_value())
+    {
+        auto& macro_list = meta->m_langcontext_if_passed_grammar.value()->m_macros;
+        return new _wo_lspv2_macro_iter{
+            macro_list.cbegin(),
+            macro_list.cend(),
+        };
+    }
     return nullptr;
 }
 wo_lspv2_macro* /* null if end */ wo_lspv2_macro_next(wo_lspv2_macro_iter* iter)
 {
-    //if (iter->m_current == iter->m_end)
-    //{
-    //    delete iter;
-    //    return nullptr;
-    //}
-    //else
-    //{
-    //    return reinterpret_cast<wo_lspv2_macro*>(
-    //        (iter->m_current++)->get());
-    //}
-    abort();
+    if (iter->m_current == iter->m_end)
+    {
+        delete iter;
+        return nullptr;
+    }
+    else
+    {
+        return reinterpret_cast<wo_lspv2_macro*>(
+            (iter->m_current++)->get());
+    }
 }
 
 void wo_lspv2_macro_info_free(wo_lspv2_macro_info* info)

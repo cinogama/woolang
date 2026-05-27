@@ -666,6 +666,19 @@ namespace wo
 
     //////////////////////////////////////
 
+    lang_Macro::lang_Macro(const wo::macro& macro_instance)
+        : m_name(wo::wstring_pool::get_pstr(macro_instance.macro_name))
+        , m_location{}
+    {
+        m_location.source_file = macro_instance.filename;
+        m_location.begin_at.row = macro_instance.begin_row;
+        m_location.begin_at.column = macro_instance.begin_col;
+        m_location.end_at.row = macro_instance.end_row;
+        m_location.end_at.column = macro_instance.end_col;
+    }
+
+    //////////////////////////////////////
+
     LangContext::AstNodeWithState::AstNodeWithState(ast::AstBase* node)
         : m_state(UNPROCESSED)
         , m_ast_node(node)
@@ -1323,6 +1336,13 @@ namespace wo
 
     compile_result LangContext::process(lexer& lex, ast::AstBase* root)
     {
+        for (auto& [_useless, macro_msg] : lex.get_defined_macros_for_lspv2())
+        {
+            (void)_useless;
+            if (macro_msg.has_value())
+                m_macros.push_back(std::make_unique<lang_Macro>(*macro_msg.value()));
+        }
+
         pass_0_5_register_builtin_types();
 
         if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination, false))

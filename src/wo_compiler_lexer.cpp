@@ -2026,4 +2026,8 @@ extern func macro_entry(lexer: std::lexer)=> string
     {
         m_source_stream.reset();
     }
+    const lexer::declared_macro_map_t& lexer::get_defined_macros_for_lspv2()
+    {
+        return m_shared_context->m_declared_macro_list;
+    }
 }

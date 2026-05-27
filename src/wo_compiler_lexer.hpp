@@ -184,9 +184,11 @@ namespace wo
             size_t          m_token_begin[4];
             size_t          m_token_end[2];
         };
-    private:
+
+    public:
         using declared_macro_map_t =
             std::unordered_map<std::string, std::optional<std::unique_ptr<macro>>>;
+    private:
         using imported_source_path_set_t =
             std::unordered_set<wo_pstring_t>;
         using who_import_me_map_t =
@@ -477,6 +479,7 @@ namespace wo
 
         void get_now_location(size_t* out_row, size_t* out_col) const;
         void drop_source_stream_for_lspv2();
+        const declared_macro_map_t& get_defined_macros_for_lspv2();
     };
 
     class macro
