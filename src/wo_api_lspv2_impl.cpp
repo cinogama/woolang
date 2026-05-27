@@ -805,7 +805,18 @@ wo_lspv2_macro* /* null if end */ wo_lspv2_macro_next(wo_lspv2_macro_iter* iter)
             (iter->m_current++)->get());
     }
 }
-
+wo_lspv2_macro_info* wo_lspv2_macro_get_info(wo_lspv2_macro* macro)
+{
+    wo::lang_Macro* lang_macro = std::launder(reinterpret_cast<wo::lang_Macro*>(macro));
+    return new wo_lspv2_macro_info{
+        _wo_strdup(lang_macro->m_name->c_str()),
+        wo_lspv2_location{
+            _wo_strdup(lang_macro->m_location.source_file->c_str()),
+            { lang_macro->m_location.begin_at.row, lang_macro->m_location.begin_at.column },
+            { lang_macro->m_location.end_at.row, lang_macro->m_location.end_at.column },
+        },
+    };
+}
 void wo_lspv2_macro_info_free(wo_lspv2_macro_info* info)
 {
     free((void*)info->m_name);
