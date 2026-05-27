@@ -129,13 +129,12 @@ extern func macro_entry(lexer: std::lexer)=> string
             {
                 lex.end_trying_block();
 
-                woort_vm* const macro_runtime_vm = woort_vm_create();
-                _macro_vm.emplace(macro_runtime_vm);
+                woort_vm* const shared_vm = lex.m_shared_context->get_or_create_macro_vm();
 
                 wo_assert(_macro_codes.value() != nullptr
-                    && _macro_vm.value() != nullptr);
+                    && shared_vm != nullptr);
 
-                woort_vm* const last_vm = woort_vm_swap(macro_runtime_vm);
+                woort_vm* const last_vm = woort_vm_swap(shared_vm);
 
                 // Donot jit to make debug friendly.
                 if (WOORT_VM_CALL_STATUS_NORMAL 
@@ -145,7 +144,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         lexer::msglevel_t::error,
                         WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
                         macro_name.c_str(),
-                        woort_vm_get_runtime_error(macro_runtime_vm));
+                        woort_vm_get_runtime_error(shared_vm));
                 }
                 (void)woort_vm_swap(last_vm);
             }
@@ -694,6 +693,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         return (int64_t)read_from_unsigned_literal(text);
     }
     lexer::SharedContext::SharedContext(const std::optional<wo_pstring_t>& source_path)
+        : m_macro_vm(std::nullopt)
     {
         // Make sure error frame has one frame.
         (void)m_error_frame.emplace_back();
@@ -703,8 +703,24 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     lexer::SharedContext::~SharedContext()
     {
+        wo_assert(!m_macro_vm.has_value());
+
         for (auto vpath : m_temp_virtual_file_path)
             wo_assure(woort_vfs_remove(vpath.c_str()));
+    }
+    woort_vm* lexer::SharedContext::get_or_create_macro_vm()
+    {
+        if (!m_macro_vm.has_value())
+            m_macro_vm.emplace(woort_vm_create());
+        return m_macro_vm.value();
+    }
+    void lexer::SharedContext::drop_macro_vm()
+    {
+        if (m_macro_vm.has_value())
+        {
+            woort_vm_close(m_macro_vm.value());
+            m_macro_vm.reset();
+        }
     }
     const char* lexer::SharedContext::register_temp_virtual_file(const char* context)
     {
@@ -756,6 +772,10 @@ extern func macro_entry(lexer: std::lexer)=> string
                 WO_ERR_CANNOT_OPEN_FILE,
                 source_path.value()->c_str());
         }
+    }
+    void lexer::drop_macro_vm()
+    {
+        m_shared_context->drop_macro_vm();
     }
     size_t lexer::get_error_frame_layer() const
     {
@@ -1345,7 +1365,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     auto macro_instance = std::make_unique<macro>(*this, peeked_macro_name_token);
 
                     // Ok, apply macro instance.
-                    if (macro_instance->_macro_vm.has_value())
+                    if (macro_instance->_macro_codes.has_value())
                         insert_result.first->second = std::move(macro_instance);
                 }
                 else
@@ -1859,8 +1879,9 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         auto& macro_instance = fnd->second.value();
 
+        woort_vm* const shared_vm = m_shared_context->get_or_create_macro_vm();
         woort_vm* const last = 
-            woort_vm_swap(macro_instance->_macro_vm.value());
+            woort_vm_swap(shared_vm);
 
         woort_value s;
         if (!woort_push_reserve(2, &s))
@@ -1895,7 +1916,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             produce_lexer_error(msglevel_t::error,
                 WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
                 macro_instance->macro_name.c_str(),
-                woort_vm_get_runtime_error(macro_instance->_macro_vm.value()));
+                woort_vm_get_runtime_error(shared_vm));
 
             (void)woort_vm_swap(last);
 

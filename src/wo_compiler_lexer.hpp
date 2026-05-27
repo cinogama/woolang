@@ -258,6 +258,7 @@ namespace wo
             export_import_map_t m_export_import_map;
 
             std::vector<std::string> m_temp_virtual_file_path;
+            std::optional<woort_vm*> m_macro_vm;
 
             SharedContext(const std::optional<wo_pstring_t>& source_path);
             ~SharedContext();
@@ -265,6 +266,10 @@ namespace wo
             SharedContext(SharedContext&&) = delete;
             SharedContext& operator = (const SharedContext&) = delete;
             SharedContext& operator = (SharedContext&&) = delete;
+
+            [[nodiscard]]
+            woort_vm* get_or_create_macro_vm();
+            void drop_macro_vm();
 
             const char* register_temp_virtual_file(const char* context);
         };
@@ -335,6 +340,8 @@ namespace wo
         void    token_begin_here();
 
     public:
+        void drop_macro_vm();
+
         size_t get_error_frame_layer() const;
         compiler_message_list_t& get_current_error_frame();
         compiler_message_list_t& get_root_error_frame();
@@ -476,7 +483,6 @@ namespace wo
     {
     public:
         std::string macro_name;
-        std::optional<woort_vm*> _macro_vm;
         std::optional<woort_codeenv*> _macro_codes;
 
         size_t   begin_row;
@@ -488,8 +494,6 @@ namespace wo
         macro(lexer& lex, lexer::peeked_token_t* peeked_token);
         ~macro()
         {
-            if (_macro_vm.has_value())
-                woort_vm_close(_macro_vm.value());
             if (_macro_codes.has_value())
                 woort_codeenv_drop(_macro_codes.value());
         }
