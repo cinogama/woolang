@@ -6,6 +6,7 @@
 #include <string_view>
 #include <string>
 #include <vector>
+#include <unordered_set>
 
 #include "wo_const_string_pool.hpp"
 
@@ -85,7 +86,7 @@ namespace wo
             m_extern_symbols;
 
         // Loaded extern library handles for lifecycle binding to CodeEnv
-        std::vector<woort_Dylib*> m_loaded_extern_libs;
+        std::unordered_set<woort_Dylib*> m_loaded_extern_libs;
 
         struct TupleImm
         {

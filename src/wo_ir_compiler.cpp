@@ -228,7 +228,7 @@ namespace wo
 
     void IRCompiler::add_extern_lib(woort_Dylib* lib)
     {
-        m_loaded_extern_libs.push_back(lib);
+        (void)m_loaded_extern_libs.insert(lib);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////
