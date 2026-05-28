@@ -954,6 +954,7 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
     }
 
     // Phase 2: Walk scope tree for declaration sites (symbol definitions).
+#if 0
     std::function<void(wo::lang_Scope*)> walk_scope =
         [&](wo::lang_Scope* scope)
     {
@@ -1001,7 +1002,7 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
 
     walk_scope(meta->m_langcontext_if_passed_grammar.value()
         ->m_root_namespace->m_this_scope.get());
-
+#endif
     // Phase 3: Walk macros.
     for (auto& macro : meta->m_langcontext_if_passed_grammar.value()->m_macros)
     {
