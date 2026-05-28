@@ -122,6 +122,9 @@ namespace wo
         const woort_IRValue* argument(uint32_t aidx);
         const woort_IRValue* captured(uint32_t aidx);
 
+        void record_local_var(const char* name, woort_IRValue* v);
+        void record_static_var(const char* name, woort_IRStaticIndex idx);
+
         woort_IRLabel* new_label();
         woort_IRLabel* named_label(ast::AstBase* ast, const char* label_name);
 

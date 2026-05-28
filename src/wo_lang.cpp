@@ -1448,9 +1448,17 @@ namespace wo
                 for (auto& [_useless, captured_variable_instance] :
                     eval_function->m_LANG_captured_context.m_captured_variables)
                 {
+                    woort_IRValue* const captured_irv =
+                        const_cast<woort_IRValue*>(m_ircontext.c().captured(argument_place));
+
                     captured_variable_instance.m_instance->m_IR_storage.emplace(
-                        lang_ValueInstance::Storage(
-                            const_cast<woort_IRValue*>(m_ircontext.c().captured(argument_place++))));
+                        lang_ValueInstance::Storage(captured_irv));
+
+                    m_ircontext.c().record_local_var(
+                        captured_variable_instance.m_instance->m_symbol->m_name->c_str(),
+                        captured_irv);
+
+                    ++argument_place;
                 }
                 argument_place = eval_function->m_is_variadic ? 1 : 0;
                 for (auto* param_decls : eval_function->m_parameters)
@@ -1467,9 +1475,14 @@ namespace wo
                         lang_Symbol* symbol = pattern_single->m_LANG_declared_symbol.value();
 
                         wo_assert(!symbol->m_is_template && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+                        woort_IRValue* const arg_irv =
+                            const_cast<woort_IRValue*>(m_ircontext.c().argument(argument_place));
+
                         symbol->m_value_instance->m_IR_storage.emplace(
-                            lang_ValueInstance::Storage(
-                                const_cast<woort_IRValue*>(m_ircontext.c().argument(argument_place))));
+                            lang_ValueInstance::Storage(arg_irv));
+
+                        m_ircontext.c().record_local_var(
+                            symbol->m_name->c_str(), arg_irv);
                     }
                     else
                     {

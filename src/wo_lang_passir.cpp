@@ -140,6 +140,9 @@ namespace wo
 
             instance->m_IR_storage.emplace(
                 lang_ValueInstance::Storage(static_storage));
+
+            m_ircontext.c().record_static_var(
+                instance->m_symbol->m_name->c_str(), static_storage);
         }
         else
         {
@@ -149,6 +152,9 @@ namespace wo
 
             instance->m_IR_storage.emplace(
                 lang_ValueInstance::Storage(stack_storage));
+
+            m_ircontext.c().record_local_var(
+                instance->m_symbol->m_name->c_str(), stack_storage);
         }
 
         auto& storage = instance->m_IR_storage.value();
@@ -974,6 +980,9 @@ namespace wo
                             template_value_instance->m_IR_storage.emplace(
                                 lang_ValueInstance::Storage(static_storage));
 
+                            m_ircontext.c().record_static_var(
+                                template_value_instance->m_symbol->m_name->c_str(), static_storage);
+
                             m_ircontext.eval_to_assign_static(static_storage, node);
                         }
                         else
@@ -984,6 +993,9 @@ namespace wo
 
                             template_value_instance->m_IR_storage.emplace(
                                 lang_ValueInstance::Storage(stack_storage));
+
+                            m_ircontext.c().record_local_var(
+                                template_value_instance->m_symbol->m_name->c_str(), stack_storage);
 
                             m_ircontext.eval_to_assign(stack_storage, node);
                         }
@@ -1024,6 +1036,9 @@ namespace wo
                     pattern_symbol->m_value_instance->m_IR_storage.emplace(
                         lang_ValueInstance::Storage(static_storage));
 
+                    m_ircontext.c().record_static_var(
+                        pattern_symbol->m_value_instance->m_symbol->m_name->c_str(), static_storage);
+
                     m_ircontext.eval_to_assign_static(static_storage, node);
                 }
                 else
@@ -1034,6 +1049,9 @@ namespace wo
 
                     pattern_symbol->m_value_instance->m_IR_storage.emplace(
                         lang_ValueInstance::Storage(stack_storage));
+
+                    m_ircontext.c().record_local_var(
+                        pattern_symbol->m_value_instance->m_symbol->m_name->c_str(), stack_storage);
 
                     m_ircontext.eval_to_assign(stack_storage, node);
                 }

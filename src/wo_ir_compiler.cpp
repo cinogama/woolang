@@ -285,6 +285,23 @@ namespace wo
         return result;
     }
 
+    void IRCompiler::record_local_var(const char* name, woort_IRValue* v)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        woort_IRFunction_record_local_var(cur, name, v);
+    }
+
+    void IRCompiler::record_static_var(const char* name, woort_IRStaticIndex idx)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRCompiler_record_static_var(m_ircompiler, name, idx);
+    }
+
     woort_IRLabel* IRCompiler::new_label()
     {
         if (is_abondoned())
