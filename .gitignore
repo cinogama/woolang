@@ -3,8 +3,6 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
-Woolang/wo_lang_grammar_lr1_autogen.hpp
-
 # User-specific files
 *.rsuser
 *.suo

@@ -52,8 +52,6 @@ mkdir cmakebuild && cd cmakebuild
 cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
 ```
 
-考虑到 `asmjit` 可能在部分平台无法通过构建，如果遇到 `asmjit` 构建失败的情况，可以尝试使用 `-DWO_SUPPORT_ASMJIT=OFF` 选项明确禁用 `asmjit`。
-
 接着即可构建：
 
 ```bash
