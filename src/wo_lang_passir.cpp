@@ -1127,16 +1127,29 @@ namespace wo
         }
         else if (state == HOLD)
         {
+            bool is_ret_void = true;
             if (node->m_IR_return_value_may_none.has_value())
             {
-                m_ircontext.c().ret(node->m_IR_return_value_may_none.value());
+                lang_TypeInstance* const ret_type = 
+                    node->m_value.value()->m_LANG_determined_type.value();
+
+                if (lang_TypeInstance::DeterminedType::base_type::VOID
+                    != ret_type->get_determined_type().value()->m_base_type)
+                {
+                    is_ret_void = false;
+                }
             }
-            else
+
+            if (is_ret_void)
             {
                 if (node->m_LANG_belong_function_may_null_if_outside.has_value())
                     m_ircontext.c().ret_void();
                 else
                     m_ircontext.c().ret(m_ircontext.c().load_imm_int(0));
+            }
+            else
+            {
+                m_ircontext.c().ret(node->m_IR_return_value_may_none.value());                
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
