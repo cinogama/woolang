@@ -1,5 +1,7 @@
 #include "wo_afx.hpp"
 
+#include <set>
+
 #ifndef WO_DISABLE_COMPILER
 
 static_assert(WO_NEED_LSP_API);
@@ -891,4 +893,239 @@ const char* wo_lspv2_token_info_enstring(
     str = wo::u8enstring(reinterpret_cast<const char*>(p), len, false);
     return str.c_str();
 }
+
+// ==================== Semantic Tokens API ====================
+
+struct _semantic_token_key
+{
+    size_t begin_row, begin_col, end_row, end_col;
+    uint32_t token_type;
+    bool operator<(const _semantic_token_key& other) const
+    {
+        if (begin_row != other.begin_row) return begin_row < other.begin_row;
+        if (begin_col != other.begin_col) return begin_col < other.begin_col;
+        if (end_row   != other.end_row)   return end_row   < other.end_row;
+        if (end_col   != other.end_col)   return end_col   < other.end_col;
+        return token_type < other.token_type;
+    }
+};
+
+static void _add_token(
+    std::vector<wo_lspv2_semantic_token>& tokens,
+    std::set<_semantic_token_key>& seen,
+    size_t begin_row, size_t begin_col,
+    size_t end_row, size_t end_col,
+    uint32_t token_type, uint32_t modifiers)
+{
+    _semantic_token_key key{ begin_row, begin_col, end_row, end_col, token_type };
+    if (seen.insert(key).second)
+    {
+        tokens.push_back({ begin_row, begin_col, end_row, end_col, token_type, modifiers });
+    }
+}
+
+static uint32_t _classify_type_symbol(wo::lang_Symbol* symbol)
+{
+    if (symbol->m_symbol_kind != wo::lang_Symbol::kind::TYPE)
+        return WO_LSPV2_SEMANTIC_TYPE;
+
+    auto* type_instance = symbol->m_type_instance;
+    auto determined = type_instance->get_determined_type();
+    if (determined.has_value())
+    {
+        switch (determined.value()->m_base_type)
+        {
+        case wo::lang_TypeInstance::DeterminedType::base_type::STRUCT:
+            return WO_LSPV2_SEMANTIC_STRUCT;
+        case wo::lang_TypeInstance::DeterminedType::base_type::UNION:
+            return WO_LSPV2_SEMANTIC_ENUM;
+        case wo::lang_TypeInstance::DeterminedType::base_type::FUNCTION:
+            return WO_LSPV2_SEMANTIC_FUNCTION;
+        default:
+            return WO_LSPV2_SEMANTIC_TYPE;
+        }
+    }
+    return WO_LSPV2_SEMANTIC_TYPE;
+}
+
+// Phase 2: Walk scope tree and emit declaration-site tokens
+static void _walk_scope_for_semantic_tokens(
+    wo_lspv2_scope* scope_handle,
+    const char* current_file,
+    std::vector<wo_lspv2_semantic_token>& tokens,
+    std::set<_semantic_token_key>& seen)
+{
+    wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope_handle));
+
+    for (auto& [name, symbol_ptr] : lang_scope->m_defined_symbols)
+    {
+        wo::lang_Symbol* symbol = symbol_ptr.get();
+
+        if (!symbol->m_symbol_declare_location.has_value())
+            continue;
+
+        auto& loc = symbol->m_symbol_declare_location.value();
+        if (loc.source_file == nullptr)
+            continue;
+
+        wo_pstring_t loc_file = loc.source_file;
+        if (loc_file->compare(current_file) != 0)
+            continue;
+
+        uint32_t token_type = WO_LSPV2_SEMANTIC_VARIABLE;
+
+        switch (symbol->m_symbol_kind)
+        {
+        case wo::lang_Symbol::kind::VARIABLE:
+            token_type = WO_LSPV2_SEMANTIC_VARIABLE;
+            break;
+        case wo::lang_Symbol::kind::TYPE:
+            token_type = _classify_type_symbol(symbol);
+            break;
+        case wo::lang_Symbol::kind::ALIAS:
+            token_type = WO_LSPV2_SEMANTIC_TYPE;
+            break;
+        }
+
+        _add_token(tokens, seen,
+            loc.begin_at.row, loc.begin_at.column,
+            loc.end_at.row, loc.end_at.column,
+            token_type, WO_LSPV2_SEMANTIC_MOD_DECLARATION);
+    }
+
+    // Walk sub-scopes using the iterator pattern
+    wo_lspv2_scope_iter* iter = wo_lspv2_scope_sub_scope_iter(scope_handle);
+    for (;;)
+    {
+        wo_lspv2_scope* sub_scope = wo_lspv2_scope_sub_scope_next(iter);
+        if (sub_scope == nullptr)
+            break;
+        _walk_scope_for_semantic_tokens(sub_scope, current_file, tokens, seen);
+    }
+}
+
+wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
+    wo_lspv2_source_meta* meta, const char* current_file, size_t* out_count)
+{
+    if (!meta->m_langcontext_if_passed_grammar.has_value())
+    {
+        *out_count = 0;
+        return nullptr;
+    }
+
+    std::vector<wo_lspv2_semantic_token> tokens;
+    std::set<_semantic_token_key> seen;
+
+    // === Phase 1: Walk expression collections for the current file ===
+
+    for (auto& [file_name, expr_map] : meta->m_source_expr_collection)
+    {
+        if (file_name->compare(current_file) != 0)
+            continue;
+
+        for (auto& [begin_loc, end_map] : expr_map)
+        {
+            for (auto& [end_loc, ast_node] : end_map)
+            {
+                size_t br = begin_loc.row, bc = begin_loc.column;
+                size_t er = end_loc.row, ec = end_loc.column;
+                uint32_t token_type = WO_LSPV2_SEMANTIC_VARIABLE;
+
+                if (ast_node->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
+                {
+                    token_type = WO_LSPV2_SEMANTIC_TYPE;
+                }
+                else if (ast_node->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_begin
+                    && ast_node->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_end)
+                {
+                    if (ast_node->node_type == wo::ast::AstBase::node_type_t::AST_VALUE_VARIABLE)
+                    {
+                        auto* var_node = static_cast<wo::ast::AstValueVariable*>(ast_node);
+                        if (var_node->m_LANG_variable_instance.has_value())
+                        {
+                            auto* var_inst = var_node->m_LANG_variable_instance.value();
+                            switch (var_inst->m_symbol->m_symbol_kind)
+                            {
+                            case wo::lang_Symbol::kind::TYPE:
+                            case wo::lang_Symbol::kind::ALIAS:
+                                token_type = WO_LSPV2_SEMANTIC_TYPE;
+                                break;
+                            default:
+                                token_type = WO_LSPV2_SEMANTIC_VARIABLE;
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Skip non-variable value expressions (operators, literals, etc.)
+                        continue;
+                    }
+                }
+                else
+                {
+                    continue;
+                }
+
+                _add_token(tokens, seen, br, bc, er, ec, token_type, 0);
+            }
+        }
+        break; // Only the first matching file matters
+    }
+
+    // === Phase 2: Walk scope tree for declaration-site tokens ===
+
+    wo_lspv2_scope* global_scope = wo_lspv2_meta_get_global_scope(meta);
+    if (global_scope != nullptr)
+    {
+        _walk_scope_for_semantic_tokens(global_scope, current_file, tokens, seen);
+    }
+
+    // === Phase 3: Walk macros for the current file ===
+
+    wo_lspv2_macro_iter* macro_iter = wo_lspv2_meta_macro_iter(meta);
+    if (macro_iter != nullptr)
+    {
+        for (;;)
+        {
+            wo_lspv2_macro* macro_handle = wo_lspv2_macro_next(macro_iter);
+            if (macro_handle == nullptr)
+                break;
+
+            wo::lang_Macro* lang_macro = std::launder(reinterpret_cast<wo::lang_Macro*>(macro_handle));
+            if (lang_macro->m_location.source_file == nullptr
+                || lang_macro->m_location.source_file->compare(current_file) != 0)
+                continue;
+
+            _add_token(tokens, seen,
+                lang_macro->m_location.begin_at.row,
+                lang_macro->m_location.begin_at.column,
+                lang_macro->m_location.end_at.row,
+                lang_macro->m_location.end_at.column,
+                WO_LSPV2_SEMANTIC_MACRO, WO_LSPV2_SEMANTIC_MOD_DECLARATION);
+        }
+    }
+
+    // Sort by (begin_row, begin_col) for VSCode delta encoding
+    std::sort(tokens.begin(), tokens.end(),
+        [](const wo_lspv2_semantic_token& a, const wo_lspv2_semantic_token& b) {
+            if (a.m_begin_row != b.m_begin_row)
+                return a.m_begin_row < b.m_begin_row;
+            return a.m_begin_col < b.m_begin_col;
+        });
+
+    *out_count = tokens.size();
+    if (tokens.empty())
+        return nullptr;
+
+    wo_lspv2_semantic_token* result = new wo_lspv2_semantic_token[tokens.size()];
+    std::copy(tokens.begin(), tokens.end(), result);
+    return result;
+}
+
+void wo_lspv2_semantic_tokens_free(wo_lspv2_semantic_token* tokens)
+{
+    delete[] tokens;
+}
+
 #endif
