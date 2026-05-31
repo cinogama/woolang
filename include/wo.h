@@ -962,30 +962,31 @@ typedef enum _wo_lspv2_semantic_modifier
  */
 typedef struct _wo_lspv2_semantic_token
 {
-    size_t m_begin_row;    /**< @brief 0-based start row. */
-    size_t m_begin_col;    /**< @brief 0-based start column. */
-    size_t m_end_row;      /**< @brief 0-based end row (exclusive). */
-    size_t m_end_col;      /**< @brief 0-based end column (exclusive). */
-    uint32_t m_token_type; /**< @brief One of wo_lspv2_semantic_token_type. */
-    uint32_t m_modifiers;  /**< @brief Bitmask of wo_lspv2_semantic_modifier. */
+    const char* m_file_name; /**< @brief Source file path. */
+    size_t m_begin_row;      /**< @brief 0-based start row. */
+    size_t m_begin_col;      /**< @brief 0-based start column. */
+    size_t m_end_row;        /**< @brief 0-based end row (exclusive). */
+    size_t m_end_col;        /**< @brief 0-based end column (exclusive). */
+    uint32_t m_token_type;   /**< @brief One of wo_lspv2_semantic_token_type. */
+    uint32_t m_modifiers;    /**< @brief Bitmask of wo_lspv2_semantic_modifier. */
 
 } wo_lspv2_semantic_token;
 
 /**
- * @brief Get semantic tokens for the current source file.
- * @param meta          The source metadata.
- * @param current_file  Source file path to filter tokens for.
- * @param out_count     Output: number of tokens written.
+ * @brief Get semantic tokens for all source files in the metadata.
+ * @param meta       The source metadata.
+ * @param out_count  Output: number of tokens written.
  * @return Array of semantic tokens (free with wo_lspv2_semantic_tokens_free), or NULL.
  */
 WO_API /* OPTIONAL */ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
-    wo_lspv2_source_meta* meta, const char* current_file, size_t* out_count);
+    wo_lspv2_source_meta* meta, size_t* out_count);
 
 /**
  * @brief Free a semantic token array.
  * @param tokens  The token array to free.
+ * @param count   Number of tokens (from out_count of get_semantic_tokens).
  */
-WO_API void wo_lspv2_semantic_tokens_free(wo_lspv2_semantic_token* tokens);
+WO_API void wo_lspv2_semantic_tokens_free(wo_lspv2_semantic_token* tokens, size_t count);
 
 /**@}*/
 
