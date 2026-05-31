@@ -1064,11 +1064,13 @@ static void _collect_all_semantic_tokens(
     }
 
     // Phase 2: scope tree
+#if 0
     wo_lspv2_scope* global_scope = wo_lspv2_meta_get_global_scope(meta);
     if (global_scope != nullptr)
     {
         _walk_scope_for_semantic_tokens(global_scope, out_tokens, seen);
     }
+#endif
 
     // Phase 3: macros
     wo_lspv2_macro_iter* macro_iter = wo_lspv2_meta_macro_iter(meta);
