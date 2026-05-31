@@ -896,6 +896,13 @@ const char* wo_lspv2_token_info_enstring(
 
 // ==================== Semantic Tokens API ====================
 
+struct _semantic_token_entry
+{
+    wo::ast::AstBase::source_location_t location;
+    uint32_t token_type;
+    uint32_t modifiers;
+};
+
 struct _semantic_token_key
 {
     std::string file_name;
@@ -912,18 +919,24 @@ struct _semantic_token_key
     }
 };
 
-static void _add_token(
-    std::vector<wo_lspv2_semantic_token>& tokens,
+static void _collect_token(
+    std::vector<_semantic_token_entry>& tokens,
     std::set<_semantic_token_key>& seen,
-    const char* file_name,
-    size_t begin_row, size_t begin_col,
-    size_t end_row, size_t end_col,
+    const wo::ast::AstBase::source_location_t& loc,
     uint32_t token_type, uint32_t modifiers)
 {
-    _semantic_token_key key{ file_name, begin_row, begin_col, end_row, end_col, token_type };
+    if (loc.source_file == nullptr)
+        return;
+
+    _semantic_token_key key{
+        loc.source_file->c_str(),
+        loc.begin_at.row, loc.begin_at.column,
+        loc.end_at.row, loc.end_at.column,
+        token_type };
+
     if (seen.insert(std::move(key)).second)
     {
-        tokens.push_back({ _wo_strdup(file_name), begin_row, begin_col, end_row, end_col, token_type, modifiers });
+        tokens.push_back({ loc, token_type, modifiers });
     }
 }
 
@@ -951,10 +964,9 @@ static uint32_t _classify_type_symbol(wo::lang_Symbol* symbol)
     return WO_LSPV2_SEMANTIC_TYPE;
 }
 
-// Phase 2: Walk scope tree and emit declaration-site tokens
 static void _walk_scope_for_semantic_tokens(
     wo_lspv2_scope* scope_handle,
-    std::vector<wo_lspv2_semantic_token>& tokens,
+    std::vector<_semantic_token_entry>& tokens,
     std::set<_semantic_token_key>& seen)
 {
     wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope_handle));
@@ -964,10 +976,6 @@ static void _walk_scope_for_semantic_tokens(
         wo::lang_Symbol* symbol = symbol_ptr.get();
 
         if (!symbol->m_symbol_declare_location.has_value())
-            continue;
-
-        auto& loc = symbol->m_symbol_declare_location.value();
-        if (loc.source_file == nullptr)
             continue;
 
         uint32_t token_type = WO_LSPV2_SEMANTIC_VARIABLE;
@@ -985,14 +993,11 @@ static void _walk_scope_for_semantic_tokens(
             break;
         }
 
-        _add_token(tokens, seen,
-            loc.source_file->c_str(),
-            loc.begin_at.row, loc.begin_at.column,
-            loc.end_at.row, loc.end_at.column,
+        _collect_token(tokens, seen,
+            symbol->m_symbol_declare_location.value(),
             token_type, WO_LSPV2_SEMANTIC_MOD_DECLARATION);
     }
 
-    // Walk sub-scopes using the iterator pattern
     wo_lspv2_scope_iter* iter = wo_lspv2_scope_sub_scope_iter(scope_handle);
     for (;;)
     {
@@ -1003,30 +1008,19 @@ static void _walk_scope_for_semantic_tokens(
     }
 }
 
-wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
-    wo_lspv2_source_meta* meta, size_t* out_count)
+static void _collect_all_semantic_tokens(
+    wo_lspv2_source_meta* meta,
+    std::vector<_semantic_token_entry>& out_tokens)
 {
-    if (!meta->m_langcontext_if_passed_grammar.has_value())
-    {
-        *out_count = 0;
-        return nullptr;
-    }
-
-    std::vector<wo_lspv2_semantic_token> tokens;
     std::set<_semantic_token_key> seen;
 
-    // === Phase 1: Walk expression collections for all files ===
-
+    // Phase 1: expression collections
     for (auto& [file_name, expr_map] : meta->m_source_expr_collection)
     {
-        const char* cfile = file_name->c_str();
-
         for (auto& [begin_loc, end_map] : expr_map)
         {
             for (auto& [end_loc, ast_node] : end_map)
             {
-                size_t br = begin_loc.row, bc = begin_loc.column;
-                size_t er = end_loc.row, ec = end_loc.column;
                 uint32_t token_type = WO_LSPV2_SEMANTIC_VARIABLE;
 
                 if (ast_node->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
@@ -1041,8 +1035,7 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
                         auto* var_node = static_cast<wo::ast::AstValueVariable*>(ast_node);
                         if (var_node->m_LANG_variable_instance.has_value())
                         {
-                            auto* var_inst = var_node->m_LANG_variable_instance.value();
-                            switch (var_inst->m_symbol->m_symbol_kind)
+                            switch (var_node->m_LANG_variable_instance.value()->m_symbol->m_symbol_kind)
                             {
                             case wo::lang_Symbol::kind::TYPE:
                             case wo::lang_Symbol::kind::ALIAS:
@@ -1064,21 +1057,20 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
                     continue;
                 }
 
-                _add_token(tokens, seen, cfile, br, bc, er, ec, token_type, 0);
+                _collect_token(out_tokens, seen,
+                    ast_node->source_location, token_type, 0);
             }
         }
     }
 
-    // === Phase 2: Walk scope tree for declaration-site tokens ===
-
+    // Phase 2: scope tree
     wo_lspv2_scope* global_scope = wo_lspv2_meta_get_global_scope(meta);
     if (global_scope != nullptr)
     {
-        _walk_scope_for_semantic_tokens(global_scope, tokens, seen);
+        _walk_scope_for_semantic_tokens(global_scope, out_tokens, seen);
     }
 
-    // === Phase 3: Walk macros for all files ===
-
+    // Phase 3: macros
     wo_lspv2_macro_iter* macro_iter = wo_lspv2_meta_macro_iter(meta);
     if (macro_iter != nullptr)
     {
@@ -1089,43 +1081,65 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
                 break;
 
             wo::lang_Macro* lang_macro = std::launder(reinterpret_cast<wo::lang_Macro*>(macro_handle));
-            if (lang_macro->m_location.source_file == nullptr)
-                continue;
-
-            _add_token(tokens, seen,
-                lang_macro->m_location.source_file->c_str(),
-                lang_macro->m_location.begin_at.row,
-                lang_macro->m_location.begin_at.column,
-                lang_macro->m_location.end_at.row,
-                lang_macro->m_location.end_at.column,
+            _collect_token(out_tokens, seen,
+                lang_macro->m_location,
                 WO_LSPV2_SEMANTIC_MACRO, WO_LSPV2_SEMANTIC_MOD_DECLARATION);
         }
     }
 
-    // Sort by (file_name, begin_row, begin_col) for deterministic output
-    std::sort(tokens.begin(), tokens.end(),
-        [](const wo_lspv2_semantic_token& a, const wo_lspv2_semantic_token& b) {
-            int cmp = strcmp(a.m_file_name, b.m_file_name);
+    std::sort(out_tokens.begin(), out_tokens.end(),
+        [](const _semantic_token_entry& a, const _semantic_token_entry& b) {
+            int cmp = a.location.source_file->compare(*b.location.source_file);
             if (cmp != 0) return cmp < 0;
-            if (a.m_begin_row != b.m_begin_row)
-                return a.m_begin_row < b.m_begin_row;
-            return a.m_begin_col < b.m_begin_col;
+            if (a.location.begin_at.row != b.location.begin_at.row)
+                return a.location.begin_at.row < b.location.begin_at.row;
+            return a.location.begin_at.column < b.location.begin_at.column;
         });
-
-    *out_count = tokens.size();
-    if (tokens.empty())
-        return nullptr;
-
-    wo_lspv2_semantic_token* result = new wo_lspv2_semantic_token[tokens.size()];
-    std::copy(tokens.begin(), tokens.end(), result);
-    return result;
 }
 
-void wo_lspv2_semantic_tokens_free(wo_lspv2_semantic_token* tokens, size_t count)
+struct _wo_lspv2_semantic_token_iter
 {
-    for (size_t i = 0; i < count; i++)
-        free((void*)tokens[i].m_file_name);
-    delete[] tokens;
+    std::vector<_semantic_token_entry> m_tokens;
+    size_t m_index;
+};
+
+wo_lspv2_semantic_token_iter* wo_lspv2_meta_get_semantic_token_iter(
+    wo_lspv2_source_meta* meta)
+{
+    if (!meta->m_langcontext_if_passed_grammar.has_value())
+        return nullptr;
+
+    auto* iter = new _wo_lspv2_semantic_token_iter();
+    _collect_all_semantic_tokens(meta, iter->m_tokens);
+    iter->m_index = 0;
+    return iter;
+}
+
+wo_lspv2_semantic_token_info* wo_lspv2_semantic_token_next(
+    wo_lspv2_semantic_token_iter* iter)
+{
+    if (iter->m_index >= iter->m_tokens.size())
+    {
+        delete iter;
+        return nullptr;
+    }
+
+    auto& entry = iter->m_tokens[iter->m_index++];
+    return new wo_lspv2_semantic_token_info{
+        wo_lspv2_location{
+            _wo_strdup(entry.location.source_file->c_str()),
+            { entry.location.begin_at.row, entry.location.begin_at.column },
+            { entry.location.end_at.row, entry.location.end_at.column },
+        },
+        entry.token_type,
+        entry.modifiers,
+    };
+}
+
+void wo_lspv2_semantic_token_info_free(wo_lspv2_semantic_token_info* info)
+{
+    free((void*)info->m_location.m_file_name);
+    delete info;
 }
 
 #endif

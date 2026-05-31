@@ -957,36 +957,41 @@ typedef enum _wo_lspv2_semantic_modifier
 
 } wo_lspv2_semantic_modifier;
 
+/** @brief Opaque iterator over semantic tokens. */
+typedef struct _wo_lspv2_semantic_token_iter wo_lspv2_semantic_token_iter;
+
 /**
- * @brief A single semantic token record.
+ * @brief Information about a single semantic token.
  */
-typedef struct _wo_lspv2_semantic_token
+typedef struct _wo_lspv2_semantic_token_info
 {
-    const char* m_file_name; /**< @brief Source file path for this token. */
-    size_t m_begin_row;      /**< @brief 0-based start row. */
-    size_t m_begin_col;      /**< @brief 0-based start column. */
-    size_t m_end_row;        /**< @brief 0-based end row (exclusive). */
-    size_t m_end_col;        /**< @brief 0-based end column (exclusive). */
-    uint32_t m_token_type;   /**< @brief One of wo_lspv2_semantic_token_type. */
-    uint32_t m_modifiers;    /**< @brief Bitmask of wo_lspv2_semantic_modifier. */
+    wo_lspv2_location m_location; /**< @brief Source location (includes file name). */
+    uint32_t m_token_type;        /**< @brief One of wo_lspv2_semantic_token_type. */
+    uint32_t m_modifiers;         /**< @brief Bitmask of wo_lspv2_semantic_modifier. */
 
-} wo_lspv2_semantic_token;
+} wo_lspv2_semantic_token_info;
 
 /**
- * @brief Get semantic tokens for all source files.
- * @param meta          The source metadata.
- * @param out_count     Output: number of tokens written.
- * @return Array of semantic tokens (free with wo_lspv2_semantic_tokens_free), or NULL.
+ * @brief Create an iterator over all semantic tokens in source metadata.
+ * @param meta  The source metadata.
+ * @return A semantic token iterator, or NULL if grammar analysis failed.
  */
-WO_API /* OPTIONAL */ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
-    wo_lspv2_source_meta* meta, size_t* out_count);
+WO_API /* OPTIONAL */ wo_lspv2_semantic_token_iter*
+    wo_lspv2_meta_get_semantic_token_iter(wo_lspv2_source_meta* meta);
 
 /**
- * @brief Free a semantic token array.
- * @param tokens  The token array to free.
- * @param count   Number of tokens in the array.
+ * @brief Advance the iterator and return the next semantic token info.
+ * @param iter  The semantic token iterator.
+ * @return Next token info (free with wo_lspv2_semantic_token_info_free), or NULL when exhausted.
  */
-WO_API void wo_lspv2_semantic_tokens_free(wo_lspv2_semantic_token* tokens, size_t count);
+WO_API /* OPTIONAL */ wo_lspv2_semantic_token_info*
+    wo_lspv2_semantic_token_next(wo_lspv2_semantic_token_iter* iter);
+
+/**
+ * @brief Free a semantic token info struct.
+ * @param info  The token info to free.
+ */
+WO_API void wo_lspv2_semantic_token_info_free(wo_lspv2_semantic_token_info* info);
 
 /**@}*/
 
