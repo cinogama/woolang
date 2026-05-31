@@ -613,48 +613,6 @@ typedef struct _wo_lspv2_token_info
 
 } wo_lspv2_token_info;
 
-/**
- * @brief Semantic token types for syntax highlighting.
- *
- * These describe the semantic role of a source range so that editors
- * can color identifiers according to their meaning (variable, function,
- * type, etc.) rather than relying solely on regex-based TextMate grammars.
- */
-typedef enum _wo_lspv2_semantic_token_type
-{
-    WO_LSPV2_SEMANTIC_NAMESPACE,      /**< @brief Namespace name. */
-    WO_LSPV2_SEMANTIC_TYPE,           /**< @brief Type reference or definition. */
-    WO_LSPV2_SEMANTIC_ENUM,           /**< @brief Enum definition. */
-    WO_LSPV2_SEMANTIC_STRUCT,         /**< @brief Struct definition. */
-    WO_LSPV2_SEMANTIC_TYPE_PARAMETER, /**< @brief Template type parameter. */
-    WO_LSPV2_SEMANTIC_PARAMETER,      /**< @brief Function parameter. */
-    WO_LSPV2_SEMANTIC_VARIABLE,       /**< @brief Variable or binding. */
-    WO_LSPV2_SEMANTIC_PROPERTY,       /**< @brief Struct/union field member. */
-    WO_LSPV2_SEMANTIC_FUNCTION,       /**< @brief Function or method. */
-    WO_LSPV2_SEMANTIC_MACRO,          /**< @brief Macro name. */
-
-} wo_lspv2_semantic_token_type;
-
-/** @brief Modifier flags for semantic tokens. */
-typedef enum _wo_lspv2_semantic_modifier
-{
-    WO_LSPV2_SEMANTIC_MOD_DECLARATION = 1 << 0,   /**< @brief Token is a declaration (definition). */
-    WO_LSPV2_SEMANTIC_MOD_READONLY    = 1 << 1,   /**< @brief Token is read-only. */
-
-} wo_lspv2_semantic_modifier;
-
-/** @brief A single semantic token produced by the compiler. */
-typedef struct _wo_lspv2_semantic_token
-{
-    size_t m_begin_row;          /**< @brief Start row (0-based). */
-    size_t m_begin_col;          /**< @brief Start column (0-based). */
-    size_t m_end_row;            /**< @brief End row (0-based, exclusive). */
-    size_t m_end_col;            /**< @brief End column (0-based, exclusive). */
-    uint32_t m_token_type;       /**< @brief Semantic token type (@ref wo_lspv2_semantic_token_type). */
-    uint32_t m_modifiers;        /**< @brief Bitmask of @ref wo_lspv2_semantic_modifier flags. */
-
-} wo_lspv2_semantic_token;
-
 /** @} */ /* end LSPv2 Common Types */
 
 /* ========== LSPv2 Functions ========== */
@@ -965,33 +923,6 @@ WO_API void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer);
 
 /** @brief Free token info. */
 WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
-
-/**@}*/
-
-/** @name LSP Semantic Tokens API */
-/**@{*/
-
-/**
- * @brief Get semantic tokens for syntax highlighting from compiled metadata.
- *
- * Walks the expression collection and symbol table to produce a flat
- * array of semantic tokens. Each token describes the semantic role of
- * a source range (variable, function, type, etc.).
- *
- * @param meta       The source metadata from wo_lspv2_compile_to_meta.
- * @param out_count  Receives the number of tokens in the returned array.
- * @return A heap-allocated array of ::wo_lspv2_semantic_token, or NULL.
- *         Free with wo_lspv2_semantic_tokens_free.
- */
-WO_API /* OPTIONAL */ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
-    wo_lspv2_source_meta* meta,
-    size_t* out_count);
-
-/**
- * @brief Free the semantic token array returned by wo_lspv2_meta_get_semantic_tokens.
- * @param tokens  The token array to free.
- */
-WO_API void wo_lspv2_semantic_tokens_free(wo_lspv2_semantic_token* tokens);
 
 /**@}*/
 
