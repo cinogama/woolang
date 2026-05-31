@@ -962,7 +962,7 @@ typedef enum _wo_lspv2_semantic_modifier
  */
 typedef struct _wo_lspv2_semantic_token
 {
-    const char* m_file_name; /**< @brief Source file path. */
+    const char* m_file_name; /**< @brief Source file path for this token. */
     size_t m_begin_row;      /**< @brief 0-based start row. */
     size_t m_begin_col;      /**< @brief 0-based start column. */
     size_t m_end_row;        /**< @brief 0-based end row (exclusive). */
@@ -973,9 +973,9 @@ typedef struct _wo_lspv2_semantic_token
 } wo_lspv2_semantic_token;
 
 /**
- * @brief Get semantic tokens for all source files in the metadata.
- * @param meta       The source metadata.
- * @param out_count  Output: number of tokens written.
+ * @brief Get semantic tokens for all source files.
+ * @param meta          The source metadata.
+ * @param out_count     Output: number of tokens written.
  * @return Array of semantic tokens (free with wo_lspv2_semantic_tokens_free), or NULL.
  */
 WO_API /* OPTIONAL */ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
@@ -984,7 +984,7 @@ WO_API /* OPTIONAL */ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens
 /**
  * @brief Free a semantic token array.
  * @param tokens  The token array to free.
- * @param count   Number of tokens (from out_count of get_semantic_tokens).
+ * @param count   Number of tokens in the array.
  */
 WO_API void wo_lspv2_semantic_tokens_free(wo_lspv2_semantic_token* tokens, size_t count);
 

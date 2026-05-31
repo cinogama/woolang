@@ -898,17 +898,16 @@ const char* wo_lspv2_token_info_enstring(
 
 struct _semantic_token_key
 {
-    wo_pstring_t file_name;
+    std::string file_name;
     size_t begin_row, begin_col, end_row, end_col;
     uint32_t token_type;
     bool operator<(const _semantic_token_key& other) const
     {
-        int cmp = file_name->compare(*other.file_name);
-        if (cmp != 0) return cmp < 0;
-        if (begin_row != other.begin_row) return begin_row < other.begin_row;
-        if (begin_col != other.begin_col) return begin_col < other.begin_col;
-        if (end_row   != other.end_row)   return end_row   < other.end_row;
-        if (end_col   != other.end_col)   return end_col   < other.end_col;
+        if (file_name  != other.file_name)  return file_name  < other.file_name;
+        if (begin_row  != other.begin_row)  return begin_row  < other.begin_row;
+        if (begin_col  != other.begin_col)  return begin_col  < other.begin_col;
+        if (end_row    != other.end_row)    return end_row    < other.end_row;
+        if (end_col    != other.end_col)    return end_col    < other.end_col;
         return token_type < other.token_type;
     }
 };
@@ -916,18 +915,15 @@ struct _semantic_token_key
 static void _add_token(
     std::vector<wo_lspv2_semantic_token>& tokens,
     std::set<_semantic_token_key>& seen,
-    wo_pstring_t file_name,
+    const char* file_name,
     size_t begin_row, size_t begin_col,
     size_t end_row, size_t end_col,
     uint32_t token_type, uint32_t modifiers)
 {
     _semantic_token_key key{ file_name, begin_row, begin_col, end_row, end_col, token_type };
-    if (seen.insert(key).second)
+    if (seen.insert(std::move(key)).second)
     {
-        tokens.push_back({
-            _wo_strdup(file_name->c_str()),
-            begin_row, begin_col, end_row, end_col,
-            token_type, modifiers });
+        tokens.push_back({ _wo_strdup(file_name), begin_row, begin_col, end_row, end_col, token_type, modifiers });
     }
 }
 
@@ -989,7 +985,8 @@ static void _walk_scope_for_semantic_tokens(
             break;
         }
 
-        _add_token(tokens, seen, loc.source_file,
+        _add_token(tokens, seen,
+            loc.source_file->c_str(),
             loc.begin_at.row, loc.begin_at.column,
             loc.end_at.row, loc.end_at.column,
             token_type, WO_LSPV2_SEMANTIC_MOD_DECLARATION);
@@ -1018,10 +1015,12 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
     std::vector<wo_lspv2_semantic_token> tokens;
     std::set<_semantic_token_key> seen;
 
-    // === Phase 1: Walk all expression collections ===
+    // === Phase 1: Walk expression collections for all files ===
 
     for (auto& [file_name, expr_map] : meta->m_source_expr_collection)
     {
+        const char* cfile = file_name->c_str();
+
         for (auto& [begin_loc, end_map] : expr_map)
         {
             for (auto& [end_loc, ast_node] : end_map)
@@ -1057,7 +1056,6 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
                     }
                     else
                     {
-                        // Skip non-variable value expressions (operators, literals, etc.)
                         continue;
                     }
                 }
@@ -1066,8 +1064,7 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
                     continue;
                 }
 
-                _add_token(tokens, seen, file_name,
-                    br, bc, er, ec, token_type, 0);
+                _add_token(tokens, seen, cfile, br, bc, er, ec, token_type, 0);
             }
         }
     }
@@ -1080,7 +1077,7 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
         _walk_scope_for_semantic_tokens(global_scope, tokens, seen);
     }
 
-    // === Phase 3: Walk all macros ===
+    // === Phase 3: Walk macros for all files ===
 
     wo_lspv2_macro_iter* macro_iter = wo_lspv2_meta_macro_iter(meta);
     if (macro_iter != nullptr)
@@ -1096,7 +1093,7 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
                 continue;
 
             _add_token(tokens, seen,
-                lang_macro->m_location.source_file,
+                lang_macro->m_location.source_file->c_str(),
                 lang_macro->m_location.begin_at.row,
                 lang_macro->m_location.begin_at.column,
                 lang_macro->m_location.end_at.row,
@@ -1105,7 +1102,7 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
         }
     }
 
-    // Sort by (file_name, begin_row, begin_col) for VSCode delta encoding
+    // Sort by (file_name, begin_row, begin_col) for deterministic output
     std::sort(tokens.begin(), tokens.end(),
         [](const wo_lspv2_semantic_token& a, const wo_lspv2_semantic_token& b) {
             int cmp = strcmp(a.m_file_name, b.m_file_name);
@@ -1126,12 +1123,9 @@ wo_lspv2_semantic_token* wo_lspv2_meta_get_semantic_tokens(
 
 void wo_lspv2_semantic_tokens_free(wo_lspv2_semantic_token* tokens, size_t count)
 {
-    if (tokens != nullptr)
-    {
-        for (size_t i = 0; i < count; ++i)
-            free((void*)tokens[i].m_file_name);
-        delete[] tokens;
-    }
+    for (size_t i = 0; i < count; i++)
+        free((void*)tokens[i].m_file_name);
+    delete[] tokens;
 }
 
 #endif
