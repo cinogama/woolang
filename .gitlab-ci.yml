@@ -126,12 +126,9 @@ test_coverage_debug:
     - cd test
     - baozi install
     - ../build/woolang_debug ./test_all.wo --woort-gc-max-reserved-memory 2560
-    - cd ../build/src/CMakeFiles/woolang.dir
-    - gcov -b -l -p -c *.gcno
-    - cd ../../../../
     - pwd
-    - gcovr . -r ./src -g -k
-    - gcovr . -r ./src -g -k --html --html-details -o report.html
+    - gcovr . -r ./src -g -k --gcov-executable gcov-11
+    - gcovr . -r ./src -g -k --gcov-executable gcov-11 --html --html-details -o report.html
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
