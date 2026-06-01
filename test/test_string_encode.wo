@@ -1,0 +1,65 @@
+import woo::std;
+import test_tool;
+
+namespace test_string_encode
+{
+    func main()
+    {
+        let s = "hello"->enstring;
+        test_equal(s->len, 7);
+        test_assure(s[0] == '"');
+        test_equal(s->destring, "hello");
+
+        let s2 = "world"->enstring;
+        test_equal(s2->len, 7);
+        test_equal(s2->destring, "world");
+
+        let s3 = ""->enstring;
+        test_equal(s3, "\"\"");
+        test_equal(s3->len, 2);
+
+        let s4 = "he\"llo"->enstring;
+        test_equal(s4->destring, "he\"llo");
+
+        let s5 = "a\\b"->enstring;
+        test_equal(s5->destring, "a\\b");
+
+        test_equal("\n"->enstring->destring, "\n");
+        test_equal("\t"->enstring->destring, "\t");
+        test_equal("\r"->enstring->destring, "\r");
+        test_equal("\0"->enstring->destring, "\0");
+
+        test_equal("\\x1b"->destring->enstring->destring, "\\x1b"->destring);
+
+        test_equal("\\xFF"->destring->enstring->destring, "\\xFF"->destring);
+
+        test_equal("你"->enstring->destring, "你");
+
+        test_equal("ñ"->enstring->destring, "ñ");
+
+        test_equal("Α"->enstring->destring, "Α");
+
+        test_equal("д"->enstring->destring, "д");
+
+        let emoji1 = "😀"->enstring;
+        test_assure(emoji1->len > 4);
+        test_equal(emoji1->destring, "😀");
+
+        let emoji2 = "🍉"->enstring;
+        test_assure(emoji2->len > 4);
+        test_equal(emoji2->destring, "🍉");
+
+        let emoji3 = "🚀"->enstring;
+        test_assure(emoji3->len > 4);
+        test_equal(emoji3->destring, "🚀");
+
+        let mixed = "hello\nworld\t🍉你\r\nñ"->enstring->destring;
+        test_equal(mixed, "hello\nworld\t🍉你\r\nñ");
+
+        test_equal("abc"->enstring->destring, "abc");
+
+        test_equal("123"->enstring->destring, "123");
+    }
+}
+
+test_function("test_string_encode.main", test_string_encode::main);

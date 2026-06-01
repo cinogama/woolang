@@ -136,7 +136,76 @@ namespace test_string_u8
                 });
             ->> \t = t->wait;
             ;
-        
+
+        test_equal("ñoño"->len, 4);
+        test_equal("ñoño"[0], 'ñ');
+        test_equal("ñoño"[1], 'o');
+        test_equal("ñoño"[2], 'ñ');
+        test_equal("ñoño"[3], 'o');
+
+        test_equal("ü"->len, 1);
+        test_equal("ü"[0], 'ü');
+        test_equal("Ü"[0], 'Ü');
+
+        test_equal("café"->len, 4);
+        test_equal("café"[3], 'é');
+
+        test_equal("αβγ"->len, 3);
+        test_equal("αβγ"[0], 'α');
+        test_equal("αβγ"[1], 'β');
+        test_equal("αβγ"[2], 'γ');
+
+        test_equal("ΑΒΓ"[0], 'Α');
+        test_equal("ΑΒΓ"[2], 'Γ');
+
+        test_equal("добро"->len, 5);
+        test_equal("добро"[0], 'д');
+        test_equal("добро"[4], 'о');
+
+        test_equal("año世🍉"->len, 5);
+        test_equal("año世🍉"[0], 'a');
+        test_equal("año世🍉"[1], 'ñ');
+        test_equal("año世🍉"[2], 'o');
+        test_equal("año世🍉"[3], '世');
+        test_equal("año世🍉"[4], '🍉');
+
+        test_equal("año世🍉"->sub_len(0, 2), "añ");
+        test_equal("año世🍉"->sub_len(1, 3), "ño世");
+
+        test_equal("α1β2γ3"->sub_len(2, 3), "β2γ");
+        test_equal("α1β2γ3"[0], 'α');
+        test_equal("α1β2γ3"[2], 'β');
+        test_equal("α1β2γ3"->len, 6);
+
+        test_equal("helloαβγworld"->find("αβγ")->or(-1), 5);
+        test_equal("helloαβγworld"->find("αβ")->or(-1), 5);
+        test_equal("helloαβγworld"->find("βγ")->or(-1), 6);
+
+        test_equal("año世🍉"->find("ño")->or(-1), 1);
+        test_equal("año世🍉"->find("世")->or(-1), 3);
+        test_equal("año世🍉"->find("🍉")->or(-1), 4);
+
+        test_equal("año世año世"->rfind("ño")->or(-1), 5);
+        test_equal("año世año世"->find_from("ño", 3)->or(-1), 5);
+
+        test_equal("ααα"->find("αα")->or(-1), 0);
+        test_equal("αβα"->find("βα")->or(-1), 1);
+
+        let mixchars = "año世🍉"->chars as array<char>;
+        test_equal(mixchars->len, 5);
+        let mixcchars = "año世🍉"->cchars as array<cchar>;
+        test_assure(mixcchars->len > 5);
+
+        test_equal(mixchars->str, "año世🍉");
+        test_equal(mixcchars->cstr, "año世🍉");
+
+        test_equal("año世🍉"->sub_len(0, 1), "a");
+        test_equal("año世🍉"->sub_len(1, 1), "ñ");
+        test_equal("año世🍉"->sub_len(4, 1), "🍉");
+        test_equal("año世🍉"->sub_len(0, 5), "año世🍉");
+
+        test_equal("αβγ"->sub_len(0, 2), "αβ");
+        test_equal("αβγ"->sub_len(1, 1), "β");
     }
 }
 

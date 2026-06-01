@@ -34,6 +34,8 @@ import test_static;
 import test_enum;
 import test_vm;
 import test_thread;
+import test_string_decode;
+import test_string_encode;
 /*                                       */
 ///////////////////////////////////////////
 /*    TODO-LIST

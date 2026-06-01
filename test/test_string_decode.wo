@@ -1,0 +1,41 @@
+import woo::std;
+import test_tool;
+
+namespace test_string_decode
+{
+    func main()
+    {
+        test_equal("\\a"->destring->len, 1);
+        test_equal("\\a"->destring, "\\x07"->destring);
+
+        test_equal("\\b"->destring->len, 1);
+        test_equal("\\b"->destring, "\\x08"->destring);
+
+        test_equal("\\f"->destring->len, 1);
+        test_equal("\\f"->destring, "\\x0C"->destring);
+
+        test_equal("\\n"->destring, "\n");
+        test_equal("\\r"->destring, "\\x0D"->destring);
+        test_equal("\\t"->destring, "\t");
+        test_equal("\\v"->destring, "\\x0B"->destring);
+
+        test_equal("\\\\"->destring, "\\");
+        test_equal("\\\""->destring, "\"");
+
+        test_equal("\\0"->destring, "\0");
+        test_equal("\\x00"->destring, "\0");
+
+        test_equal("\\7"->destring, "\\x07"->destring);
+        test_equal("\\377"->destring, "\\xFF"->destring);
+        test_equal("\\x41"->destring, "A");
+        test_equal("\\xFF"->destring, "\\377"->destring);
+
+        test_equal("\\u00f1"->destring, "ñ");
+        test_equal("\\u4f60"->destring, "你");
+
+        test_equal("\\uD83D\\uDE00"->destring, "😀");
+        test_equal("\\uD83D\\uDE00"->destring->len, 1);
+    }
+}
+
+test_function("test_string_decode.main", test_string_decode::main);
