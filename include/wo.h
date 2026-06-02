@@ -10,7 +10,7 @@
  */
 
 /** @brief Woolang version encoded as (major, minor, patch, tweak). */
-#define WO_VERSION WO_VERSION_WRAP(1, 15, 0, 0)
+#define WO_VERSION WO_VERSION_WRAP(1, 15, 0, 1)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
@@ -269,30 +269,6 @@ WO_API void wo_compile_errors_free(wo_CompileErrors* errors);
 WO_API const char* wo_get_compile_error(
     wo_CompileErrors* errors,
     wo_inform_style_t style);
-
-/* ========== CRC64 API ========== */
-
-/**
- * @brief Accumulate a single byte into a CRC-64 checksum.
- * @param byte  The byte to incorporate.
- * @param crc   The current CRC-64 value (use 0 to start).
- * @return The updated CRC-64 checksum.
- */
-WO_API int64_t wo_crc64_u8(uint8_t byte, int64_t crc);
-
-/**
- * @brief Compute the CRC-64 checksum of a null-terminated string.
- * @param text  The input string.
- * @return The CRC-64 checksum.
- */
-WO_API int64_t wo_crc64_str(const char* text);
-
-/**
- * @brief Compute the CRC-64 checksum of a file's contents.
- * @param filepath  Path to the file.
- * @return The CRC-64 checksum, or 0 on error.
- */
-WO_API int64_t wo_crc64_file(const char* filepath);
 
 #if defined(WO_IMPL)
 #define WO_NEED_ERROR_CODES 1
