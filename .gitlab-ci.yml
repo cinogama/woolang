@@ -125,7 +125,7 @@ test_coverage_debug:
     # Begin coverage test
     - cd test
     - baozi install
-    - ../build/woolang_debug ./test_all.wo --woort-gc-max-reserved-memory 2560
+    - ../build/woolang_debug ./test_all.wo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
     - cd ../build/src/CMakeFiles/woolang.dir
     - gcov-11 -b -l -p -c *.gcno
     - cd ../../../../
@@ -166,7 +166,7 @@ test_debug_arm64:
     # Begin coverage test
     - cd test
     - baozi install
-    - ../build/woolang_debug ./test_all.wo --woort-gc-max-reserved-memory 2560
+    - ../build/woolang_debug ./test_all.wo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
     - cd ../../../../../
   artifacts:
     name: ubuntu-wo-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -201,7 +201,7 @@ test_debug_arm64_mac:
     - /usr/libexec/PlistBuddy -c "Add :com.apple.security.get-task-allow bool true" test.entitlements
     - codesign -s - -f --entitlements test.entitlements ../build/woolang_debug
     - baozi install
-    - ../build/woolang_debug ./test_all.wo --woort-gc-max-reserved-memory 2560
+    - ../build/woolang_debug ./test_all.wo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
     - cd ../../../../../
   artifacts:
     name: mac-wo-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -230,9 +230,9 @@ test_release:
     - ulimit -c unlimited
     - cd test
     - baozi install
-    - ../build/woolang ./test_all.wo -o test.woo
-    - ../build/woolang ./test.woo --woort-gc-max-reserved-memory 2560
-    - ../build/woolang ./test_all.wo --woort-gc-max-reserved-memory 2560
+    - ../build/woolang ./test_all.wo -o test.woo --woort-halt-panic-vm 1
+    - ../build/woolang ./test.woo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
+    - ../build/woolang ./test_all.wo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
     - cd ..
   tags:
     - ubuntu20
@@ -257,9 +257,9 @@ test_release_arm64:
     - ulimit -c unlimited
     - cd test
     - baozi install
-    - ../build/woolang ./test_all.wo -o test.woo
-    - ../build/woolang ./test.woo --woort-gc-max-reserved-memory 2560
-    - ../build/woolang ./test_all.wo --woort-gc-max-reserved-memory 2560
+    - ../build/woolang ./test_all.wo -o test.woo --woort-halt-panic-vm 1
+    - ../build/woolang ./test.woo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
+    - ../build/woolang ./test_all.wo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
     - cd ..
   tags:
     - ubuntu22_arm64
@@ -280,9 +280,9 @@ test_release_arm64_mac:
     - /usr/libexec/PlistBuddy -c "Add :com.apple.security.get-task-allow bool true" test.entitlements
     - codesign -s - -f --entitlements test.entitlements ../build/woolang
     - baozi install
-    - ../build/woolang ./test_all.wo -o test.woo
-    - ../build/woolang ./test.woo --woort-gc-max-reserved-memory 2560
-    - ../build/woolang ./test_all.wo --woort-gc-max-reserved-memory 2560
+    - ../build/woolang ./test_all.wo -o test.woo --woort-halt-panic-vm 1
+    - ../build/woolang ./test.woo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
+    - ../build/woolang ./test_all.wo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
     - cd ..
   tags:
     - mac-arm64
@@ -312,7 +312,7 @@ test_memory_debug:
     # Begin coverage test
     - cd test
     - baozi install
-    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woolang_debug ./test_all.wo --woort-gc-max-reserved-memory 2560
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woolang_debug ./test_all.wo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
     - cd ..
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -341,7 +341,7 @@ test_memory_release:
     - ulimit -c unlimited
     - cd test
     - baozi install
-    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woolang ./test_all.wo --woort-gc-max-reserved-memory 2560
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ../build/woolang ./test_all.wo --woort-gc-max-reserved-memory 2560 --woort-halt-panic-vm 1
     - cd ..
   tags:
     - ubuntu20
