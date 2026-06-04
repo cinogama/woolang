@@ -65,31 +65,6 @@
 
 WO_FORCE_CAPI
 
-/** @brief Reserve BYTECOUNT bytes of padding inside a struct. */
-#define WO_STRUCT_TAKE_PLACE(BYTECOUNT) uint8_t _take_palce_[BYTECOUNT]
-
-/**
- * @brief Runtime error/failure handler callback.
- *
- * When a runtime error occurs, this callback is invoked.
- * Return WO_FALSE to abort the VM, WO_TRUE to continue (if possible).
- *
- * @param vm_may_null  The VM instance that triggered the error (may be NULL).
- * @param src_file     Source file where the error occurred.
- * @param lineno       Line number where the error occurred.
- * @param functionname Function name where the error occurred.
- * @param rterrcode    Runtime error code identifier.
- * @param reason       Human-readable error description.
- * @return true to continue execution, false to abort the VM.
- */
-typedef bool (*wo_fail_handler_t)(
-    /* OPTIONAL */ woort_VMRuntime* vm_may_null,
-    const char* src_file,
-    uint32_t lineno,
-    const char* functionname,
-    uint32_t rterrcode,
-    const char* reason);
-
 /**
  * @brief Output formatting style for diagnostic messages.
  */
@@ -102,30 +77,6 @@ typedef enum _wo_inform_style_t
     WO_PLAIM,
 
 } wo_inform_style_t;
-
-/**
- * @brief A name-to-address pair for registering external library functions.
- */
-typedef struct _wo_extern_lib_func_pair
-{
-    const char* m_name;       /**< @brief Function name as seen in Woolang. */
-    void* m_func_addr;        /**< @brief Pointer to the C function implementation. */
-} wo_extern_lib_func_t;
-
-/** @brief Opaque handle to a pinned GC value (prevents collection). */
-typedef struct _wo_pin_value* wo_pin_value;
-
-/** @brief Opaque handle to a weak reference (non-owning GC pointer). */
-typedef struct _wo_weak_ref* wo_weak_ref;
-
-/** @brief Sentinel terminator for wo_extern_lib_func_t arrays. */
-#define WO_EXTERN_LIB_FUNC_END \
-    wo_extern_lib_func_t { nullptr, nullptr }
-/** @brief Trigger a fatal runtime error (aborts the process). */
-#define wo_fail(ERRID, ...) abort()
-
-/** @brief Trigger a fatal execution error on the given VM (aborts the process). */
-#define wo_execute_fail(VM, ERRID, REASON) abort()
 
 /* ========== Version & Locale API ========== */
 
@@ -271,7 +222,6 @@ WO_API const char* wo_get_compile_error(
     wo_inform_style_t style);
 
 #if defined(WO_IMPL)
-#define WO_NEED_ERROR_CODES 1
 #define WO_NEED_ANSI_CONTROL 1
 #define WO_NEED_LSP_API 1
 #define WO_NEED_OPCODE_API 1
@@ -972,39 +922,6 @@ WO_API void wo_lspv2_semantic_token_info_free(wo_lspv2_semantic_token_info* info
 /**@}*/
 
 #endif /* WO_NEED_LSP_API */
-
-/* ========== Runtime Error Codes ========== */
-
-#if defined(WO_NEED_ERROR_CODES)
-
-/** @brief User-initiated panic. */
-#   define WO_FAIL_USER_PANIC 0xD001
-/** @brief Feature not supported. */
-#   define WO_FAIL_NOT_SUPPORT 0xD002
-/** @brief Type mismatch error. */
-#   define WO_FAIL_TYPE_FAIL 0xD003
-/** @brief Attempt to access a nil value. */
-#   define WO_FAIL_ACCESS_NIL 0xD004
-/** @brief Index out of bounds. */
-#   define WO_FAIL_INDEX_FAIL 0xD005
-/** @brief Function call failure. */
-#   define WO_FAIL_CALL_FAIL 0xD006
-/** @brief Bad dynamic library. */
-#   define WO_FAIL_BAD_LIB 0xD007
-/** @brief Unexpected internal error. */
-#   define WO_FAIL_UNEXPECTED 0xD008
-/** @brief Stack overflow. */
-#   define WO_FAIL_STACKOVERFLOW 0xD009
-/** @brief Debuggee communication failure. */
-#   define WO_FAIL_DEBUGGEE_FAIL 0xD00A
-/** @brief Execution engine failure. */
-#   define WO_FAIL_EXECUTE_FAIL 0xD00B
-/** @brief Bad binary format. */
-#   define WO_FAIL_BAD_FORMAT 0xD00C
-/** @brief GC guard violation detected. */
-#   define WO_FAIL_GC_GUARD_VIOLATION 0xD00D
-
-#endif
 
 WO_FORCE_CAPI_END
 
