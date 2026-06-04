@@ -734,3 +734,43 @@ WO_API const char* wo_get_compile_error(
     }
     return nullptr;
 }
+
+WO_API uint64_t wo_crc64_u8(uint8_t byte, uint64_t crc)
+{
+    return wo::crc_64(byte, crc);
+}
+
+WO_API uint64_t wo_crc64_str(const char* text)
+{
+    if (text == nullptr)
+        return 0;
+
+    return wo::crc_64(text, 0);
+}
+
+WO_API uint64_t wo_crc64_file(woort_VFile* file)
+{
+    return wo::crc_64(file, 0);
+}
+
+WO_API uint64_t wo_crc64_file_from_path(const char* filepath)
+{
+    if (filepath == nullptr)
+        return 0;
+
+    char* resolved = nullptr;
+    if (!woort_vfs_resolve_path(filepath, nullptr, 0, &resolved))
+        return 0;
+
+    woort_VFile* vfile = nullptr;
+    const bool opened = woort_vfile_open(resolved, &vfile);
+    woort_free(resolved);
+
+    if (!opened)
+        return 0;
+
+    const uint64_t crc = wo_crc64_file(vfile);
+    woort_vfile_close(vfile);
+
+    return crc;
+}

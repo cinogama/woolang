@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <fstream>
+#include "woort.h"
 namespace wo
 {
 
@@ -175,6 +176,27 @@ namespace wo
         fle.clear(state);
         fle.seekg(index);
 
+        return crc;
+    }
+    inline uint64_t crc_64(woort_VFile* vfile, uint64_t crc)
+    {
+        if (vfile == nullptr)
+            return crc;
+
+        int64_t save_pos = woort_vfile_tell(vfile);
+        (void)woort_vfile_seek(vfile, 0, SEEK_SET);
+
+        uint8_t buf[4096];
+        for (;;)
+        {
+            size_t nread = woort_vfile_read(vfile, buf, sizeof(buf));
+            if (nread == 0)
+                break;
+            for (size_t i = 0; i < nread; ++i)
+                crc = _crc_64(buf[i], crc);
+        }
+
+        (void)woort_vfile_seek(vfile, save_pos, SEEK_SET);
         return crc;
     }
 }

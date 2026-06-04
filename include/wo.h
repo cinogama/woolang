@@ -221,6 +221,37 @@ WO_API const char* wo_get_compile_error(
     wo_CompileErrors* errors,
     wo_inform_style_t style);
 
+/* ========== CRC64 API ========== */
+
+/**
+ * @brief Accumulate a single byte into a CRC-64 checksum.
+ * @param byte  The byte to incorporate.
+ * @param crc   The current CRC-64 value (use 0 to start).
+ * @return The updated CRC-64 checksum.
+ */
+WO_API uint64_t wo_crc64_u8(uint8_t byte, uint64_t crc);
+
+/**
+ * @brief Compute the CRC-64 checksum of a null-terminated string.
+ * @param text  The input string.
+ * @return The CRC-64 checksum.
+ */
+WO_API uint64_t wo_crc64_str(const char* text);
+
+/**
+ * @brief Compute the CRC-64 checksum of a file's contents.
+ * @param file  The file.
+ * @return The CRC-64 checksum, or 0 on error.
+ */
+WO_API uint64_t wo_crc64_file(woort_VFile* file);
+
+/**
+ * @brief Compute the CRC-64 checksum of a file's contents.
+ * @param filepath  Path to the file.
+ * @return The CRC-64 checksum, or 0 on error.
+ */
+WO_API uint64_t wo_crc64_file_from_path(const char* filepath);
+
 #if defined(WO_IMPL)
 #define WO_NEED_ANSI_CONTROL 1
 #define WO_NEED_LSP_API 1
