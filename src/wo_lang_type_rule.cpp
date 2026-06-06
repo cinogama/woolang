@@ -458,7 +458,7 @@ namespace wo
                     std::make_pair(lang_TypeInstance::DeterminedType::NIL, &OriginTypeHolder::m_nil),
                     std::make_pair(lang_TypeInstance::DeterminedType::INTEGER, &OriginTypeHolder::m_int),
                     std::make_pair(lang_TypeInstance::DeterminedType::REAL, &OriginTypeHolder::m_real),
-                    // std::make_pair(lang_TypeInstance::DeterminedType::HANDLE, &OriginTypeHolder::m_handle),
+                    std::make_pair(lang_TypeInstance::DeterminedType::HANDLE, &OriginTypeHolder::m_handle),
                     std::make_pair(lang_TypeInstance::DeterminedType::BOOLEAN, &OriginTypeHolder::m_bool),
                     std::make_pair(lang_TypeInstance::DeterminedType::STRING, &OriginTypeHolder::m_string),
                     std::make_pair(lang_TypeInstance::DeterminedType::GCHANDLE, &OriginTypeHolder::m_gchandle),

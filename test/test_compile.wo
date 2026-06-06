@@ -2566,6 +2566,10 @@ func main()
 
         foo(0);
         "@);
+        assure_compile_success(@"
+        using user_handle_t = handle;
+        let a = 0: handle: user_handle_t;
+        "@);
 
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);
