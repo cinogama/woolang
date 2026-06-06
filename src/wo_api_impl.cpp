@@ -102,11 +102,7 @@ void wo_init(int argc, char** argv)
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
     wo::builtin_macro_lib_shutdown();
-    woort_shutdown();
-
-    // Ready to shutdown.
-    if (do_after_shutdown != nullptr)
-        do_after_shutdown(custom_data);
+    woort_shutdown(do_after_shutdown, custom_data);
 
     wo::wstring_pool::shutdown_global_str_pool();
 

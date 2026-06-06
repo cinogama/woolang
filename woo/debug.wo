@@ -23,5 +23,7 @@ namespace std
         }
         extern("woostd_debug_trace_callstack")
             public func traceback(layer_count: int)=> array<callstack>;
+        extern("woostd_debug_runtime_version")
+            public func runtime_version()=> (int, int, int, int);
     }
 }
