@@ -1633,7 +1633,7 @@ namespace wo
 
                 if (arguments->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
                 {
-                    if (arg_index == 0 && node->m_LANG_has_runtime_full_unpackargs)
+                    if (node->m_LANG_has_runtime_full_unpackargs)
                     {
                         AstFakeValueUnpack* const ast_fake_value_unpack =
                             static_cast<AstFakeValueUnpack*>(arguments);

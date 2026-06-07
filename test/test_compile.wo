@@ -2545,6 +2545,39 @@ func main()
         foo((1.,1.,1.)..., func(v){do v;});
         "@);
 
+        // Unpack array into variadic function, not at first arg position
+        // (regression: arg_index == 0 was incorrectly required, causing
+        //  IR counter / varargs slot to not be generated for unpack)
+        assure_compile_success(@"
+        func foo(_: int, ...)
+        {
+        }
+        let arr = [1, 2, 3];
+        foo(42, arr...);
+        "@);
+        assure_compile_success(@"
+        func foo(_: int, ...)
+        {
+        }
+        let arr = [1, 2, 3]mut;
+        foo(42, arr...);
+        "@);
+        assure_compile_success(@"
+        func foo(_: int, _: string, ...)
+        {
+        }
+        let arr = [1, 2, 3];
+        foo(42, "hello", arr...);
+        "@);
+        // Unpack array as first arg into variadic (should keep working)
+        assure_compile_success(@"
+        func foo(...)
+        {
+        }
+        let arr = [1, 2, 3];
+        foo(arr...);
+        "@);
+
         assure_compile_success(@"
         func foo<A, B, C>(_: A<B, C>)
         {
