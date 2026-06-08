@@ -541,7 +541,7 @@ namespace wo
                 IR_HOLD_FOR_LAND_LOR_RIGHT,
             };
 
-            bool m_consider_overload;
+            const bool m_consider_overload;
 
             std::optional<AstValueFunctionCall*> m_LANG_overload_call;
             LANG_hold_state m_LANG_hold_state;
