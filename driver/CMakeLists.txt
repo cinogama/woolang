@@ -2,8 +2,6 @@
 
 cmake_minimum_required (VERSION 3.10)
 
-include_directories("../include")
-
 set(WOOLANG_DRIVER_SOURCES wo_driver.cpp)
 if (MSVC)
     list(APPEND WOOLANG_DRIVER_SOURCES resources.rc)

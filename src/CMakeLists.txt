@@ -78,8 +78,7 @@ endif()
 add_library(woolang_library_options INTERFACE)
 target_compile_definitions(woolang_library_options INTERFACE -DWO_SRC_PATH="${PROJECT_SOURCE_DIR}")
 
-target_include_directories(woolang_library_options 
-    INTERFACE "../include"
+target_include_directories(woolang_library_options
     INTERFACE "../3rd/asmjit/src"
     INTERFACE "../3rd/mingw-std-threads")
 
@@ -114,7 +113,7 @@ target_include_directories(woolang
 target_link_libraries(woolang 
     PRIVATE woolang_options
     PRIVATE woolang_library_options
-    PRIVATE woort
+    PUBLIC woort
     PRIVATE ${woo_system_libs})
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)

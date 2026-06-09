@@ -43,9 +43,10 @@ add_subdirectory("3rd/woort")
 
 add_library(woolang_options INTERFACE)
 target_compile_features(woolang_options INTERFACE cxx_std_17)
+target_include_directories(woolang_options INTERFACE "include")
 
 if (MSVC)
-    target_compile_options(woolang_options INTERFACE "/source-charset:utf-8")
+    target_compile_options(woolang_options INTERFACE "/utf-8")
     target_compile_definitions(woolang_options INTERFACE -D_CRT_SECURE_NO_WARNINGS)
 else()
     target_compile_options(woolang_options INTERFACE -fno-exceptions)
