@@ -622,7 +622,7 @@ static std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_
     return _vm_compile_errors;
 }
 
-WO_API const char* wo_get_compile_error(
+const char* wo_get_compile_error(
     wo_CompileErrors* errors,
     wo_inform_style_t style)
 {
@@ -731,12 +731,12 @@ WO_API const char* wo_get_compile_error(
     return nullptr;
 }
 
-WO_API uint64_t wo_crc64_u8(uint8_t byte, uint64_t crc)
+uint64_t wo_crc64_u8(uint8_t byte, uint64_t crc)
 {
     return wo::crc_64(byte, crc);
 }
 
-WO_API uint64_t wo_crc64_str(const char* text)
+uint64_t wo_crc64_str(const char* text)
 {
     if (text == nullptr)
         return 0;
@@ -744,12 +744,12 @@ WO_API uint64_t wo_crc64_str(const char* text)
     return wo::crc_64(text, 0);
 }
 
-WO_API uint64_t wo_crc64_file(woort_VFile* file)
+uint64_t wo_crc64_file(woort_VFile* file)
 {
     return wo::crc_64(file, 0);
 }
 
-WO_API uint64_t wo_crc64_file_from_path(const char* filepath)
+uint64_t wo_crc64_file_from_path(const char* filepath)
 {
     if (filepath == nullptr)
         return 0;
