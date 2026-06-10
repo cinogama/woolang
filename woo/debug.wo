@@ -25,5 +25,14 @@ namespace std
             public func traceback(layer_count: int)=> array<callstack>;
         extern("woostd_debug_runtime_version")
             public func runtime_version()=> (int, int, int, int);
+
+        extern("woostd_debug_print")
+            public func print(...)=> void;
+
+        public func println(...)=> void
+        {
+            print(......);
+            std::print("\n");
+        }
     }
 }
