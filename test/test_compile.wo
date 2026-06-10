@@ -2608,6 +2608,62 @@ func main()
         assure_compile_fail(@""@);
         assure_compile_fail(@"^"@);
         assure_compile_fail(@"$"@);
+
+        assure_compile_success(@"
+        using Example = struct{}
+        {
+            func operator as(_: Example)
+            {
+                return "Ok";
+            }
+        }
+        let s = Example{};
+        do s as string;
+        "@);
+        assure_compile_fail(@"
+        using Example = struct{}
+        {
+            func operator as(_: Example)
+            {
+                return "Ok";
+            }
+        }
+        let s = Example{};
+        do s as int;
+        "@);
+        assure_compile_success(@"
+        using Example = struct{}
+        {
+            func operator as<T>(_: Example)
+            {
+                return 0 as T;
+            }
+        }
+        let s = Example{};
+        do s as string;
+        "@);
+        assure_compile_success(@"
+        using Example<U> = struct{}
+        {
+            func operator as<T, U>(_: Example<U>)
+            {
+                return 0 as T;
+            }
+        }
+        let s = Example:<int>{};
+        do s as string;
+        "@);
+        assure_compile_fail(@"
+        using Example = struct{}
+        {
+            func operator as<T>(_: Example)
+            {
+                return 0 as T;
+            }
+        }
+        let s = Example{};
+        do s as nil;
+        "@);
     }
     
     func main()

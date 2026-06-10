@@ -36,6 +36,8 @@ import test_vm;
 import test_thread;
 import test_string_decode;
 import test_string_encode;
+import test_operator_as;
+
 /*                                       */
 ///////////////////////////////////////////
 /*    TODO-LIST

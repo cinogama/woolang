@@ -2735,8 +2735,22 @@ namespace wo
                 AstValueFunctionCall* overload_function_call =
                     node->m_LANG_overload_call.value();
 
-                node->m_LANG_determined_type =
-                    overload_function_call->m_LANG_determined_type;
+                auto* target_type = node->m_cast_type->m_LANG_determined_type.value();
+                auto* func_result_type =
+                    overload_function_call->m_LANG_determined_type.value();
+
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT !=
+                    is_type_accepted(lex, node, target_type, func_result_type))
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_CANNOT_ACCEPTABLE_AS_OPERATOR_RESULT_TYPE_NAMED,
+                        get_type_name(func_result_type),
+                        get_type_name(target_type));
+
+                    return FAILED;
+                }
+
+                node->m_LANG_determined_type = target_type;
                 break;
             }
             default:
