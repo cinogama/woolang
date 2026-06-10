@@ -1,0 +1,45 @@
+import woo::std;
+import test_tool;
+
+namespace test_operator_as
+{
+    using MyInt = int
+    {
+        func operator as<T>(_: MyInt) => T
+        {
+            return 999 as T;
+        }
+    }
+
+    using MyVal = struct
+    {
+        x: int
+    }
+    {
+        func operator as<T>(a: MyVal) => T
+        {
+            return a.x as T;
+        }
+    }
+
+    func test_int_alias()
+    {
+        let v = 100 as MyInt;
+        let r = v as real;
+        test_equal(r, 999.0);
+        let i = v as int;
+        test_equal(i, 999);
+    }
+
+    func test_struct()
+    {
+        let v = struct{x = 42} as MyVal;
+        test_equal(v as int, 42);
+        test_equal(v as real, 42.0);
+        let b = v as bool;
+        test_assure(b);
+    }
+}
+
+test_function("test_operator_as.test_int_alias", test_operator_as::test_int_alias);
+test_function("test_operator_as.test_struct", test_operator_as::test_struct);

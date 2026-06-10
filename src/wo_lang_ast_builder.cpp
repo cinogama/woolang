@@ -324,6 +324,8 @@ namespace wo
                 return WO_PSTR(operator_LOR);
             case lex_type::l_index_begin:
                 return WO_PSTR(operator_INDEX);
+            case lex_type::l_as:
+                return WO_PSTR(operator_AS);
             default:
                 wo_error("Unsupport operator");
             }
@@ -1104,7 +1106,7 @@ namespace wo
             AstIdentifier* char_identifier = new AstIdentifier(WO_PSTR(char), std::nullopt, {}, true);
             AstTypeHolder* char_type = new AstTypeHolder(char_identifier);
 
-            AstValueTypeCast* cast = new AstValueTypeCast(char_type, literal_instance);
+            AstValueTypeCast* cast = new AstValueTypeCast(char_type, literal_instance, false);
 
             // Update source location
             literal_instance->source_location = literal_instance->source_location;
@@ -1153,7 +1155,7 @@ namespace wo
             AstValueBase* value = WO_NEED_AST_VALUE(0);
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
 
-            return new AstValueTypeCast(type, value);
+            return new AstValueTypeCast(type, value, true);
         }
         auto pass_format_finish::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1188,7 +1190,7 @@ namespace wo
             AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
             AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
 
-            AstValueTypeCast* cast = new AstValueTypeCast(string_type, value);
+            AstValueTypeCast* cast = new AstValueTypeCast(string_type, value, false);
 
             // Update source location
             string_identifier->source_location = value->source_location;
@@ -1207,7 +1209,7 @@ namespace wo
 
             AstIdentifier* string_identifier = new AstIdentifier(WO_PSTR(string), std::nullopt, {}, true);
             AstTypeHolder* string_type = new AstTypeHolder(string_identifier);
-            AstValueTypeCast* cast = new AstValueTypeCast(string_type, last_value);
+            AstValueTypeCast* cast = new AstValueTypeCast(string_type, last_value, false);
 
             AstValueBinaryOperator* first_middle_add =
                 new AstValueBinaryOperator(AstValueBinaryOperator::ADD, first_string, middle_string, false);

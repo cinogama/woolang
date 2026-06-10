@@ -71,6 +71,7 @@ namespace wo::fixstr
     inline wo_pstring_t _global_operator_EQ;
     inline wo_pstring_t _global_operator_NEQ;
     inline wo_pstring_t _global_operator_INDEX;
+    inline wo_pstring_t _global_operator_AS;
     inline wo_pstring_t _global_label_woolang_program_end;
 }
 
@@ -131,6 +132,7 @@ namespace wo
             WO_GLOBAL_PSTR_WITH_CONST(operator_EQ, "operator ==");
             WO_GLOBAL_PSTR_WITH_CONST(operator_NEQ, "operator !=");
             WO_GLOBAL_PSTR_WITH_CONST(operator_INDEX, "operator []");
+            WO_GLOBAL_PSTR_WITH_CONST(operator_AS, "operator as");
             WO_GLOBAL_PSTR_WITH_CONST(label_woolang_program_end, "#woolang_program_end");
 #undef WO_GLOBAL_PSTR
 
@@ -160,6 +162,7 @@ namespace wo
             WO_GLOBAL_PSTR(operator_EQ);
             WO_GLOBAL_PSTR(operator_NEQ);
             WO_GLOBAL_PSTR(operator_INDEX);
+            WO_GLOBAL_PSTR(operator_AS);
             WO_GLOBAL_PSTR(label_woolang_program_end);
 #undef WO_GLOBAL_PSTR
         }

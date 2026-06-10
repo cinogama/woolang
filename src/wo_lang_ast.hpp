@@ -375,16 +375,6 @@ namespace wo
             AstValueTypeid(AstTypeHolder* id_type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
-        struct AstValueTypeCast : public AstValueBase
-        {
-            AstTypeHolder* m_cast_type;
-            AstValueBase* m_cast_value;
-
-            bool m_IR_need_eval;
-
-            AstValueTypeCast(AstTypeHolder* cast_type, AstValueBase* cast_value);
-            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
-        };
         struct AstValueDoAsVoid : public AstValueBase
         {
             AstValueBase* m_do_value;
@@ -548,6 +538,16 @@ namespace wo
 
             AstValueMayConsiderOperatorOverload(AstBase::node_type_t nodetype, bool consider_overload);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstValueTypeCast : public AstValueMayConsiderOperatorOverload
+        {
+            AstTypeHolder* m_cast_type;
+            AstValueBase* m_cast_value;
+
+            bool m_IR_need_eval;
+
+            AstValueTypeCast(AstTypeHolder* cast_type, AstValueBase* cast_value, bool consider_overload);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
         struct AstValueBinaryOperator : public AstValueMayConsiderOperatorOverload
         {

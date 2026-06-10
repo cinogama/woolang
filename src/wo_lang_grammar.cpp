@@ -225,6 +225,7 @@ namespace wo
             P(OVERLOADINGABLE_OPERATOR, pass_token, (TE(l_lor)));
             // P(OVERLOADINGABLE_OPERATOR, pass_token, (TE(l_lnot)));
             P(OVERLOADINGABLE_OPERATOR, pass_token, (TE(l_index_begin), TE(l_index_end)));
+            P(OVERLOADINGABLE_OPERATOR, pass_token, (TE(l_as)));
             //////////////////////////////////////////////////////////////////////////////////////////////
             P(EXTERN_FROM, pass_extern, (
                 TE(l_extern),

@@ -1130,7 +1130,7 @@ namespace wo
             bool is_ret_void = true;
             if (node->m_IR_return_value_may_none.has_value())
             {
-                lang_TypeInstance* const ret_type = 
+                lang_TypeInstance* const ret_type =
                     node->m_value.value()->m_LANG_determined_type.value();
 
                 if (lang_TypeInstance::DeterminedType::base_type::VOID
@@ -1149,7 +1149,7 @@ namespace wo
             }
             else
             {
-                m_ircontext.c().ret(node->m_IR_return_value_may_none.value());                
+                m_ircontext.c().ret(node->m_IR_return_value_may_none.value());
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -2155,543 +2155,589 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            auto* target_type_instance =
-                node->m_cast_type->m_LANG_determined_type.value();
-            auto* target_determined_type_instance =
-                target_type_instance->get_determined_type().value();
-
-            auto* src_type_instance =
-                node->m_cast_value->m_LANG_determined_type.value();
-            auto* src_determined_type_instance =
-                src_type_instance->get_determined_type().value();
-
-            if (target_determined_type_instance->m_base_type
-                == lang_TypeInstance::DeterminedType::VOID)
+            if (node->m_LANG_overload_call.has_value())
             {
-                // Here we need mark this sign to apply `eval_ignore`.
-                node->m_IR_need_eval = true;
-                m_ircontext.eval_and_ignore();
+                m_ircontext.eval_for_upper();
+                WO_CONTINUE_PROCESS(node->m_LANG_overload_call.value());
+
+                node->m_LANG_hold_state = AstValueMayConsiderOperatorOverload::IR_HOLD_FOR_OVERLOAD_CALL_EVAL;
+                return HOLD;
             }
-            else if (
-                (target_determined_type_instance->m_base_type
-                    != src_determined_type_instance->m_base_type
-                    && (
-                        /* INT & HANDLE IS SAME TYPE IN WOORT. */
-                        (target_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::INTEGER
-                            && target_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::HANDLE)
-                        || (src_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::INTEGER
-                            && src_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::HANDLE))
-                    && src_determined_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::NOTHING))
+            else
             {
+                auto* target_type_instance =
+                    node->m_cast_type->m_LANG_determined_type.value();
+                auto* target_determined_type_instance =
+                    target_type_instance->get_determined_type().value();
+
+                auto* src_type_instance =
+                    node->m_cast_value->m_LANG_determined_type.value();
+                auto* src_determined_type_instance =
+                    src_type_instance->get_determined_type().value();
+
                 if (target_determined_type_instance->m_base_type
-                    != lang_TypeInstance::DeterminedType::DYNAMIC)
+                    == lang_TypeInstance::DeterminedType::VOID)
                 {
-                    // Woolang 1.15: This is special handling for type exemptions; although these types are 
-                    // different at the language level, they are identical at the WooRT underlying layer, 
-                    // so no conversion is needed.
-                    if (
-                        // INT <- HANDLE/BOOL
-                        (target_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER
-                            && (src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::HANDLE
-                                || src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::BOOLEAN))
-                        // HANDLE <- INT/BOOL
-                        || (target_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::HANDLE
-                            && (src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER
-                                || src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::BOOLEAN)))
+                    // Here we need mark this sign to apply `eval_ignore`.
+                    node->m_IR_need_eval = true;
+                    m_ircontext.eval_and_ignore();
+                }
+                else if (
+                    (target_determined_type_instance->m_base_type
+                        != src_determined_type_instance->m_base_type
+                        && (
+                            /* INT & HANDLE IS SAME TYPE IN WOORT. */
+                            (target_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::INTEGER
+                                && target_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::HANDLE)
+                            || (src_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::INTEGER
+                                && src_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::HANDLE))
+                        && src_determined_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::NOTHING))
+                {
+                    if (target_determined_type_instance->m_base_type
+                        != lang_TypeInstance::DeterminedType::DYNAMIC)
                     {
-                        // No need runtime operation
-                        goto _label_no_cast;
+                        // Woolang 1.15: This is special handling for type exemptions; although these types are 
+                        // different at the language level, they are identical at the WooRT underlying layer, 
+                        // so no conversion is needed.
+                        if (
+                            // INT <- HANDLE/BOOL
+                            (target_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER
+                                && (src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::HANDLE
+                                    || src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::BOOLEAN))
+                            // HANDLE <- INT/BOOL
+                            || (target_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::HANDLE
+                                && (src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::INTEGER
+                                    || src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::BOOLEAN)))
+                        {
+                            // No need runtime operation
+                            goto _label_no_cast;
+                        }
+                        else
+                        {
+                            // Need runtime check.
+                            node->m_IR_need_eval = true;
+
+                            m_ircontext.do_eval_if_not_ignore(
+                                &BytecodeGenerateContext::begin_eval_readonly);
+                        }
                     }
                     else
                     {
-                        // Need runtime check.
-                        node->m_IR_need_eval = true;
+                        // Need box.
+                        node->m_IR_need_eval = false;
 
-                        m_ircontext.do_eval_if_not_ignore(
-                            &BytecodeGenerateContext::begin_eval_readonly);
+                        m_ircontext.eval_for_upper_box();
                     }
                 }
                 else
                 {
-                    // Need box.
+                    // No cast
+                _label_no_cast:
                     node->m_IR_need_eval = false;
 
-                    m_ircontext.eval_for_upper_box();
+                    m_ircontext.eval_for_upper();
                 }
-            }
-            else
-            {
-                // No cast
-            _label_no_cast:
-                node->m_IR_need_eval = false;
 
-                m_ircontext.eval_for_upper();
-            }
+                // Eval.
+                WO_CONTINUE_PROCESS(node->m_cast_value);
 
-            // Eval.
-            WO_CONTINUE_PROCESS(node->m_cast_value);
-
-            return HOLD;
+                return HOLD;
+            } // close else block for non-overload path
         }
         else if (state == HOLD)
         {
-            if (node->m_IR_need_eval)
+            if (node->m_LANG_hold_state == AstValueMayConsiderOperatorOverload::IR_HOLD_FOR_OVERLOAD_CALL_EVAL)
             {
-                m_ircontext.apply_eval_result(
-                    [&](BytecodeGenerateContext::EvalResult& result)
-                    {
-                        auto* target_type_instance =
-                            node->m_cast_type->m_LANG_determined_type.value();
-                        auto* target_determined_type_instance =
-                            target_type_instance->get_determined_type().value();
+                wo_assert(node->m_LANG_overload_call.has_value());
 
-                        auto* src_type_instance =
-                            node->m_cast_value->m_LANG_determined_type.value();
-                        auto* src_determined_type_instance =
-                            src_type_instance->get_determined_type().value();
-
-                        const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
-
-                        // The case where the target type is dynamic has already been handled by eval_for_upper_box; 
-                        // it is impossible for this situation to occur here.
-                        wo_assert(target_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::DYNAMIC);
-
-                        // VOID expr needed, skip and give junk value.
-                        if (target_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::VOID)
+                m_ircontext.cleanup_for_eval_upper();
+            }
+            else
+            {
+                if (node->m_IR_need_eval)
+                {
+                    m_ircontext.apply_eval_result(
+                        [&](BytecodeGenerateContext::EvalResult& result)
                         {
-                            if (target_storage.has_value())
+                            auto* target_type_instance =
+                                node->m_cast_type->m_LANG_determined_type.value();
+                            auto* target_determined_type_instance =
+                                target_type_instance->get_determined_type().value();
+
+                            auto* src_type_instance =
+                                node->m_cast_value->m_LANG_determined_type.value();
+                            auto* src_determined_type_instance =
+                                src_type_instance->get_determined_type().value();
+
+                            const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
+
+                            // The case where the target type is dynamic has already been handled by eval_for_upper_box; 
+                            // it is impossible for this situation to occur here.
+                            wo_assert(target_determined_type_instance->m_base_type != lang_TypeInstance::DeterminedType::DYNAMIC);
+
+                            // VOID expr needed, skip and give junk value.
+                            if (target_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::VOID)
                             {
-                                // NO NEED TO DO ANYTHING.
-                                // VOID VALUE IS PURE JUNK VALUE.
+                                if (target_storage.has_value())
+                                {
+                                    // NO NEED TO DO ANYTHING.
+                                    // VOID VALUE IS PURE JUNK VALUE.
+                                }
+                                else
+                                {
+                                    // Return a junk value.
+                                    result.set_result_junk(m_ircontext);
+                                }
+                                return;
                             }
-                            else
+
+                            // Need runtime cast.
+                            auto* opnum_to_cast = m_ircontext.get_eval_result();
+
+                            if (src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::DYNAMIC)
                             {
-                                // Return a junk value.
-                                result.set_result_junk(m_ircontext);
-                            }
-                            return;
-                        }
+                                const auto target_woort_type =
+                                    convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                        target_determined_type_instance->m_base_type);
 
-                        // Need runtime cast.
-                        auto* opnum_to_cast = m_ircontext.get_eval_result();
+                                // Here, converting from the dynamic type to a specified type uses `castdyn`.
+                                if (target_storage.has_value())
+                                {
+                                    auto& [need_box, target] = target_storage.value();
+                                    woort_IRValue* const* const target_irvalue =
+                                        std::get_if<woort_IRValue*>(&target);
 
-                        if (src_determined_type_instance->m_base_type == lang_TypeInstance::DeterminedType::DYNAMIC)
-                        {
-                            const auto target_woort_type =
-                                convert_lang_base_type_to_woort_type_exclude_compile_type(
-                                    target_determined_type_instance->m_base_type);
+                                    if (target_irvalue == nullptr)
+                                    {
+                                        woort_IRValue* const v = m_ircontext.c().new_value();
+                                        m_ircontext.c().castdyn(
+                                            v,
+                                            opnum_to_cast,
+                                            target_woort_type);
 
-                            // Here, converting from the dynamic type to a specified type uses `castdyn`.
-                            if (target_storage.has_value())
-                            {
-                                auto& [need_box, target] = target_storage.value();
-                                woort_IRValue* const* const target_irvalue =
-                                    std::get_if<woort_IRValue*>(&target);
+                                        if (need_box.has_value())
+                                            m_ircontext.c().boxdyn(
+                                                v, need_box.value(), v);
 
-                                if (target_irvalue == nullptr)
+                                        m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                    }
+                                    else
+                                    {
+                                        m_ircontext.c().castdyn(
+                                            *target_irvalue,
+                                            opnum_to_cast,
+                                            target_woort_type);
+
+                                        if (need_box)
+                                            m_ircontext.c().boxdyn(
+                                                *target_irvalue, need_box.value(), *target_irvalue);
+                                    }
+                                }
+                                else
                                 {
                                     woort_IRValue* const v = m_ircontext.c().new_value();
                                     m_ircontext.c().castdyn(
                                         v,
                                         opnum_to_cast,
                                         target_woort_type);
-
-                                    if (need_box.has_value())
-                                        m_ircontext.c().boxdyn(
-                                            v, need_box.value(), v);
-
-                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                                }
-                                else
-                                {
-                                    m_ircontext.c().castdyn(
-                                        *target_irvalue,
-                                        opnum_to_cast,
-                                        target_woort_type);
-
-                                    if (need_box)
-                                        m_ircontext.c().boxdyn(
-                                            *target_irvalue, need_box.value(), *target_irvalue);
+                                    result.set_result_stack_temp(m_ircontext, v, target_type_instance);
                                 }
                             }
                             else
                             {
-                                woort_IRValue* const v = m_ircontext.c().new_value();
-                                m_ircontext.c().castdyn(
-                                    v,
-                                    opnum_to_cast,
-                                    target_woort_type);
-                                result.set_result_stack_temp(m_ircontext, v, target_type_instance);
-                            }
-                        }
-                        else
-                        {
-                            switch (target_determined_type_instance->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::INTEGER:
-                            case lang_TypeInstance::DeterminedType::HANDLE:
-                                /////////////////////////////////////////////////////////////////////////
-                                switch (src_determined_type_instance->m_base_type)
-                                {
-                                case lang_TypeInstance::DeterminedType::REAL:
-                                    if (target_storage.has_value())
-                                    {
-                                        auto& [need_box, target] = target_storage.value();
-                                        woort_IRValue* const* const target_irvalue =
-                                            std::get_if<woort_IRValue*>(&target);
-
-                                        if (target_irvalue == nullptr)
-                                        {
-                                            woort_IRValue* const v = m_ircontext.c().new_value();
-                                            m_ircontext.c().rtoi(v, opnum_to_cast);
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
-
-                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                                        }
-                                        else
-                                        {
-                                            m_ircontext.c().rtoi(*target_irvalue, opnum_to_cast);
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(
-                                                    *target_irvalue,
-                                                    need_box.value(),
-                                                    *target_irvalue);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        woort_IRValue* const v = m_ircontext.c().new_value();
-                                        m_ircontext.c().rtoi(
-                                            v,
-                                            opnum_to_cast);
-                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
-                                    }
-                                    break;
-                                case lang_TypeInstance::DeterminedType::STRING:
-                                    if (target_storage.has_value())
-                                    {
-                                        auto& [need_box, target] = target_storage.value();
-                                        woort_IRValue* const* const target_irvalue =
-                                            std::get_if<woort_IRValue*>(&target);
-
-                                        if (target_irvalue == nullptr)
-                                        {
-                                            woort_IRValue* const v = m_ircontext.c().new_value();
-                                            m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_INT);
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
-
-                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                                        }
-                                        else
-                                        {
-                                            m_ircontext.c().caststo(
-                                                *target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_INT);
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(
-                                                    *target_irvalue, need_box.value(), *target_irvalue);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        woort_IRValue* const v = m_ircontext.c().new_value();
-                                        m_ircontext.c().caststo(
-                                            v,
-                                            opnum_to_cast,
-                                            WOORT_BOX_VALUE_TYPE_INT);
-                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
-                                    }
-                                    break;
-                                default:
-                                    wo_error("Unexpected type.");
-                                }
-                                break;
-                            case lang_TypeInstance::DeterminedType::REAL:
-                                /////////////////////////////////////////////////////////////////////////
-                                switch (src_determined_type_instance->m_base_type)
+                                switch (target_determined_type_instance->m_base_type)
                                 {
                                 case lang_TypeInstance::DeterminedType::INTEGER:
-                                case lang_TypeInstance::DeterminedType::BOOLEAN:
-                                    if (target_storage.has_value())
-                                    {
-                                        auto& [need_box, target] = target_storage.value();
-                                        woort_IRValue* const* const target_irvalue =
-                                            std::get_if<woort_IRValue*>(&target);
-
-                                        if (target_irvalue == nullptr)
-                                        {
-                                            woort_IRValue* const v = m_ircontext.c().new_value();
-                                            m_ircontext.c().itor(v, opnum_to_cast);
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
-
-                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                                        }
-                                        else
-                                        {
-                                            m_ircontext.c().itor(*target_irvalue, opnum_to_cast);
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(
-                                                    *target_irvalue, need_box.value(), *target_irvalue);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        woort_IRValue* const v = m_ircontext.c().new_value();
-                                        m_ircontext.c().itor(
-                                            v,
-                                            opnum_to_cast);
-                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
-                                    }
-                                    break;
-                                case lang_TypeInstance::DeterminedType::STRING:
-                                    if (target_storage.has_value())
-                                    {
-                                        auto& [need_box, target] = target_storage.value();
-                                        woort_IRValue* const* const target_irvalue =
-                                            std::get_if<woort_IRValue*>(&target);
-
-                                        if (target_irvalue == nullptr)
-                                        {
-                                            woort_IRValue* const v = m_ircontext.c().new_value();
-                                            m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_REAL);
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
-
-                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                                        }
-                                        else
-                                        {
-                                            m_ircontext.c().caststo(
-                                                *target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_REAL);
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(
-                                                    *target_irvalue, need_box.value(), *target_irvalue);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        woort_IRValue* const v = m_ircontext.c().new_value();
-                                        m_ircontext.c().caststo(
-                                            v,
-                                            opnum_to_cast,
-                                            WOORT_BOX_VALUE_TYPE_REAL);
-                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
-                                    }
-                                    break;
-                                default:
-                                    wo_error("Unexpected type.");
-                                }
-                                break;
-                            case lang_TypeInstance::DeterminedType::BOOLEAN:
-                                /////////////////////////////////////////////////////////////////////////
-                                switch (src_determined_type_instance->m_base_type)
-                                {
-                                case lang_TypeInstance::DeterminedType::INTEGER:
-                                    if (target_storage.has_value())
-                                    {
-                                        auto& [need_box, target] = target_storage.value();
-                                        woort_IRValue* const* const target_irvalue =
-                                            std::get_if<woort_IRValue*>(&target);
-
-                                        if (target_irvalue == nullptr)
-                                        {
-                                            woort_IRValue* const v = m_ircontext.c().new_value();
-                                            m_ircontext.c().nei(v, opnum_to_cast, m_ircontext.c().load_imm_int(0));
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
-
-                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                                        }
-                                        else
-                                        {
-                                            m_ircontext.c().nei(
-                                                *target_irvalue, opnum_to_cast, m_ircontext.c().load_imm_int(0));
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(
-                                                    *target_irvalue, need_box.value(), *target_irvalue);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        woort_IRValue* const v = m_ircontext.c().new_value();
-                                        m_ircontext.c().nei(
-                                            v,
-                                            opnum_to_cast,
-                                            m_ircontext.c().load_imm_int(0));
-                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
-                                    }
-                                    break;
-                                case lang_TypeInstance::DeterminedType::REAL:
-                                    if (target_storage.has_value())
-                                    {
-                                        auto& [need_box, target] = target_storage.value();
-                                        woort_IRValue* const* const target_irvalue =
-                                            std::get_if<woort_IRValue*>(&target);
-
-                                        if (target_irvalue == nullptr)
-                                        {
-                                            woort_IRValue* const v = m_ircontext.c().new_value();
-                                            m_ircontext.c().nei(v, opnum_to_cast, m_ircontext.c().load_imm_real(0.));
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
-
-                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                                        }
-                                        else
-                                        {
-                                            m_ircontext.c().ner(
-                                                *target_irvalue, opnum_to_cast, m_ircontext.c().load_imm_real(0.));
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(
-                                                    *target_irvalue, WOORT_BOX_VALUE_TYPE_BOOL, *target_irvalue);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        woort_IRValue* const v = m_ircontext.c().new_value();
-                                        m_ircontext.c().nei(
-                                            v,
-                                            opnum_to_cast,
-                                            m_ircontext.c().load_imm_real(0.));
-                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
-                                    }
-                                    break;
-                                case lang_TypeInstance::DeterminedType::STRING:
-                                    if (target_storage.has_value())
-                                    {
-                                        auto& [need_box, target] = target_storage.value();
-                                        woort_IRValue* const* const target_irvalue =
-                                            std::get_if<woort_IRValue*>(&target);
-
-                                        if (target_irvalue == nullptr)
-                                        {
-                                            woort_IRValue* const v = m_ircontext.c().new_value();
-                                            m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_BOOL);
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
-
-                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                                        }
-                                        else
-                                        {
-                                            m_ircontext.c().caststo(
-                                                *target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_BOOL);
-
-                                            if (need_box)
-                                                m_ircontext.c().boxdyn(
-                                                    *target_irvalue, need_box.value(), *target_irvalue);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        woort_IRValue* const v = m_ircontext.c().new_value();
-                                        m_ircontext.c().caststo(
-                                            v,
-                                            opnum_to_cast,
-                                            WOORT_BOX_VALUE_TYPE_BOOL);
-                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
-                                    }
-                                    break;
-                                default:
-                                    wo_error("Unexpected type.");
-                                }
-                                break;
-                            case lang_TypeInstance::DeterminedType::STRING:
-                                switch (src_determined_type_instance->m_base_type)
-                                {
                                 case lang_TypeInstance::DeterminedType::HANDLE:
-                                case lang_TypeInstance::DeterminedType::INTEGER:
-                                    if (target_storage.has_value())
+                                    /////////////////////////////////////////////////////////////////////////
+                                    switch (src_determined_type_instance->m_base_type)
                                     {
-                                        auto& [need_box, target] = target_storage.value();
-                                        woort_IRValue* const* const target_irvalue =
-                                            std::get_if<woort_IRValue*>(&target);
-
-                                        if (target_irvalue == nullptr)
+                                    case lang_TypeInstance::DeterminedType::REAL:
+                                        if (target_storage.has_value())
                                         {
-                                            woort_IRValue* const v = m_ircontext.c().new_value();
-                                            m_ircontext.c().itos(v, opnum_to_cast);
+                                            auto& [need_box, target] = target_storage.value();
+                                            woort_IRValue* const* const target_irvalue =
+                                                std::get_if<woort_IRValue*>(&target);
 
-                                            if (need_box.has_value())
-                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
+                                            if (target_irvalue == nullptr)
+                                            {
+                                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                                m_ircontext.c().rtoi(v, opnum_to_cast);
 
-                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                            }
+                                            else
+                                            {
+                                                m_ircontext.c().rtoi(*target_irvalue, opnum_to_cast);
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(
+                                                        *target_irvalue,
+                                                        need_box.value(),
+                                                        *target_irvalue);
+                                            }
                                         }
                                         else
                                         {
-                                            m_ircontext.c().itos(*target_irvalue, opnum_to_cast);
-
-                                            if (need_box.has_value())
-                                                m_ircontext.c().boxdyn(
-                                                    *target_irvalue, need_box.value(), *target_irvalue);
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().rtoi(
+                                                v,
+                                                opnum_to_cast);
+                                            result.set_result_stack_temp(m_ircontext, v, target_type_instance);
                                         }
-                                    }
-                                    else
-                                    {
-                                        woort_IRValue* const v = m_ircontext.c().new_value();
-                                        m_ircontext.c().itos(
-                                            v,
-                                            opnum_to_cast);
-                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::STRING:
+                                        if (target_storage.has_value())
+                                        {
+                                            auto& [need_box, target] = target_storage.value();
+                                            woort_IRValue* const* const target_irvalue =
+                                                std::get_if<woort_IRValue*>(&target);
+
+                                            if (target_irvalue == nullptr)
+                                            {
+                                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                                m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_INT);
+
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                            }
+                                            else
+                                            {
+                                                m_ircontext.c().caststo(
+                                                    *target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_INT);
+
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(
+                                                        *target_irvalue, need_box.value(), *target_irvalue);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().caststo(
+                                                v,
+                                                opnum_to_cast,
+                                                WOORT_BOX_VALUE_TYPE_INT);
+                                            result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                        }
+                                        break;
+                                    default:
+                                        wo_error("Unexpected type.");
                                     }
                                     break;
                                 case lang_TypeInstance::DeterminedType::REAL:
-                                    if (target_storage.has_value())
+                                    /////////////////////////////////////////////////////////////////////////
+                                    switch (src_determined_type_instance->m_base_type)
                                     {
-                                        auto& [need_box, target] = target_storage.value();
-                                        woort_IRValue* const* const target_irvalue =
-                                            std::get_if<woort_IRValue*>(&target);
-
-                                        if (target_irvalue == nullptr)
+                                    case lang_TypeInstance::DeterminedType::INTEGER:
+                                    case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                        if (target_storage.has_value())
                                         {
-                                            woort_IRValue* const v = m_ircontext.c().new_value();
-                                            m_ircontext.c().rtos(v, opnum_to_cast);
+                                            auto& [need_box, target] = target_storage.value();
+                                            woort_IRValue* const* const target_irvalue =
+                                                std::get_if<woort_IRValue*>(&target);
 
-                                            if (need_box.has_value())
-                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
+                                            if (target_irvalue == nullptr)
+                                            {
+                                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                                m_ircontext.c().itor(v, opnum_to_cast);
 
-                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                            }
+                                            else
+                                            {
+                                                m_ircontext.c().itor(*target_irvalue, opnum_to_cast);
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(
+                                                        *target_irvalue, need_box.value(), *target_irvalue);
+                                            }
                                         }
                                         else
                                         {
-                                            m_ircontext.c().rtos(*target_irvalue, opnum_to_cast);
-
-                                            if (need_box.has_value())
-                                                m_ircontext.c().boxdyn(
-                                                    *target_irvalue, need_box.value(), *target_irvalue);
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().itor(
+                                                v,
+                                                opnum_to_cast);
+                                            result.set_result_stack_temp(m_ircontext, v, target_type_instance);
                                         }
-                                    }
-                                    else
-                                    {
-                                        woort_IRValue* const v = m_ircontext.c().new_value();
-                                        m_ircontext.c().rtos(
-                                            v,
-                                            opnum_to_cast);
-                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::STRING:
+                                        if (target_storage.has_value())
+                                        {
+                                            auto& [need_box, target] = target_storage.value();
+                                            woort_IRValue* const* const target_irvalue =
+                                                std::get_if<woort_IRValue*>(&target);
+
+                                            if (target_irvalue == nullptr)
+                                            {
+                                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                                m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_REAL);
+
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                            }
+                                            else
+                                            {
+                                                m_ircontext.c().caststo(
+                                                    *target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_REAL);
+
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(
+                                                        *target_irvalue, need_box.value(), *target_irvalue);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().caststo(
+                                                v,
+                                                opnum_to_cast,
+                                                WOORT_BOX_VALUE_TYPE_REAL);
+                                            result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                        }
+                                        break;
+                                    default:
+                                        wo_error("Unexpected type.");
                                     }
                                     break;
-                                default:
-                                    if (target_storage.has_value())
+                                case lang_TypeInstance::DeterminedType::BOOLEAN:
+                                    /////////////////////////////////////////////////////////////////////////
+                                    switch (src_determined_type_instance->m_base_type)
                                     {
-                                        auto& [need_box, target] = target_storage.value();
-                                        woort_IRValue* const* const target_irvalue =
-                                            std::get_if<woort_IRValue*>(&target);
+                                    case lang_TypeInstance::DeterminedType::INTEGER:
+                                        if (target_storage.has_value())
+                                        {
+                                            auto& [need_box, target] = target_storage.value();
+                                            woort_IRValue* const* const target_irvalue =
+                                                std::get_if<woort_IRValue*>(&target);
 
-                                        if (target_irvalue == nullptr)
+                                            if (target_irvalue == nullptr)
+                                            {
+                                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                                m_ircontext.c().nei(v, opnum_to_cast, m_ircontext.c().load_imm_int(0));
+
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                            }
+                                            else
+                                            {
+                                                m_ircontext.c().nei(
+                                                    *target_irvalue, opnum_to_cast, m_ircontext.c().load_imm_int(0));
+
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(
+                                                        *target_irvalue, need_box.value(), *target_irvalue);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().nei(
+                                                v,
+                                                opnum_to_cast,
+                                                m_ircontext.c().load_imm_int(0));
+                                            result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                        }
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::REAL:
+                                        if (target_storage.has_value())
+                                        {
+                                            auto& [need_box, target] = target_storage.value();
+                                            woort_IRValue* const* const target_irvalue =
+                                                std::get_if<woort_IRValue*>(&target);
+
+                                            if (target_irvalue == nullptr)
+                                            {
+                                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                                m_ircontext.c().nei(v, opnum_to_cast, m_ircontext.c().load_imm_real(0.));
+
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                            }
+                                            else
+                                            {
+                                                m_ircontext.c().ner(
+                                                    *target_irvalue, opnum_to_cast, m_ircontext.c().load_imm_real(0.));
+
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(
+                                                        *target_irvalue, WOORT_BOX_VALUE_TYPE_BOOL, *target_irvalue);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().nei(
+                                                v,
+                                                opnum_to_cast,
+                                                m_ircontext.c().load_imm_real(0.));
+                                            result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                        }
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::STRING:
+                                        if (target_storage.has_value())
+                                        {
+                                            auto& [need_box, target] = target_storage.value();
+                                            woort_IRValue* const* const target_irvalue =
+                                                std::get_if<woort_IRValue*>(&target);
+
+                                            if (target_irvalue == nullptr)
+                                            {
+                                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                                m_ircontext.c().caststo(v, opnum_to_cast, WOORT_BOX_VALUE_TYPE_BOOL);
+
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                            }
+                                            else
+                                            {
+                                                m_ircontext.c().caststo(
+                                                    *target_irvalue, opnum_to_cast, WOORT_BOX_VALUE_TYPE_BOOL);
+
+                                                if (need_box)
+                                                    m_ircontext.c().boxdyn(
+                                                        *target_irvalue, need_box.value(), *target_irvalue);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().caststo(
+                                                v,
+                                                opnum_to_cast,
+                                                WOORT_BOX_VALUE_TYPE_BOOL);
+                                            result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                        }
+                                        break;
+                                    default:
+                                        wo_error("Unexpected type.");
+                                    }
+                                    break;
+                                case lang_TypeInstance::DeterminedType::STRING:
+                                    switch (src_determined_type_instance->m_base_type)
+                                    {
+                                    case lang_TypeInstance::DeterminedType::HANDLE:
+                                    case lang_TypeInstance::DeterminedType::INTEGER:
+                                        if (target_storage.has_value())
+                                        {
+                                            auto& [need_box, target] = target_storage.value();
+                                            woort_IRValue* const* const target_irvalue =
+                                                std::get_if<woort_IRValue*>(&target);
+
+                                            if (target_irvalue == nullptr)
+                                            {
+                                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                                m_ircontext.c().itos(v, opnum_to_cast);
+
+                                                if (need_box.has_value())
+                                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                            }
+                                            else
+                                            {
+                                                m_ircontext.c().itos(*target_irvalue, opnum_to_cast);
+
+                                                if (need_box.has_value())
+                                                    m_ircontext.c().boxdyn(
+                                                        *target_irvalue, need_box.value(), *target_irvalue);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().itos(
+                                                v,
+                                                opnum_to_cast);
+                                            result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                        }
+                                        break;
+                                    case lang_TypeInstance::DeterminedType::REAL:
+                                        if (target_storage.has_value())
+                                        {
+                                            auto& [need_box, target] = target_storage.value();
+                                            woort_IRValue* const* const target_irvalue =
+                                                std::get_if<woort_IRValue*>(&target);
+
+                                            if (target_irvalue == nullptr)
+                                            {
+                                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                                m_ircontext.c().rtos(v, opnum_to_cast);
+
+                                                if (need_box.has_value())
+                                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                            }
+                                            else
+                                            {
+                                                m_ircontext.c().rtos(*target_irvalue, opnum_to_cast);
+
+                                                if (need_box.has_value())
+                                                    m_ircontext.c().boxdyn(
+                                                        *target_irvalue, need_box.value(), *target_irvalue);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            woort_IRValue* const v = m_ircontext.c().new_value();
+                                            m_ircontext.c().rtos(
+                                                v,
+                                                opnum_to_cast);
+                                            result.set_result_stack_temp(m_ircontext, v, target_type_instance);
+                                        }
+                                        break;
+                                    default:
+                                        if (target_storage.has_value())
+                                        {
+                                            auto& [need_box, target] = target_storage.value();
+                                            woort_IRValue* const* const target_irvalue =
+                                                std::get_if<woort_IRValue*>(&target);
+
+                                            if (target_irvalue == nullptr)
+                                            {
+                                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                                m_ircontext.c().castsfrom(
+                                                    v,
+                                                    opnum_to_cast,
+                                                    convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                                        src_determined_type_instance->m_base_type));
+
+                                                if (need_box.has_value())
+                                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                            }
+                                            else
+                                            {
+                                                m_ircontext.c().castsfrom(
+                                                    *target_irvalue,
+                                                    opnum_to_cast,
+                                                    convert_lang_base_type_to_woort_type_exclude_compile_type(
+                                                        src_determined_type_instance->m_base_type));
+
+                                                if (need_box.has_value())
+                                                    m_ircontext.c().boxdyn(
+                                                        *target_irvalue, need_box.value(), *target_irvalue);
+                                            }
+                                        }
+                                        else
                                         {
                                             woort_IRValue* const v = m_ircontext.c().new_value();
                                             m_ircontext.c().castsfrom(
@@ -2699,45 +2745,19 @@ namespace wo
                                                 opnum_to_cast,
                                                 convert_lang_base_type_to_woort_type_exclude_compile_type(
                                                     src_determined_type_instance->m_base_type));
-
-                                            if (need_box.has_value())
-                                                m_ircontext.c().boxdyn(v, need_box.value(), v);
-
-                                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                                        }
-                                        else
-                                        {
-                                            m_ircontext.c().castsfrom(
-                                                *target_irvalue,
-                                                opnum_to_cast,
-                                                convert_lang_base_type_to_woort_type_exclude_compile_type(
-                                                    src_determined_type_instance->m_base_type));
-
-                                            if (need_box.has_value())
-                                                m_ircontext.c().boxdyn(
-                                                    *target_irvalue, need_box.value(), *target_irvalue);
+                                            result.set_result_stack_temp(m_ircontext, v, target_type_instance);
                                         }
                                     }
-                                    else
-                                    {
-                                        woort_IRValue* const v = m_ircontext.c().new_value();
-                                        m_ircontext.c().castsfrom(
-                                            v,
-                                            opnum_to_cast,
-                                            convert_lang_base_type_to_woort_type_exclude_compile_type(
-                                                src_determined_type_instance->m_base_type));
-                                        result.set_result_stack_temp(m_ircontext, v, target_type_instance);
-                                    }
+                                    break;
+                                default:
+                                    wo_error("Unexpected type.");
                                 }
-                                break;
-                            default:
-                                wo_error("Unexpected type.");
                             }
-                        }
-                    });
+                        });
+                }
+                else
+                    m_ircontext.cleanup_for_eval_upper();
             }
-            else
-                m_ircontext.cleanup_for_eval_upper();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
 
@@ -4456,10 +4476,10 @@ namespace wo
                             if (binary_op == &IRCompiler::divi || binary_op == &IRCompiler::modi)
                             {
                                 check_and_generate_check_ir_for_divi_and_modi(
-                                    m_ircontext, 
+                                    m_ircontext,
                                     std::nullopt,
-                                    node->m_right, 
-                                    assign_expr_result_opnum, 
+                                    node->m_right,
+                                    assign_expr_result_opnum,
                                     right_value_result);
                             }
                             (m_ircontext.c().*binary_op)(

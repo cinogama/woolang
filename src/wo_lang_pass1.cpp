@@ -2616,66 +2616,131 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            auto* target_type = node->m_cast_type->m_LANG_determined_type.value();
-            auto* casting_value_type = node->m_cast_value->m_LANG_determined_type.value();
-
-            // Check symbol can be reach.
-            if (!check_symbol_is_reachable_in_current_scope(
-                lex,
-                node,
-                target_type->m_symbol,
-                node->source_location.source_file,
-                !node->duplicated_node /* TMP: Skip import check in template function. */))
+            switch (node->m_LANG_hold_state)
             {
-                return FAILED;
-            }
-
-            if (lang_TypeInstance::TypeCheckResult::ACCEPT
-                != check_cast_able(lex, node, target_type, casting_value_type))
+            case AstValueMayConsiderOperatorOverload::UNPROCESSED:
             {
-                lex.record_lang_error(lexer::msglevel_t::error, node,
-                    WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                    get_type_name(casting_value_type),
-                    get_type_name(target_type));
+                auto* target_type = node->m_cast_type->m_LANG_determined_type.value();
+                auto* casting_value_type = node->m_cast_value->m_LANG_determined_type.value();
 
-                return FAILED;
-            }
-
-            node->m_LANG_determined_type = target_type;
-
-            if (node->m_cast_value->m_evaled_const_value.has_value())
-            {
-                auto& cast_from_const = node->m_cast_value->m_evaled_const_value.value();
-
-                // ATTENTION: If constant value evaled and can pass cast check, 
-                //  I think we can get determined type from the constant value.
-                //  But, I can't prove it's right.
-                auto* cast_from_determined_type = casting_value_type->get_determined_type().value();
-                auto* cast_target_determined_type = target_type->get_determined_type().value();
-
-                if (cast_from_determined_type->m_base_type != cast_target_determined_type->m_base_type)
+                // Check symbol can be reach.
+                if (!check_symbol_is_reachable_in_current_scope(
+                    lex,
+                    node,
+                    target_type->m_symbol,
+                    node->source_location.source_file,
+                    !node->duplicated_node /* TMP: Skip import check in template function. */))
                 {
-                    switch (cast_target_determined_type->m_base_type)
-                    {
-                    case lang_TypeInstance::DeterminedType::INTEGER:
-                        node->decide_final_constant_value(cast_from_const.cast_value_integer());
-                        break;
-                    case lang_TypeInstance::DeterminedType::REAL:
-                        node->decide_final_constant_value(cast_from_const.cast_value_real());
-                        break;
-                    case lang_TypeInstance::DeterminedType::BOOLEAN:
-                        node->decide_final_constant_value(cast_from_const.cast_value_bool());
-                        break;
-                    case lang_TypeInstance::DeterminedType::STRING:
-                        node->decide_final_constant_value(cast_from_const.cast_value_pstring(0));
-                        break;
-                    default:
-                        // Cannot cast to constant.
-                        break;
-                    }
+                    return FAILED;
                 }
-                else
-                    node->decide_final_constant_value(cast_from_const);
+
+                if (node->m_consider_overload)
+                {
+                    wo_pstring_t operator_name = WO_PSTR(operator_AS);
+
+                    AstIdentifier* operator_identifier = new AstIdentifier(operator_name);
+                    operator_identifier->m_formal = AstIdentifier::identifier_formal::FROM_TYPE;
+                    operator_identifier->m_from_type = casting_value_type;
+                    operator_identifier->m_find_type_only = false;
+                    operator_identifier->duplicated_node = node->duplicated_node;
+                    operator_identifier->source_location = node->source_location;
+
+                    bool ambiguous = false;
+                    if (find_symbol_in_current_scope(lex, operator_identifier, &ambiguous))
+                    {
+                        // Determine the return type from the operator function.
+                        // We need to process the function call to compute the return type,
+                        // but to avoid complexity we synthesize the call and process it.
+                        if (operator_identifier->m_LANG_determined_symbol.value()->m_is_template)
+                        {
+                            auto* template_arg = new AstTemplateArgument(node->m_cast_type);
+                            operator_identifier->m_template_arguments =
+                                std::vector<AstTemplateArgument*>{ template_arg };
+                        }
+
+                        AstValueVariable* overload_function = new AstValueVariable(operator_identifier);
+                        overload_function->duplicated_node = node->duplicated_node;
+
+                        AstValueFunctionCall* overload_function_call = new AstValueFunctionCall(
+                            false,
+                            overload_function,
+                            { node->m_cast_value });
+
+                        overload_function->source_location = node->source_location;
+                        overload_function_call->source_location = node->source_location;
+
+                        node->m_LANG_overload_call = overload_function_call;
+
+                        WO_CONTINUE_PROCESS(overload_function_call);
+                        node->m_LANG_hold_state = AstValueMayConsiderOperatorOverload::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL;
+                        return HOLD;
+                    }
+                    else if (ambiguous)
+                        return FAILED;
+
+                    delete operator_identifier;
+                }
+
+                if (lang_TypeInstance::TypeCheckResult::ACCEPT
+                    != check_cast_able(lex, node, target_type, casting_value_type))
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                        get_type_name(casting_value_type),
+                        get_type_name(target_type));
+
+                    return FAILED;
+                }
+
+                node->m_LANG_determined_type = target_type;
+
+                if (node->m_cast_value->m_evaled_const_value.has_value())
+                {
+                    auto& cast_from_const = node->m_cast_value->m_evaled_const_value.value();
+
+                    // ATTENTION: If constant value evaled and can pass cast check, 
+                    //  I think we can get determined type from the constant value.
+                    //  But, I can't prove it's right.
+                    auto* cast_from_determined_type = casting_value_type->get_determined_type().value();
+                    auto* cast_target_determined_type = target_type->get_determined_type().value();
+
+                    if (cast_from_determined_type->m_base_type != cast_target_determined_type->m_base_type)
+                    {
+                        switch (cast_target_determined_type->m_base_type)
+                        {
+                        case lang_TypeInstance::DeterminedType::INTEGER:
+                            node->decide_final_constant_value(cast_from_const.cast_value_integer());
+                            break;
+                        case lang_TypeInstance::DeterminedType::REAL:
+                            node->decide_final_constant_value(cast_from_const.cast_value_real());
+                            break;
+                        case lang_TypeInstance::DeterminedType::BOOLEAN:
+                            node->decide_final_constant_value(cast_from_const.cast_value_bool());
+                            break;
+                        case lang_TypeInstance::DeterminedType::STRING:
+                            node->decide_final_constant_value(cast_from_const.cast_value_pstring(0));
+                            break;
+                        default:
+                            // Cannot cast to constant.
+                            break;
+                        }
+                    }
+                    else
+                        node->decide_final_constant_value(cast_from_const);
+                }
+                break;
+            }
+            case AstValueMayConsiderOperatorOverload::HOLD_FOR_OVERLOAD_FUNCTION_CALL_EVAL:
+            {
+                AstValueFunctionCall* overload_function_call =
+                    node->m_LANG_overload_call.value();
+
+                node->m_LANG_determined_type =
+                    overload_function_call->m_LANG_determined_type;
+                break;
+            }
+            default:
+                return WO_EXCEPT_ERROR(state, FAILED);
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);

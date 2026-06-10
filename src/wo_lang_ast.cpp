@@ -1136,8 +1136,8 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueTypeCast::AstValueTypeCast(AstTypeHolder* cast_type, AstValueBase* cast_value)
-            : AstValueBase(AST_VALUE_TYPE_CAST)
+        AstValueTypeCast::AstValueTypeCast(AstTypeHolder* cast_type, AstValueBase* cast_value, bool consider_overload)
+            : AstValueMayConsiderOperatorOverload(AST_VALUE_TYPE_CAST, consider_overload)
             , m_cast_type(cast_type)
             , m_cast_value(cast_value)
             , m_IR_need_eval(false)
@@ -1148,9 +1148,9 @@ namespace wo
         {
             AstValueTypeCast* new_instance = exist_instance
                 ? static_cast<AstValueTypeCast*>(exist_instance.value())
-                : new AstValueTypeCast(m_cast_type, m_cast_value)
+                : new AstValueTypeCast(m_cast_type, m_cast_value, m_consider_overload)
                 ;
-            AstValueBase::make_dup(new_instance, out_continues);
+            AstValueMayConsiderOperatorOverload::make_dup(new_instance, out_continues);
             out_continues.push_back(AstBase::make_holder(&new_instance->m_cast_type));
             out_continues.push_back(AstBase::make_holder(&new_instance->m_cast_value));
             return new_instance;
@@ -2413,7 +2413,7 @@ namespace wo
                         auto* last_enum_item_value = new AstValueVariable(last_enum_identifier_instance);
                         auto* int_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
                         auto* int_type = new AstTypeHolder(int_type_identifier);
-                        auto* cast_last_enum_item_value_into_int = new AstValueTypeCast(int_type, last_enum_item_value);
+                        auto* cast_last_enum_item_value_into_int = new AstValueTypeCast(int_type, last_enum_item_value, false);
                         auto* one_literal = new AstValueLiteral();
                         one_literal->decide_final_constant_value(
                             static_cast<int64_t>(1));
@@ -2443,7 +2443,7 @@ namespace wo
 
                 auto* enum_type_identifier = new AstIdentifier(enum_name_str);
                 auto* enum_type = new AstTypeHolder(enum_type_identifier);
-                auto* enum_item_value_cast = new AstValueTypeCast(enum_type, item->m_value.value());
+                auto* enum_item_value_cast = new AstValueTypeCast(enum_type, item->m_value.value(), false);
                 auto* enum_item_pattern = new AstPatternSingle(false, item->m_name, std::nullopt);
                 auto* enum_item_define_item = new AstVariableDefineItem(enum_item_pattern, enum_item_value_cast);
                 enum_item_definations->m_definitions.push_back(enum_item_define_item);
@@ -2719,7 +2719,7 @@ namespace wo
                     // let ITEM = $MAKE_UNION: UNION_TYPE;
                     auto* union_item_pattern = new AstPatternSingle(false, item->m_label, std::nullopt);
                     auto* union_item_maker = new AstValueMakeUnion(current_item_index, std::nullopt);
-                    auto* union_item_type_cast = new AstValueTypeCast(union_type, union_item_maker);
+                    auto* union_item_type_cast = new AstValueTypeCast(union_type, union_item_maker, false);
                     auto* union_item_decl_item = new AstVariableDefineItem(union_item_pattern, union_item_type_cast);
                     union_item_or_creator_declare->m_definitions.push_back(union_item_decl_item);
 
