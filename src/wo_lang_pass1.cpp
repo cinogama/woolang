@@ -2677,8 +2677,6 @@ namespace wo
                     }
                     else if (ambiguous)
                         return FAILED;
-
-                    delete operator_identifier;
                 }
 
                 if (lang_TypeInstance::TypeCheckResult::ACCEPT
