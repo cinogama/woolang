@@ -907,7 +907,7 @@ namespace wo
     WO_AST_MACRO(AstValueTypeCast);\
     WO_AST_MACRO(AstValueDoAsVoid);\
     WO_AST_MACRO(AstValueTypeCheckIs);\
-    WO_AST_MACRO(AstValueTypeCheckAs);\
+    WO_AST_MACRO(AstValueTypeCheckAssert);\
     WO_AST_MACRO(AstValueVariable);\
     WO_AST_MACRO(AstValueFunctionCall);\
     WO_AST_MACRO(AstValueMayConsiderOperatorOverload);\

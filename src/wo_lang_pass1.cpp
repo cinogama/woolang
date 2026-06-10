@@ -356,7 +356,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCast, AstBase::AST_VALUE_TYPE_CAST, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueDoAsVoid, AstBase::AST_VALUE_DO_AS_VOID, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckIs, AstBase::AST_VALUE_TYPE_CHECK_IS, pass1);
-        WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAssert, AstBase::AST_VALUE_TYPE_CHECK_ASSERT, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueVariable, AstBase::AST_VALUE_VARIABLE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstWhereConstraints, AstBase::AST_WHERE_CONSTRAINTS, pass1);
         WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall_FakeAstArgumentDeductionContextA,
@@ -4115,7 +4115,7 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
-    WO_PASS_PROCESSER(AstValueTypeCheckAs)
+    WO_PASS_PROCESSER(AstValueTypeCheckAssert)
     {
         if (state == UNPROCESSED)
         {

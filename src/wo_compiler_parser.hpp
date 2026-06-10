@@ -109,7 +109,7 @@ namespace wo
                 AST_VALUE_TYPE_CAST,
                 AST_VALUE_DO_AS_VOID,
                 AST_VALUE_TYPE_CHECK_IS,
-                AST_VALUE_TYPE_CHECK_AS,
+                AST_VALUE_TYPE_CHECK_ASSERT,
                 AST_VALUE_VARIABLE,
                 AST_VALUE_FUNCTION_CALL,
                 AST_VALUE_BINARY_OPERATOR,

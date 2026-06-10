@@ -753,9 +753,9 @@ namespace wo
                     value = check->m_check_value;
                     continue;
                 }
-                case AST_VALUE_TYPE_CHECK_AS:
+                case AST_VALUE_TYPE_CHECK_ASSERT:
                 {
-                    auto* check = static_cast<const AstValueTypeCheckAs*> (value);
+                    auto* check = static_cast<const AstValueTypeCheckAssert*> (value);
                     check->m_check_type->_check_if_template_exist_in(template_params, out_contain_flags);
                     value = check->m_check_value;
                     continue;
@@ -1197,19 +1197,19 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstValueTypeCheckAs::AstValueTypeCheckAs(AstTypeHolder* check_type, AstValueBase* check_value)
-            : AstValueBase(AST_VALUE_TYPE_CHECK_AS)
+        AstValueTypeCheckAssert::AstValueTypeCheckAssert(AstTypeHolder* check_type, AstValueBase* check_value)
+            : AstValueBase(AST_VALUE_TYPE_CHECK_ASSERT)
             , m_check_type(check_type)
             , m_check_value(check_value)
             , m_IR_dynamic_need_runtime_check(false)
         {
 
         }
-        AstBase* AstValueTypeCheckAs::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstValueTypeCheckAssert::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
-            AstValueTypeCheckAs* new_instance = exist_instance
-                ? static_cast<AstValueTypeCheckAs*>(exist_instance.value())
-                : new AstValueTypeCheckAs(m_check_type, m_check_value)
+            AstValueTypeCheckAssert* new_instance = exist_instance
+                ? static_cast<AstValueTypeCheckAssert*>(exist_instance.value())
+                : new AstValueTypeCheckAssert(m_check_type, m_check_value)
                 ;
             AstValueBase::make_dup(new_instance, out_continues);
             out_continues.push_back(AstBase::make_holder(&new_instance->m_check_type));

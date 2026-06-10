@@ -458,13 +458,13 @@ namespace wo
             P(UNARIED_FACTOR, pass_unary_operation, (TE(l_sub), NT(UNARIED_FACTOR)));
             P(UNARIED_FACTOR, pass_unary_operation, (TE(l_lnot), NT(UNARIED_FACTOR)));
             P(UNARIED_FACTOR, pass_direct<0>, (NT(INV_FUNCTION_CALL)));
-            P(FACTOR_TYPE_CASTING, pass_check_type_as, (NT(FACTOR_TYPE_CASTING), NT(AS_TYPE)));
+            P(FACTOR_TYPE_CASTING, pass_cast_type, (NT(FACTOR_TYPE_CASTING), NT(AS_TYPE)));
             P(FACTOR_TYPE_CASTING, pass_check_type_is, (NT(FACTOR_TYPE_CASTING), NT(IS_TYPE)));
+            P(FACTOR_TYPE_CASTING, pass_check_type_assert, (NT(FACTOR_TYPE_CASTING), NT(TYPE_DECLEAR)));
+            P(FACTOR_TYPE_CASTING, pass_direct<0>, (NT(FACTOR)));
             P(AS_TYPE, pass_direct_keep_source_location<1>, (TE(l_as), NT(TYPE)));
             P(IS_TYPE, pass_direct_keep_source_location<1>, (TE(l_is), NT(TYPE)));
             //////////////////////////////////////////////////////////////////////////////////////////////
-            P(FACTOR_TYPE_CASTING, pass_cast_type, (NT(FACTOR_TYPE_CASTING), NT(TYPE_DECLEAR)));
-            P(FACTOR_TYPE_CASTING, pass_direct<0>, (NT(FACTOR)));
             P(FACTOR, pass_direct<0>, (NT(LEFT)));
             P(FACTOR, pass_direct<1>, (TE(l_left_brackets), NT(EXPRESSION), TE(l_right_brackets)));
             P(FACTOR, pass_direct<0>, (NT(UNIT)));

@@ -663,13 +663,13 @@ namespace array
     {
         let newarr = val->to_vec;
         newarr->resize(newsz, init_val);
-        return newarr as vec<T>->unsafe::cast:<array<T>>;
+        return newarr: vec<T>->unsafe::cast:<array<T>>;
     }
     public func shrink<T>(val: array<T>, newsz: int)=> array<T>
     {
         let newarr = val->to_vec;
         do newarr->shrink(newsz);
-        return newarr as vec<T>->unsafe::cast:<array<T>>;
+        return newarr: vec<T>->unsafe::cast:<array<T>>;
     }
     extern(dynamic::type_traits::extern_symbol_variant_ur:<{"woostd_array_get"}, T>)
         public func get<T>(a: array<T>, index: int)=> option<T>;

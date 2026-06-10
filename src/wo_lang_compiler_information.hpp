@@ -104,7 +104,7 @@
 #define WO_ERR_ARGUMENT_TOO_MUCH u8"函数调用错误: 提供的参数数量超过声明"
 #define WO_ERR_ARGUMENT_TOO_LESS u8"函数调用错误: 提供的参数数量不足"
 #define WO_ERR_CANNOT_ACCEPTABLE_TYPE_NAMED u8"类型不匹配: 不接受 `%s` 类型 (期望 `%s`)"
-#define WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC u8"运行时类型转换失败: 无法从动态类型确认 `%s` 类型"
+#define WO_ERR_CANNOT_CAST_TYPE_NAMED_FROM_DYNMAIC u8"类型 `%s` 不能在运行时进行类型检查"
 #define WO_ERR_TYPE_NAMED_IS_NOT_STRUCT u8"类型错误: `%s` 不是结构体类型"
 #define WO_ERR_REPEATED_FIELD_NAMED u8"结构体字段重复: 字段名 `%s` 已被使用"
 #define WO_ERR_NOT_ALL_FIELD_INITIALIZED u8"结构体初始化不完整: 存在未初始化的字段"

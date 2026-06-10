@@ -400,14 +400,14 @@ namespace wo
             AstValueTypeCheckIs(AstTypeHolder* check_type, AstValueBase* check_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
-        struct AstValueTypeCheckAs : public AstValueBase
+        struct AstValueTypeCheckAssert : public AstValueBase
         {
             AstTypeHolder* m_check_type;
             AstValueBase* m_check_value;
 
             bool m_IR_dynamic_need_runtime_check;
 
-            AstValueTypeCheckAs(AstTypeHolder* check_type, AstValueBase* check_value);
+            AstValueTypeCheckAssert(AstTypeHolder* check_type, AstValueBase* check_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
         struct AstValueVariable : public AstValueBase

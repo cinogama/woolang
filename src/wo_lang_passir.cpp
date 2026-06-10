@@ -305,7 +305,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCast, AstBase::AST_VALUE_TYPE_CAST, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueDoAsVoid, AstBase::AST_VALUE_DO_AS_VOID, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckIs, AstBase::AST_VALUE_TYPE_CHECK_IS, passir_B);
-        WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAs, AstBase::AST_VALUE_TYPE_CHECK_AS, passir_B);
+        WO_LANG_REGISTER_PROCESSER(AstValueTypeCheckAssert, AstBase::AST_VALUE_TYPE_CHECK_ASSERT, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueVariable, AstBase::AST_VALUE_VARIABLE, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueFunctionCall, AstBase::AST_VALUE_FUNCTION_CALL, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueBinaryOperator, AstBase::AST_VALUE_BINARY_OPERATOR, passir_B);
@@ -1980,7 +1980,7 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
-    WO_PASS_PROCESSER(AstValueTypeCheckAs)
+    WO_PASS_PROCESSER(AstValueTypeCheckAssert)
     {
         if (state == UNPROCESSED)
         {

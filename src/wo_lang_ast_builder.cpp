@@ -1513,12 +1513,12 @@ namespace wo
             AstIdentifier* identifier = static_cast<AstIdentifier*>(WO_NEED_AST_TYPE(0, AstBase::AST_IDENTIFIER));
             return new AstTypeHolder(identifier);
         }
-        auto pass_check_type_as::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_check_type_assert::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             AstValueBase* value = WO_NEED_AST_VALUE(0);
             AstTypeHolder* type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
 
-            return new AstValueTypeCheckAs(type, value);
+            return new AstValueTypeCheckAssert(type, value);
         }
         auto pass_check_type_is::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1838,7 +1838,7 @@ namespace wo
             WO_AST_BUILDER(pass_variable_define_item);
             WO_AST_BUILDER(pass_variable_defines);
             WO_AST_BUILDER(pass_conditional_expression);
-            WO_AST_BUILDER(pass_check_type_as);
+            WO_AST_BUILDER(pass_check_type_assert);
             WO_AST_BUILDER(pass_check_type_is);
             WO_AST_BUILDER(pass_struct_member_init_pair);
             WO_AST_BUILDER(pass_struct_instance);

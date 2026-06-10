@@ -223,7 +223,7 @@ struct NAME : public astnode_builder                    \
         WO_AST_BUILDER(pass_variable_define_item);
         WO_AST_BUILDER(pass_variable_defines);
         WO_AST_BUILDER(pass_conditional_expression);
-        WO_AST_BUILDER(pass_check_type_as);
+        WO_AST_BUILDER(pass_check_type_assert);
         WO_AST_BUILDER(pass_check_type_is);
         WO_AST_BUILDER(pass_struct_member_init_pair);
         WO_AST_BUILDER(pass_struct_instance);
