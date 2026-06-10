@@ -7,18 +7,18 @@ namespace test_monad
     {
         func ret<S, A>(x: A)
         {
-            return \s: S = (x, s);: State<S, A>;
+            return \s: S = (x, s); as State<S, A>;
         }
         func bind<S, A, B>(self: State<S, A>, f: (A)=> State<S, B>)
         {
             return \s: S = f(a)(s)
-                where (a, _) = self(s);: State<S, B>;
+                where (a, _) = self(s); as State<S, B>;
         }
 
-        let get<S> = \s: S = (s, s);: State<S, S>;
+        let get<S> = \s: S = (s, s); as State<S, S>;
         func put<S>(s1: S)
         {
-            return \_: S = ((), s1);: State<S, ()>;
+            return \_: S = ((), s1); as State<S, ()>;
         }
     }
 
@@ -37,7 +37,7 @@ namespace test_monad
         {
             public func create<State, R>(_parser: (State)=>option<(R, State)>)
             {
-                return _parser: Parser<State, R>;
+                return _parser as Parser<State, R>;
             }
             public func pure<State, R>(v: R)
             {
@@ -45,7 +45,7 @@ namespace test_monad
             }
             public func fail<State>()
             {
-                return Parser::create(\_/*s*/: State = option::none: option<(nothing, State)>;);
+                return Parser::create(\_/*s*/: State = option::none as option<(nothing, State)>;);
             }
 
             public func parse<State, R>(self: Parser<State, R>, s: State)
@@ -149,11 +149,11 @@ namespace test_monad
             \p: (char)=> bool = Parser::id:<State>
                 =>> \c = p(c) 
                     ? Parser::pure:<State>(c) 
-                    | Parser::fail:<State>(): Parser<test_monad::parsermonad::State, char>;
+                    | Parser::fail:<State>() as Parser<test_monad::parsermonad::State, char>;
             ;
         ;
         let ch = \tc: char = pred(\c = c == tc;);;
-        let digit = pred(\c = c->is_number;)->>\c = (c - '0'): int;;
+        let digit = pred(\c = c->is_number;)->>\c = (c - '0') as int;;
         let nat = digit->some()->> func(xs){let mut result = 0; for(let n: xs)result = result * 10 + n; return result;};
         let integer = ch('-')->use(nat)->>\x = -x;->or(nat);
     }
@@ -173,7 +173,7 @@ namespace test_monad
 
         let m2 = option::value(12.5);
         let m3 = m2
-            =>> \r = option::value(r: int);
+            =>> \r = option::value(r as int);
             ;
         test_assure(m3->unwrap == 12);
 

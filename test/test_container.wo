@@ -101,7 +101,7 @@ namespace test_container
     }
     func test_array_construct()
     {
-        let v = []mut : vec<int>;
+        let v = []mut as vec<int>;
         let f = func(n: int){v->add(n); return n;};
 
         let a = [f(1), f(2), f(3), f(4)];
@@ -114,7 +114,7 @@ namespace test_container
     }
     func test_map_construct()
     {
-        let v = []mut : vec<int>;
+        let v = []mut as vec<int>;
         let f = func(n: int){v->add(n); return n;};
 
         let a = [1, 2, 3, 4];
@@ -133,7 +133,7 @@ namespace test_container
 
         alias elem_t = typeof(iterator->next->unwrap);
         //                    ^^^^^^^^ Here!
-        let elems = []mut: vec<elem_t>;
+        let elems = []mut as vec<elem_t>;
 
         while (true)
         {
@@ -167,7 +167,7 @@ namespace test_container
         test_assure(!dict::deserialize(@"{"\invalid"}"@)->is_value);
 
         // BUG: 221223-JIT-ret pop not work when jit.
-        let x = []mut: vec<string>;
+        let x = []mut as vec<string>;
         for (let mut i = 0; i < 100000; i += 1)
             x->add(F"str_{i}");
         test_equal(x->forall(\s = s->begin_with("0");)->len, 0);

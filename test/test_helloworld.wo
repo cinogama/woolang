@@ -49,12 +49,12 @@ namespace test_helloworld
         test_named_template_accept(\x=x;);
 
         let ascii_h = 'H';
-        test_assure(ascii_h == 72: char);
+        test_assure(ascii_h == 72 as char);
 
         let a = [1,2,3];
 
         let b = a->bind(\x:int = [x, x * 2];)
-                ->> \x:int = x: string;
+                ->> \x:int = x as string;
                 =>> \x:string = [x + "hello", x + "world"];
                 ;
 
@@ -112,7 +112,7 @@ namespace test_helloworld
             0.300000,
             0.300000,
             1.000000
-        ]: dynamic: array<dynamic>);
+        ] as dynamic as array<dynamic>);
 
         func foo(_)
         {

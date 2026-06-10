@@ -10,7 +10,7 @@ namespace test_vm
     func load_and_create_vmm(src:string)
     {
         let vmm = dumpling::Program::create(
-            "test_vm/test_tmp_script.wo", src: buffer)->unwrap;
+            "test_vm/test_tmp_script.wo", src as buffer)->unwrap;
         return vmm;
     }
     

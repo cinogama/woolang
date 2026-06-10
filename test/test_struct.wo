@@ -24,7 +24,7 @@ namespace test_struct
 
     func test_construct_struct()
     {
-        let v = []mut: vec<int>;
+        let v = []mut as vec<int>;
         let foo = func(n: int){v->add(n); return n;};
 
         using St = struct{a: int, b: int, c: int};
@@ -56,7 +56,7 @@ namespace test_struct
     {
         test_construct_struct();
 
-        let j = autojudge{f = \i=i:string;};
+        let j = autojudge{f = \i=i as string;};
         test_equal(j.f(233666), "233666");
 
         func foo()

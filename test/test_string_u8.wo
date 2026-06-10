@@ -13,7 +13,7 @@ namespace test_string_u8
         test_equal("\0"->len(), 1);
         test_equal("\0"->cchars()->len(), 1);
         test_equal("\0"->chars()->len(), 1);
-        test_equal("\0"->cchars()[0], '\0': int: cchar);
+        test_equal("\0"->cchars()[0], '\0' as int as cchar);
         test_equal("\0"->chars()[0], '\0');
 
         test_equal("🍉和🍎都是水果"[0], '🍉');
@@ -80,12 +80,12 @@ namespace test_string_u8
         test_equal(wchars->str(), cchars->cstr());
 
         // Cannot crash when meet bad string.
-        let badstr_1 = "你好世界"->chars->>\ch=ch: int: cchar;->cstr;
+        let badstr_1 = "你好世界"->chars->>\ch=ch as int as cchar;->cstr;
         std::println("\n", F"BAD_STRING SIZE {badstr_1->len}= ", badstr_1);
         for (let mut i = 0; i < badstr_1->len; i += 1)
             std::print(badstr_1[i], "");
         
-        let badstr_2 = "你好世界"->cchars->>\ch=ch: int: char;->str;
+        let badstr_2 = "你好世界"->cchars->>\ch=ch as int as char;->str;
         std::println("\n", F"BAD_STRING SIZE {badstr_2->len}= ", badstr_2);
         for (let mut i = 0; i < badstr_2->len; i += 1)
             std::print(badstr_2[i], "");

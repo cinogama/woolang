@@ -47,7 +47,7 @@ namespace test_dyn_stack
             depth_foo(list, layer + 1);
             list->add(layer);
         }
-        let list = []mut: vec<int>;
+        let list = []mut as vec<int>;
         depth_foo(list, 0);
         for (let mut i = 0; i < 500_0000; i += 1)
         {
@@ -74,7 +74,7 @@ namespace test_dyn_stack
             }
         }
 
-        let a = []mut: vec<int>;
+        let a = []mut as vec<int>;
 
         for (let mut i = 0; i < 8192; i += 1)
         {

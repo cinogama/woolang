@@ -11,7 +11,7 @@ namespace test_compile
     func compile_program(src: string)
     {
         return dumpling::Program::create(
-            "test_compile/test_tmp_script.wo", src: buffer);
+            "test_compile/test_tmp_script.wo", src as buffer);
     }
     func assure_compile_success(src: string)
     {
@@ -665,7 +665,7 @@ func main()
         assure_compile_fail(@"extern func foo(){} extern func foo(a:int){}"@);
         
         // using namespace
-        do dumpling::VFile::register("test/usingnamespace.wo", @"using std;"@: buffer, false);
+        do dumpling::VFile::register("test/usingnamespace.wo", @"using std;"@ as buffer, false);
         assure_compile_fail(@"import woo::std; import test::usingnamespace; println("This should not been displayed!");"@);
         assure_compile_success(@"import woo::std; import test::usingnamespace; using std; println("Helloworld!");"@);
         
@@ -2612,7 +2612,7 @@ func main()
     
     func main()
     {
-        let test_threads = []mut: vec<thread>;
+        let test_threads = []mut as vec<thread>;
         // for (let mut i = 0 ; i < 4; i += 1)
         //     test_threads->add(thread::create(test_compile_success_or_fail));
             

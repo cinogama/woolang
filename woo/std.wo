@@ -46,7 +46,7 @@ namespace std
                 func(n: BaseT)
                 {
                     using _B = T;
-                    do n: _B;
+                    do n as _B;
                 });
     }
     
@@ -453,7 +453,7 @@ namespace result
                 ok(v)? return v;
                 err(e)?
                     return std::panic(
-                        typeid(e: string) != 0
+                        typeid(e as string) != 0
                             ? F"`unwrap` called on an `result::err`: {e}"
                             | "`unwrap` called on an `result::err`.");
             }
@@ -464,7 +464,7 @@ namespace result
             match(self)
             {
                 ok(v)? return std::panic(
-                    typeid(v: string) != 0
+                    typeid(v as string) != 0
                         ? F"`unwrap_err` called on an `result::ok`: {v}"
                         | "`unwrap_err` called on an `result::ok`.");
                 err(e)? return e;

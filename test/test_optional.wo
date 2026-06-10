@@ -5,7 +5,7 @@ import pkg::iterator;
 
 namespace test_optional
 {
-    let global_val<T> = []mut: vec<T>;
+    let global_val<T> = []mut as vec<T>;
 
     func foo()
     {
@@ -14,7 +14,7 @@ namespace test_optional
         test_assure(global_val:<string>[0] == "Helloworld");
 
         let x = option::value(233);
-        let y = option::none: option<int>;
+        let y = option::none as option<int>;
         let m = {[1] = x, [2] = y};
 
         match(m->get(1)=>>\elem = elem;)
@@ -58,7 +58,7 @@ namespace test_optional
         }
         func create<T>(val: array<T>)
         {
-            let mut result = linknode::end : linknode<T>;
+            let mut result = linknode::end as linknode<T>;
             for (let elem : val)
                 result = result->add(elem);
             return result;
@@ -95,7 +95,7 @@ namespace test_optional
         let data_from = ["Hello", "world", "woolang"];
         let chain = linknode::create(data_from)->dup();
 
-        let arr = []mut: vec<string>;
+        let arr = []mut as vec<string>;
         for(let x : chain)
             arr->add(x);
 
@@ -106,7 +106,7 @@ namespace test_optional
     {
         test_chain();
 
-        let mut p<T> = 0: T;
+        let mut p<T> = 0 as T;
 
         p:<real> = 128.0; 
         test_assure(p:<int> == 0);
@@ -124,7 +124,7 @@ namespace test_optional
         foo();
 
         let mut gval = option::none as option<vec<string>>;
-        gval = option::value([]mut: vec<string>);
+        gval = option::value([]mut as vec<string>);
 
         match(gval)
         {

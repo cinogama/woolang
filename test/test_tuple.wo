@@ -10,7 +10,7 @@ namespace test_tuple
 
     func test_construct_tuple()
     {
-        let v = []mut: vec<int>;
+        let v = []mut as vec<int>;
         let foo = func(n: int){v->add(n); return n;};
 
         let t = (foo(1), foo(2), foo(3));

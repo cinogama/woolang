@@ -20,7 +20,7 @@ namespace test_enum
     }
     func foo(a: EnumA, b: EnumB)
     {
-        return a: int + b: int;
+        return a as int + b as int;
     }
 
     func main()

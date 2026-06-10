@@ -105,8 +105,8 @@ namespace test_stdlib_extern
         let deserialized_map = map::deserialize(serialized_map)->unwrap();
         
         test_equal(deserialized_map->len(), 2);
-        test_equal(deserialized_map["key1": dynamic] as string, "value1");
-        test_equal(deserialized_map["key2": dynamic] as string, "value2");
+        test_equal(deserialized_map["key1" as dynamic] as string, "value1");
+        test_equal(deserialized_map["key2" as dynamic] as string, "value2");
         
         // 测试 vec 类型
         let test_vec = [10, 20, 30]mut;

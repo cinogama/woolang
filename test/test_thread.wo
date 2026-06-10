@@ -7,10 +7,10 @@ namespace test_thread
 {
     let mut summ = 0;
     
-    let created_threads = []mut: vec<thread>;
+    let created_threads = []mut as vec<thread>;
     let thread_count = 4;
     
-    let test_vec = []mut: vec<typeof(nil)>;
+    let test_vec = []mut as vec<typeof(nil)>;
     let test_vec_mx = thread::mutex::create();
     func main()
     {

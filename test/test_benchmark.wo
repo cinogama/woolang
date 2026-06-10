@@ -16,7 +16,7 @@ namespace test_benchmark
     func isprime(n: int)
     {
         if (n != 2)
-            for (let mut i = 2; i <= math::sqrt(n as int: real) as real: int; i += 1)
+            for (let mut i = 2; i <= math::sqrt((n as int) as real) as real as int; i += 1)
                 if (n % i == 0)
                     return false;
         return true;
@@ -24,7 +24,7 @@ namespace test_benchmark
     
     func bench_1m_prime()
     {
-        let searching = []mut: vec<int>;
+        let searching = []mut as vec<int>;
         
         for (let mut i = 2; i < 100_0000; i += 1)
             if (isprime(i))
@@ -32,7 +32,7 @@ namespace test_benchmark
     }
     func bench_1m_prime2()
     {
-        let searching = []mut: vec<int>;
+        let searching = []mut as vec<int>;
         
         for (let mut i = 2; i < 100_0000; i += 1)
             searching->add(i);
@@ -41,7 +41,7 @@ namespace test_benchmark
     }
     func bench_1m_prime3()
     {
-        let searching = []mut: vec<int>;
+        let searching = []mut as vec<int>;
         
         for (let mut i = 2; i < 100_0000; i += 1)
             searching->add(i);
@@ -52,7 +52,7 @@ namespace test_benchmark
     }
     func bench_1m_prime4()
     {
-        let searching = []mut: vec<int>;
+        let searching = []mut as vec<int>;
         
         for (let mut i = 2; i < 100_0000; i += 1)
             searching->add(i);
@@ -157,14 +157,14 @@ namespace test_benchmark
     
     func insert_1e7()
     {
-        let m = {}mut: map<int, mut void>;
+        let m = {}mut as map<int, mut void>;
         for (let mut i = 0; i < 100_0000; i += 1)
             m[i] = do nil;
         m->clear;
     }
     func set_1e7()
     {
-        let m = {}mut: map<int, void>;
+        let m = {}mut as map<int, void>;
         for (let mut i = 0; i < 100_0000; i += 1)
             m->set(i, do nil);
         m->clear;
@@ -178,7 +178,7 @@ namespace test_benchmark
     }
     func prealloc_set_1e7()
     {
-        let m = {}mut: map<int, void>;
+        let m = {}mut as map<int, void>;
         m->reserve(100_0000);
         for (let mut i = 0; i < 100_0000; i += 1)
             m->set(i, do nil);

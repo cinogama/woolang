@@ -7,7 +7,7 @@ import test_tool;
 
 namespace test_gc
 {
-    let mut global_list = []mut: vec<dynamic>;
+    let mut global_list = []mut as vec<dynamic>;
     let global_list_mx = thread::mutex::create();
 
     let TEST_TIME = 35.;
@@ -37,9 +37,9 @@ namespace test_gc
     {
         std::println("test_gc_co/thread id=", id, "begin");
 
-        let local_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]mut: vec<dynamic>;
-        let tmp = []mut: vec<vec<int>>;
-        let arr_a = [[12345678]mut,]mut, arr_b = []mut: vec<vec<int>>;
+        let local_list = [1 as dynamic,2 as dynamic,3 as dynamic,4 as dynamic,5 as dynamic]mut as vec<dynamic>;
+        let tmp = []mut as vec<vec<int>>;
+        let arr_a = [[12345678]mut,]mut, arr_b = []mut as vec<vec<int>>;
 
         let test_begin_time = std::clock();
 
@@ -49,9 +49,9 @@ namespace test_gc
                 global_list_mx->lock();
                 defer global_list_mx->unlock();
 
-                global_list->add({["Hello"] = "world"}: dynamic);
-                global_list->add({["Hello"] = "world"}: dynamic);
-                global_list->add({["Hello"] = "world"}: dynamic);
+                global_list->add({["Hello"] = "world"} as dynamic);
+                global_list->add({["Hello"] = "world"} as dynamic);
+                global_list->add({["Hello"] = "world"} as dynamic);
 
                 if (std::rand(1, 50000) == 233)
                     global_list->clear();
@@ -62,8 +62,8 @@ namespace test_gc
             arr_b->add(tmp[0]);
             do tmp->remove(0);
 
-            local_list->add(arr_a: dynamic);
-            local_list->add(arr_b: dynamic);
+            local_list->add(arr_a as dynamic);
+            local_list->add(arr_b as dynamic);
 
             test_assure(arr_b[0][0] == 12345678);
 
@@ -72,8 +72,8 @@ namespace test_gc
             arr_a->add(tmp[0]);
             do tmp->remove(0);
 
-            local_list->add(arr_a: dynamic);
-            local_list->add(arr_b: dynamic);
+            local_list->add(arr_a as dynamic);
+            local_list->add(arr_b as dynamic);
 
             if (std::rand(1, 50000) == 233)
                 local_list->clear();
@@ -91,7 +91,7 @@ namespace test_gc
 
     func main()
     {
-        global_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]mut: vec<dynamic>;
+        global_list = [1 as dynamic,2 as dynamic,3 as dynamic,4 as dynamic,5 as dynamic]mut as vec<dynamic>;
         
         do thread::create(test_gchandle_work);
 

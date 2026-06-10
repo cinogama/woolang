@@ -66,8 +66,8 @@ namespace test_macro
 
         test_generated_macro!;
         test_assure(test_generated_macro_instance! == 1);
-        test_assure(std::token_type::l_unknown_token: int == 101);
-        test_assure(std::token_type::lex_type_COUNT: int == 102);
+        test_assure(std::token_type::l_unknown_token as int == 101);
+        test_assure(std::token_type::lex_type_COUNT as int == 102);
     }
 }
 test_function("test_macro.main", test_macro::main);

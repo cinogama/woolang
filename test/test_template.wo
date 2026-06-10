@@ -47,19 +47,19 @@ namespace test_template
     }
     func fib<T>(n:T)=> T
     {
-        if (n <= 2:T)
-            return 1:T;
-        return fib:<T>(n-1:T) + fib:<T>(n-2:T);
+        if (n <= 2 as T)
+            return 1 as T;
+        return fib:<T>(n - (1 as T)) + fib:<T>(n - (2 as T));
     }
     func diff_static<T>()
     {
-        static let a = []:array<T>;
+        static let a = [] as array<T>;
         return a;
     }
 
     func typename_of<T>()
     {
-        let _tmp = 0:T;
+        let _tmp = 0 as T;
 
         if (_tmp is dynamic)
             return "dynamic";
@@ -75,9 +75,9 @@ namespace test_template
         where !(std::declval:<T>() is dynamic);
     {
         let begin_time = std::clock();
-        let mut i = 0:T;
-        while (i < 1_0000_0000:T)
-            i += 1:T;
+        let mut i = 0 as T;
+        while (i < 1_0000_0000 as T)
+            i += 1 as T;
         let end_time = std::clock();
 
         std::println(typename_of:<T>(), "cost:", end_time - begin_time, "sec.");
@@ -85,12 +85,12 @@ namespace test_template
 
     func cast_to<TO, FROM>(val:FROM)
     {
-        return val:TO;
+        return val as TO;
     }
 
     func template_if_constexpr_test<T>()
     {
-        if (0:T is real)
+        if (0 as T is real)
             return 1.25;
         else
             return 1;
@@ -106,7 +106,7 @@ namespace test_template
         func CheckForType<SP, T>(_: MyTemplate<T>)
         {
             // do check:
-            let p = option::none: option<SP>;
+            let p = option::none as option<SP>;
             do p ->> \e = e as T;;
         }
     }
@@ -234,20 +234,20 @@ namespace test_template
         using std;
         alias foo<A, B> = typeof(declval:<A>() + declval:<B>());
         
-        do option::none : option<foo<int, int>> as option<int>;
+         do option::none as option<foo<int, int>> as option<int>;
     }
 
     func test_mut_mark_bug()
     {
         func mut_mark_bug1<T>(_: array<T>)
         {
-            do []: array<mut T>;
-            return []: array<T>;
+            do [] as array<mut T>;
+            return [] as array<T>;
         }
         func mut_mark_bug2<T>(_: array<T>)
         {
-            do []: array<T>;
-            return []: array<mut T>;
+            do [] as array<T>;
+            return [] as array<mut T>;
         }
 
         do mut_mark_bug1([true])->map(\_: bool = 0;);
@@ -264,12 +264,12 @@ namespace test_template
 
     func return_2_times_val<T>(a: T)
     {
-        return a * 2: T;
+        return a * (2 as T);
     }
     
     func return_5_times_val<T>(a: T)
     {
-        return a * 5: T;
+        return a * (5 as T);
     }
 
     func call_and_return<T>(f: (T)=>T, v: T)
@@ -306,25 +306,25 @@ namespace test_template
         test_assure(call_and_return(return_2_times_val, 128.) == 256.);
         test_assure(call_and_return(return_5_times_val, 20.) == 100.);
 
-        test_assure(option::none->unwrap: bool_if_void<boom_t> is ()=>int);
-        test_assure(option::none->unwrap: bool_if_void<void> is bool);
+        test_assure(option::none->unwrap as bool_if_void<boom_t> is ()=>int);
+        test_assure(option::none->unwrap as bool_if_void<void> is bool);
 
         test_typeof_template();
         test_mut_mark_bug();
 
         using myarr<T> = array<T>;
 
-        do hkt_foo([[1]: myarr<int>]) as ()=>myarr<string>;
+        do hkt_foo([[1] as myarr<int>]) as ()=>myarr<string>;
         do hkt_foo([[1]]) as ()=>array<string>;
 
         using sparr<T> = array<real>;
         alias alarr<T> = array<bool>;
         alias alarrsp<T> = alarrsp_struct<bool>;
 
-        do hkt_foo([[1.5]: sparr<int>]) as ()=>sparr<string>;
+        do hkt_foo([[1.5] as sparr<int>]) as ()=>sparr<string>;
 
         // 220901 alias not passed if alias is completed. 
-        do hkt_foo([[true]: alarr<int>]) as ()=>array<string>;
+        do hkt_foo([[true] as alarr<int>]) as ()=>array<string>;
         do hkt_foo([alarrsp:<int>{memb = true}]) as ()=>alarrsp_struct<string>;
 
         let mins = mtest::create:<string>();
@@ -404,11 +404,11 @@ namespace test_template
 
         test_equal(cast_to:<string>(3)+".14159", "3.14159");
 
-        do template_if_constexpr_test:<int>():dynamic as int;
-        do template_if_constexpr_test:<real>():dynamic as real;
+        do template_if_constexpr_test:<int>() as dynamic as int;
+        do template_if_constexpr_test:<real>() as dynamic as real;
 
-        let mt_int = 0:MyTemplate<int>;
-        let mt_real = 0:MyTemplate<real>;
+        let mt_int = 0 as MyTemplate<int>;
+        let mt_real = 0 as MyTemplate<real>;
 
         test_equal(mt_int->MyTemplateTName(), "int");
         test_equal(mt_real->MyTemplateTName(), "real");
@@ -417,9 +417,9 @@ namespace test_template
         mt_int->CheckForType:<int>();
         mt_real->CheckForType:<real>();
 
-        let n0 = []:array<real>;
-        let n1 = 0:MyTemplate<real>;
-        let n2 = 0:MySecTemplate<real>;
+        let n0 = [] as array<real>;
+        let n1 = 0 as MyTemplate<real>;
+        let n2 = 0 as MySecTemplate<real>;
         test_equal(TemplateAutoJudgeTest(n0), "success");
         test_equal(TemplateAutoJudgeTest(n1), "fail");
         test_equal(TemplateAutoJudgeTest(n2), "ohooo");
@@ -427,7 +427,7 @@ namespace test_template
         test_equal(make_instance:<A::xxtype>(), "success");
         test_equal(make_instance:<gchandle_type>(), "gchandle_type success");
 
-        let p = []mut: vec<int>;
+        let p = []mut as vec<int>;
         let q = [1,2,3,4,5,6,7,8,9];
         for(let v : wraped_iterator::create(q->iter() |> iterator::enumerate, func(e: (int, int)){return e.1==5;}))
         {

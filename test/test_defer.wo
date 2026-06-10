@@ -20,7 +20,7 @@ namespace test_defer
     }
     func loop_1()
     {
-        let r = []mut: vec<int>;
+        let r = []mut as vec<int>;
         for (let mut i = 0; i < 5; i += 1)
         {
             defer r->add(i);
@@ -29,7 +29,7 @@ namespace test_defer
     }
     func loop_2()
     {
-        let r = []mut: vec<int>;
+        let r = []mut as vec<int>;
         for (let mut i = 0; i < 5; i += 1)
         {
             continue;
@@ -40,7 +40,7 @@ namespace test_defer
     }
     func loop_3()
     {
-        let r = []mut: vec<int>;
+        let r = []mut as vec<int>;
         for (let mut i = 0; i < 5; i += 1)
         {
             defer r->add(i);
@@ -50,7 +50,7 @@ namespace test_defer
     }
     func complex_1()
     {
-        let r = []mut: vec<int>;
+        let r = []mut as vec<int>;
         {
             defer r->add(1);
             {
@@ -70,7 +70,7 @@ namespace test_defer
     }
     func complex_2()
     {
-        let r = []mut: vec<int>;
+        let r = []mut as vec<int>;
         {
             defer r->add(1);
             {
@@ -91,7 +91,7 @@ namespace test_defer
     }
     func complex_3()
     {
-        let r = []mut: vec<int>;
+        let r = []mut as vec<int>;
         for (let mut i = 0; i < 5; i += 1)
         {
             defer r->add(i);
@@ -108,7 +108,7 @@ namespace test_defer
     }
     func complex_4()
     {
-        let r = []mut: vec<int>;
+        let r = []mut as vec<int>;
         defer
         {
             defer r->add(1);
