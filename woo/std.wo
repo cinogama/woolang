@@ -166,10 +166,10 @@ namespace dynamic
     namespace type_traits
     {
         public let need_box<T> =
-            std::is_based_on:<int, T>
-                || std::is_based_on:<handle, T>
-                || std::is_based_on:<real, T>
-                || std::is_based_on:<bool, T>;
+            std::type_traits::is_based_on:<int, T>
+                || std::type_traits::is_based_on:<handle, T>
+                || std::type_traits::is_based_on:<real, T>
+                || std::type_traits::is_based_on:<bool, T>;
                 
         let __dynamic_extern_symbol_name_helper2<T, IRBXNameTable: (string, string, string, string)> =
             (std::type_traits::is_based_on:<int, T>
