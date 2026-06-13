@@ -25,7 +25,7 @@ namespace test_compile
 
                 test_assure(false);
             }
-            ok(vmm)?;
+            ok(_)?;
         }
     }
     func assure_compile_fail(src: string)

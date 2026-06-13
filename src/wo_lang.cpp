@@ -1,5 +1,7 @@
 #include "wo_afx.hpp"
 
+#include <mutex>
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -1579,40 +1581,56 @@ namespace wo
     void LangContext::begin_new_function(ast::AstValueFunction* func_instance)
     {
         auto* scope = begin_new_scope(func_instance->m_body->source_location);
-        scope->m_function_instance = func_instance;
+        scope->m_function_instance.emplace(func_instance);
     }
     void LangContext::end_last_function()
     {
         wo_assert(get_current_scope()->m_function_instance);
         end_last_scope();
     }
-    bool LangContext::check_unused_local_variables(lexer& lex)
+    bool LangContext::check_unused_local_variables_in_scope(lexer& lex, lang_Scope* scope)
     {
         bool have_unused_local_variable = false;
 
-        lang_Scope* scope = get_current_scope();
-        for (auto& [name, symbol] : scope->m_defined_symbols)
-        {
-            if (symbol->m_symbol_kind != lang_Symbol::kind::VARIABLE)
-                continue;
-            if (symbol->m_is_template)
-                continue;
-            if (symbol->m_is_global)
-                continue;
-            if (symbol->m_has_been_used)
-                continue;
-            if (symbol->m_declare_attribute.has_value()
-                && symbol->m_declare_attribute.value()->m_external.has_value())
-                continue;
-            if (!symbol->m_symbol_declare_ast.has_value())
-                continue;
+        std::stack<lang_Scope*> scanning_scopes;
+        scanning_scopes.push(scope);
 
-            lex.record_lang_error(lexer::msglevel_t::error,
-                symbol->m_symbol_declare_ast.value(),
-                WO_ERR_UNSED_VARIABLE,
-                get_symbol_name(symbol.get()));
-            have_unused_local_variable = true;
+        while (!scanning_scopes.empty())
+        {
+            lang_Scope* const this_scope = scanning_scopes.top();
+            scanning_scopes.pop();
+
+            for (auto& [name, symbol] : this_scope->m_defined_symbols)
+            {
+                if (symbol->m_symbol_kind != lang_Symbol::kind::VARIABLE)
+                    continue;
+                if (symbol->m_is_template)
+                    continue;
+                if (symbol->m_is_global)
+                    continue;
+                if (symbol->m_has_been_used)
+                    continue;
+                if (symbol->m_declare_attribute.has_value()
+                    && symbol->m_declare_attribute.value()->m_external.has_value())
+                    continue;
+                if (!symbol->m_symbol_declare_ast.has_value())
+                    continue;
+
+                lex.record_lang_error(lexer::msglevel_t::error,
+                    symbol->m_symbol_declare_ast.value(),
+                    WO_ERR_UNSED_VARIABLE,
+                    get_symbol_name(symbol.get()));
+                have_unused_local_variable = true;
+            }
+
+            for (auto& sub_scope : this_scope->m_sub_scopes)
+            {
+                // Skip sub function.
+                if (!sub_scope->m_function_instance.has_value())
+                    scanning_scopes.push(sub_scope.get());
+            }
         }
+        
         return have_unused_local_variable;
     }
     lang_Scope* LangContext::begin_new_scope(

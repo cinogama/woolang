@@ -495,12 +495,7 @@ namespace wo
             [[fallthrough]];
             case AstScope::HOLD_FOR_DEFER_EVAL:
             {
-                const bool has_unused = check_unused_local_variables(lex);
                 end_last_scope();
-
-                if (has_unused)
-                    return FAILED;
-
                 break;
             }
             default:
@@ -1697,7 +1692,7 @@ namespace wo
             {
                 const bool has_unused =
                     !node->m_LANG_extern_information.has_value()
-                    && check_unused_local_variables(lex);
+                    && check_unused_local_variables_in_scope(lex, get_current_scope());
 
                 end_last_function();
                 if (node->m_LANG_determined_template_arguments.has_value())
@@ -6591,7 +6586,7 @@ namespace wo
 
                 return FAILED;
             }
-            function_instance->m_LANG_extern_information = node;
+            function_instance->m_LANG_extern_information.emplace(node);
 
             function_instance->m_LANG_determined_return_type =
                 function_instance->m_marked_return_type.value()->m_LANG_determined_type.value();
