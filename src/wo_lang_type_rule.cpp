@@ -925,6 +925,7 @@ namespace wo
             return WOORT_BOX_VALUE_TYPE_VEC;
         case lang_TypeInstance::DeterminedType::TUPLE:
         case lang_TypeInstance::DeterminedType::STRUCT:
+        case lang_TypeInstance::DeterminedType::UNION:
             return WOORT_BOX_VALUE_TYPE_STRUCT;
         case lang_TypeInstance::DeterminedType::FUNCTION:
             return WOORT_BOX_VALUE_TYPE_CLOSURE;
