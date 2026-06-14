@@ -551,7 +551,7 @@ typedef enum _wo_lspv2_lexer_token
 
     /* Comments */
     WO_LSPV2_TOKEN_LINE_COMMENT,            /**< @brief Line comment (//). */
-    WO_LSPV2_TOKEN_BLOCK_COMMENT,           /**< @brief Block comment (/* *-/). */
+    WO_LSPV2_TOKEN_BLOCK_COMMENT,           /**< @brief Block comment. */
     WO_LSPV2_TOKEN_SHEBANG_COMMENT,         /**< @brief Shebang comment (#!). */
     WO_LSPV2_TOKEN_UNKNOWN_TOKEN,           /**< @brief Unknown/unrecognized token. */
 
