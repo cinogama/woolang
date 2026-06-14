@@ -680,7 +680,7 @@ namespace wo
             if (node->m_LANG_hold_state == AstFor::IR_HOLD_FOR_BODY_EVAL)
                 m_ircontext.end_loop();
         }
-        return OKAY;
+        return WO_EXCEPT_ERROR(state, OKAY);
     }
     WO_PASS_PROCESSER(AstForeach)
     {

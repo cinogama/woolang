@@ -2664,6 +2664,16 @@ func main()
         let s = Example{};
         do s as nil;
         "@);
+
+        assure_compile_fail(@"
+        func foo()
+        {
+            for (let mut i = 0; i < 0; i += 1)
+            {
+                i;
+            }
+        }
+        "@);
     }
     
     func main()
