@@ -1,0 +1,33 @@
+import woo::std;
+import test_tool;
+
+namespace test_type_coverage
+{
+    /* Tuple mixture ACCEPT path in fast_mixture_with_instance.
+       Covers wo_lang_type_rule.cpp:753-780.
+       Mixing (int, real) | (real, int) should collapse to (real, real). */
+    func test_tuple_mixture_accept()
+    {
+        let cond = true;
+        let m = cond ? (1, 2.0)
+                     | (1.0, 2);
+        test_equal(m[0] as real, 1.0);
+        test_equal(m[1], 2.0);
+    }
+
+    /* Cast between function types — exercises check_cast_able function case. */
+    func test_func_cast()
+    {
+        let f = \_: int = 0;;
+        let g = f as (int)=>int;
+        test_equal(g(5), 0);
+    }
+
+    func main()
+    {
+        test_tuple_mixture_accept();
+        test_func_cast();
+    }
+}
+
+test_function("test_type_coverage.main", test_type_coverage::main);

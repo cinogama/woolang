@@ -1,0 +1,105 @@
+import woo::std;
+import test_tool;
+
+namespace test_lexer_coverage
+{
+    /* String escape sequences in regular "..." literals.
+       Covers the lexer escape switch at wo_compiler_lexer.cpp:1171-1281
+       and the utf8 helpers (u16hisurrogate/u16exractu8/u32exractu8). */
+    func test_string_escapes()
+    {
+        /* ASCII control escapes (\a \b \f \v) — lexer.cpp:1171-1184.
+           Cross-check each against its hex equivalent. */
+        test_assure("\a" == "\x07");
+        test_assure("\b" == "\x08");
+        test_assure("\f" == "\x0c");
+        test_assure("\v" == "\x0b");
+
+        /* Octal escapes \NN / \NNN — lexer.cpp:1190-1195. */
+        test_assure("\7" == "\x07");
+        test_assure("\12" == "\n");
+        test_assure("\101" == "A");
+        test_assure("\377" == "\xff");
+
+        /* Hex escape \xNN — lexer.cpp:1203-1220. */
+        test_equal("\x41", "A");
+        test_assure("\xff" == "\377");
+
+        /* Unicode escape \uNNNN (BMP) — lexer.cpp:1222-1238, utf8.cpp:140-181. */
+        test_assure("\u00f1" == "ñ");
+        test_assure("\u4f60" == "你");
+        test_assure("\u00e9" == "é");
+
+        /* Unicode surrogate pair \uDXXX\uDXXX — lexer.cpp:1240-1259, utf8.cpp:217-249. */
+        test_assure("\uD83D\uDE00" == "😀");
+        test_assure("\uD83C\uDF47" == "🍇");
+    }
+
+    /* Char literal escapes — shares the lexer escape path via line 1146.
+       Covers char-literal forms of the same escape sequences. */
+    func test_char_escapes()
+    {
+        test_assure('\a' == "\a"[0]);
+        test_assure('\b' == "\b"[0]);
+        test_assure('\f' == "\f"[0]);
+        test_assure('\v' == "\v"[0]);
+        test_assure('\377' as int == 255);
+        test_assure('\x41' == 'A');
+        test_assure('\u00f1' == 'ñ');
+        test_assure('\u4f60' == '你');
+        test_assure('\uD83D\uDE00' == '😀');
+    }
+
+    /* Escapes inside F"..." format strings — a separate escape switch at
+       lexer.cpp:1753-1866. Only the interpolation structure was covered before. */
+    func test_format_string_escapes()
+    {
+        let n = 1;
+        test_assure(F"\x41{n}" == "A1");
+        test_assure(F"\u00f1{n}" == "ñ1");
+        test_assure(F"\{n\}" == "{n}");
+        test_assure(F"\t{n}" == "\t1");
+        test_assure(F"\7{n}" == "\a1");
+    }
+
+    /* Octal integer / handle literals — lexer.cpp:1564-1565, 1626-1641. */
+    func test_numeric_octal()
+    {
+        test_equal(032 as int, 26);
+        test_equal(0777 as int, 511);
+        test_equal(0777H as handle, 511H);
+    }
+
+    /* Binary handle literal 0bNNNH — lexer.cpp:1651-1652. */
+    func test_numeric_binary_handle()
+    {
+        test_equal(0b1010H as handle, 10H);
+    }
+
+    /* Uppercase 0X / 0B prefixes — lexer.cpp:1555-1560 branches. */
+    func test_numeric_uppercase_prefix()
+    {
+        test_equal(0XFF as int, 255);
+        test_equal(0B101 as int, 5);
+    }
+
+    /* Apostrophe digit separator — lexer.cpp:1577. */
+    func test_apostrophe_separator()
+    {
+        test_equal(1'000'000, 1000000);
+        test_equal(1'000 + 1_000, 2000);
+    }
+
+    func main()
+    {
+        test_string_escapes();
+        test_char_escapes();
+        test_format_string_escapes();
+        test_numeric_octal();
+        test_numeric_binary_handle();
+        test_numeric_uppercase_prefix();
+        test_apostrophe_separator();
+    }
+}
+
+test_function("test_lexer_coverage.main", test_lexer_coverage::main);

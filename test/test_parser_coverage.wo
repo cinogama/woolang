@@ -1,0 +1,115 @@
+import woo::std;
+import test_tool;
+
+namespace test_parser_coverage
+{
+    /* Operator overloads for the 7 relational/subtraction/logical-or
+       operators that were never defined in any test.
+       Covers get_operator_overload_function_name_by_token() switch cases
+       at wo_lang_ast_builder.cpp:301-324. */
+    using OrdStr = string
+    {
+        func operator - (a: OrdStr, b: OrdStr)
+        {
+            return (a as string)->len() - (b as string)->len();
+        }
+        func operator < (a: OrdStr, b: OrdStr)
+        {
+            return (a as string)->len() < (b as string)->len();
+        }
+        func operator > (a: OrdStr, b: OrdStr)
+        {
+            return (a as string)->len() > (b as string)->len();
+        }
+        func operator <= (a: OrdStr, b: OrdStr)
+        {
+            return (a as string)->len() <= (b as string)->len();
+        }
+        func operator >= (a: OrdStr, b: OrdStr)
+        {
+            return (a as string)->len() >= (b as string)->len();
+        }
+        func operator != (a: OrdStr, b: OrdStr)
+        {
+            return (a as string)->len() != (b as string)->len();
+        }
+        func operator || (a: OrdStr, b: OrdStr)
+        {
+            return (a as string)->len() != 0 || (b as string)->len() != 0;
+        }
+    };
+
+    func test_relational_overloads()
+    {
+        let s1 = "abc" as OrdStr;
+        let s2 = "ab" as OrdStr;
+        test_assure(s2 < s1);
+        test_assure(s1 > s2);
+        test_assure(s2 <= s1);
+        test_assure(s1 >= s2);
+        test_assure(s1 != s2);
+        test_equal(s1 - s2, 1);
+        test_assure(s1 || s2);
+    }
+
+    /* /= compound assignment — ast_builder.cpp:994-995 (l_div_assign). */
+    func test_div_assign()
+    {
+        let mut a = 100;
+        a /= 4;
+        test_equal(a, 25);
+    }
+
+    /* *: value-copy mul-assign — ast_builder.cpp:1004-1005 (l_value_mul_assign). */
+    func test_value_mul_assign()
+    {
+        let mut n = 21;
+        do n *: 2;
+        test_equal(n, 42);
+    }
+
+    /* private access modifier on struct fields — ast_builder.cpp:844-845. */
+    using PrivHolder = struct
+    {
+        public    pub_f:  int,
+        protected prot_f: int,
+        private   priv_f: int,
+    };
+
+    func test_private_field()
+    {
+        let h = PrivHolder{pub_f = 1, prot_f = 2, priv_f = 3};
+        test_equal(h.pub_f, 1);
+    }
+
+    /* where-clause on a multi-line lambda.
+       Covers pass_func_lambda_ml (L543). */
+    func test_where_on_lambdas()
+    {
+        let f = func(x: int) where x is int; { return x + 1; };
+        test_equal(f(5), 6);
+    }
+
+    /* Variadic function-typed parameters — ast_builder.cpp:820-822.
+       The (...)=>void and (int, ...)=>void type annotations exercise
+       the variadic-in-type-position code path. */
+    func var_void(...)=> void { do nil; }
+
+    func test_variadic_func_type()
+    {
+        func run_cb(cb: (...)=>void) { do cb; }
+        do run_cb(var_void);
+    }
+
+    func main()
+    {
+        test_relational_overloads();
+        test_div_assign();
+        test_value_mul_assign();
+        test_private_field();
+        test_where_on_lambdas();
+        test_variadic_func_type();
+    }
+}
+
+test_function("test_parser_coverage.main", test_parser_coverage::main);

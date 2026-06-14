@@ -1,0 +1,200 @@
+import woo::std;
+import test_tool;
+
+namespace test_ir_coverage
+{
+    /* String relational comparisons (< > <= >=).
+       Covers the STRING case arms in passir.cpp:3201-3259 and the
+       gts/lts/ges/les emission fns in ir_compiler.cpp:929-959. */
+    func test_string_relational()
+    {
+        test_assure("apple" < "banana");
+        test_assure("zebra" > "apple");
+        test_assure("abc" <= "abc");
+        test_assure("abcd" >= "abc");
+        test_assure(!("abc" >= "abcd"));
+    }
+
+    /* Real != operator.
+       Covers passir.cpp:3290-3292 (ner) and ir_compiler.cpp:909 (NER). */
+    func test_real_ne()
+    {
+        let a = 1.5;
+        let b = 2.5;
+        test_assure(a != b);
+        test_assure(!(a != 1.5));
+    }
+
+    /* Logical && / || producing a value (not in short-circuit position).
+       Covers passir.cpp:3185-3190 (land/lor) and ir_compiler.cpp:989-999. */
+    func test_logical_value()
+    {
+        let p = true;
+        let q = false;
+        let r = p && q;
+        let s = p || q;
+        test_assure(r == false);
+        test_assure(s == true);
+    }
+
+    /* Typed dict stores with non-int key/value types.
+       Covers passir.cpp:4690-4761 dict-store dispatch and
+       ir_compiler.cpp:1190-1330 STIDXDICT* emission.
+       Dict values must be `mut` to allow index assignment. */
+    func test_typed_dict_stores()
+    {
+        let dr = {[1.5] = mut 0.0};
+        dr[1.5] = 2.5;
+        test_assure(dr[1.5] == 2.5);
+
+        let db = {[true] = mut 0}mut;
+        db[true] = 7;
+        db[false] = 0;
+        test_equal(db[true], 7);
+        test_equal(db[false], 0);
+
+        let ds = {["yes"] = mut false};
+        ds["yes"] = true;
+        test_assure(ds["yes"] == true);
+    }
+
+    /* Typed map stores with non-int key/value types.
+       Covers passir.cpp:4784-4856 map-store dispatch and
+       ir_compiler.cpp:1350-1480 STIDXMAP* emission.
+       Map values must be `mut` to allow index assignment. */
+    func test_typed_map_stores()
+    {
+        let mr = {}mut as map<real, mut real>;
+        mr[3.14] = 1.41;
+        test_assure(mr[3.14] == 1.41);
+
+        let mb = {}mut as map<bool, mut bool>;
+        mb[false] = true;
+        test_assure(mb[false] == true);
+
+        let ms = {}mut as map<string, mut real>;
+        ms["pi"] = 3.14;
+        test_assure(ms["pi"] == 3.14);
+    }
+
+    /* Dict load by real / bool key.
+       Covers passir.cpp:3883-3888 and ir_compiler.cpp:1069-1119 LDIDXDICT* . */
+    func test_dict_typed_read()
+    {
+        let dr = {[1.5] = "a", [2.5] = "b"};
+        test_assure(dr[1.5] == "a");
+        test_assure(dr[2.5] == "b");
+
+        let db = {[true] = 1, [false] = 0};
+        test_equal(db[true], 1);
+        test_equal(db[false], 0);
+    }
+
+    /* Vec store of a real element.
+       Covers passir.cpp:4872 (stidxvecr) and ir_compiler.cpp:1150 (STIDXVECR).
+       Vec elements must be `mut` to allow index assignment. */
+    func test_vec_real_store()
+    {
+        let v = [mut 0.0, mut 0.0, mut 0.0];
+        v[1] = 3.14;
+        test_assure(v[1] == 3.14);
+    }
+
+    /* Compound assignment on reals (-= /= %=) and on indexed target.
+       Covers passir.cpp:4421-4467, 4577-4621. */
+    func test_compound_real()
+    {
+        let mut r = 10.0;
+        r -= 0.5;
+        test_assure(r == 9.5);
+        r /= 2.0;
+        test_assure(r == 4.75);
+
+        let mut m = 10;
+        m %= 3;
+        test_equal(m, 1);
+
+        let vr = [mut 1.0, mut 2.0];
+        vr[0] /= 4.0;
+        test_assure(vr[0] == 0.25);
+    }
+
+    /* Division with a constant operand — triggers the overflow guard.
+       Covers passir.cpp:2816 (chkdivil, right is const -1) and
+       passir.cpp:2825-2828 (chkdivir, left is const) and
+       ir_compiler.cpp:699-719. */
+    func test_div_constguard()
+    {
+        let x = 100;
+        test_equal(x / -1, -100);
+        test_equal(200 / x, 2);
+    }
+
+    /* as-assert on a dynamic value to a boxed target.
+       Covers passir.cpp:2022,2043 (assertdyn) and ir_compiler.cpp:489. */
+    func test_assertdyn()
+    {
+        let d = 42 as dynamic;
+        let checked = (d as int) as dynamic;
+        test_assure((checked as int) == 42);
+    }
+
+    /* Union construction written to an in-place / boxed target.
+       Covers passir.cpp:4067-4080 (mkunion into target + boxdyn). */
+    union Opt { some(int), none }
+
+    func test_mkunion_inplace()
+    {
+        let mut u = Opt::none;
+        u = Opt::some(7);
+        match(u)
+        {
+        some(v)?    test_equal(v, 7);
+        none?       test_assure(false);
+        }
+
+        let boxed = option::value(Opt::some(9)) as option<Opt>;
+        match(boxed)
+        {
+        value(inner)?
+        {
+            match(inner)
+            {
+            some(v)?    test_equal(v, 9);
+            none?       test_assure(false);
+            }
+        }
+        none?   test_assure(false);
+        }
+    }
+
+    /* Non-capturing function literal stored to a static slot.
+       Covers passir.cpp:1196-1212 (load_imm_closure + store). */
+    func test_static_closure()
+    {
+        func holder()
+        {
+            static let g = func(x: int) { return x + 1; };
+            return g(10);
+        }
+        test_equal(holder(), 11);
+    }
+
+    func main()
+    {
+        test_string_relational();
+        test_real_ne();
+        test_logical_value();
+        test_typed_dict_stores();
+        test_typed_map_stores();
+        test_dict_typed_read();
+        test_vec_real_store();
+        test_compound_real();
+        test_div_constguard();
+        test_assertdyn();
+        test_mkunion_inplace();
+        test_static_closure();
+    }
+}
+
+test_function("test_ir_coverage.main", test_ir_coverage::main);

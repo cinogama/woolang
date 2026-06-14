@@ -1,0 +1,79 @@
+import woo::std;
+import test_tool;
+
+namespace test_utf8_coverage
+{
+    /* Constant cross-type casts — each `as` on a literal is constant-folded
+       at compile time, exercising ConstantValue::cast_value_* in
+       wo_lang_ast.cpp:143-231. These branches were never hit because
+       existing tests only folded INTEGER→string and REAL→int. */
+
+    func test_const_cast_int()
+    {
+        /* cast_value_integer BOOL→int — ast.cpp:163-164 */
+        test_equal(true as int, 1);
+        test_equal(false as int, 0);
+
+        /* cast_value_integer PSTRING→int — ast.cpp:169-170 */
+        test_equal("123" as int, 123);
+        test_equal("0" as int, 0);
+    }
+
+    func test_const_cast_bool()
+    {
+        /* cast_value_bool REAL→bool — ast.cpp:151-152 */
+        test_assure(3.14 as bool);
+        test_assure(!(0.0 as bool));
+
+        /* cast_value_bool PSTRING→bool — ast.cpp:155-156 */
+        test_assure("non-empty" as bool == false);
+        test_assure("true" as bool);
+    }
+
+    func test_const_cast_real()
+    {
+        /* cast_value_real BOOL→real — ast.cpp:198-199 */
+        test_assure(true as real == 1.0);
+        test_assure(false as real == 0.0);
+
+        /* cast_value_real PSTRING→real — ast.cpp:204-205 */
+        test_assure("3.14" as real == 3.14);
+        test_assure("0" as real == 0.0);
+    }
+
+    func test_const_cast_string()
+    {
+        /* cast_value_pstring BOOL→string — ast.cpp:216-217 */
+        test_assure((true as string)->len() > 0);
+        test_assure((false as string)->len() > 0);
+
+        /* cast_value_pstring REAL→string — ast.cpp:220-221 */
+        test_assure((3.14 as string)->len() > 0);
+        test_assure((0.0 as string)->len() > 0);
+    }
+
+    /* Unicode escapes in string/char literals also exercise the compiler's
+       internal UTF-8 helpers (u32exractu8, u16exractu8, u16hisurrogate).
+       These complement the lexer-escape tests by verifying runtime values. */
+    func test_unicode_values()
+    {
+        test_assure("\u00e9"[0] == 'é');
+        test_assure("\u4e16"[0] == '世');
+        test_assure("\uD83C\uDF89"[0] == '🎉');
+
+        test_equal("\u00e9"->len(), 1);
+        test_equal("\u4e16"->len(), 1);
+        test_equal("\uD83C\uDF89"->len(), 1);
+    }
+
+    func main()
+    {
+        test_const_cast_int();
+        test_const_cast_bool();
+        test_const_cast_real();
+        test_const_cast_string();
+        test_unicode_values();
+    }
+}
+
+test_function("test_utf8_coverage.main", test_utf8_coverage::main);
