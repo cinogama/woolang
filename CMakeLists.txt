@@ -11,19 +11,8 @@ option(WO_MAKE_OUTPUT_IN_SAME_PATH      "Build woo lib and driver and output in 
 option(WO_BUILD_FOR_COVERAGE_TEST       "Build woo for code coverage test" OFF)
 option(WO_BUILD_FOR_ASAN_TEST           "Build woo for code asan test" OFF)
 option(WO_DISABLE_COMPILER              "Only keep the runtime, which helps to reduce the file size" OFF)
-option(WO_DISABLE_FUNCTION_FOR_WASM     "Disable dynamic lib loading and some other function for WASM" OFF)
-
-set(WO_SPECIFY_PLATFORM_TYPE "" CACHE STRING 
-    "Specify the platform type for unknown platform, can be '', 'WO_PLATFORM_32' or 'WO_PLATFORM_64'")
 
 ####################################################################################################
-
-# Check WO_SPECIFY_PLATFORM_TYPE is valid
-if (NOT WO_SPECIFY_PLATFORM_TYPE STREQUAL ""
-    AND NOT WO_SPECIFY_PLATFORM_TYPE STREQUAL "WO_PLATFORM_32"
-    AND NOT WO_SPECIFY_PLATFORM_TYPE STREQUAL "WO_PLATFORM_64")
-        message(FATAL_ERROR "WO_SPECIFY_PLATFORM_TYPE must be '', 'WO_PLATFORM_32' or 'WO_PLATFORM_64'")
-endif()
 
 if (WO_MAKE_OUTPUT_IN_SAME_PATH)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build")
