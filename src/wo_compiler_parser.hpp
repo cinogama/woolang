@@ -352,8 +352,8 @@ namespace wo
 
     struct token
     {
-        lex_type type;
-        std::string identifier;
+        lex_type     type;
+        wo_pstring_t identifier = nullptr;
     };
 
     inline std::ostream& operator << (std::ostream& os, const token& tk)
@@ -362,7 +362,7 @@ namespace wo
             << "{ token: "
             << (lex_type_base_t)tk.type
             << "    , \""
-            << tk.identifier
+            << (tk.identifier ? *tk.identifier : std::string{})
             << "\"";
 
         if (tk.type == lex_type::l_error)

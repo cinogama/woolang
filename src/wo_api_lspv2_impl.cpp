@@ -865,8 +865,8 @@ wo_lspv2_token_info* wo_lspv2_lexer_peek(
 
     return new wo_lspv2_token_info{
         (wo_lspv2_lexer_token)token->m_lex_type,
-        _wo_strdupn(token->m_token_text.data(), token->m_token_text.size()),
-        token->m_token_text.size(),
+        _wo_strdupn(token->m_token_text->data(), token->m_token_text->size()),
+        token->m_token_text->size(),
          wo_lspv2_location{
             nullptr,
             { token->m_token_begin[0], token->m_token_begin[1] },

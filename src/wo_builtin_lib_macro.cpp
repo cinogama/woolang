@@ -30,7 +30,7 @@ static woort_api builtin_macro_lexer_peek()
     woort_set_int(s, static_cast<woort_Int>(token->m_lex_type));
     woort_struct_set(WOORT_RETURN_SLOT, 0, s);
 
-    woort_set_string(s, token->m_token_text.c_str());
+    woort_set_string(s, token->m_token_text->c_str());
     woort_struct_set(WOORT_RETURN_SLOT, 1, s);
 
     return woort_ret();
@@ -52,7 +52,7 @@ static woort_api builtin_macro_lexer_next()
     woort_set_int(s, static_cast<woort_Int>(token->m_lex_type));
     woort_struct_set(WOORT_RETURN_SLOT, 0, s);
 
-    woort_set_string(s, token->m_token_text.c_str());
+    woort_set_string(s, token->m_token_text->c_str());
     woort_struct_set(WOORT_RETURN_SLOT, 1, s);
 
     // Use consume_forward to avoid recursive macro handler invoke.
@@ -86,7 +86,7 @@ static woort_api builtin_macro_lexer_current_location()
     woort_set_int(s, static_cast<woort_Int>(token->m_lex_type));
     woort_struct_set(WOORT_RETURN_SLOT, 0, s);
 
-    woort_set_string(s, token->m_token_text.c_str());
+    woort_set_string(s, token->m_token_text->c_str());
     woort_struct_set(WOORT_RETURN_SLOT, 1, s);
 
     return woort_ret();

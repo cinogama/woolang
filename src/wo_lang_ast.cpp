@@ -2383,7 +2383,7 @@ namespace wo
         {
             wo_assert(!enum_items.empty());
 
-            auto* enum_name_str = wstring_pool::get_pstr(enum_name->m_token.identifier);
+            auto* enum_name_str = enum_name->m_token.identifier;
 
             auto* enum_base_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
             auto* enum_base_type = new AstTypeHolder(enum_base_type_identifier);
@@ -2552,7 +2552,7 @@ namespace wo
 
             AstTypeHolder::UnionType union_type_info;
             wo_pstring_t union_type_name_pstr =
-                wo::wstring_pool::get_pstr(union_type_name->m_token.identifier);
+                union_type_name->m_token.identifier;
 
             int64_t current_item_index = 0;
             for (auto& item : union_items)

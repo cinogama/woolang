@@ -29,7 +29,7 @@ namespace wo
             token label = WO_NEED_TOKEN(0);
             auto* node = WO_NEED_AST(2);
 
-            return new AstLabeled(wstring_pool::get_pstr(label.identifier), node);
+            return new AstLabeled(label.identifier, node);
         }
         auto pass_import_files::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -49,7 +49,7 @@ namespace wo
             {
                 AstToken* scope_token = static_cast<AstToken*>(scope);
 
-                filename = scope_token->m_token.identifier;
+                filename = *scope_token->m_token.identifier;
 
                 if (first)
                     first = false;
@@ -105,7 +105,7 @@ namespace wo
                 wo_assert(ns->node_type == AstBase::AST_TOKEN);
                 AstToken* ns_token = static_cast<AstToken*>(ns);
 
-                auto* namespace_pstr = wstring_pool::get_pstr(ns_token->m_token.identifier);
+                auto* namespace_pstr = ns_token->m_token.identifier;
                 if (namespace_pstr == WO_PSTR(unsafe))
                     lex.record_lang_error(lexer::msglevel_t::error, ns_token, WO_ERR_CANNOT_USING_UNSAFE);
 
@@ -126,7 +126,7 @@ namespace wo
         {
             return token{
                 lex.record_parser_error(
-                    lexer::msglevel_t::error, WO_ERR_UNEXCEPT_TOKEN_2, WO_NEED_TOKEN(0).identifier.c_str()) };
+                    lexer::msglevel_t::error, WO_ERR_UNEXCEPT_TOKEN_2, WO_NEED_TOKEN(0).identifier->c_str()) };
         }
         auto pass_enum_item_create::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -136,9 +136,9 @@ namespace wo
             {
                 // ITEM = $INTVAL
                 auto* initval = WO_NEED_AST_VALUE(2);
-                return new AstEnumItem(wstring_pool::get_pstr(name.identifier), initval);
+                return new AstEnumItem(name.identifier, initval);
             }
-            return new AstEnumItem(wstring_pool::get_pstr(name.identifier), std::nullopt);
+            return new AstEnumItem(name.identifier, std::nullopt);
         }
         auto pass_enum_finalize::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -177,7 +177,7 @@ namespace wo
                 AstToken* name_token = static_cast<AstToken*>(*ridx);
                 wo_assert(name_token->node_type == AstBase::AST_TOKEN);
 
-                wo_pstring_t space_name = wstring_pool::get_pstr(name_token->m_token.identifier);
+                wo_pstring_t space_name = name_token->m_token.identifier;
                 AstNamespace* new_space = new AstNamespace(space_name, content);
 
                 content = new_space;
@@ -192,7 +192,7 @@ namespace wo
             std::optional<AstList*> template_params = std::nullopt;
             AstTypeHolder* base_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(5, AstBase::AST_TYPE_HOLDER));
 
-            wo_pstring_t type_name = wstring_pool::get_pstr(new_type_name.identifier);
+            wo_pstring_t type_name = new_type_name.identifier;
 
             if (!WO_IS_EMPTY(0))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
@@ -243,7 +243,7 @@ namespace wo
             std::optional<AstList*> template_params = std::nullopt;
             AstTypeHolder* base_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(5, AstBase::AST_TYPE_HOLDER));
 
-            wo_pstring_t type_name = wstring_pool::get_pstr(new_type_name.identifier);
+            wo_pstring_t type_name = new_type_name.identifier;
 
             if (!WO_IS_EMPTY(0))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
@@ -341,7 +341,7 @@ namespace wo
             std::optional<AstWhereConstraints*> where_constraints = std::nullopt;
             AstBase* body = WO_NEED_AST(9);
 
-            wo_pstring_t func_name = wstring_pool::get_pstr(function_name->m_token.identifier);
+            wo_pstring_t func_name = function_name->m_token.identifier;
 
             if (!WO_IS_EMPTY(0))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
@@ -426,7 +426,7 @@ namespace wo
             AstTypeHolder* marked_return_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(8, AstBase::AST_TYPE_HOLDER));
             std::optional<AstWhereConstraints*> where_constraints = std::nullopt;
 
-            wo_pstring_t func_name = wstring_pool::get_pstr(function_name->m_token.identifier);
+            wo_pstring_t func_name = function_name->m_token.identifier;
 
             if (!WO_IS_EMPTY(1))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(1, AstBase::AST_DECLARE_ATTRIBUTE));
@@ -508,7 +508,7 @@ namespace wo
         auto pass_break_label::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token label = WO_NEED_TOKEN(1);
-            return new AstBreak(wstring_pool::get_pstr(label.identifier));
+            return new AstBreak(label.identifier);
         }
         auto pass_continue::build(lexer&, const ast::astnode_builder::inputs_t&)-> grammar::produce
         {
@@ -517,7 +517,7 @@ namespace wo
         auto pass_continue_label::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token label = WO_NEED_TOKEN(1);
-            return new AstContinue(wstring_pool::get_pstr(label.identifier));
+            return new AstContinue(label.identifier);
         }
         auto pass_return::build(lexer&, const ast::astnode_builder::inputs_t&)-> grammar::produce
         {
@@ -705,7 +705,7 @@ namespace wo
                 auto* asttoken = *token_iter;
                 wo_assert(asttoken->node_type == AstBase::AST_TOKEN);
                 scope_identifiers_and_name.push_back(
-                    wstring_pool::get_pstr(static_cast<AstToken*>(asttoken)->m_token.identifier));
+                    static_cast<AstToken*>(asttoken)->m_token.identifier);
             }
 
             wo_pstring_t identifier_name = scope_identifiers_and_name.back();
@@ -748,8 +748,7 @@ namespace wo
                     scope_identifiers_and_name.push_back(identifier_name);
 
                 identifier_name =
-                    wstring_pool::get_pstr(
-                        static_cast<AstToken*>(asttoken)->m_token.identifier);
+                    static_cast<AstToken*>(asttoken)->m_token.identifier;
             }
             return new AstIdentifier(
                 identifier_name, template_args, scope_identifiers_and_name, false);
@@ -781,7 +780,7 @@ namespace wo
             {
                 wo_assert(asttoken->node_type == AstBase::AST_TOKEN);
                 scope_identifiers_and_name.push_back(
-                    wstring_pool::get_pstr(static_cast<AstToken*>(asttoken)->m_token.identifier));
+                    static_cast<AstToken*>(asttoken)->m_token.identifier);
             }
             wo_pstring_t identifier_name = scope_identifiers_and_name.back();
             scope_identifiers_and_name.pop_back();
@@ -851,7 +850,7 @@ namespace wo
             }
 
             return new AstStructFieldDefine(
-                attrib, wstring_pool::get_pstr(field_name.identifier), field_type);
+                attrib, field_name.identifier, field_type);
         }
         auto pass_type_struct::build(lexer& lex, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -1060,14 +1059,14 @@ namespace wo
             {
             case lex_type::l_literal_integer:
                 literal_instance->decide_final_constant_value(
-                    (woort_Int)lexer::read_from_literal(literal.identifier.c_str()));
+                    (woort_Int)lexer::read_from_literal(literal.identifier->c_str()));
                 break;
             case lex_type::l_literal_handle:
                 literal_instance->decide_final_constant_value(
-                    (woort_Handle)lexer::read_from_unsigned_literal(literal.identifier.c_str()));
+                    (woort_Handle)lexer::read_from_unsigned_literal(literal.identifier->c_str()));
                 break;
             case lex_type::l_literal_real:
-                literal_instance->decide_final_constant_value((woort_Real)std::stod(literal.identifier));
+                literal_instance->decide_final_constant_value((woort_Real)std::stod(*literal.identifier));
                 break;
             case lex_type::l_literal_string:
             case lex_type::l_literal_raw_string:
@@ -1098,7 +1097,7 @@ namespace wo
             AstValueLiteral* literal_instance = new AstValueLiteral();
 
             char32_t char_literal;
-            wo::u8combineu32(literal->m_token.identifier.data(), literal->m_token.identifier.size(), &char_literal);
+            wo::u8combineu32(literal->m_token.identifier->data(), literal->m_token.identifier->size(), &char_literal);
 
             literal_instance->decide_final_constant_value(
                 static_cast<int64_t>(char_literal));
@@ -1338,14 +1337,14 @@ namespace wo
         {
             token union_item = WO_NEED_TOKEN(0);
 
-            return new AstUnionItem(wstring_pool::get_pstr(union_item.identifier), std::nullopt);
+            return new AstUnionItem(union_item.identifier, std::nullopt);
         }
         auto pass_union_item_constructor::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             token union_item = WO_NEED_TOKEN(0);
             AstTypeHolder* constructor_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
 
-            return new AstUnionItem(wstring_pool::get_pstr(union_item.identifier), constructor_type);
+            return new AstUnionItem(union_item.identifier, constructor_type);
         }
         auto pass_union_declare::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1375,7 +1374,7 @@ namespace wo
         {
             token identifier = WO_NEED_TOKEN(0);
 
-            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            wo_pstring_t identifier_name = identifier.identifier;
             if (identifier_name == WO_PSTR(_))
                 return new AstPatternTakeplace();
             else
@@ -1386,7 +1385,7 @@ namespace wo
             token identifier = WO_NEED_TOKEN(0);
             AstPatternBase* element = static_cast<AstPatternBase*>(WO_NEED_AST_PATTERN(2));
 
-            return new AstPatternUnion(wstring_pool::get_pstr(identifier.identifier), element);
+            return new AstPatternUnion(identifier.identifier, element);
         }
         auto pass_match_union_case::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1413,7 +1412,7 @@ namespace wo
         {
             token identifier = WO_NEED_TOKEN(0);
 
-            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            wo_pstring_t identifier_name = identifier.identifier;
             if (identifier_name == WO_PSTR(_))
                 return new AstPatternTakeplace();
             else
@@ -1423,7 +1422,7 @@ namespace wo
         {
             token identifier = WO_NEED_TOKEN(1);
 
-            wo_pstring_t identifier_name = wstring_pool::get_pstr(identifier.identifier);
+            wo_pstring_t identifier_name = identifier.identifier;
             if (identifier_name == WO_PSTR(_))
                 return new AstPatternTakeplace();
             else
@@ -1440,7 +1439,7 @@ namespace wo
 
             return new AstPatternSingle(
                 false,
-                wstring_pool::get_pstr(identifier.identifier),
+                identifier.identifier,
                 _process_template_params(template_arguments).value());
         }
         auto pass_pattern_mut_identifier_or_takepace_with_template::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
@@ -1454,7 +1453,7 @@ namespace wo
 
             return new AstPatternSingle(
                 true,
-                wstring_pool::get_pstr(identifier.identifier),
+                identifier.identifier,
                 _process_template_params(template_arguments).value());
         }
         auto pass_pattern_tuple::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
@@ -1535,7 +1534,7 @@ namespace wo
             AstValueBase* member_value = WO_NEED_AST_VALUE(2);
 
             return new AstStructFieldValuePair(
-                wstring_pool::get_pstr(member_name.identifier), member_value);
+                member_name.identifier, member_value);
         }
         auto pass_struct_instance::build(lexer& lex, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
@@ -1660,7 +1659,7 @@ namespace wo
                 break;
             case lex_type::l_literal_integer:
                 index_literal->decide_final_constant_value(
-                    (int64_t)lexer::read_from_literal(index->m_token.identifier.c_str()));
+                    (int64_t)lexer::read_from_literal(index->m_token.identifier->c_str()));
                 break;
             default:
                 wo_error("Unknown index type.");
@@ -1705,14 +1704,14 @@ namespace wo
             if (input.size() == 1)
             {
                 return new AstTemplateParam(
-                    wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier),
+                    WO_NEED_TOKEN(0).identifier,
                     std::nullopt);
             }
             else
             {
                 wo_assert(input.size() == 3);
                 return new AstTemplateParam(
-                    wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier),
+                    WO_NEED_TOKEN(0).identifier,
                     static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER)));
             }
         }

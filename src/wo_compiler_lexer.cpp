@@ -22,7 +22,7 @@ namespace wo
 
         PRINT_HELLOWORLD!;
         */
-        macro_name = peeked_token->m_token_text;
+        macro_name = *peeked_token->m_token_text;
         begin_row = peeked_token->m_token_begin[0];
         begin_col = peeked_token->m_token_begin[1];
         end_col = peeked_token->m_token_end[1];
@@ -903,11 +903,12 @@ extern func macro_entry(lexer: std::lexer)=> string
 
     void lexer::produce_token(lex_type type, std::string&& moved_token_text)
     {
+        wo_pstring_t interned_text = wstring_pool::get_pstr(moved_token_text);
         _m_peeked_tokens.emplace(
             peeked_token_t
             {
                 type,
-                std::move(moved_token_text),
+                interned_text,
                 {
                     _m_this_token_begin_row,
                     _m_this_token_begin_col,
@@ -942,10 +943,10 @@ extern func macro_entry(lexer: std::lexer)=> string
             case lex_type::l_macro:
             {
                 // We need to expand this macro here.
-                std::string macro_name = std::move(peeked_token->m_token_text);
+                wo_pstring_t macro_name_pstr = peeked_token->m_token_text;
                 _m_peeked_tokens.pop();
 
-                if (!try_handle_macro(macro_name))
+                if (!try_handle_macro(macro_name_pstr))
                 {
                     wo_assert(!_m_peeked_tokens.empty());
                     return &_m_peeked_tokens.front();
@@ -1461,7 +1462,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     return produce_lexer_error(
                         msglevel_t::error, WO_ERR_LINE_NEED_STRING_AS_PATH);
                 }
-                auto new_shown_file_path = wo::wstring_pool::get_pstr(file_name->m_token_text);
+                wo_pstring_t new_shown_file_path = file_name->m_token_text;
                 move_forward(true);
 
                 auto* row_no = peek(true);
@@ -1470,7 +1471,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     return produce_lexer_error(
                         msglevel_t::error, WO_ERR_LINE_NEED_INTEGER_AS_ROW);
                 }
-                auto new_row_counter = read_from_unsigned_literal(row_no->m_token_text.c_str());
+                auto new_row_counter = read_from_unsigned_literal(row_no->m_token_text->c_str());
                 move_forward(true);
 
                 auto* col_no = peek(true);
@@ -1479,7 +1480,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     return produce_lexer_error(
                         msglevel_t::error, WO_ERR_LINE_NEED_INTEGER_AS_COL);
                 }
-                auto new_col_counter = read_from_unsigned_literal(col_no->m_token_text.c_str());
+                auto new_col_counter = read_from_unsigned_literal(col_no->m_token_text->c_str());
                 consume_forward();
 
                 m_source_path = new_shown_file_path;
@@ -1686,21 +1687,34 @@ extern func macro_entry(lexer: std::lexer)=> string
                     if (!lexer::lex_isoperatorch(following_ch))
                         break;
 
-                    lex_type tmp_op_type = lexer::lex_is_valid_operator(
-                        token_literal_result + (char)following_ch);
+                    // Probe a longer operator by appending in-place, then
+                    // retract on miss. This avoids allocating a temporary
+                    // std::string (and re-hashing it) for every operator char.
+                    token_literal_result.push_back(static_cast<char>(following_ch));
+                    lex_type tmp_op_type = lexer::lex_is_valid_operator(token_literal_result);
 
                     if (tmp_op_type != lex_type::l_error)
                     {
-                        // maxim eat!
+                        // maxim eat! The char is already appended; just consume it.
                         operator_type = tmp_op_type;
-                        append_result_char(read_char());
+                        (void)read_char();
                     }
-                    else if (operator_type == lex_type::l_error)
+                    else
                     {
-                        // not valid yet, continue...
+                        token_literal_result.pop_back();
+
+                        if (operator_type == lex_type::l_error)
+                        {
+                            // Neither the accumulated chars nor the
+                            // extended probe form a valid operator.
+                            // Break to report an unknown operator,
+                            // otherwise this retries the same peeked
+                            // character forever.
+                            break;
+                        }
+                        else // is already a operator ready, return it.
+                            break;
                     }
-                    else // is already a operator ready, return it.
-                        break;
 
                 } while (true);
 
@@ -1876,7 +1890,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         // Cannot be here.
         wo_error("Cannot be here.");
     }
-    bool lexer::try_handle_macro(const std::string& macro_name)
+    bool lexer::try_handle_macro(wo_pstring_t macro_name)
     {
         size_t macro_pre_begin_row = _m_this_token_pre_begin_row;
         size_t macro_pre_begin_col = _m_this_token_pre_begin_col;
@@ -1888,7 +1902,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             || !fnd->second.has_value())
         {
             // Unfound macro.
-            produce_token(lex_type::l_macro, std::string(macro_name));
+            produce_token(lex_type::l_macro, std::string(*macro_name));
             return false;
         }
 

@@ -180,14 +180,15 @@ namespace wo
         struct peeked_token_t
         {
             lex_type        m_lex_type;
-            std::string     m_token_text;
+            wo_pstring_t    m_token_text;
             size_t          m_token_begin[4];
             size_t          m_token_end[2];
         };
 
     public:
         using declared_macro_map_t =
-            std::unordered_map<std::string, std::optional<std::unique_ptr<macro>>>;
+            std::unordered_map<wo_pstring_t, std::optional<std::unique_ptr<macro>>,
+                wstring_pool::pstr_hasher, wstring_pool::pstr_equal>;
     private:
         using imported_source_path_set_t =
             std::unordered_set<wo_pstring_t>;
@@ -463,7 +464,7 @@ namespace wo
         void move_forward(bool ignore_comment);
         void consume_forward();
         [[nodiscard]]
-        bool try_handle_macro(const std::string& macro_name);
+        bool try_handle_macro(wo_pstring_t macro_name);
         [[nodiscard]]
         bool has_error() const;
         [[nodiscard]]

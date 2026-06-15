@@ -827,7 +827,7 @@ namespace wo
                                 peeked_token_instance->m_token_end[1],
                                 *tkr.get_source_path(),
                                 WO_ERR_UNKNOWN_MACRO_NAMED,
-                                peeked_token_instance->m_token_text.c_str());
+                                peeked_token_instance->m_token_text->c_str());
                         }
                         else
                         {
@@ -836,7 +836,7 @@ namespace wo
                             if (peeked_token_instance->m_lex_type == lex_type::l_eof)
                                 err_info = WO_ERR_UNEXCEPT_EOF;
                             else
-                                err_info = WO_ERR_UNEXCEPT_TOKEN + ("'" + peeked_token_instance->m_token_text + "'");
+                                err_info = WO_ERR_UNEXCEPT_TOKEN + ("'" + *peeked_token_instance->m_token_text + "'");
 
                             (void)tkr.record_parser_error(lexer::msglevel_t::error, err_info.c_str());
                         }
@@ -954,7 +954,7 @@ namespace wo
                             peeked_token_instance->m_token_end[1],
                             *tkr.get_source_path(),
                             WO_ERR_UNKNOWN_MACRO_NAMED,
-                            peeked_token_instance->m_token_text.c_str());
+                            peeked_token_instance->m_token_text->c_str());
                         break;
                     }
                     case lex_type::l_error:
