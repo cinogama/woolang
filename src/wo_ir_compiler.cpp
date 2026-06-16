@@ -11,7 +11,8 @@ namespace wo
     {
         m_ircompiler = woort_IRCompiler_create();
 
-        static_assert(nullptr == NULL);
+        static_assert(
+            static_cast<void*>(nullptr) == static_cast<void*>(NULL));
     }
     IRCompiler::~IRCompiler()
     {
