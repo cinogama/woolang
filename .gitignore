@@ -355,4 +355,6 @@ _deps
 /out/
 /build/
 /msvc/
+/CMakeSettings.json
+
 /src/wo_commit_sha.hpp
