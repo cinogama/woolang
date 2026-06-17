@@ -655,10 +655,7 @@ const char* wo_get_compile_error(
     if (virtual_src_path == nullptr)
         vpath = "/woolang/__runtime_script_" + std::to_string(++vcount) + "__";
     else
-    {
         vpath = virtual_src_path;
-        wo::normalize_path(&vpath);
-    }
 
     if (!woort_vfs_create(vpath.c_str(), buffer, length, true))
         return nullptr;
@@ -703,14 +700,11 @@ const char* wo_get_compile_error(
     if (out_errors != nullptr)
         *out_errors = nullptr;
 
-    std::string vpath = virtual_src_path;
-    wo::normalize_path(&vpath);
-
     std::optional<woort_CodeEnv*> code_env;
     std::optional<std::unique_ptr<wo::lexer>> failed_lexer;
 
     const bool ok = _wo_compile_entry(
-        vpath.c_str(),
+        virtual_src_path,
         nullptr,
         0,
         std::nullopt,
