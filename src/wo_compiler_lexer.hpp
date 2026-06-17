@@ -272,6 +272,7 @@ namespace wo
 
             [[nodiscard]]
             woort_vm* get_or_create_macro_vm();
+            void drop_macro_vm();
             void drop_macro_vm_and_code_env();
 
             const char* register_temp_virtual_file(const char* context);

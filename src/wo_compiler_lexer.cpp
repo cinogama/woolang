@@ -136,10 +136,14 @@ extern func macro_entry(lexer: std::lexer)=> string
 
                 woort_vm* const last_vm = woort_vm_swap(shared_vm);
 
+                bool macro_failed = false;
+
                 // Donot jit to make debug friendly.
                 if (WOORT_VM_CALL_STATUS_NORMAL
                     != woort_bootup_codeenv(WOORT_IGNORE, _macro_codes.value()))
                 {
+                    macro_failed = true;
+
                     lex.produce_lexer_error(
                         lexer::msglevel_t::error,
                         WO_ERR_FAILED_TO_RUN_MACRO_CONTROLOR,
@@ -147,6 +151,9 @@ extern func macro_entry(lexer: std::lexer)=> string
                         woort_vm_get_runtime_error(shared_vm));
                 }
                 (void)woort_vm_swap(last_vm);
+
+                if (macro_failed)
+                    lex.m_shared_context->drop_macro_vm();
             }
 
             // Restore states.
@@ -714,6 +721,14 @@ extern func macro_entry(lexer: std::lexer)=> string
             m_macro_vm.emplace(woort_vm_create());
         return m_macro_vm.value();
     }
+    void lexer::SharedContext::drop_macro_vm()
+    {
+        if (m_macro_vm.has_value())
+        {
+            woort_vm_close(m_macro_vm.value());
+            m_macro_vm.reset();
+        }
+    }
     void lexer::SharedContext::drop_macro_vm_and_code_env()
     {
         for (auto& [_name, m] : m_declared_macro_list)
@@ -731,11 +746,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             }
         }
 
-        if (m_macro_vm.has_value())
-        {
-            woort_vm_close(m_macro_vm.value());
-            m_macro_vm.reset();
-        }
+        drop_macro_vm();
     }
     const char* lexer::SharedContext::register_temp_virtual_file(const char* context)
     {
@@ -1922,6 +1933,8 @@ extern func macro_entry(lexer: std::lexer)=> string
                 macro_instance->macro_name.c_str(),
                 WO_MSG_STACK_OVERFLOW);
 
+            m_shared_context->drop_macro_vm_and_code_env();
+
             return false;
         }
 
@@ -1949,6 +1962,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
             (void)woort_vm_swap(last);
 
+            m_shared_context->drop_macro_vm();
             return false;
         }
         else
