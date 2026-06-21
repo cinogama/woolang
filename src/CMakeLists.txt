@@ -78,10 +78,6 @@ endif()
 add_library(woolang_library_options INTERFACE)
 target_compile_definitions(woolang_library_options INTERFACE -DWO_SRC_PATH="${PROJECT_SOURCE_DIR}")
 
-target_include_directories(woolang_library_options
-    INTERFACE "../3rd/asmjit/src"
-    INTERFACE "../3rd/mingw-std-threads")
-
 if (WO_DISABLE_COMPILER)
     target_compile_definitions(woolang_library_options INTERFACE -DWO_DISABLE_COMPILER=1)
 endif()
