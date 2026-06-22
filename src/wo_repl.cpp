@@ -16,9 +16,22 @@ _wo_ReplSession::_wo_ReplSession()
     : m_vm(nullptr)
     , m_line_counter(0)
     , m_repl_seq_num(0)
+    , m_repl_group_token(nullptr)
 {
     // 1. Session-level string pool: all wo_pstring_t values stay valid.
     m_string_pool_guard = std::make_unique<wo::start_string_pool_guard>();
+
+    // Allocate the session-stable logical source identity. Every REPL eval
+    // carries this in source_location.source_group (not source_file, which
+    // holds the unique per-snippet VFS path) so compiler-semantic
+    // mechanisms (using-namespace, PRIVATE access, import visibility) treat
+    // all snippets as the same file. The session pointer disambiguates
+    // concurrent sessions in the same process.
+    {
+        char group_buf[48];
+        (void)snprintf(group_buf, sizeof(group_buf), "<repl @ %p>", this);
+        m_repl_group_token = wo::wstring_pool::get_pstr(group_buf);
+    }
 
     // 2. Session-level AST arena: install a fresh thread-local allocator
     //    so AST nodes persist across lines (save previous for restore).
@@ -218,15 +231,16 @@ wo_repl_result wo_repl_eval(
         known_names.insert(name);
 
     // --- 5. Create lexer from source string ---
-    // Use the same path for all lines so the compiler treats symbols from
-    // prior lines as same-file declarations (no import needed).
+    // Per-eval VFS path (unique per line) so error rendering can show the
+    // exact snippet. Same-file semantics across evals is handled via the
+    // session-stable `source_group` token passed below, not via this path.
     char repl_vfs_path[64];
     (void)snprintf(
         repl_vfs_path, 
         sizeof(repl_vfs_path), 
-        "<repl %zu @ %p>",
-        session->m_repl_seq_num, 
-        session);
+        "<Repl[%p]:%zu>",
+        session,
+        session->m_repl_seq_num);
     
     wo_pstring_t path_pstr = wo::wstring_pool::get_pstr(repl_vfs_path);
 
@@ -243,7 +257,8 @@ wo_repl_result wo_repl_eval(
     auto lex = std::make_unique<wo::lexer>(
         std::nullopt,
         path_pstr,
-        std::optional<std::unique_ptr<std::istream>>(std::move(source_stream)));
+        std::optional<std::unique_ptr<std::istream>>(std::move(source_stream)),
+        S->m_repl_group_token);
 
     // Inject known imports from prior lines (so stdlib etc. stays visible).
     lex->register_imported_sources(S->m_known_imports);

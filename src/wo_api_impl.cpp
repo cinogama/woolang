@@ -232,7 +232,7 @@ wo::compile_result _wo_compile_impl(
             if (!compile_lexer->has_error())
             {
                 // 2. Lexer will create ast_tree;
-                auto* result = wo::get_grammar_instance()->gen(*compile_lexer);
+                auto* result = wo::get_grammar_instance()->gen(*compile_lexer, nullptr);
 
                 // NOTE: Drop macro vm if useless.
                 if (!append_macro_define_to_this_lexer.has_value())

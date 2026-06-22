@@ -145,7 +145,7 @@ namespace wo
         {
             symbol_location_may_null = &symbol_instance->m_symbol_declare_location.value();
             if (!lex.check_source_has_been_imported_by_specify_source(
-                symbol_location_may_null->source_file, path))
+                symbol_location_may_null->source_group, path))
             {
                 lex.record_lang_error(lexer::msglevel_t::error, node,
                     WO_ERR_SOURCE_MUST_BE_IMPORTED,
@@ -215,7 +215,7 @@ namespace wo
                 // Builtin & compiler generated symbol is always reachable.
                 return true;
 
-            if (symbol_location_may_null->source_file == path)
+            if (symbol_location_may_null->source_group == path)
                 return true;
 
             lex.record_lang_error(lexer::msglevel_t::error, node,
@@ -285,7 +285,7 @@ namespace wo
 
             auto& location = struct_type_inst->m_symbol_declare_location.value();
 
-            if (location.source_file == path)
+            if (location.source_group == path)
                 return true;
 
             lex.record_lang_error(lexer::msglevel_t::error, node,
@@ -852,7 +852,7 @@ namespace wo
                                 lex,
                                 node,
                                 type_symbol,
-                                node->source_location.source_file,
+                                node->source_location.source_group,
                                 !node->duplicated_node /* TMP: Skip import check in template function. */))
                             {
                                 return FAILED;
@@ -903,7 +903,7 @@ namespace wo
                                 lex,
                                 node,
                                 type_symbol,
-                                node->source_location.source_file))
+                                node->source_location.source_group))
                                 return FAILED;
                         }
                     }
@@ -1188,7 +1188,7 @@ namespace wo
                 lex,
                 node,
                 determined_value_instance->m_symbol,
-                node->source_location.source_file,
+                node->source_location.source_group,
                 !node->duplicated_node /* TMP: Skip import check in template function. */))
             {
                 return FAILED;
@@ -2347,7 +2347,7 @@ namespace wo
                         container_type_instance->m_symbol,
                         fnd->second.m_attrib,
                         fnd->first,
-                        node->source_location.source_file))
+                        node->source_location.source_group))
                     {
                         return FAILED;
                     }
@@ -2623,7 +2623,7 @@ namespace wo
                     lex,
                     node,
                     target_type->m_symbol,
-                    node->source_location.source_file,
+                    node->source_location.source_group,
                     !node->duplicated_node /* TMP: Skip import check in template function. */))
                 {
                     return FAILED;
@@ -4652,7 +4652,7 @@ namespace wo
                         lex,
                         node,
                         struct_type_instance->m_symbol,
-                        node->source_location.source_file,
+                        node->source_location.source_group,
                         !node->duplicated_node /* TMP: Skip import check in template function. */))
                     {
                         return FAILED;
@@ -4738,7 +4738,7 @@ namespace wo
                         struct_type_instanc->m_symbol,
                         fnd->second.m_attrib,
                         fnd->first,
-                        node->source_location.source_file))
+                        node->source_location.source_group))
                     {
                         failed = true;
                         continue;

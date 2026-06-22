@@ -316,6 +316,11 @@ namespace wo
 
         std::optional<lexer*> m_who_import_me;
         std::optional<wo_pstring_t> m_source_path;
+        // Stable logical source identity used to fill source_location and to
+        // key the import/using-namespace maps. Equal to m_source_path for
+        // normal files; the REPL overrides it with a session-stable token so
+        // every eval line shares the same semantic identity.
+        std::optional<wo_pstring_t> m_source_group;
         std::unique_ptr<CachedIStream> m_source_stream;
         std::shared_ptr<SharedContext> m_shared_context;
 
@@ -334,10 +339,21 @@ namespace wo
         size_t _m_curry_count_in_format_string;
 
     public:
+        // source_group: the "logical source identity" used to fill
+        // ast::AstBase::source_location::source_group and to key the import
+        // relationship map. Defaults to `source_path` when not provided
+        // (the historical behavior, where source_file == source_group).
+        // The REPL passes a session-stable token here while giving each
+        // eval a unique `source_path` (held by source_file, for VFS source
+        // rendering), so that compiler-semantic mechanisms that compare
+        // source_group across evals (using-namespace map, PRIVATE access
+        // check, import visibility) treat every REPL snippet as the same
+        // logical file.
         lexer(
             std::optional<lexer*> who_import_me,
             const std::optional<wo_pstring_t>& source_path,
-            std::optional<std::unique_ptr<std::istream>>&& source_stream);
+            std::optional<std::unique_ptr<std::istream>>&& source_stream,
+            std::optional<wo_pstring_t> source_group = std::nullopt);
     private:
         void    produce_token(lex_type type, std::string&& moved_token_text);
         void    token_pre_begin_here();
@@ -470,6 +486,8 @@ namespace wo
         bool has_error() const;
         [[nodiscard]]
         wo_pstring_t get_source_path() const;
+        [[nodiscard]]
+        wo_pstring_t get_source_group() const;
         [[nodiscard]]
         size_t get_error_frame_count_for_debug() const;
 

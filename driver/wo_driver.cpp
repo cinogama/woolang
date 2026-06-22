@@ -19,7 +19,7 @@ struct CliOptions {
     bool        check_only  = false;
 };
 
-void PrintBanner()
+void _wo_driver_show_banner()
 {
     std::cout << "Woolang (c) 2021 Cinogama project.\n\n";
     std::cout << "Version: " << wo_version() << '\n';
@@ -39,7 +39,7 @@ void PrintBanner()
     woort_print_runtime_help();
 }
 
-bool ParseOptions(int argc, char** argv, CliOptions& out)
+bool _wo_driver_parse_option(int argc, char** argv, CliOptions& out)
 {
     for (int i = 1; i < argc; ++i)
     {
@@ -58,7 +58,7 @@ bool ParseOptions(int argc, char** argv, CliOptions& out)
         }
         else if (arg == "-h" || arg == "--help")
         {
-            PrintBanner();
+            _wo_driver_show_banner();
             std::exit(EXIT_OK);
         }
         else if (arg == "--check")
@@ -78,7 +78,7 @@ bool ParseOptions(int argc, char** argv, CliOptions& out)
     return true;
 }
 
-int SaveBinary(const char* path, woort_CodeEnv* cenv)
+int _wo_driver_save_binary(const char* path, woort_CodeEnv* cenv)
 {
     void*  buf = nullptr;
     size_t len  = 0;
@@ -102,7 +102,7 @@ int SaveBinary(const char* path, woort_CodeEnv* cenv)
     return ret;
 }
 
-int RunProgram(woort_CodeEnv* cenv)
+int _wo_driver_run_program(woort_CodeEnv* cenv)
 {
     woort_vm* vm = woort_vm_create();
     if (vm == nullptr)
@@ -134,19 +134,118 @@ int RunProgram(woort_CodeEnv* cenv)
     return ret;
 }
 
-} // namespace
+int _wo_driver_run_repl()
+{
+    std::cout << "Woolang REPL (c) 2021 Cinogama project.\n";
+    std::cout << "Version: " << wo_version() << '\n';
+    std::cout << "Type :q to exit.\n\n";
 
-// Defined in wo_repl_loop.cpp.
-int wo_driver_run_repl();
+    wo_ReplSession* session = wo_repl_create();
+    if (session == nullptr)
+    {
+        std::cerr << "Failed to create REPL session.\n";
+        return -3;
+    }
+
+    std::string line;
+    std::string buffer;
+
+    while (true)
+    {
+        // Prompt: ">>> " for new input, "... " for continuation.
+        std::cout << (buffer.empty() ? ">>> " : "... ");
+        std::cout.flush();
+
+        char* raw = woort_console_readline();
+        if (raw == nullptr)
+        {
+            // EOF or read error.
+            std::cout << '\n';
+            break;
+        }
+        line = raw;
+        woort_free(raw);
+
+        // Trim leading/trailing whitespace for command detection.
+        auto not_space = [](char c) { return !std::isspace(static_cast<unsigned char>(c)); };
+        auto ltrim = line.find_first_not_of(" \t\r\n");
+        if (ltrim == std::string::npos)
+            line.clear();
+        else
+            line = line.substr(ltrim, line.find_last_not_of(" \t\r\n") - ltrim + 1);
+
+        // Exit command — works in both normal and continuation mode.
+        if (line == ":q" || line == ":quit")
+            break;
+
+        // Skip empty lines when not in continuation mode.
+        if (buffer.empty() && line.empty())
+            continue;
+
+        // Append to buffer.
+        if (!buffer.empty())
+            buffer += '\n';
+        buffer += line;
+
+        // Try to evaluate.
+        wo_CompileErrors* errors = nullptr;
+        wo_repl_result result = wo_repl_eval(session, buffer.c_str(), &errors);
+
+        if (result == WO_REPL_INCOMPLETE_INPUT)
+        {
+            // Need more input — keep accumulating.
+            if (errors)
+                wo_compile_errors_free(errors);
+            continue;
+        }
+
+        if (result == WO_REPL_COMPILE_ERROR)
+        {
+            if (errors != nullptr)
+            {
+                std::cerr << wo_get_compile_error(errors, WO_COLORFUL) << '\n';
+                wo_compile_errors_free(errors);
+            }
+        }
+        else if (result == WO_REPL_RUNTIME_ERROR)
+        {
+            std::cerr << "Runtime error occurred.\n";
+            if (errors)
+                wo_compile_errors_free(errors);
+        }
+        else if (result == WO_REPL_OK)
+        {
+            if (errors)
+                wo_compile_errors_free(errors);
+        }
+
+        // Clear buffer for next input.
+        buffer.clear();
+    }
+
+    // Show session bindings.
+    size_t count = wo_repl_binding_count(session);
+    if (count > 0)
+    {
+        std::cout << "\nSession bindings:\n";
+        for (size_t i = 0; i < count; ++i)
+            std::cout << "  " << wo_repl_binding_name(session, i) << '\n';
+    }
+
+    wo_repl_destroy(session);
+    return 0;
+}
+
+} // namespace
 
 int main(int argc, char** argv)
 {
     wo_init(argc, argv);
 
     CliOptions opts;
-    if (!ParseOptions(argc, argv, opts))
+    if (!_wo_driver_parse_option(argc, argv, opts))
     {
-        PrintBanner();
+        _wo_driver_show_banner();
         wo_finish(nullptr, nullptr);
         return EXIT_OK;
     }
@@ -154,7 +253,7 @@ int main(int argc, char** argv)
     if (opts.source_path == nullptr)
     {
         // No source file: enter REPL mode.
-        int repl_ret = wo_driver_run_repl();
+        int repl_ret = _wo_driver_run_repl();
         wo_finish(nullptr, nullptr);
         return repl_ret;
     }
@@ -182,8 +281,8 @@ int main(int argc, char** argv)
         else
         {
             ret = opts.output_path != nullptr
-                ? SaveBinary(opts.output_path, cenv)
-                : RunProgram(cenv);
+                ? _wo_driver_save_binary(opts.output_path, cenv)
+                : _wo_driver_run_program(cenv);
         }
         woort_codeenv_drop(cenv);
     }

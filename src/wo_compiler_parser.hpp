@@ -201,6 +201,14 @@ namespace wo
                 location_t begin_at;
                 location_t end_at;
                 wo_pstring_t source_file;
+                // Stable logical source identity used by compiler-semantic
+                // mechanisms that compare source files across declarations
+                // (PRIVATE access check, using-namespace map key, import
+                // visibility). Equal to `source_file` for normal files; the
+                // REPL overrides it with a session-stable token so every
+                // eval line shares one semantic identity, while `source_file`
+                // keeps the unique per-snippet VFS path for error rendering.
+                wo_pstring_t source_group;
             };
 
             const node_type_t node_type;
@@ -769,7 +777,7 @@ namespace wo
 
         bool check_lr1(std::ostream& ostrm = std::cout);
         void finish_rt();
-        ast::AstBase* gen(lexer& tkr, bool* out_is_incomplete = nullptr) const;
+        ast::AstBase* gen(lexer& tkr, /* OPTIONAL */ bool* out_is_incomplete) const;
     };
     std::ostream& operator<<(std::ostream& ost, const  grammar::lr_item& lri);
     std::ostream& operator<<(std::ostream& ost, const  grammar::terminal& ter);

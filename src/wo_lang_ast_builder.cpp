@@ -80,7 +80,7 @@ namespace wo
                         src_full_path_pstr,
                         std::move(srcfile_stream.value()));
 
-                    auto* imported_ast = wo::get_grammar_instance()->gen(new_lex);
+                    auto* imported_ast = wo::get_grammar_instance()->gen(new_lex, nullptr);
                     if (imported_ast != nullptr)
                         lex.import_ast_tree((ast_basic*)imported_ast);
                     else

@@ -726,7 +726,7 @@ namespace wo
 
         // OK!
     }
-    ast::AstBase* grammar::gen(lexer& tkr, bool* out_is_incomplete) const
+    ast::AstBase* grammar::gen(lexer& tkr, /* OPTIONAL */ bool* out_is_incomplete) const
     {
         size_t last_error_rowno = 0;
         size_t last_error_colno = 0;
@@ -917,7 +917,8 @@ namespace wo
                 error_handle_fail:
                     if (out_is_incomplete != nullptr)
                         *out_is_incomplete = eof_error;
-                    (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
+                    else
+                        (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;
 
                 error_progress_end:
@@ -1032,6 +1033,7 @@ namespace wo
                                     peeked_token_instance->m_token_begin[3] };
 
                             ast_node_->source_location.source_file = tkr.get_source_path();
+                            ast_node_->source_location.source_group = tkr.get_source_group();
                         }
                     }
                     else if (astnode.read_token().type == lex_type::l_error)

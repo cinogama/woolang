@@ -49,6 +49,15 @@ struct _wo_ReplSession
     size_t m_line_counter;
     size_t m_repl_seq_num;
 
+    // Session-stable logical source identity. Every REPL eval's lexer is
+    // constructed with this as `source_group`, while each gets a unique
+    // `source_path` ("<repl N @ ptr>") for VFS source rendering. This way
+    // every REPL snippet shares one semantic identity, so the compiler's
+    // source-file-based mechanisms (using-namespace map, PRIVATE access
+    // check, import visibility) work across evals as if they were in the
+    // same file.
+    wo_pstring_t m_repl_group_token;
+
     // All source paths imported by prior lines (stdlib, etc.).
     // Each new line inherits these so imports persist across the session.
     std::unordered_set<wo_pstring_t> m_known_imports;

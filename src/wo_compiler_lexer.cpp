@@ -762,9 +762,11 @@ extern func macro_entry(lexer: std::lexer)=> string
     lexer::lexer(
         std::optional<lexer*> who_import_me,
         const std::optional<wo_pstring_t>& source_path,
-        std::optional<std::unique_ptr<std::istream>>&& source_stream)
+        std::optional<std::unique_ptr<std::istream>>&& source_stream,
+        std::optional<wo_pstring_t> source_group)
         : m_who_import_me(who_import_me)
         , m_source_path(source_path)
+        , m_source_group(source_group.has_value() ? source_group : source_path)
         , m_source_stream{}
         //
         , m_shared_context(
@@ -834,7 +836,10 @@ extern func macro_entry(lexer: std::lexer)=> string
     }
     void lexer::record_import_relationship(wo_pstring_t imported_path, bool export_imports)
     {
-        auto* my_source_path = m_source_path.value();
+        // Use the stable source-group identity (defaults to m_source_path for
+        // normal files) so the REPL's per-eval unique VFS paths don't
+        // fragment the import-relationship map across lines.
+        auto* my_source_path = m_source_group.value();
         auto& who_import_me_map_tree = m_shared_context->m_who_import_me_map_tree;
         auto& export_import_map = m_shared_context->m_export_import_map;
 
@@ -987,6 +992,10 @@ extern func macro_entry(lexer: std::lexer)=> string
     {
         return m_source_path.value();
     }
+    wo_pstring_t lexer::get_source_group() const
+    {
+        return m_source_group.value();
+    }
     size_t lexer::get_error_frame_count_for_debug() const
     {
         return m_shared_context->m_error_frame.size();
@@ -1004,10 +1013,12 @@ extern func macro_entry(lexer: std::lexer)=> string
     void lexer::register_imported_sources(
         const std::unordered_set<wo_pstring_t>& sources)
     {
-        if (!m_source_path.has_value())
+        if (!m_source_group.has_value())
             return;
 
-        wo_pstring_t my_path = m_source_path.value();
+        // Register this source (by its stable group identity) as an importer
+        // of every prior import, so later REPL evals inherit visibility.
+        wo_pstring_t my_path = m_source_group.value();
         auto& tree = m_shared_context->m_who_import_me_map_tree;
 
         for (wo_pstring_t src : sources)

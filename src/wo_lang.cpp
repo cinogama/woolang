@@ -673,6 +673,7 @@ namespace wo
         , m_location{}
     {
         m_location.source_file = macro_instance.filename;
+        m_location.source_group = macro_instance.filename;
         m_location.begin_at.row = macro_instance.begin_row;
         m_location.begin_at.column = macro_instance.begin_col;
         m_location.end_at.row = macro_instance.end_row;
@@ -1746,7 +1747,7 @@ namespace wo
                 for (lang_Namespace* symbol_namespace = collecting_scope->m_belongs_to_namespace;;)
                 {
                     auto fnd = symbol_namespace->m_declare_used_namespaces.find(
-                        ident->source_location.source_file);
+                        ident->source_location.source_group);
 
                     if (fnd != symbol_namespace->m_declare_used_namespaces.end())
                         searching_namesapaces.insert(fnd->second.begin(), fnd->second.end());
@@ -2515,7 +2516,7 @@ namespace wo
         }
 
         append_using_namespace_for_current_scope(
-            using_namespaces, using_namespace->source_location.source_file);
+            using_namespaces, using_namespace->source_location.source_group);
     }
 
     lang_ValueInstance* LangContext::check_and_update_captured_varibale_in_current_scope(
