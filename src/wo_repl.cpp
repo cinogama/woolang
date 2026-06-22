@@ -26,6 +26,11 @@ _wo_ReplSession::_wo_ReplSession()
     // 3. Persistent compiler state.
     m_lang_context = std::make_unique<wo::LangContext>();
 
+    // Pre-register builtin types at session creation so they are always
+    // present before any wo_repl_eval snapshot/rollback.
+    m_lang_context->pass_0_5_register_builtin_types();
+    m_lang_context->m_builtin_types_registered = true;
+
     // 4. Persistent VM.
     m_vm = woort_vm_create();
 }
