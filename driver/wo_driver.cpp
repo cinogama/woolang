@@ -26,6 +26,7 @@ void _wo_driver_show_banner()
     std::cout << "Commit:  " << wo_commit_sha() << '\n';
     std::cout << "Date:    " << wo_compile_date() << "\n\n";
     std::cout << "Usage:\n";
+    std::cout << "    woolang\n";
     std::cout << "    woolang -h\n";
     std::cout << "    woolang --help\n";
     std::cout << "    woolang <path> [options...]\n";
@@ -221,15 +222,6 @@ int _wo_driver_run_repl()
 
         // Clear buffer for next input.
         buffer.clear();
-    }
-
-    // Show session bindings.
-    size_t count = wo_repl_binding_count(session);
-    if (count > 0)
-    {
-        std::cout << "\nSession bindings:\n";
-        for (size_t i = 0; i < count; ++i)
-            std::cout << "  " << wo_repl_binding_name(session, i) << '\n';
     }
 
     wo_repl_destroy(session);

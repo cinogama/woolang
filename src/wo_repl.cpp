@@ -29,7 +29,7 @@ _wo_ReplSession::_wo_ReplSession()
     // concurrent sessions in the same process.
     {
         char group_buf[48];
-        (void)snprintf(group_buf, sizeof(group_buf), "<repl @ %p>", this);
+        (void)snprintf(group_buf, sizeof(group_buf), "<Repl[%p]>", this);
         m_repl_group_token = wo::wstring_pool::get_pstr(group_buf);
     }
 
@@ -58,9 +58,9 @@ _wo_ReplSession::~_wo_ReplSession()
         (void)snprintf(
             repl_vfs_path,
             sizeof(repl_vfs_path),
-            "<repl %zu @ %p>",
-            i,
-            this);
+            "<Repl[%p]:%zu>",
+            this,
+            i);
         (void)woort_vfs_remove(repl_vfs_path);
     }
 
@@ -92,25 +92,6 @@ _wo_ReplSession::~_wo_ReplSession()
 //  Internal helpers
 // ===================================================================
 
-static void clear_session_binding_storage(_wo_ReplSession* s)
-{
-    for (auto& b : s->m_bindings)
-        b.m_symbol->m_value_instance->m_IR_storage.reset();
-}
-
-static void prealloc_session_binding_statics(_wo_ReplSession* s)
-{
-    for (auto& b : s->m_bindings)
-    {
-        woort_IRStaticIndex idx = s->m_lang_context->m_ircontext.c().alloc_static();
-        b.m_symbol->m_value_instance->m_IR_storage.emplace(
-            wo::lang_ValueInstance::Storage(idx));
-        s->m_lang_context->m_ircontext.c().record_static_var(
-            b.m_name->c_str(), idx);
-        b.m_current_static_idx = idx;
-    }
-}
-
 static void rollback_new_symbols(
     wo::lang_Scope* root_scope,
     const std::unordered_set<wo_pstring_t>& known_names)
@@ -122,62 +103,6 @@ static void rollback_new_symbols(
             it = syms.erase(it);
         else
             ++it;
-    }
-}
-
-// Collect new top-level VARIABLE symbols added since the snapshot.
-static void harvest_new_bindings(
-    _wo_ReplSession* s,
-    wo::lang_Scope* root_scope,
-    const std::unordered_set<wo_pstring_t>& known_names,
-    woort_CodeEnv* cenv)
-{
-    for (auto& [name, sym_ptr] : root_scope->m_defined_symbols)
-    {
-        if (known_names.find(name) != known_names.end())
-            continue;
-
-        wo::lang_Symbol* sym = sym_ptr.get();
-
-        if (sym->m_symbol_kind != wo::lang_Symbol::kind::VARIABLE)
-            continue;
-
-        if (sym->m_is_template)
-            continue;
-
-        auto* vi = sym->m_value_instance;
-        if (vi == nullptr || !vi->m_IR_storage.has_value())
-            continue;
-
-        const auto& storage = vi->m_IR_storage.value();
-        if (storage.m_type != wo::lang_ValueInstance::Storage::GLOBAL)
-            continue;
-
-        woort_Value val;
-        woort_CodeEnv_get_static_value(cenv, storage.m_static_index, &val);
-
-        // Clear compile-time constant/function info so that subsequent REPL
-        // lines treat this binding as a runtime value (loaded from its static
-        // slot) rather than attempting a "near call" that would re-compile
-        // the function body with stale IR state.
-        if (vi->m_determined_constant_or_function.has_value())
-        {
-            auto func = vi->m_determined_constant_or_function
-                            .value()
-                            .value_try_function();
-            if (func.has_value())
-                func.value()->m_IR_function_MUST_BE_CLEAR_FOR_REPL.reset();
-
-            vi->m_determined_constant_or_function.reset();
-        }
-
-        _wo_ReplSession::SessionBinding nb;
-        nb.m_name = name;
-        nb.m_symbol = sym;
-        nb.m_type = vi->m_determined_type.value_or(nullptr);
-        nb.m_value = val;
-        nb.m_current_static_idx = 0;
-        s->m_bindings.push_back(nb);
     }
 }
 
@@ -215,15 +140,21 @@ wo_repl_result wo_repl_eval(
     // --- 1. Reset IR context (fresh IRCompiler for this line) ---
     lc->m_ircontext.reset();
 
-    // --- 2. Reset scope stack to root ---
+    // --- 2. Reserve static slots for carried-over values ---
+    // Re-create the carried-over static slot range [0..N-1] in the new
+    // IRCompiler so that symbols from prior evals (which retain their
+    // m_IR_storage indices) point to valid slots. New statics allocated
+    // during this line's compilation will get indices >= N.
+    const size_t carry_count = S->m_static_values.size();
+    for (size_t i = 0; i < carry_count; ++i)
+        lc->m_ircontext.c().alloc_static();
+
+    // --- 3. Reset scope stack to root ---
     while (lc->m_scope_stack.size() > 1)
         lc->m_scope_stack.pop();
     auto* root_ns = lc->m_root_namespace.get();
     lc->m_scope_stack.top() = root_ns->m_this_scope.get();
     auto* root_scope = root_ns->m_this_scope.get();
-
-    // --- 3. Pre-allocate static slots for existing session bindings ---
-    prealloc_session_binding_statics(S);
 
     // --- 4. Snapshot root scope symbol names (for rollback) ---
     std::unordered_set<wo_pstring_t> known_names;
@@ -242,14 +173,15 @@ wo_repl_result wo_repl_eval(
         session,
         session->m_repl_seq_num);
     
-    wo_pstring_t path_pstr = wo::wstring_pool::get_pstr(repl_vfs_path);
-
     // Register the current snippet in the VFS so that
     // wo_get_compile_error() can read it back and render the underlined
     // source span. Mirrors wo_load_binary(); enable_modify=true lets each
     // eval overwrite the previous entry in place.
     (void)woort_vfs_create(
         repl_vfs_path, src, std::strlen(src), /*enable_modify=*/true);
+
+    wo_pstring_t path_pstr = wo::wstring_pool::get_pstr(
+        std::string(WOORT_VFS_SCHEME) + repl_vfs_path);
 
     auto source_stream = std::make_unique<std::istringstream>(
         std::string(src));
@@ -280,7 +212,6 @@ wo_repl_result wo_repl_eval(
             // Input is syntactically incomplete — parser hit EOF in a state
             // where EOF is not in the follow set. Wait for more input.
             lex.reset();
-            clear_session_binding_storage(S);
             return WO_REPL_INCOMPLETE_INPUT;
         }
 
@@ -291,7 +222,6 @@ wo_repl_result wo_repl_eval(
             lex.reset();
 
         rollback_new_symbols(root_scope, known_names);
-        clear_session_binding_storage(S);
         return WO_REPL_COMPILE_ERROR;
     }
 
@@ -306,7 +236,6 @@ wo_repl_result wo_repl_eval(
             lex.reset();
 
         rollback_new_symbols(root_scope, known_names);
-        clear_session_binding_storage(S);
         return WO_REPL_COMPILE_ERROR;
     }
 
@@ -322,20 +251,20 @@ wo_repl_result wo_repl_eval(
     if (!cenv_opt.has_value())
     {
         rollback_new_symbols(root_scope, known_names);
-        clear_session_binding_storage(S);
         return WO_REPL_OUT_OF_MEMORY;
     }
     woort_CodeEnv* cenv = cenv_opt.value();
 
-    // Bytecode addresses for functions compiled in THIS line were already
-    // saved during IRCompiler::commit() into m_resolved_bytecode_addr.
-    // No separate save step needed.
-
-    // --- 9. Inject session binding values into the new CodeEnv ---
-    woort_CodeEnv_lock(cenv);
-    for (auto& b : S->m_bindings)
-        woort_CodeEnv_set_static_value(cenv, b.m_current_static_idx, &b.m_value);
-    woort_CodeEnv_unlock(cenv);
+    // --- 9. Inject carried-over static values into the new CodeEnv ---
+    // Copy the saved snapshot into slots [0..N-1] so that symbols from
+    // prior evals find their persisted values.
+    if (carry_count > 0)
+    {
+        woort_CodeEnv_lock(cenv);
+        for (size_t i = 0; i < carry_count; ++i)
+            woort_CodeEnv_set_static_value(cenv, (woort_IRStaticIndex)i, &S->m_static_values[i]);
+        woort_CodeEnv_unlock(cenv);
+    }
 
     // --- 10. Boot the CodeEnv on the session VM ---
     woort_VMRuntime* const last_vm = woort_vm_swap(S->m_vm);
@@ -362,38 +291,22 @@ wo_repl_result wo_repl_eval(
         return WO_REPL_RUNTIME_ERROR;
     }
 
-    // --- 11. Harvest: read back session binding values ---
+    // --- 11. Snapshot ALL static values from the booted CodeEnv ---
+    // Read back every static slot (including newly declared ones) so the
+    // full state is available for the next eval. Symbols retain their
+    // m_IR_storage across evals — no clearing needed.
     woort_CodeEnv_lock(cenv);
-    for (auto& b : S->m_bindings)
-        woort_CodeEnv_get_static_value(cenv, b.m_current_static_idx, &b.m_value);
-
-    // --- 12. Harvest new bindings declared in this line ---
-    harvest_new_bindings(S, root_scope, known_names, cenv);
+    {
+        const size_t total = woort_CodeEnv_get_static_storage_count(cenv);
+        S->m_static_values.resize(total);
+        for (size_t i = 0; i < total; ++i)
+            woort_CodeEnv_get_static_value(cenv, (woort_IRStaticIndex)i, &S->m_static_values[i]);
+    }
     woort_CodeEnv_unlock(cenv);
 
-    // Clear m_IR_storage for all bindings (session + newly harvested)
-    // so they get fresh slots next line.
-    for (auto& b : S->m_bindings)
-        b.m_symbol->m_value_instance->m_IR_storage.reset();
-
-
-    // --- 13. Keep CodeEnv alive (for function closures) ---
+    // --- 12. Keep CodeEnv alive (for function closures) ---
     S->m_cenv_history.push_back(cenv);
     ++session->m_repl_seq_num;
 
     return WO_REPL_OK;
-}
-
-size_t wo_repl_binding_count(wo_ReplSession* session)
-{
-    auto* S = reinterpret_cast<_wo_ReplSession*>(session);
-    return S ? S->m_bindings.size() : 0;
-}
-
-const char* wo_repl_binding_name(wo_ReplSession* session, size_t index)
-{
-    auto* S = reinterpret_cast<_wo_ReplSession*>(session);
-    if (S == nullptr || index >= S->m_bindings.size())
-        return nullptr;
-    return S->m_bindings[index].m_name->c_str();
 }

@@ -30,17 +30,15 @@ struct _wo_ReplSession
     // Persistent VM: survives across evaluations, holds runtime state.
     woort_vm* m_vm;
 
-    // A session binding is a top-level variable whose value persists.
-    struct SessionBinding
-    {
-        wo_pstring_t m_name;
-        wo::lang_Symbol* m_symbol;
-        wo::lang_TypeInstance* m_type;
-        woort_Value m_value;
-        // The static-slot index assigned in the *current* line's CodeEnv.
-        woort_IRStaticIndex m_current_static_idx;
-    };
-    std::vector<SessionBinding> m_bindings;
+    // Flat snapshot of ALL static storage slots from the last booted CodeEnv.
+    // m_static_values[i] is the runtime value at woort_IRStaticIndex i.
+    // Preserved across evals by bulk-reserving slots [0..N-1] in each new
+    // IRCompiler, injecting the saved values into the new CodeEnv, then
+    // re-snapshoting after boot. This uniformly handles globals, namespace-
+    // scoped variables, and function-local statics without per-symbol
+    // tracking: symbols retain their m_IR_storage across evals, and the
+    // reserved range keeps their indices valid.
+    std::vector<woort_Value> m_static_values;
 
     // CodeEnvs kept alive (m_hold stays true) so that function closures
     // defined in prior lines remain callable.

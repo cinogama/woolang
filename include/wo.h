@@ -291,22 +291,6 @@ WO_API wo_repl_result wo_repl_eval(
     woort_U8CString src,
     /* OPTIONAL */ wo_CompileErrors** out_errors);
 
-/**
- * @brief Get the number of top-level bindings in the session.
- * @param session  The REPL session.
- * @return The binding count.
- */
-WO_API size_t wo_repl_binding_count(wo_ReplSession* session);
-
-/**
- * @brief Get the name of a session binding by index.
- * @param session  The REPL session.
- * @param index    The binding index (0-based).
- * @return A null-terminated string (owned by the session), or NULL.
- */
-WO_API /* OPTIONAL */ const char* wo_repl_binding_name(
-    wo_ReplSession* session, size_t index);
-
 /* ========== CRC64 API ========== */
 
 /**
