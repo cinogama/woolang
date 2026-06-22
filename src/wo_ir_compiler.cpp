@@ -161,33 +161,33 @@ namespace wo
 
         for (const auto& [func, cidx] : m_function_imm_pool)
         {
-            if (func->m_IR_function.has_value())
+            if (func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.has_value())
             {
                 woort_CodeEnv_set_const_script_function(
-                    cenv, cidx, get_function(cenv, func->m_IR_function.value()));
+                    cenv, cidx, get_function(cenv, func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.value()));
             }
             else
             {
                 woort_CodeEnv_set_const_extern_function(
                     cenv,
                     cidx,
-                    func->m_LANG_extern_information.value()->m_IR_externed_function.value());
+                    func->m_LANG_extern_information.value()->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value());
             }
         }
 
         for (const auto& [func, cidx] : m_closure_imm_pool)
         {
-            if (func->m_IR_function.has_value())
+            if (func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.has_value())
             {
                 woort_CodeEnv_set_const_script_closure(
-                    cenv, cidx, get_function(cenv, func->m_IR_function.value()));
+                    cenv, cidx, get_function(cenv, func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.value()));
             }
             else
             {
                 woort_CodeEnv_set_const_extern_closure(
                     cenv,
                     cidx,
-                    func->m_LANG_extern_information.value()->m_IR_externed_function.value());
+                    func->m_LANG_extern_information.value()->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value());
             }
         }
 

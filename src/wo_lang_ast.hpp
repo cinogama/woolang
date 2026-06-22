@@ -505,7 +505,7 @@ namespace wo
             size_t m_LANG_certenly_function_argument_count;
 
             std::optional<AstValueFunction*> m_IR_invoking_function_near;
-            std::optional<woort_IRValue*> m_IR_unpack_counter_if_in_variadic_func;
+            std::optional<woort_IRValue*> m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL;
 
             AstValueFunctionCall(bool direct, AstValueBase* function, const std::vector<AstValueBase*>& arguments);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -572,7 +572,7 @@ namespace wo
             AstValueBase* m_left;
             AstValueBase* m_right;
 
-            std::optional<woort_IRValue*> m_IR_value_to_store_shortcut_result;
+            std::optional<woort_IRValue*> m_IR_value_to_store_shortcut_result_MUST_BE_CLEAR_FOR_REPL;
 
             AstValueBinaryOperator(operator_type op, AstValueBase* left, AstValueBase* right, bool consider_overload);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -613,7 +613,7 @@ namespace wo
             std::optional<std::pair<lang_TemplateAstEvalStateType*, bool>>
                 m_LANG_template_evalating_state_is_mutable;
 
-            std::optional<woort_IRValue*> m_IR_cond_eval_result;
+            std::optional<woort_IRValue*> m_IR_cond_eval_result_MUST_BE_CLEAR_FOR_REPL;
 
             AstValueTribleOperator(AstValueBase* condition, AstValueBase* true_value, AstValueBase* false_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -637,7 +637,7 @@ namespace wo
             IR_unpack_method m_LANG_unpack_method;
 
             std::optional<IR_unpack_requirement> m_LANG_need_to_be_unpack_count;
-            std::optional<woort_IRValue*> m_IR_unpack_all_counter;
+            std::optional<woort_IRValue*> m_IR_unpack_all_counter_MUST_BE_CLEAR_FOR_REPL;
 
             AstFakeValueUnpack(AstValueBase* unpack_value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -819,7 +819,7 @@ namespace wo
             std::optional<lang_Scope*> m_LANG_function_scope;
 
             std::optional<AstExternInformation*> m_LANG_extern_information;
-            std::optional<woort_IRFunction*> m_IR_function;
+            std::optional<woort_IRFunction*> m_IR_function_MUST_BE_CLEAR_FOR_REPL;
 
             AstValueFunction(
                 const std::vector<AstFunctionParameterDeclare*>& parameters,
@@ -980,8 +980,8 @@ namespace wo
             std::optional<lang_TypeInstance*> m_LANG_pattern_value_apply_type;
             std::optional<int64_t> m_LANG_case_label_or_takeplace;
 
-            std::optional<const woort_IRValue*> m_IR_matching_index_opnum;
-            std::optional<const woort_IRValue*> m_IR_matching_struct_opnum;
+            std::optional<const woort_IRValue*> m_IR_matching_index_opnum_MUST_BE_CLEAR_FOR_REPL;
+            std::optional<const woort_IRValue*> m_IR_matching_struct_opnum_MUST_BE_CLEAR_FOR_REPL;
             std::optional<AstMatch*> m_IR_match;
 
             AstMatchCase(AstPatternBase* pattern, AstBase* body);
@@ -1132,7 +1132,7 @@ namespace wo
             std::optional<std::pair<lang_TemplateAstEvalStateType*, bool>>
                 m_LANG_template_evalating_state_is_mutable;
 
-            std::optional<const woort_IRValue*> m_IR_return_value_may_none;
+            std::optional<const woort_IRValue*> m_IR_return_value_may_none_MUST_BE_CLEAR_FOR_REPL;
 
             AstReturn(const std::optional<AstValueBase*>& value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -1283,7 +1283,7 @@ namespace wo
             AstValueBase*                   m_extern_symbol;
             std::optional<AstValueBase*>    m_extern_from_library;
 
-            std::optional<woort_NativeFunction> m_IR_externed_function;
+            std::optional<woort_NativeFunction> m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL;
 
         private:
             AstExternInformation(const AstExternInformation&);

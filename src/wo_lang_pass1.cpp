@@ -6574,7 +6574,7 @@ namespace wo
                 extern_function = rslib_extern_symbols::g_builtin_bad_function;
 
             if (extern_function != nullptr)
-                node->m_IR_externed_function = extern_function;
+                node->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL = extern_function;
             else
             {
                 lex.record_lang_error(lexer::msglevel_t::error, node,

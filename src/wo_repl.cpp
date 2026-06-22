@@ -140,7 +140,7 @@ static void harvest_new_bindings(
                             .value()
                             .value_try_function();
             if (func.has_value())
-                func.value()->m_IR_function.reset();
+                func.value()->m_IR_function_MUST_BE_CLEAR_FOR_REPL.reset();
 
             vi->m_determined_constant_or_function.reset();
         }

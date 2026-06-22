@@ -728,6 +728,13 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            // Clear stale IR state from prior compilation (REPL re-compile).
+            for (auto* match_case : node->m_cases)
+            {
+                match_case->m_IR_matching_index_opnum_MUST_BE_CLEAR_FOR_REPL.reset();
+                match_case->m_IR_matching_struct_opnum_MUST_BE_CLEAR_FOR_REPL.reset();
+            }
+
             m_ircontext.begin_eval_readonly();
             if (!pass_final_value(lex, node->m_matched_value))
                 return FAILED;
@@ -741,8 +748,8 @@ namespace wo
 
             for (auto& match_case : node->m_cases)
             {
-                match_case->m_IR_matching_index_opnum = matching_index;
-                match_case->m_IR_matching_struct_opnum = matching_value;
+                match_case->m_IR_matching_index_opnum_MUST_BE_CLEAR_FOR_REPL = matching_index;
+                match_case->m_IR_matching_struct_opnum_MUST_BE_CLEAR_FOR_REPL = matching_value;
                 match_case->m_IR_match = node;
             }
 
@@ -768,7 +775,7 @@ namespace wo
         {
             if (node->m_LANG_case_label_or_takeplace.has_value())
                 m_ircontext.c().jcc_ne(
-                    node->m_IR_matching_index_opnum.value(),
+                    node->m_IR_matching_index_opnum_MUST_BE_CLEAR_FOR_REPL.value(),
                     m_ircontext.c().load_imm_int(node->m_LANG_case_label_or_takeplace.value()),
                     m_ircontext.c().named_label(node, "#match_case_end"));
 
@@ -782,7 +789,7 @@ namespace wo
                     update_pattern_storage_and_code_gen_passir(
                         lex,
                         pattern_base,
-                        node->m_IR_matching_struct_opnum.value(),
+                        node->m_IR_matching_struct_opnum_MUST_BE_CLEAR_FOR_REPL.value(),
                         (uint16_t)1);
                 }
             }
@@ -1101,7 +1108,7 @@ namespace wo
         if (state == UNPROCESSED)
         {
             // Clear stale IR state from prior compilation (REPL re-compile).
-            node->m_IR_return_value_may_none.reset();
+            node->m_IR_return_value_may_none_MUST_BE_CLEAR_FOR_REPL.reset();
 
             if (node->m_value.has_value())
             {
@@ -1112,16 +1119,16 @@ namespace wo
                     woort_IRValue* v = m_ircontext.c().new_value();
                     m_ircontext.eval_to_assign(v, node);
 
-                    node->m_IR_return_value_may_none.emplace(v);
+                    node->m_IR_return_value_may_none_MUST_BE_CLEAR_FOR_REPL.emplace(v);
                 }
 
                 if (!pass_final_value(lex, node->m_value.value()))
                     return FAILED;
 
-                if (node->m_IR_return_value_may_none.has_value())
+                if (node->m_IR_return_value_may_none_MUST_BE_CLEAR_FOR_REPL.has_value())
                     m_ircontext.pop_eval_result();
                 else
-                    node->m_IR_return_value_may_none.emplace(
+                    node->m_IR_return_value_may_none_MUST_BE_CLEAR_FOR_REPL.emplace(
                         m_ircontext.get_eval_result());
             }
 
@@ -1131,7 +1138,7 @@ namespace wo
         else if (state == HOLD)
         {
             bool is_ret_void = true;
-            if (node->m_IR_return_value_may_none.has_value())
+            if (node->m_IR_return_value_may_none_MUST_BE_CLEAR_FOR_REPL.has_value())
             {
                 lang_TypeInstance* const ret_type =
                     node->m_value.value()->m_LANG_determined_type.value();
@@ -1152,7 +1159,7 @@ namespace wo
             }
             else
             {
-                m_ircontext.c().ret(node->m_IR_return_value_may_none.value());
+                m_ircontext.c().ret(node->m_IR_return_value_may_none_MUST_BE_CLEAR_FOR_REPL.value());
             }
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -1180,6 +1187,9 @@ namespace wo
     WO_PASS_PROCESSER(AstValueFunction)
     {
         wo_assert(state == UNPROCESSED);
+
+        // Clear stale IR state from prior compilation (REPL re-compile).
+        node->m_IR_function_MUST_BE_CLEAR_FOR_REPL.reset();
 
         m_ircontext.m_being_used_function_instance.insert(node);
 
@@ -1572,6 +1582,12 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            // Clear stale IR state from prior compilation (REPL re-compile).
+            node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.reset();
+            // NOTE: m_IR_unpack_all_counter_MUST_BE_CLEAR_FOR_REPL on AstFakeValueUnpack
+            //       arguments is always overwritten by this processor (line below at
+            //       emplace) before AstFakeValueUnpack reads it, so no reset needed here.
+
             if (node->m_function->node_type == AstBase::AST_VALUE_VARIABLE)
             {
                 AstValueVariable* func_var = static_cast<AstValueVariable*>(node->m_function);
@@ -1605,9 +1621,9 @@ namespace wo
                 if (function->m_LANG_extern_information.has_value())
                 {
                     auto* extern_information = function->m_LANG_extern_information.value();
-                    if (extern_information->m_IR_externed_function.has_value())
+                    if (extern_information->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.has_value())
                     {
-                        auto* externed_function = extern_information->m_IR_externed_function.value();
+                        auto* externed_function = extern_information->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value();
                         if (config::ENABLE_SKIP_INVOKE_UNSAFE_CAST
                             && rslib_extern_symbols::g_builtin_return_it_self == externed_function)
                         {
@@ -1647,8 +1663,8 @@ namespace wo
 
                         woort_IRValue* const v = m_ircontext.c().new_value();
 
-                        node->m_IR_unpack_counter_if_in_variadic_func.emplace(v);
-                        ast_fake_value_unpack->m_IR_unpack_all_counter.emplace(v);
+                        node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.emplace(v);
+                        ast_fake_value_unpack->m_IR_unpack_all_counter_MUST_BE_CLEAR_FOR_REPL.emplace(v);
                     }
                     m_ircontext.eval_action_and_ignore();
                 }
@@ -1663,7 +1679,7 @@ namespace wo
             }
 
             wo_assert(node->m_LANG_has_runtime_full_unpackargs ==
-                node->m_IR_unpack_counter_if_in_variadic_func.has_value());
+                node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value());
 
             if (!has_invoking_function_near)
             {
@@ -1688,10 +1704,10 @@ namespace wo
                 if (node->m_LANG_invoking_variadic_function)
                 {
                     // Need push extra argument counter.
-                    if (node->m_IR_unpack_counter_if_in_variadic_func.has_value())
+                    if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
                     {
                         woort_IRValue* const v =
-                            node->m_IR_unpack_counter_if_in_variadic_func.value();
+                            node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value();
 
                         if (fact_argument_to_pop != 0)
                         {
@@ -1737,8 +1753,8 @@ namespace wo
                         m_ircontext.c().call(opnumbase, fact_argument_to_pop, nullptr);
                     }
 
-                    if (node->m_IR_unpack_counter_if_in_variadic_func.has_value())
-                        m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func.value());
+                    if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
+                        m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
                 }
 
                 m_ircontext.apply_eval_result(
@@ -1809,8 +1825,8 @@ namespace wo
                                 if (need_box.has_value())
                                     m_ircontext.c().boxdyn(*target_irvalue, need_box.value(), *target_irvalue);
                             }
-                            if (node->m_IR_unpack_counter_if_in_variadic_func.has_value())
-                                m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func.value());
+                            if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
+                                m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
                         }
                         else
                         {
@@ -1837,8 +1853,8 @@ namespace wo
                                 m_ircontext.c().call(opnumbase, fact_argument_to_pop, v);
                             }
 
-                            if (node->m_IR_unpack_counter_if_in_variadic_func.has_value())
-                                m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func.value());
+                            if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
+                                m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
 
                             result.set_result_stack_temp(m_ircontext, v, node->m_LANG_determined_type.value());
                         }
@@ -2935,7 +2951,7 @@ namespace wo
 
                             if (unpack_requirement.m_unpack_all)
                             {
-                                woort_IRValue* const v = node->m_IR_unpack_all_counter.value();
+                                woort_IRValue* const v = node->m_IR_unpack_all_counter_MUST_BE_CLEAR_FOR_REPL.value();
                                 if (elem_need_unbox)
                                     m_ircontext.c().unpackvecall(
                                         v,
@@ -2972,6 +2988,9 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            // Clear stale IR state from prior compilation (REPL re-compile).
+            node->m_IR_value_to_store_shortcut_result_MUST_BE_CLEAR_FOR_REPL.reset();
+
             if (node->m_LANG_overload_call.has_value())
             {
                 m_ircontext.eval_for_upper();
@@ -2984,7 +3003,7 @@ namespace wo
             {
                 // Need short cut, 
                 woort_IRValue* const v = m_ircontext.c().new_value();
-                node->m_IR_value_to_store_shortcut_result.emplace(v);
+                node->m_IR_value_to_store_shortcut_result_MUST_BE_CLEAR_FOR_REPL.emplace(v);
 
                 m_ircontext.eval_to_assign(v, std::nullopt);
 
@@ -3027,7 +3046,7 @@ namespace wo
                 }
 
                 m_ircontext.eval_to_assign_if_not_ignore(
-                    node->m_IR_value_to_store_shortcut_result.value(),
+                    node->m_IR_value_to_store_shortcut_result_MUST_BE_CLEAR_FOR_REPL.value(),
                     std::nullopt);
 
                 WO_CONTINUE_PROCESS(node->m_right);
@@ -3043,7 +3062,7 @@ namespace wo
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
                         auto* const shortcut_evaled_value =
-                            node->m_IR_value_to_store_shortcut_result.value();
+                            node->m_IR_value_to_store_shortcut_result_MUST_BE_CLEAR_FOR_REPL.value();
 
                         m_ircontext.pop_eval_result();
 
@@ -3524,6 +3543,9 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            // Clear stale IR state from prior compilation (REPL re-compile).
+            node->m_IR_cond_eval_result_MUST_BE_CLEAR_FOR_REPL.reset();
+
             if (node->m_condition->m_evaled_const_value.has_value())
             {
                 m_ircontext.eval_for_upper();
@@ -3561,7 +3583,7 @@ namespace wo
                         && !m_ircontext.upper_need_assign())
                     {
                         woort_IRValue* const v = m_ircontext.c().new_value();
-                        node->m_IR_cond_eval_result.emplace(v);
+                        node->m_IR_cond_eval_result_MUST_BE_CLEAR_FOR_REPL.emplace(v);
 
                         if (m_ircontext.upper_need_box())
                             m_ircontext.eval_to_assign_box(v, std::nullopt);
@@ -3602,7 +3624,7 @@ namespace wo
                     && !m_ircontext.upper_need_assign())
                 {
                     woort_IRValue* const v = m_ircontext.c().new_value();
-                    node->m_IR_cond_eval_result.emplace(v);
+                    node->m_IR_cond_eval_result_MUST_BE_CLEAR_FOR_REPL.emplace(v);
 
                     // Eval for box if need box.
                     if (m_ircontext.upper_need_box())
@@ -3623,11 +3645,11 @@ namespace wo
                 m_ircontext.c().jmp(m_ircontext.c().named_label(node, "#cond_end"));
                 m_ircontext.c().bind(m_ircontext.c().named_label(node, "#cond_false"));
 
-                if (node->m_IR_cond_eval_result.has_value())
+                if (node->m_IR_cond_eval_result_MUST_BE_CLEAR_FOR_REPL.has_value())
                 {
                     m_ircontext.pop_eval_result();
 
-                    woort_IRValue* const v = node->m_IR_cond_eval_result.value();
+                    woort_IRValue* const v = node->m_IR_cond_eval_result_MUST_BE_CLEAR_FOR_REPL.value();
 
                     // Eval for box if need box.
                     if (m_ircontext.upper_need_box())
@@ -3656,7 +3678,7 @@ namespace wo
             {
                 m_ircontext.c().bind(m_ircontext.c().named_label(node, "#cond_end"));
 
-                if (node->m_IR_cond_eval_result.has_value()
+                if (node->m_IR_cond_eval_result_MUST_BE_CLEAR_FOR_REPL.has_value()
                     || m_ircontext.is_eval_result_just_ignored())
                 {
                     m_ircontext.apply_eval_result(
@@ -3666,7 +3688,7 @@ namespace wo
                             m_ircontext.pop_eval_result();
 
                             result.set_result_stack_temp(
-                                m_ircontext, node->m_IR_cond_eval_result.value(),
+                                m_ircontext, node->m_IR_cond_eval_result_MUST_BE_CLEAR_FOR_REPL.value(),
                                 /* Assure no box, it has been boxed in branch eval. */
                                 m_origin_types.m_dynamic.m_type_instance);
                         }

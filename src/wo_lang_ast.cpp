@@ -1302,7 +1302,7 @@ namespace wo
             , m_LANG_has_runtime_full_unpackargs(false)
             , m_LANG_certenly_function_argument_count(0)
             , m_IR_invoking_function_near(std::nullopt)
-            , m_IR_unpack_counter_if_in_variadic_func(std::nullopt)
+            , m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
 
         }
@@ -1347,7 +1347,7 @@ namespace wo
             , m_operator(op)
             , m_left(left)
             , m_right(right)
-            , m_IR_value_to_store_shortcut_result(std::nullopt)
+            , m_IR_value_to_store_shortcut_result_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
         }
         AstBase* AstValueBinaryOperator::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1390,7 +1390,7 @@ namespace wo
             , m_false_value(false_value)
             , m_LANG_hold_state(UNPROCESSED)
             , m_LANG_template_evalating_state_is_mutable(std::nullopt)
-            , m_IR_cond_eval_result(std::nullopt)
+            , m_IR_cond_eval_result_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
         }
         AstBase* AstValueTribleOperator::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1413,7 +1413,7 @@ namespace wo
             , m_unpack_value(unpack_value)
             , m_LANG_unpack_method(SHOULD_NOT_UNPACK)
             , m_LANG_need_to_be_unpack_count(std::nullopt)
-            , m_IR_unpack_all_counter(std::nullopt)
+            , m_IR_unpack_all_counter_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
         }
         AstBase* AstFakeValueUnpack::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1747,7 +1747,7 @@ namespace wo
             , m_LANG_function_body_end_with_return_flag_for_IR(false)
             , m_LANG_function_scope(std::nullopt)
             , m_LANG_extern_information(std::nullopt)
-            , m_IR_function(std::nullopt)
+            , m_IR_function_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
             wo_assert(body->node_type == AstBase::node_type_t::AST_EMPTY
                 || body->node_type == AstBase::node_type_t::AST_SCOPE
@@ -2000,8 +2000,8 @@ namespace wo
             , m_LANG_end_state(AstScope::LANG_end_state::NORMAL)
             , m_LANG_pattern_value_apply_type(std::nullopt)
             , m_LANG_case_label_or_takeplace(std::nullopt)
-            , m_IR_matching_index_opnum(std::nullopt)
-            , m_IR_matching_struct_opnum(std::nullopt)
+            , m_IR_matching_index_opnum_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
+            , m_IR_matching_struct_opnum_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
             , m_IR_match(std::nullopt)
         {
         }
@@ -2236,7 +2236,7 @@ namespace wo
             , m_LANG_defer_instances{}
             , m_LANG_belong_function_may_null_if_outside(std::nullopt)
             , m_LANG_template_evalating_state_is_mutable(std::nullopt)
-            , m_IR_return_value_may_none(std::nullopt)
+            , m_IR_return_value_may_none_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
         }
         AstBase* AstReturn::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -2813,7 +2813,7 @@ namespace wo
             : AstBase(AST_EXTERN_INFORMATION)
             , m_extern_symbol(item.m_extern_symbol)
             , m_extern_from_library(item.m_extern_from_library)
-            , m_IR_externed_function(std::nullopt)
+            , m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
         }
         AstExternInformation::AstExternInformation(
@@ -2822,7 +2822,7 @@ namespace wo
             : AstBase(AST_EXTERN_INFORMATION)
             , m_extern_symbol(extern_symbol)
             , m_extern_from_library(extern_from_library)
-            , m_IR_externed_function(std::nullopt)
+            , m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
         }
         AstBase* AstExternInformation::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
