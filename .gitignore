@@ -352,9 +352,11 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 
+/CMakeSettings.json
+/AGENTS.md
+/src/wo_commit_sha.hpp
+
 /out/
 /build/
-/msvc/
-/CMakeSettings.json
-
-/src/wo_commit_sha.hpp
+/build2/
+/build_ninja/
