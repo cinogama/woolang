@@ -4,6 +4,7 @@
 #include "wo_lang_grammar_loader.hpp"
 #include "wo_source_file_manager.hpp"
 
+#include <cstring>
 #include <sstream>
 #include <unordered_set>
 
@@ -208,6 +209,13 @@ wo_repl_result wo_repl_eval(
     // Use the same path for all lines so the compiler treats symbols from
     // prior lines as same-file declarations (no import needed).
     wo_pstring_t path_pstr = wo::wstring_pool::get_pstr("<repl>");
+
+    // Register the current snippet in the VFS so that
+    // wo_get_compile_error() can read it back and render the underlined
+    // source span. Mirrors wo_load_binary(); enable_modify=true lets each
+    // eval overwrite the previous entry in place.
+    (void)woort_vfs_create(
+        "<repl>", src, std::strlen(src), /*enable_modify=*/true);
 
     auto source_stream = std::make_unique<std::istringstream>(
         std::string(src));
