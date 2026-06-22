@@ -10,7 +10,7 @@
  */
 
 /** @brief Woolang version encoded as (major, minor, patch, tweak). */
-#define WO_VERSION WO_VERSION_WRAP(1, 15, 1, 6)
+#define WO_VERSION WO_VERSION_WRAP(1, 15, 1, 7)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
@@ -131,6 +131,16 @@ WO_API void wo_init(int argc, char** argv);
  * @param custom_data        User data passed to the callback.
  */
 WO_API void wo_finish(void (*do_after_shutdown)(void*), void* custom_data);
+
+/* ========== Compiler Options Help API ========== */
+
+/**
+ * @brief Print the available woolang compiler command-line options to stdout.
+ *
+ * Lists every --woolang-* option recognized by wo_init(), with accepted
+ * values and defaults.
+ */
+WO_API void wo_print_compiler_help(void);
 
 /* ========== Compile API ========== */
 

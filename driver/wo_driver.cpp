@@ -26,13 +26,17 @@ void PrintBanner()
     std::cout << "Commit:  " << wo_commit_sha() << '\n';
     std::cout << "Date:    " << wo_compile_date() << "\n\n";
     std::cout << "Usage:\n";
-    std::cout << "    woolang <path> -o <output> [options...]\n";
+    std::cout << "    woolang -h\n";
+    std::cout << "    woolang --help\n";
     std::cout << "    woolang <path> [options...]\n";
-    std::cout << "    woolang <path> --check [options...]\n";
     std::cout << "\nOptions:\n";
     std::cout << "    -o <output>   Compile and save bytecode to the given path.\n";
     std::cout << "    --check       Compile only, report syntax errors without running.\n";
     std::cout << "    -h, --help    Show this help message.\n";
+    std::cout << '\n';
+    wo_print_compiler_help();
+    std::cout << '\n';
+    woort_print_runtime_help();
 }
 
 bool ParseOptions(int argc, char** argv, CliOptions& out)

@@ -98,6 +98,19 @@ void wo_init(int argc, char** argv)
     wo::builtin_macro_lib_bootup();
 }
 
+void wo_print_compiler_help(void)
+{
+    std::cout << "Woolang Compiler Options (prefix: --woolang-):\n";
+    std::cout << "    --woolang-enable-std <0|1>\n";
+    std::cout << "        Enable the embedded woolang standard library package. Default: 1.\n";
+    std::cout << "    --woolang-enable-runtime-checking-integer-division <0|1>\n";
+    std::cout << "        Generate extra code to check for division by zero and overflow. Default: 1.\n";
+    std::cout << "    --woolang-update-grammar <0|1>\n";
+    std::cout << "        Enable grammar check and auto-update. Default: 0.\n";
+    std::cout << "    --woolang-ignore-not-found-extern-func <0|1>\n";
+    std::cout << "        Ignore missing extern function symbols (replace with panic function). Default: 0.\n";
+}
+
 
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
