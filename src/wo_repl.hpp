@@ -47,6 +47,7 @@ struct _wo_ReplSession
     std::vector<woort_CodeEnv*> m_cenv_history;
 
     size_t m_line_counter;
+    size_t m_repl_seq_num;
 
     // All source paths imported by prior lines (stdlib, etc.).
     // Each new line inherits these so imports persist across the session.

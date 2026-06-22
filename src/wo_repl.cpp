@@ -15,6 +15,7 @@
 _wo_ReplSession::_wo_ReplSession()
     : m_vm(nullptr)
     , m_line_counter(0)
+    , m_repl_seq_num(0)
 {
     // 1. Session-level string pool: all wo_pstring_t values stay valid.
     m_string_pool_guard = std::make_unique<wo::start_string_pool_guard>();
@@ -46,7 +47,6 @@ _wo_ReplSession::~_wo_ReplSession()
     // Destroy VM (swap out first to avoid GC deadlock).
     if (m_vm != nullptr)
     {
-        woort_vm_swap(nullptr);
         woort_vm_close(m_vm);
         m_vm = nullptr;
     }
@@ -208,14 +208,22 @@ wo_repl_result wo_repl_eval(
     // --- 5. Create lexer from source string ---
     // Use the same path for all lines so the compiler treats symbols from
     // prior lines as same-file declarations (no import needed).
-    wo_pstring_t path_pstr = wo::wstring_pool::get_pstr("<repl>");
+    char repl_vfs_path[64];
+    (void)snprintf(
+        repl_vfs_path, 
+        sizeof(repl_vfs_path), 
+        "<repl %zu @ %p>",
+        session->m_repl_seq_num, 
+        session);
+    
+    wo_pstring_t path_pstr = wo::wstring_pool::get_pstr(repl_vfs_path);
 
     // Register the current snippet in the VFS so that
     // wo_get_compile_error() can read it back and render the underlined
     // source span. Mirrors wo_load_binary(); enable_modify=true lets each
     // eval overwrite the previous entry in place.
     (void)woort_vfs_create(
-        "<repl>", src, std::strlen(src), /*enable_modify=*/true);
+        repl_vfs_path, src, std::strlen(src), /*enable_modify=*/true);
 
     auto source_stream = std::make_unique<std::istringstream>(
         std::string(src));
@@ -303,13 +311,14 @@ wo_repl_result wo_repl_eval(
     woort_CodeEnv_unlock(cenv);
 
     // --- 10. Boot the CodeEnv on the session VM ---
-    woort_VMRuntime* last_vm = woort_vm_swap(S->m_vm);
+    woort_VMRuntime* const last_vm = woort_vm_swap(S->m_vm);
 
     woort_value v;
     woort_VmCallStatus status = WOORT_VM_CALL_STATUS_NORMAL;
     if (!woort_push_reserve(1, &v))
     {
-        woort_vm_swap(last_vm);
+        (void)woort_vm_swap(last_vm);
+
         woort_codeenv_drop(cenv);
         return WO_REPL_OUT_OF_MEMORY;
     }
@@ -317,7 +326,7 @@ wo_repl_result wo_repl_eval(
     status = woort_bootup_codeenv(v, cenv);
     woort_pop(1);
 
-    woort_vm_swap(last_vm);
+    (void)woort_vm_swap(last_vm);
 
     if (status != WOORT_VM_CALL_STATUS_NORMAL)
     {
@@ -343,6 +352,7 @@ wo_repl_result wo_repl_eval(
 
     // --- 13. Keep CodeEnv alive (for function closures) ---
     S->m_cenv_history.push_back(cenv);
+    ++session->m_repl_seq_num;
 
     return WO_REPL_OK;
 }
