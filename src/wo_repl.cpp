@@ -130,6 +130,21 @@ static void harvest_new_bindings(
         woort_Value val;
         woort_CodeEnv_get_static_value(cenv, storage.m_static_index, &val);
 
+        // Clear compile-time constant/function info so that subsequent REPL
+        // lines treat this binding as a runtime value (loaded from its static
+        // slot) rather than attempting a "near call" that would re-compile
+        // the function body with stale IR state.
+        if (vi->m_determined_constant_or_function.has_value())
+        {
+            auto func = vi->m_determined_constant_or_function
+                            .value()
+                            .value_try_function();
+            if (func.has_value())
+                func.value()->m_IR_function.reset();
+
+            vi->m_determined_constant_or_function.reset();
+        }
+
         _wo_ReplSession::SessionBinding nb;
         nb.m_name = name;
         nb.m_symbol = sym;
@@ -268,6 +283,10 @@ wo_repl_result wo_repl_eval(
         return WO_REPL_OUT_OF_MEMORY;
     }
     woort_CodeEnv* cenv = cenv_opt.value();
+
+    // Bytecode addresses for functions compiled in THIS line were already
+    // saved during IRCompiler::commit() into m_resolved_bytecode_addr.
+    // No separate save step needed.
 
     // --- 9. Inject session binding values into the new CodeEnv ---
     woort_CodeEnv_lock(cenv);

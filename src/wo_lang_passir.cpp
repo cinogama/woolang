@@ -1100,6 +1100,9 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            // Clear stale IR state from prior compilation (REPL re-compile).
+            node->m_IR_return_value_may_none.reset();
+
             if (node->m_value.has_value())
             {
                 if (node->m_LANG_defer_instances.empty())
