@@ -39,6 +39,18 @@ _wo_ReplSession::_wo_ReplSession()
 
 _wo_ReplSession::~_wo_ReplSession()
 {
+    for (size_t i = 0; i <= m_repl_seq_num; ++i)
+    {
+        char repl_vfs_path[64];
+        (void)snprintf(
+            repl_vfs_path,
+            sizeof(repl_vfs_path),
+            "<repl %zu @ %p>",
+            i,
+            this);
+        (void)woort_vfs_remove(repl_vfs_path);
+    }
+
     // Drop all session CodeEnvs.
     for (woort_CodeEnv* cenv : m_cenv_history)
         woort_codeenv_drop(cenv);
