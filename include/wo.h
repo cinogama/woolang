@@ -231,6 +231,82 @@ WO_API const char* wo_get_compile_error(
     wo_CompileErrors* errors,
     wo_inform_style_t style);
 
+/* ========== REPL API ========== */
+
+/**
+ * @brief Opaque handle to a REPL session.
+ *
+ * A REPL session maintains persistent compiler state (symbol table, type
+ * table) and a persistent VM across multiple evaluations, so that bindings
+ * declared in one evaluation are visible in subsequent ones.
+ */
+typedef struct _wo_ReplSession wo_ReplSession;
+
+/** @brief Result of a single REPL evaluation. */
+typedef enum _wo_repl_result
+{
+    WO_REPL_OK = 0,               /**< @brief Evaluation succeeded. */
+    WO_REPL_COMPILE_ERROR,        /**< @brief Compilation failed (see out_errors). */
+    WO_REPL_INCOMPLETE_INPUT,     /**< @brief Input is syntactically incomplete; read more. */
+    WO_REPL_RUNTIME_ERROR,        /**< @brief Runtime panic occurred. */
+    WO_REPL_OUT_OF_MEMORY,        /**< @brief Allocation failure. */
+
+} wo_repl_result;
+
+/**
+ * @brief Create a new REPL session.
+ *
+ * Allocates a persistent LangContext (with builtins and stdlib registered)
+ * and a persistent VM. The caller must destroy the session with
+ * wo_repl_destroy().
+ *
+ * @return A new REPL session handle, or NULL on failure.
+ */
+WO_API /* OPTIONAL */ wo_ReplSession* wo_repl_create(void);
+
+/**
+ * @brief Destroy a REPL session and release all resources.
+ *
+ * Drops the persistent VM, all CodeEnvs produced during the session, and
+ * the persistent compiler state.
+ *
+ * @param session  The session to destroy (may be NULL).
+ */
+WO_API void wo_repl_destroy(/* OPTIONAL */ wo_ReplSession* session);
+
+/**
+ * @brief Evaluate a source snippet in the REPL session.
+ *
+ * Compiles and executes the given source code in the context of the
+ * session. Bindings declared at the top level (let, func, type, etc.)
+ * are accumulated and become visible in subsequent evaluations.
+ *
+ * @param session     The REPL session.
+ * @param src         Null-terminated source code string.
+ * @param out_errors  Optional pointer to receive compile errors (must be freed).
+ * @return The evaluation result.
+ */
+WO_API wo_repl_result wo_repl_eval(
+    wo_ReplSession* session,
+    woort_U8CString src,
+    /* OPTIONAL */ wo_CompileErrors** out_errors);
+
+/**
+ * @brief Get the number of top-level bindings in the session.
+ * @param session  The REPL session.
+ * @return The binding count.
+ */
+WO_API size_t wo_repl_binding_count(wo_ReplSession* session);
+
+/**
+ * @brief Get the name of a session binding by index.
+ * @param session  The REPL session.
+ * @param index    The binding index (0-based).
+ * @return A null-terminated string (owned by the session), or NULL.
+ */
+WO_API /* OPTIONAL */ const char* wo_repl_binding_name(
+    wo_ReplSession* session, size_t index);
+
 /* ========== CRC64 API ========== */
 
 /**

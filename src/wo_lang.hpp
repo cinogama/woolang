@@ -657,6 +657,8 @@ namespace wo
         BytecodeGenerateContext(BytecodeGenerateContext&&) = delete;
         BytecodeGenerateContext& operator=(const BytecodeGenerateContext&) = delete;
         BytecodeGenerateContext& operator=(BytecodeGenerateContext&&) = delete;
+
+        void reset();
     };
 
     struct LangContext
@@ -840,6 +842,9 @@ namespace wo
 
         // Used for bytecode generation
         BytecodeGenerateContext m_ircontext;
+
+        // REPL: track whether builtins have been registered (only once per session).
+        bool m_builtin_types_registered = false;
 
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;

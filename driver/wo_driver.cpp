@@ -136,21 +136,32 @@ int RunProgram(woort_CodeEnv* cenv)
 
 } // namespace
 
+// Defined in wo_repl_loop.cpp.
+int wo_driver_run_repl();
+
 int main(int argc, char** argv)
 {
     wo_init(argc, argv);
 
     CliOptions opts;
-    if (!ParseOptions(argc, argv, opts) || opts.source_path == nullptr)
+    if (!ParseOptions(argc, argv, opts))
     {
         PrintBanner();
         wo_finish(nullptr, nullptr);
         return EXIT_OK;
     }
 
+    if (opts.source_path == nullptr)
+    {
+        // No source file: enter REPL mode.
+        int repl_ret = wo_driver_run_repl();
+        wo_finish(nullptr, nullptr);
+        return repl_ret;
+    }
+
     int ret;
     wo_CompileErrors* errors = nullptr;
-    woort_CodeEnv*    cenv   = wo_load_file(opts.source_path, &errors);
+    woort_CodeEnv* const cenv = wo_load_file(opts.source_path, &errors);
 
     if (cenv == nullptr)
     {

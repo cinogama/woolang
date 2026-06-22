@@ -35,6 +35,31 @@ namespace wo
         return m_ircompiler == nullptr;
     }
 
+    void IRCompiler::reset()
+    {
+        if (m_ircompiler != nullptr)
+            abondon();
+
+        m_entry_function.reset();
+        m_current_functions_stack.clear();
+
+        m_nil_bool_int_handle_imm_pool.clear();
+        m_boxed_int_imm_pool.clear();
+        m_boxed_true_imm.reset();
+        m_boxed_false_imm.reset();
+        m_real_imm_pool.clear();
+        m_boxed_real_imm_pool.clear();
+        m_string_imm_pool.clear();
+        m_closure_imm_pool.clear();
+        m_function_imm_pool.clear();
+        m_extern_symbols.clear();
+        m_loaded_extern_libs.clear();
+        m_tuple_imm_pool.clear();
+        m_ordered_tuple_imm_list.clear();
+
+        m_ircompiler = woort_IRCompiler_create();
+    }
+
     woort_IRFunction* IRCompiler::push_function(
         uint32_t param_count, uint32_t captured_count)
     {

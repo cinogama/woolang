@@ -995,6 +995,27 @@ extern func macro_entry(lexer: std::lexer)=> string
     {
         return m_who_import_me;
     }
+
+    const std::unordered_set<wo_pstring_t>& lexer::get_linked_script_paths() const
+    {
+        return m_shared_context->m_linked_script_path_set;
+    }
+
+    void lexer::register_imported_sources(
+        const std::unordered_set<wo_pstring_t>& sources)
+    {
+        if (!m_source_path.has_value())
+            return;
+
+        wo_pstring_t my_path = m_source_path.value();
+        auto& tree = m_shared_context->m_who_import_me_map_tree;
+
+        for (wo_pstring_t src : sources)
+        {
+            tree[src].insert(my_path);
+            m_shared_context->m_linked_script_path_set.insert(src);
+        }
+    }
     void lexer::get_now_location(size_t* out_row, size_t* out_col) const
     {
         *out_row = _m_row_counter;

@@ -101,6 +101,7 @@ namespace wo
         ~IRCompiler();
 
         void abondon();
+        void reset();
 
     public:
         bool is_abondoned() const;

@@ -479,6 +479,16 @@ namespace wo
         [[nodiscard]]
         const std::optional<lexer*>& get_who_import_me() const;
 
+        // REPL support: get all source paths that have been imported in this
+        // lexer's shared context.
+        [[nodiscard]]
+        const std::unordered_set<wo_pstring_t>& get_linked_script_paths() const;
+
+        // REPL support: mark the given source paths as imported by this
+        // lexer's source file, so symbols from those files are visible.
+        void register_imported_sources(
+            const std::unordered_set<wo_pstring_t>& sources);
+
         void get_now_location(size_t* out_row, size_t* out_col) const;
         void drop_source_stream_for_lspv2();
         const declared_macro_map_t& get_defined_macros_for_lspv2();

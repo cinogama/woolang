@@ -1345,7 +1345,11 @@ namespace wo
                 m_macros.push_back(std::make_unique<lang_Macro>(*macro_msg.value()));
         }
 
-        pass_0_5_register_builtin_types();
+        if (!m_builtin_types_registered)
+        {
+            pass_0_5_register_builtin_types();
+            m_builtin_types_registered = true;
+        }
 
         if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination, false))
             return compile_result::PROCESS_FAILED;
@@ -2937,6 +2941,17 @@ namespace wo
 
     BytecodeGenerateContext::BytecodeGenerateContext() noexcept
     {
+    }
+
+    void BytecodeGenerateContext::reset()
+    {
+        m_ir_compiler.reset();
+
+        m_processed_function_instance.clear();
+        m_being_used_function_instance.clear();
+        m_eval_result_storage_target = {};
+        m_evaled_result_storage = {};
+        m_loop_content_stack.clear();
     }
 
     std::optional<std::pair<std::optional<woort_BoxValueType>, std::variant<woort_IRValue*, woort_IRStaticIndex>>>

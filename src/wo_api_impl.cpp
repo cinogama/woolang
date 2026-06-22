@@ -391,6 +391,12 @@ void wo_compile_errors_free(wo_CompileErrors* errors)
     delete errors;
 }
 
+// Factory for internal use (e.g., REPL).
+wo_CompileErrors* _wo_make_compile_errors(std::optional<std::unique_ptr<wo::lexer>> lex)
+{
+    return new _wo_CompileErrors(std::move(lex));
+}
+
 static std::string _dump_src_info(
     const std::string& path,
     const wo::lexer::compiler_message_t& errmsg,
