@@ -207,16 +207,26 @@ wo_repl_result wo_repl_eval(
 
     // --- 6. Parse ---
     wo::ast::AstBase* ast_root = nullptr;
+    bool is_incomplete = false;
 
     if (!lex->has_error())
     {
-        ast_root = wo::get_grammar_instance()->gen(*lex);
+        ast_root = wo::get_grammar_instance()->gen(*lex, &is_incomplete);
         lex->drop_macro_vm_and_code_env();
     }
 
     if (ast_root == nullptr)
     {
-        // Parse failed.
+        if (is_incomplete)
+        {
+            // Input is syntactically incomplete — parser hit EOF in a state
+            // where EOF is not in the follow set. Wait for more input.
+            lex.reset();
+            clear_session_binding_storage(S);
+            return WO_REPL_INCOMPLETE_INPUT;
+        }
+
+        // Genuine parse error.
         if (out_errors)
             *out_errors = _wo_make_compile_errors(std::move(lex));
         else

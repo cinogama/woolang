@@ -1,5 +1,6 @@
 #include "wo.h"
 
+#include <cctype>
 #include <iostream>
 #include <string>
 
@@ -39,9 +40,21 @@ int RunRepl()
             break;
         }
 
-        // Exit command.
-        if (buffer.empty() && (line == ":q" || line == ":quit"))
+        // Trim leading/trailing whitespace for command detection.
+        auto not_space = [](char c) { return !std::isspace(static_cast<unsigned char>(c)); };
+        auto ltrim = line.find_first_not_of(" \t\r\n");
+        if (ltrim == std::string::npos)
+            line.clear();
+        else
+            line = line.substr(ltrim, line.find_last_not_of(" \t\r\n") - ltrim + 1);
+
+        // Exit command — works in both normal and continuation mode.
+        if (line == ":q" || line == ":quit")
             break;
+
+        // Skip empty lines when not in continuation mode.
+        if (buffer.empty() && line.empty())
+            continue;
 
         // Append to buffer.
         if (!buffer.empty())

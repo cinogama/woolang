@@ -769,7 +769,7 @@ namespace wo
 
         bool check_lr1(std::ostream& ostrm = std::cout);
         void finish_rt();
-        ast::AstBase* gen(lexer& tkr) const;
+        ast::AstBase* gen(lexer& tkr, bool* out_is_incomplete = nullptr) const;
     };
     std::ostream& operator<<(std::ostream& ost, const  grammar::lr_item& lri);
     std::ostream& operator<<(std::ostream& ost, const  grammar::terminal& ter);
