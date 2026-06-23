@@ -138,8 +138,11 @@ namespace wo
             const woort_IRStaticIndex static_storage =
                 m_ircontext.c().alloc_static();
 
+            const bool use_pvalue = m_repl_pvalue_indirect_for_mutable_statics
+                && instance->m_mutable;
+
             instance->m_IR_storage.emplace(
-                lang_ValueInstance::Storage(static_storage));
+                lang_ValueInstance::Storage(static_storage, use_pvalue));
 
             m_ircontext.c().record_static_var(
                 instance->m_symbol->m_name->c_str(), static_storage);
@@ -161,6 +164,7 @@ namespace wo
 
         if (storage.m_type == lang_ValueInstance::Storage::StorageType::GLOBAL)
         {
+            const woort_IRValue* store_src;
             if (tuple_member_offset.has_value())
             {
                 const uint16_t index = tuple_member_offset.value();
@@ -169,10 +173,19 @@ namespace wo
                     m_ircontext.c().new_value();
 
                 m_ircontext.c().ldidxstruct(v, opnumval, index);
-                m_ircontext.c().store(storage.m_static_index, v);
+                store_src = v;
             }
             else
-                m_ircontext.c().store(storage.m_static_index, opnumval);
+                store_src = opnumval;
+
+            if (storage.m_is_pvalue_indirect)
+            {
+                woort_IRValue* const box = m_ircontext.c().new_value();
+                m_ircontext.c().mkpvalue(box, store_src);
+                m_ircontext.c().store(storage.m_static_index, box);
+            }
+            else
+                m_ircontext.c().store(storage.m_static_index, store_src);
         }
         else
         {
@@ -977,6 +990,7 @@ namespace wo
                     {
                         // 
                         wo_assert(!template_value_instance->m_IR_storage.has_value());
+                        bool pvalue_boxing = false;
                         if (template_value_instance->m_symbol->m_is_global
                             || template_value_instance->m_symbol->is_declared_as_static())
                         {
@@ -984,13 +998,22 @@ namespace wo
                             const woort_IRStaticIndex static_storage =
                                 m_ircontext.c().alloc_static();
 
+                            const bool use_pvalue = m_repl_pvalue_indirect_for_mutable_statics
+                                && template_value_instance->m_mutable;
+
                             template_value_instance->m_IR_storage.emplace(
-                                lang_ValueInstance::Storage(static_storage));
+                                lang_ValueInstance::Storage(static_storage, use_pvalue));
 
                             m_ircontext.c().record_static_var(
                                 template_value_instance->m_symbol->m_name->c_str(), static_storage);
 
-                            m_ircontext.eval_to_assign_static(static_storage, node);
+                            if (use_pvalue)
+                            {
+                                pvalue_boxing = true;
+                                m_ircontext.begin_eval_readonly();
+                            }
+                            else
+                                m_ircontext.eval_to_assign_static(static_storage, node);
                         }
                         else
                         {
@@ -1011,7 +1034,16 @@ namespace wo
                             // Failed 
                             return FAILED;
 
-                        m_ircontext.pop_eval_result();
+                        if (pvalue_boxing)
+                        {
+                            const woort_IRValue* const init_val = m_ircontext.get_eval_result();
+                            woort_IRValue* const box = m_ircontext.c().new_value();
+                            m_ircontext.c().mkpvalue(box, init_val);
+                            m_ircontext.c().store(
+                                template_value_instance->m_IR_storage.value().m_static_index, box);
+                        }
+                        else
+                            m_ircontext.pop_eval_result();
                     }
                 }
             }
@@ -1033,6 +1065,7 @@ namespace wo
             {
                 // Not template, but need storage.
                 wo_assert(!pattern_symbol->m_value_instance->m_IR_storage.has_value());
+                bool pvalue_boxing = false;
                 if (pattern_symbol->m_value_instance->m_symbol->m_is_global
                     || pattern_symbol->m_value_instance->m_symbol->is_declared_as_static())
                 {
@@ -1040,13 +1073,22 @@ namespace wo
                     const woort_IRStaticIndex static_storage =
                         m_ircontext.c().alloc_static();
 
+                    const bool use_pvalue = m_repl_pvalue_indirect_for_mutable_statics
+                        && pattern_symbol->m_value_instance->m_mutable;
+
                     pattern_symbol->m_value_instance->m_IR_storage.emplace(
-                        lang_ValueInstance::Storage(static_storage));
+                        lang_ValueInstance::Storage(static_storage, use_pvalue));
 
                     m_ircontext.c().record_static_var(
                         pattern_symbol->m_value_instance->m_symbol->m_name->c_str(), static_storage);
 
-                    m_ircontext.eval_to_assign_static(static_storage, node);
+                    if (use_pvalue)
+                    {
+                        pvalue_boxing = true;
+                        m_ircontext.begin_eval_readonly();
+                    }
+                    else
+                        m_ircontext.eval_to_assign_static(static_storage, node);
                 }
                 else
                 {
@@ -1067,7 +1109,16 @@ namespace wo
                     // Failed 
                     return FAILED;
 
-                m_ircontext.pop_eval_result();
+                if (pvalue_boxing)
+                {
+                    const woort_IRValue* const init_val = m_ircontext.get_eval_result();
+                    woort_IRValue* const box = m_ircontext.c().new_value();
+                    m_ircontext.c().mkpvalue(box, init_val);
+                    m_ircontext.c().store(
+                        pattern_symbol->m_value_instance->m_IR_storage.value().m_static_index, box);
+                }
+                else
+                    m_ircontext.pop_eval_result();
             }
             return OKAY;
         }
@@ -1254,10 +1305,8 @@ namespace wo
 
                         auto& storage = capture_from_value->m_IR_storage.value();
 
-                        if (storage.m_type == lang_ValueInstance::Storage::StorageType::STACKOFFSET)
-                            m_ircontext.c().pushchk(storage.m_stack_slot);
-                        else
-                            m_ircontext.c().pushstaticchk(storage.m_static_index);
+                        wo_assert(storage.m_type == lang_ValueInstance::Storage::StorageType::STACKOFFSET);
+                        m_ircontext.c().pushchk(storage.m_stack_slot);
                     }
 
                     const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
@@ -1911,6 +1960,9 @@ namespace wo
                             woort_IRValue* const v = m_ircontext.c().new_value();
                             m_ircontext.c().load(v, variable_storage.m_static_index);
 
+                            if (variable_storage.m_is_pvalue_indirect)
+                                m_ircontext.c().loadpvalue(v, v);
+
                             if (need_box.has_value())
                                 m_ircontext.c().boxdyn(v, need_box.value(), v);
 
@@ -1939,6 +1991,10 @@ namespace wo
                         {
                             woort_IRValue* const v = m_ircontext.c().new_value();
                             m_ircontext.c().load(v, variable_storage.m_static_index);
+
+                            if (variable_storage.m_is_pvalue_indirect)
+                                m_ircontext.c().loadpvalue(v, v);
+
                             m_ircontext.c().mov(*target_irvalue, v);
                         }
                         else
@@ -1954,10 +2010,22 @@ namespace wo
                 else
                 {
                     if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL)
-                        result.set_result_static(
-                            m_ircontext,
-                            variable_storage.m_static_index,
-                            node->m_LANG_determined_type.value());
+                    {
+                        if (variable_storage.m_is_pvalue_indirect)
+                        {
+                            woort_IRValue* const ptr = m_ircontext.c().new_value();
+                            woort_IRValue* const v = m_ircontext.c().new_value();
+                            m_ircontext.c().load(ptr, variable_storage.m_static_index);
+                            m_ircontext.c().loadpvalue(v, ptr);
+                            result.set_result_stack_temp(
+                                m_ircontext, v, node->m_LANG_determined_type.value());
+                        }
+                        else
+                            result.set_result_static(
+                                m_ircontext,
+                                variable_storage.m_static_index,
+                                node->m_LANG_determined_type.value());
+                    }
                     else
                     {
                         wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
@@ -4258,6 +4326,11 @@ namespace wo
                 case AstValueAssign::ASSIGN:
                     if (storage.m_type == lang_ValueInstance::Storage::StorageType::STACKOFFSET)
                         m_ircontext.eval_to_assign(storage.m_stack_slot, node);
+                    else if (storage.m_is_pvalue_indirect)
+                    {
+                        woort_IRValue* const pvalue_assign_temp = m_ircontext.c().new_value();
+                        m_ircontext.eval_to_assign(pvalue_assign_temp, node);
+                    }
                     else
                         m_ircontext.eval_to_assign_static(storage.m_static_index, node);
 
@@ -4272,6 +4345,11 @@ namespace wo
                         // We just eval it and assigned it to value.
                         if (storage.m_type == lang_ValueInstance::Storage::StorageType::STACKOFFSET)
                             m_ircontext.eval_to_assign(storage.m_stack_slot, node);
+                        else if (storage.m_is_pvalue_indirect)
+                        {
+                            woort_IRValue* const pvalue_assign_temp = m_ircontext.c().new_value();
+                            m_ircontext.eval_to_assign(pvalue_assign_temp, node);
+                        }
                         else
                             m_ircontext.eval_to_assign_static(storage.m_static_index, node);
 
@@ -4377,18 +4455,46 @@ namespace wo
                     switch (node->m_assign_type)
                     {
                     case AstValueAssign::ASSIGN:
-                        if (m_ircontext.is_eval_result_just_ignored())
-                            m_ircontext.pop_eval_result();
+                        if (storage.m_is_pvalue_indirect)
+                        {
+                            const woort_IRValue* const rhs_result =
+                                m_ircontext.get_eval_result();
+                            if (!m_ircontext.is_eval_result_just_ignored())
+                                eval_result_for_upper = rhs_result;
+
+                            woort_IRValue* const ptr = m_ircontext.c().new_value();
+                            m_ircontext.c().load(ptr, storage.m_static_index);
+                            m_ircontext.c().storepvalue(ptr, rhs_result);
+                        }
                         else
-                            eval_result_for_upper = m_ircontext.get_eval_result();
-                        break;
-                    default:
-                        if (node->m_LANG_overload_call.has_value())
                         {
                             if (m_ircontext.is_eval_result_just_ignored())
                                 m_ircontext.pop_eval_result();
                             else
                                 eval_result_for_upper = m_ircontext.get_eval_result();
+                        }
+                        break;
+                    default:
+                        if (node->m_LANG_overload_call.has_value())
+                        {
+                            if (storage.m_is_pvalue_indirect)
+                            {
+                                const woort_IRValue* const rhs_result =
+                                    m_ircontext.get_eval_result();
+                                if (!m_ircontext.is_eval_result_just_ignored())
+                                    eval_result_for_upper = rhs_result;
+
+                                woort_IRValue* const ptr = m_ircontext.c().new_value();
+                                m_ircontext.c().load(ptr, storage.m_static_index);
+                                m_ircontext.c().storepvalue(ptr, rhs_result);
+                            }
+                            else
+                            {
+                                if (m_ircontext.is_eval_result_just_ignored())
+                                    m_ircontext.pop_eval_result();
+                                else
+                                    eval_result_for_upper = m_ircontext.get_eval_result();
+                            }
                         }
                         else
                         {
@@ -4396,10 +4502,21 @@ namespace wo
                             auto* right_value_result = m_ircontext.get_eval_result();
 
                             // Do normal assign operate;
+                            woort_IRValue* pvalue_ptr = nullptr;
                             if (storage.m_type == lang_ValueInstance::Storage::StorageType::GLOBAL)
                             {
-                                assign_expr_result_opnum = m_ircontext.c().new_value();
-                                m_ircontext.c().load(assign_expr_result_opnum, storage.m_static_index);
+                                if (storage.m_is_pvalue_indirect)
+                                {
+                                    pvalue_ptr = m_ircontext.c().new_value();
+                                    m_ircontext.c().load(pvalue_ptr, storage.m_static_index);
+                                    assign_expr_result_opnum = m_ircontext.c().new_value();
+                                    m_ircontext.c().loadpvalue(assign_expr_result_opnum, pvalue_ptr);
+                                }
+                                else
+                                {
+                                    assign_expr_result_opnum = m_ircontext.c().new_value();
+                                    m_ircontext.c().load(assign_expr_result_opnum, storage.m_static_index);
+                                }
                             }
                             else
                             {
@@ -4515,7 +4632,10 @@ namespace wo
                             if (storage.m_type == lang_ValueInstance::Storage::StorageType::GLOBAL)
                             {
                                 // Write back.
-                                m_ircontext.c().store(storage.m_static_index, assign_expr_result_opnum);
+                                if (pvalue_ptr != nullptr)
+                                    m_ircontext.c().storepvalue(pvalue_ptr, assign_expr_result_opnum);
+                                else
+                                    m_ircontext.c().store(storage.m_static_index, assign_expr_result_opnum);
                             }
 
                             eval_result_for_upper = assign_expr_result_opnum;

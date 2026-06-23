@@ -184,8 +184,16 @@ namespace wo
                 woort_IRStaticIndex m_static_index;
             };
 
+            // REPL: when true, the static slot holds a GC-heap pvalue pointer
+            // (via MKPVALUE) instead of the raw value. Reads must LOADPVALUE,
+            // writes must STOREPVALUE. This indirection lets closures (FAR
+            // CALL into a prior CodeEnv) share mutable state with the current
+            // REPL CodeEnv through a common heap box.
+            bool m_is_pvalue_indirect = false;
+
             explicit Storage(woort_IRValue* stack_slot);
             explicit Storage(woort_IRStaticIndex static_index);
+            Storage(woort_IRStaticIndex static_index, bool is_pvalue_indirect);
 
             Storage(const Storage&) = default;
             Storage(Storage&&) = default;
@@ -845,6 +853,11 @@ namespace wo
 
         // REPL: track whether builtins have been registered (only once per session).
         bool m_builtin_types_registered = false;
+
+        // REPL: when true, mutable static (global / static-lifecycle) variables
+        // allocated during IR generation use pvalue-indirect storage so that
+        // closure FAR CALLs across REPL CodeEnvs share the same heap box.
+        bool m_repl_pvalue_indirect_for_mutable_statics = false;
 
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;

@@ -46,6 +46,11 @@ _wo_ReplSession::_wo_ReplSession()
     m_lang_context->pass_0_5_register_builtin_types();
     m_lang_context->m_builtin_types_registered = true;
 
+    // Enable pvalue-indirect storage for mutable static variables so that
+    // closures defined in prior evals (FAR CALL into a prior CodeEnv) can
+    // share mutable state with the current eval through a common GC box.
+    m_lang_context->m_repl_pvalue_indirect_for_mutable_statics = true;
+
     // 4. Persistent VM.
     m_vm = woort_vm_create();
 }
