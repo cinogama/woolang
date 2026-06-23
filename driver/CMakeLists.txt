@@ -2,7 +2,12 @@
 
 cmake_minimum_required (VERSION 3.10)
 
-set(WOOLANG_DRIVER_SOURCES wo_driver.cpp)
+set(WOOLANG_DRIVER_SOURCES 
+    wo_driver.cpp 
+    wo_repl_editor.cpp 
+    wo_repl_editor.hpp 
+    wo_repl_common.hpp)
+
 if (MSVC)
     list(APPEND WOOLANG_DRIVER_SOURCES resources.rc)
 endif()

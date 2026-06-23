@@ -1,9 +1,13 @@
 #include "wo.h"
 
+#include "wo_repl_editor.hpp"
+
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <cassert>
 
@@ -147,21 +151,46 @@ int _wo_driver_run_repl()
     std::string line;
     std::string buffer;
 
+    // Interactive consoles get a live syntax-highlighting line editor; piped
+    // / redirected stdin falls back to the plain blocking reader so automation
+    // and tests keep working without ANSI noise.
+    const bool interactive = wo_repl_stdin_is_tty();
+
     while (true)
     {
-        // Prompt: ">>> " for new input, "... " for continuation.
-        std::cout << (buffer.empty() ? ">>> " : "... ");
-        std::cout.flush();
+        const std::string prompt = buffer.empty() ? ">>> " : "... ";
 
-        char* const raw = woort_console_readline();
-        if (raw == nullptr)
+        bool eof = false;
+
+        if (interactive)
         {
-            // EOF or read error.
-            std::cout << '\n';
-            break;
+            std::optional<std::string> got = wo_repl_live_readline(prompt);
+            if (got.has_value())
+                line = std::move(*got);
+            else
+                eof = true;
         }
-        line = raw;
-        woort_free(raw);
+        else
+        {
+            std::cout << prompt;
+            std::cout.flush();
+
+            char* const raw = woort_console_readline();
+            if (raw == nullptr)
+            {
+                // EOF or read error.
+                std::cout << '\n';
+                eof = true;
+            }
+            else
+            {
+                line = raw;
+                woort_free(raw);
+            }
+        }
+
+        if (eof)
+            break;
 
         // Trim leading/trailing whitespace for command detection.
         const auto not_space = [](char c) { return !std::isspace(static_cast<unsigned char>(c)); };
