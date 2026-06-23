@@ -4455,7 +4455,8 @@ namespace wo
                     switch (node->m_assign_type)
                     {
                     case AstValueAssign::ASSIGN:
-                        if (storage.m_is_pvalue_indirect)
+                        if (storage.m_type == lang_ValueInstance::Storage::StorageType::GLOBAL 
+                            && storage.m_is_pvalue_indirect)
                         {
                             const woort_IRValue* const rhs_result =
                                 m_ircontext.get_eval_result();
@@ -4477,7 +4478,8 @@ namespace wo
                     default:
                         if (node->m_LANG_overload_call.has_value())
                         {
-                            if (storage.m_is_pvalue_indirect)
+                            if (storage.m_type == lang_ValueInstance::Storage::StorageType::GLOBAL
+                                && storage.m_is_pvalue_indirect)
                             {
                                 const woort_IRValue* const rhs_result =
                                     m_ircontext.get_eval_result();
