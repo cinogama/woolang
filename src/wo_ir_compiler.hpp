@@ -133,6 +133,12 @@ namespace wo
         void mov(woort_IRValue* dst, const woort_IRValue* src);
         void load(woort_IRValue* dst, woort_IRStaticIndex src);
         void store(woort_IRStaticIndex dst, const woort_IRValue* src);
+
+        /* --- PValue (mutable pointer-box) --- */
+        void mkpvalue(woort_IRValue* dst, const woort_IRValue* src);
+        void loadpvalue(woort_IRValue* dst, const woort_IRValue* ptr);
+        void storepvalue(const woort_IRValue* ptr, const woort_IRValue* src);
+
         void pushchk(const woort_IRValue* src);
         void pushstaticchk(woort_IRStaticIndex static_src);
         void popr(uint32_t count);

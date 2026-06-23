@@ -396,6 +396,36 @@ namespace wo
             abondon();
     }
 
+    void IRCompiler::mkpvalue(woort_IRValue* dst, const woort_IRValue* src)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_MKPVALUE(cur, dst, src))
+            abondon();
+    }
+
+    void IRCompiler::loadpvalue(woort_IRValue* dst, const woort_IRValue* ptr)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_LOADPVALUE(cur, dst, ptr))
+            abondon();
+    }
+
+    void IRCompiler::storepvalue(const woort_IRValue* ptr, const woort_IRValue* src)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_STOREPVALUE(cur, ptr, src))
+            abondon();
+    }
+
     void IRCompiler::pushchk(const woort_IRValue* src)
     {
         if (is_abondoned())
