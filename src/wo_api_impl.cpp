@@ -697,10 +697,8 @@ const char* wo_get_compile_error(
     }
 
     if (out_errors != nullptr && failed_lexer.has_value())
-    {
-        *out_errors = reinterpret_cast<wo_CompileErrors*>(
-            new _wo_CompileErrors(std::move(failed_lexer)));
-    }
+        *out_errors = _wo_make_compile_errors(std::move(failed_lexer));
+    
     return nullptr;
 }
 

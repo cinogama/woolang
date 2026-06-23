@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string_view>
+#include <cassert>
 
 namespace {
 
@@ -195,24 +196,19 @@ int _wo_driver_run_repl()
             continue;
         }
 
+        assert(errors != nullptr || result != WO_REPL_COMPILE_ERROR);
         if (result == WO_REPL_COMPILE_ERROR)
         {
-            if (errors != nullptr)
-            {
-                std::cerr << wo_get_compile_error(errors, WO_COLORFUL) << '\n';
-                wo_compile_errors_free(errors);
-            }
+            std::cerr << wo_get_compile_error(errors, WO_COLORFUL) << std::endl;
+            wo_compile_errors_free(errors);
         }
         else if (result == WO_REPL_RUNTIME_ERROR)
         {
-            std::cerr << "Runtime error occurred.\n";
-            if (errors)
-                wo_compile_errors_free(errors);
+            std::cerr << "Runtime error occurred." << std::endl;
         }
         else if (result == WO_REPL_OK)
         {
-            if (errors)
-                wo_compile_errors_free(errors);
+            // Do nothing.
         }
 
         // Clear buffer for next input.

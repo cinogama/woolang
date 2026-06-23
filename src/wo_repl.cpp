@@ -214,21 +214,11 @@ wo_repl_result wo_repl_eval(
             lex.reset();
             return WO_REPL_INCOMPLETE_INPUT;
         }
-
-        // Genuine parse error.
-        if (out_errors)
-            *out_errors = _wo_make_compile_errors(std::move(lex));
-        else
-            lex.reset();
-
-        rollback_new_symbols(root_scope, known_names);
-        return WO_REPL_COMPILE_ERROR;
     }
 
     // --- 7. Run compiler pipeline (pass0 -> pass1 -> passir) ---
-    wo::compile_result cresult = lc->process(*lex, ast_root);
-
-    if (cresult != wo::compile_result::PROCESS_OK)
+    if (ast_root == nullptr 
+        || lc->process(*lex, ast_root) != wo::compile_result::PROCESS_OK)
     {
         if (out_errors)
             *out_errors = _wo_make_compile_errors(std::move(lex));
@@ -253,7 +243,7 @@ wo_repl_result wo_repl_eval(
         rollback_new_symbols(root_scope, known_names);
         return WO_REPL_OUT_OF_MEMORY;
     }
-    woort_CodeEnv* cenv = cenv_opt.value();
+    woort_CodeEnv* const cenv = cenv_opt.value();
 
     // --- 9. Inject carried-over static values into the new CodeEnv ---
     // Copy the saved snapshot into slots [0..N-1] so that symbols from
@@ -273,10 +263,11 @@ wo_repl_result wo_repl_eval(
     woort_VmCallStatus status = WOORT_VM_CALL_STATUS_NORMAL;
     if (!woort_push_reserve(1, &v))
     {
+        woort_panic(WOORT_PANIC_STACK_OVERFLOW, "Stack overflow.");
         (void)woort_vm_swap(last_vm);
 
         woort_codeenv_drop(cenv);
-        return WO_REPL_OUT_OF_MEMORY;
+        return WO_REPL_RUNTIME_ERROR;
     }
 
     status = woort_bootup_codeenv(v, cenv);
