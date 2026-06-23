@@ -265,24 +265,26 @@ wo_repl_result wo_repl_eval(
     woort_VMRuntime* const last_vm = woort_vm_swap(S->m_vm);
 
     woort_value v;
-    woort_VmCallStatus status = WOORT_VM_CALL_STATUS_NORMAL;
+    woort_VmCallStatus status = WOORT_VM_CALL_STATUS_ABORTED;
     if (!woort_push_reserve(1, &v))
     {
         woort_panic(WOORT_PANIC_STACK_OVERFLOW, "Stack overflow.");
-        (void)woort_vm_swap(last_vm);
-
-        woort_codeenv_drop(cenv);
-        return WO_REPL_RUNTIME_ERROR;
     }
-
-    status = woort_bootup_codeenv(v, cenv);
-    woort_pop(1);
+    else
+    {
+        status = woort_bootup_codeenv(v, cenv);
+        woort_pop(1);
+    }
 
     (void)woort_vm_swap(last_vm);
 
     if (status != WOORT_VM_CALL_STATUS_NORMAL)
     {
         // Runtime panic: the VM's ABORT flag is now sticky.
+        // Re-create a new vm to run.
+        woort_vm_close(S->m_vm);
+        S->m_vm = woort_vm_create();
+
         woort_codeenv_drop(cenv);
         return WO_REPL_RUNTIME_ERROR;
     }
