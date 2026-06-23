@@ -13,7 +13,7 @@ constexpr int EXIT_RUNTIME_FAILED  = -1;
 constexpr int EXIT_COMPILE_FAILED  = -2;
 constexpr int EXIT_INTERNAL_ERROR  = -3;
 
-struct CliOptions {
+struct wo_driver_options {
     const char* source_path = nullptr;
     const char* output_path = nullptr;
     bool        check_only  = false;
@@ -32,7 +32,7 @@ void _wo_driver_show_banner()
     std::cout << "    woolang <path> [options...]\n";
     std::cout << "\nOptions:\n";
     std::cout << "    -o <output>   Compile and save bytecode to the given path.\n";
-    std::cout << "    --check       Compile only, report syntax errors without running.\n";
+    std::cout << "    -c, --check   Compile only, report syntax errors without running.\n";
     std::cout << "    -h, --help    Show this help message.\n";
     std::cout << '\n';
     wo_print_compiler_help();
@@ -40,11 +40,11 @@ void _wo_driver_show_banner()
     woort_print_runtime_help();
 }
 
-bool _wo_driver_parse_option(int argc, char** argv, CliOptions& out)
+bool _wo_driver_parse_option(int argc, char** argv, wo_driver_options* out)
 {
     for (int i = 1; i < argc; ++i)
     {
-        std::string_view arg = argv[i];
+        const std::string_view arg = argv[i];
         if (arg.empty())
             continue;
 
@@ -55,25 +55,20 @@ bool _wo_driver_parse_option(int argc, char** argv, CliOptions& out)
                 std::cerr << "error: -o requires an output path\n";
                 return false;
             }
-            out.output_path = argv[++i];
+            out->output_path = argv[++i];
         }
         else if (arg == "-h" || arg == "--help")
         {
             _wo_driver_show_banner();
             std::exit(EXIT_OK);
         }
-        else if (arg == "--check")
+        else if (arg == "-c" || arg == "--check")
         {
-            out.check_only = true;
+            out->check_only = true;
         }
-        else if (out.source_path == nullptr)
+        else if (out->source_path == nullptr)
         {
-            out.source_path = argv[i];
-        }
-        else
-        {
-            std::cerr << "error: multiple source paths specified\n";
-            return false;
+            out->source_path = argv[i];
         }
     }
     return true;
@@ -81,7 +76,7 @@ bool _wo_driver_parse_option(int argc, char** argv, CliOptions& out)
 
 int _wo_driver_save_binary(const char* path, woort_CodeEnv* cenv)
 {
-    void*  buf = nullptr;
+    void* buf = nullptr;
     size_t len  = 0;
     if (!woort_CodeEnv_save_binary(cenv, &buf, &len))
         return EXIT_INTERNAL_ERROR;
@@ -92,7 +87,7 @@ int _wo_driver_save_binary(const char* path, woort_CodeEnv* cenv)
         ~BufferGuard() { woort_free(p); }
     } guard{buf};
 
-    FILE* f = std::fopen(path, "wb");
+    FILE* const f = std::fopen(path, "wb");
     if (f == nullptr)
         return errno != 0 ? errno : EXIT_INTERNAL_ERROR;
 
@@ -105,7 +100,7 @@ int _wo_driver_save_binary(const char* path, woort_CodeEnv* cenv)
 
 int _wo_driver_run_program(woort_CodeEnv* cenv)
 {
-    woort_vm* vm = woort_vm_create();
+    woort_vm* const vm = woort_vm_create();
     if (vm == nullptr)
     {
         std::cerr << "Failed to create VM instance: out of memory.\n";
@@ -141,7 +136,7 @@ int _wo_driver_run_repl()
     std::cout << "Version: " << wo_version() << '\n';
     std::cout << "Type :q to exit.\n\n";
 
-    wo_ReplSession* session = wo_repl_create();
+    wo_ReplSession* const session = wo_repl_create();
     if (session == nullptr)
     {
         std::cerr << "Failed to create REPL session.\n";
@@ -157,7 +152,7 @@ int _wo_driver_run_repl()
         std::cout << (buffer.empty() ? ">>> " : "... ");
         std::cout.flush();
 
-        char* raw = woort_console_readline();
+        char* const raw = woort_console_readline();
         if (raw == nullptr)
         {
             // EOF or read error.
@@ -168,8 +163,8 @@ int _wo_driver_run_repl()
         woort_free(raw);
 
         // Trim leading/trailing whitespace for command detection.
-        auto not_space = [](char c) { return !std::isspace(static_cast<unsigned char>(c)); };
-        auto ltrim = line.find_first_not_of(" \t\r\n");
+        const auto not_space = [](char c) { return !std::isspace(static_cast<unsigned char>(c)); };
+        const auto ltrim = line.find_first_not_of(" \t\r\n");
         if (ltrim == std::string::npos)
             line.clear();
         else
@@ -190,7 +185,7 @@ int _wo_driver_run_repl()
 
         // Try to evaluate.
         wo_CompileErrors* errors = nullptr;
-        wo_repl_result result = wo_repl_eval(session, buffer.c_str(), &errors);
+        const wo_repl_result result = wo_repl_eval(session, buffer.c_str(), &errors);
 
         if (result == WO_REPL_INCOMPLETE_INPUT)
         {
@@ -234,8 +229,8 @@ int main(int argc, char** argv)
 {
     wo_init(argc, argv);
 
-    CliOptions opts;
-    if (!_wo_driver_parse_option(argc, argv, opts))
+    wo_driver_options opts;
+    if (!_wo_driver_parse_option(argc, argv, &opts))
     {
         _wo_driver_show_banner();
         wo_finish(nullptr, nullptr);
