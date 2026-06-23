@@ -183,107 +183,36 @@ size_t prev_cp(const std::string& s, size_t cur)
 }
 
 // ====================================================================
-// Raw console input: a blocking byte source
+// Console byte stream: thin wrapper over the woort raw input API
+// (woort_console_getc / woort_console_ungetc). Provides the peek/get
+// interface the key decoder expects, with a 1-deep lookahead.
 // ====================================================================
 
-struct byte_source
+struct console_in
 {
-    std::string buf;
-    size_t  pos      = 0;
-    bool    eof_flag = false;
-
-    // Drop the consumed prefix and pull more bytes. Returns false when no more
-    // input is available (end of stream).
-    bool refill();
-
-    bool ensure()
-    {
-        while (pos >= buf.size())
-        {
-            if (eof_flag)
-                return false;
-            if (!refill())
-            {
-                eof_flag = true;
-                return false;
-            }
-        }
-        return true;
-    }
+    int ungot = -1;
 
     int peek()
     {
-        return ensure() ? static_cast<unsigned char>(buf[pos]) : -1;
+        if (ungot >= 0)
+            return ungot;
+        int c = woort_console_getc();
+        if (c >= 0)
+            ungot = c;
+        return c;
     }
 
     int get()
     {
-        int b = peek();
-        if (b >= 0)
-            ++pos;
-        return b;
+        if (ungot >= 0)
+        {
+            int c = ungot;
+            ungot = -1;
+            return c;
+        }
+        return woort_console_getc();
     }
 };
-
-#if defined(_WIN32)
-
-bool byte_source::refill()
-{
-    if (pos > 0)
-    {
-        buf.erase(0, pos);
-        pos = 0;
-    }
-
-    wchar_t wbuf[64];
-    DWORD   got = 0;
-    HANDLE  hin = GetStdHandle(STD_INPUT_HANDLE);
-
-    if (!ReadConsoleW(hin, wbuf, 64, &got, nullptr))
-    {
-        // Ctrl+C with processed input off still surfaces as
-        // ERROR_OPERATION_ABORTED; synthesize a ^C byte so the shared decoder
-        // maps it to cancel.
-        if (GetLastError() == ERROR_OPERATION_ABORTED)
-        {
-            buf.push_back('\x03');
-            return true;
-        }
-        return false;
-    }
-    if (got == 0)
-        return false;
-
-    int len = WideCharToMultiByte(CP_UTF8, 0, wbuf, static_cast<int>(got),
-                                  nullptr, 0, nullptr, nullptr);
-    if (len > 0)
-    {
-        const size_t old = buf.size();
-        buf.resize(old + static_cast<size_t>(len));
-        WideCharToMultiByte(CP_UTF8, 0, wbuf, static_cast<int>(got),
-                            &buf[old], len, nullptr, nullptr);
-    }
-    return !buf.empty();
-}
-
-#else // POSIX
-
-bool byte_source::refill()
-{
-    if (pos > 0)
-    {
-        buf.erase(0, pos);
-        pos = 0;
-    }
-    char tmp[64];
-    ssize_t n = ::read(STDIN_FILENO, tmp, sizeof(tmp));
-    if (n <= 0)
-        return false;
-    buf.append(tmp, static_cast<size_t>(n));
-    return true;
-}
-
-#endif
 
 // ====================================================================
 // Raw-mode RAII guard
@@ -382,7 +311,7 @@ struct key_event
     std::string utf8;
 };
 
-key_event read_char_text(byte_source& src, unsigned char lead)
+key_event read_char_text(console_in& src, unsigned char lead)
 {
     const int n = utf8_seq_len(lead);
     std::string s;
@@ -397,7 +326,7 @@ key_event read_char_text(byte_source& src, unsigned char lead)
     return key_event{ key_kind::char_text, std::move(s) };
 }
 
-key_event decode_escape(byte_source& src)
+key_event decode_escape(console_in& src)
 {
     int c1 = src.peek();
     if (c1 < 0)
@@ -449,7 +378,7 @@ key_event decode_escape(byte_source& src)
     }
 }
 
-key_event next_key(byte_source& src)
+key_event next_key(console_in& src)
 {
     int b = src.get();
     if (b < 0)
@@ -491,13 +420,7 @@ key_event next_key(byte_source& src)
 
 bool wo_repl_stdin_is_tty()
 {
-#if defined(_WIN32)
-    HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
-    return hin != INVALID_HANDLE_VALUE
-        && GetFileType(hin) == FILE_TYPE_CHAR;
-#else
-    return isatty(fileno(stdin)) != 0;
-#endif
+    return woort_stdin_isatty() != 0;
 }
 
 std::string wo_repl_render_highlight(std::string_view src)
@@ -516,7 +439,7 @@ std::optional<std::string> wo_repl_live_readline(std::string_view prompt)
 
     std::string  buf;   // input bytes
     size_t       cur = 0; // cursor byte offset
-    byte_source  src;
+    console_in   src;
 
     const auto render = [&]()
     {
