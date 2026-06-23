@@ -181,19 +181,21 @@ namespace wo
             union
             {
                 woort_IRValue* m_stack_slot;
-                woort_IRStaticIndex m_static_index;
+                struct
+                {
+                    woort_IRStaticIndex m_static_index;
+
+                    // REPL: when true, the static slot holds a GC-heap pvalue pointer
+                    // (via MKPVALUE) instead of the raw value. Reads must LOADPVALUE,
+                    // writes must STOREPVALUE. This indirection lets closures (FAR
+                    // CALL into a prior CodeEnv) share mutable state with the current
+                    // REPL CodeEnv through a common heap box.
+                    bool m_is_pvalue_indirect;
+                };
             };
 
-            // REPL: when true, the static slot holds a GC-heap pvalue pointer
-            // (via MKPVALUE) instead of the raw value. Reads must LOADPVALUE,
-            // writes must STOREPVALUE. This indirection lets closures (FAR
-            // CALL into a prior CodeEnv) share mutable state with the current
-            // REPL CodeEnv through a common heap box.
-            bool m_is_pvalue_indirect = false;
-
             explicit Storage(woort_IRValue* stack_slot);
-            explicit Storage(woort_IRStaticIndex static_index);
-            Storage(woort_IRStaticIndex static_index, bool is_pvalue_indirect);
+            explicit Storage(woort_IRStaticIndex static_index, bool is_pvalue_indirect);
 
             Storage(const Storage&) = default;
             Storage(Storage&&) = default;
@@ -201,7 +203,7 @@ namespace wo
             Storage& operator = (Storage&&) = default;
         };
 
-        lang_Symbol*    m_symbol;
+        lang_Symbol* m_symbol;
         bool            m_mutable;
 
         std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>
@@ -553,7 +555,7 @@ namespace wo
                 ASSIGN_TO_STACKSLOT,
 
                 RESULT_STACK_VARIABLE,
-                
+
                 RESULT_STACK_TEMP,
                 RESULT_CONSTANT,
                 RESULT_STATIC,
@@ -578,15 +580,15 @@ namespace wo
                 get_assign_target(lang_TypeInstance* t) const noexcept;
 
             void set_result_stack_temp(
-                BytecodeGenerateContext& ctx, 
+                BytecodeGenerateContext& ctx,
                 const woort_IRValue* result,
                 const lang_TypeInstance* type) noexcept;
             void set_result_stack_var(
-                BytecodeGenerateContext& ctx, 
+                BytecodeGenerateContext& ctx,
                 woort_IRValue* result,
                 const lang_TypeInstance* type) noexcept;
             void set_result_static(
-                BytecodeGenerateContext& ctx, 
+                BytecodeGenerateContext& ctx,
                 woort_IRStaticIndex result,
                 const lang_TypeInstance* type) noexcept;
             void set_result_struct_index(
@@ -595,7 +597,7 @@ namespace wo
                 uint32_t index,
                 const lang_TypeInstance* type) noexcept;
             void set_result_const(
-                BytecodeGenerateContext& ctx, 
+                BytecodeGenerateContext& ctx,
                 const ast::ConstantValue& result) noexcept;
             void set_result_const_closure(
                 BytecodeGenerateContext& ctx,

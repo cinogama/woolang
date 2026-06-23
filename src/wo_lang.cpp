@@ -560,13 +560,7 @@ namespace wo
         , m_stack_slot(stack_slot)
     {
     }
-    lang_ValueInstance::Storage::Storage(woort_IRStaticIndex static_index)
-        : m_type(GLOBAL)
-        , m_static_index(static_index)
-    {
-    }
-    lang_ValueInstance::Storage::Storage(
-        woort_IRStaticIndex static_index, bool is_pvalue_indirect)
+    lang_ValueInstance::Storage::Storage(woort_IRStaticIndex static_index, bool is_pvalue_indirect)
         : m_type(GLOBAL)
         , m_static_index(static_index)
         , m_is_pvalue_indirect(is_pvalue_indirect)
