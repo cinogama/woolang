@@ -1,4 +1,4 @@
-#include "wo.h"
+#include "wo_repl_common.hpp"
 
 #include "wo_repl_editor.hpp"
 
@@ -253,6 +253,40 @@ int _wo_driver_run_repl()
 int main(int argc, char** argv)
 {
     wo_init(argc, argv);
+
+    // Diagnostic: woolang --hl-demo "<src>"
+    // Tokenizes <src> with the public LSP lexer, dumping every token (type +
+    // byte range + text) and then the ANSI-highlighted line. Lets the lexer
+    // path be exercised without an interactive terminal.
+    if (argc >= 3 && std::string_view(argv[1]) == "--hl-demo")
+    {
+        const char* src = argv[2];
+        std::printf("source: %s\n", src);
+        std::printf("tokens:\n");
+        if (wo_lspv2_lexer* lex = wo_lspv2_lexer_create(src))
+        {
+            for (int i = 0; i < 128; ++i)
+            {
+                wo_lspv2_token_info* ti = wo_lspv2_lexer_peek(lex);
+                if (ti == nullptr) break;
+                const wo_lspv2_lexer_token tt = ti->m_token;
+                const size_t b = ti->m_location.m_begin_location[1];
+                const size_t e = ti->m_location.m_end_location[1];
+                std::printf("  [%2d] type=%-3d [%2zu,%2zu) len=%-2zu '%.*s'\n",
+                    i, (int)tt, b, e, ti->m_token_length,
+                    (int)ti->m_token_length,
+                    ti->m_token_length ? (const char*)ti->m_token_serial : "");
+                wo_lspv2_token_info_free(ti);
+                if (tt == WO_LSPV2_TOKEN_EOF) break;
+                wo_lspv2_lexer_consume(lex);
+            }
+            wo_lspv2_lexer_free(lex);
+        }
+        std::printf("highlight: %s" WOORT_ANSI_RST "\n",
+            wo_repl_render_highlight(src).c_str());
+        wo_finish(nullptr, nullptr);
+        return EXIT_OK;
+    }
 
     wo_driver_options opts;
     if (!_wo_driver_parse_option(argc, argv, &opts))

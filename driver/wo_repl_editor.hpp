@@ -9,6 +9,11 @@
 // plain blocking line reader (woort_console_readline).
 bool wo_repl_stdin_is_tty();
 
+// Tokenize `src` with the public LSP lexer and return it wrapped in
+// WOORT_ANSI_* colors (whitespace preserved verbatim). Exposed so the driver
+// can render highlighted snippets (e.g. for the --hl-demo diagnostic).
+std::string wo_repl_render_highlight(std::string_view src);
+
 // Reads one logical line from an interactive console with live syntax
 // highlighting.
 //

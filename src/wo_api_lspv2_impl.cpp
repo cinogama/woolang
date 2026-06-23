@@ -847,6 +847,13 @@ void wo_lspv2_constant_info_free(wo_lspv2_constant_info* info)
 
 wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src)
 {
+    // The lexer interns token text through the thread-local string pool
+    // (wstring_pool::get_pstr), so a pool must be active on this thread for
+    // the lifetime of the handle. Open one here and close it in
+    // wo_lspv2_lexer_free. begin_new_pool()/end_pool() are refcounted, so this
+    // is safe even when the caller already has a pool open (e.g. a REPL
+    // session).
+    wo::wstring_pool::begin_new_pool();
     return reinterpret_cast<wo_lspv2_lexer*>(
         new wo::lexer(
             std::nullopt,
@@ -856,6 +863,7 @@ wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src)
 void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer)
 {
     delete reinterpret_cast<wo::lexer*>(lexer);
+    wo::wstring_pool::end_pool();
 }
 wo_lspv2_token_info* wo_lspv2_lexer_peek(
     wo_lspv2_lexer* lexer)

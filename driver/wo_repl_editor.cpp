@@ -1,22 +1,20 @@
 // Live syntax-highlighting line editor for the Woolang REPL.
 //
-// Re-scans the current input with a small self-contained Woolang lexer on every
-// edit and re-renders `prompt + colored(input)`. Input is read in raw mode:
-// POSIX uses termios, Windows uses ENABLE_VIRTUAL_TERMINAL_INPUT (which
-// delivers arrow keys etc. as VT escape sequences), so both platforms share one
-// escape decoder.
+// Re-tokenizes the current input with the public LSP lexer on every edit and
+// re-renders `prompt + colored(input)`. Input is read in raw mode: POSIX uses
+// termios, Windows uses ENABLE_VIRTUAL_TERMINAL_INPUT (which delivers arrow
+// keys etc. as VT escape sequences), so both platforms share one escape
+// decoder.
 
 #define NOMINMAX
 
 #include "wo_repl_common.hpp"
 #include "wo_repl_editor.hpp"
 
-#include <cctype>
 #include <cstdio>
 #include <iostream>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 
 #if defined(_WIN32)
 #   include <windows.h>
@@ -28,193 +26,129 @@
 namespace {
 
 // ====================================================================
-// Syntax highlighting: a small self-contained Woolang scanner.
-//
-// Categories -> WOORT_ANSI_* (defined in woort.h):
-//   keywords            -> HIM (bright magenta)
-//   true/false/nil      -> HIC (bright cyan)
-//   numeric literals    -> YEL (yellow)
-//   string/char/format  -> GRE (green)
-//   comments            -> GRY (gray)
-//   identifiers/op/punct-> default (no color)
-// Whitespace between tokens is emitted verbatim so the byte layout is
-// preserved. The scanner is intentionally lenient: it only needs to be good
-// enough for coloring, not to reject invalid programs.
+// Syntax highlighting (token -> WOORT_ANSI_* color)
 // ====================================================================
 
-const std::unordered_set<std::string>& keyword_table()
+const char* color_for_token(wo_lspv2_lexer_token t)
 {
-    static const std::unordered_set<std::string> kw = {
-        "import","export","while","if","else","namespace","for","extern",
-        "let","mut","func","return","using","alias","enum","as","is","typeof",
-        "private","public","protected","static","break","continue","lambda",
-        "do","where","operator","union","match","struct","immut","typeid",
-        "defer","macro"
-    };
-    return kw;
+    switch (t)
+    {
+    // Boolean / nil literals: bright cyan.
+    case WO_LSPV2_TOKEN_NIL:
+    case WO_LSPV2_TOKEN_TRUE:
+    case WO_LSPV2_TOKEN_FALSE:
+        return WOORT_ANSI_HIC;
+
+    // Numeric literals: yellow.
+    case WO_LSPV2_TOKEN_LITERAL_INTEGER:
+    case WO_LSPV2_TOKEN_LITERAL_HANDLE:
+    case WO_LSPV2_TOKEN_LITERAL_REAL:
+        return WOORT_ANSI_YEL;
+
+    // String / char literals (incl. format-string segments): green.
+    case WO_LSPV2_TOKEN_LITERAL_STRING:
+    case WO_LSPV2_TOKEN_LITERAL_RAW_STRING:
+    case WO_LSPV2_TOKEN_LITERAL_CHAR:
+    case WO_LSPV2_TOKEN_FORMAT_STRING_BEGIN:
+    case WO_LSPV2_TOKEN_FORMAT_STRING:
+    case WO_LSPV2_TOKEN_FORMAT_STRING_END:
+        return WOORT_ANSI_GRE;
+
+    // Comments: gray (bright black).
+    case WO_LSPV2_TOKEN_LINE_COMMENT:
+    case WO_LSPV2_TOKEN_BLOCK_COMMENT:
+    case WO_LSPV2_TOKEN_SHEBANG_COMMENT:
+        return WOORT_ANSI_GRY;
+
+    // Lexer errors / unknown bytes: bright red.
+    case WO_LSPV2_TOKEN_ERROR:
+    case WO_LSPV2_TOKEN_UNKNOWN_TOKEN:
+        return WOORT_ANSI_HIR;
+
+    default:
+        break;
+    }
+
+    // Remaining keywords (import..macro block, minus nil/true/false handled
+    // above): bright magenta.
+    if (t >= WO_LSPV2_TOKEN_IMPORT && t <= WO_LSPV2_TOKEN_MACRO)
+        return WOORT_ANSI_HIM;
+
+    // Identifiers / operators / punctuation: default (no color).
+    return nullptr;
 }
 
-inline bool hl_is_ident_beg(unsigned char c)
-{
-    return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c >= 0x80;
-}
-
-inline bool hl_is_ident(unsigned char c)
-{
-    return hl_is_ident_beg(c) || (c >= '0' && c <= '9');
-}
-
-inline bool hl_is_digit(unsigned char c) { return c >= '0' && c <= '9'; }
-
+// Tokenize `src` with the public LSP lexer and return it wrapped in ANSI
+// colors. Inter-token whitespace is emitted verbatim (uncolored) so the
+// original byte layout is preserved exactly. Token columns are byte offsets
+// (the lexer's column counter advances once per source byte), so slicing a
+// UTF-8 std::string by [begin_col, end_col) is exact.
 std::string highlight_source(std::string_view src)
 {
     std::string out;
-    const size_t n = src.size();
-    size_t i = 0;
+    if (src.empty())
+        return out;
 
-    const auto plain = [&](size_t a, size_t b) {
-        if (b > a) out.append(src.data() + a, b - a);
-    };
-    const auto colored = [&](size_t a, size_t b, const char* col) {
-        if (b > a) { out += col; out.append(src.data() + a, b - a); out += WOORT_ANSI_RST; }
-    };
+    std::string zterm(src);
+    wo_lspv2_lexer* lex = wo_lspv2_lexer_create(zterm.c_str());
+    if (lex == nullptr)
+        return std::string(src);
 
-    while (i < n)
+    size_t pos = 0;
+    for (;;)
     {
-        const unsigned char c = static_cast<unsigned char>(src[i]);
+        wo_lspv2_token_info* ti = wo_lspv2_lexer_peek(lex);
+        if (ti == nullptr)
+            break;
 
-        // Whitespace.
-        if (c == ' ' || c == '\t' || c == '\r' || c == '\n')
+        const wo_lspv2_lexer_token tt = ti->m_token;
+        size_t b = ti->m_location.m_begin_location[1];
+        size_t e = ti->m_location.m_end_location[1];
+        wo_lspv2_token_info_free(ti);
+
+        if (tt == WO_LSPV2_TOKEN_EOF)
+            break;
+
+        // Defensive clamping: never go backwards or past the end of the input.
+        if (b > src.size()) b = src.size();
+        if (e > src.size()) e = src.size();
+        if (b < pos)        b = pos;
+        if (e < b)          e = b;
+
+        // Uncolored gap (whitespace / anything the lexer skipped).
+        if (b > pos)
+            out.append(src.data() + pos, b - pos);
+
+        const char* color = color_for_token(tt);
+        if (e > b)
         {
-            const size_t s = i++;
-            while (i < n)
+            if (color != nullptr)
             {
-                const unsigned char d = static_cast<unsigned char>(src[i]);
-                if (d == ' ' || d == '\t' || d == '\r' || d == '\n') ++i; else break;
-            }
-            plain(s, i);
-            continue;
-        }
-
-        // Line comment.
-        if (c == '/' && i + 1 < n && src[i + 1] == '/')
-        {
-            const size_t s = i; i += 2;
-            while (i < n && src[i] != '\n') ++i;
-            colored(s, i, WOORT_ANSI_GRY);
-            continue;
-        }
-
-        // Block comment.
-        if (c == '/' && i + 1 < n && src[i + 1] == '*')
-        {
-            const size_t s = i; i += 2;
-            while (i + 1 < n && !(src[i] == '*' && src[i + 1] == '/')) ++i;
-            i = (i + 1 < n) ? i + 2 : n;
-            colored(s, i, WOORT_ANSI_GRY);
-            continue;
-        }
-
-        // String literal "..." (with escapes).
-        if (c == '"')
-        {
-            const size_t s = i; ++i;
-            while (i < n)
-            {
-                if (src[i] == '\\') { i += 2; continue; }
-                if (src[i] == '"') { ++i; break; }
-                ++i;
-            }
-            colored(s, i, WOORT_ANSI_GRE);
-            continue;
-        }
-
-        // Char literal '...' (with escapes).
-        if (c == '\'')
-        {
-            const size_t s = i; ++i;
-            while (i < n)
-            {
-                if (src[i] == '\\') { i += 2; continue; }
-                if (src[i] == '\'') { ++i; break; }
-                ++i;
-            }
-            colored(s, i, WOORT_ANSI_GRE);
-            continue;
-        }
-
-        // Format string F"..." / f"...".
-        if ((c == 'F' || c == 'f') && i + 1 < n && src[i + 1] == '"')
-        {
-            const size_t s = i; i += 2;
-            while (i < n)
-            {
-                if (src[i] == '\\') { i += 2; continue; }
-                if (src[i] == '"') { ++i; break; }
-                ++i;
-            }
-            colored(s, i, WOORT_ANSI_GRE);
-            continue;
-        }
-
-        // Numeric literal.
-        if (hl_is_digit(c))
-        {
-            const size_t s = i;
-            if (src[i] == '0' && i + 1 < n &&
-                (src[i + 1] == 'x' || src[i + 1] == 'X' ||
-                 src[i + 1] == 'b' || src[i + 1] == 'B' ||
-                 src[i + 1] == 'o' || src[i + 1] == 'O'))
-            {
-                i += 2;
-                while (i < n &&
-                       (std::isalnum(static_cast<unsigned char>(src[i])) || src[i] == '_'))
-                    ++i;
+                out += color;
+                out.append(src.data() + b, e - b);
+                out += WOORT_ANSI_RST;
             }
             else
             {
-                while (i < n &&
-                       (hl_is_digit(static_cast<unsigned char>(src[i])) || src[i] == '_'))
-                    ++i;
-                if (i < n && src[i] == '.')
-                {
-                    ++i;
-                    while (i < n &&
-                           (hl_is_digit(static_cast<unsigned char>(src[i])) || src[i] == '_'))
-                        ++i;
-                }
+                out.append(src.data() + b, e - b);
             }
-            if (i < n && (src[i] == 'L' || src[i] == 'l')) ++i; // handle literal suffix
-            colored(s, i, WOORT_ANSI_YEL);
-            continue;
         }
+        pos = e;
 
-        // Identifier / keyword. ('@' is the l_at keyword token.)
-        if (hl_is_ident_beg(c))
+        if (e <= b)
         {
-            const size_t s = i++;
-            while (i < n && hl_is_ident(static_cast<unsigned char>(src[i]))) ++i;
-            const std::string_view tok = src.substr(s, i - s);
-            if (tok == "true" || tok == "false" || tok == "nil")
-                colored(s, i, WOORT_ANSI_HIC);
-            else if (keyword_table().count(std::string(tok)))
-                colored(s, i, WOORT_ANSI_HIM);
-            else
-                plain(s, i);
-            continue;
+            // Zero-width token: cannot make progress via the lexer, stop to
+            // avoid an infinite loop. Any trailing bytes are emitted below.
+            break;
         }
 
-        if (c == '@') // l_at keyword
-        {
-            colored(i, i + 1, WOORT_ANSI_HIM);
-            ++i;
-            continue;
-        }
-
-        // Operators / punctuation: default color.
-        plain(i, i + 1);
-        ++i;
+        wo_lspv2_lexer_consume(lex);
     }
+
+    wo_lspv2_lexer_free(lex);
+
+    if (pos < src.size())
+        out.append(src.data() + pos, src.size() - pos);
     return out;
 }
 
@@ -564,6 +498,11 @@ bool wo_repl_stdin_is_tty()
 #else
     return isatty(fileno(stdin)) != 0;
 #endif
+}
+
+std::string wo_repl_render_highlight(std::string_view src)
+{
+    return highlight_source(src);
 }
 
 std::optional<std::string> wo_repl_live_readline(std::string_view prompt)
