@@ -560,15 +560,18 @@ std::optional<std::string> wo_repl_live_readline(
     size_t       hist_idx = history.size();
     std::string  draft;
 
-    const auto render = [&]()
+    const auto render = [&](bool with_cursor = true)
     {
         // \r: back to column 0; \033[K: erase to end-of-line (clears stale tail).
         // The cursor is shown inline rather than repositioned by a column
         // index (which drifts under East Asian wide characters): the code
         // point at `cur` is underlined in insert mode / inverse video in
         // overwrite mode, and a styled space marks the end-of-line position.
-        const char* cursor_style =
-            overwrite ? WOORT_ANSI_INV : WOORT_ANSI_UNDERLNE;
+        // with_cursor == false produces a plain redraw, used to clear the
+        // inline marker from a line before it is submitted or abandoned.
+        const char* cursor_style = with_cursor
+            ? (overwrite ? WOORT_ANSI_INV : WOORT_ANSI_UNDERLNE)
+            : nullptr;
         std::cout << "\r\033[K" << prompt_color << prompt << WOORT_ANSI_RST
                   << highlight_source_ex(buf, cur, cursor_style) << std::flush;
     };
@@ -582,6 +585,7 @@ std::optional<std::string> wo_repl_live_readline(
         case key_kind::eof:
             // "\r\n": Windows VT output does not translate LF to CRLF the way
             // POSIX OPOST does, so emit CR explicitly to return to column 0.
+            render(false); // clear the inline cursor marker from this line
             std::cout << "\r\n" << std::flush;
             if (buf.empty())
                 return std::nullopt;
@@ -590,6 +594,7 @@ std::optional<std::string> wo_repl_live_readline(
         case key_kind::ctrl_d:
             if (buf.empty())
             {
+                render(false);
                 std::cout << "\r\n" << std::flush;
                 return std::nullopt;
             }
@@ -604,6 +609,7 @@ std::optional<std::string> wo_repl_live_readline(
 
         case key_kind::enter:
         {
+            render(false); // clear the inline cursor marker from this line
             std::cout << "\r\n" << std::flush;
 
             // Decide whether the submitted line becomes a new history entry.
