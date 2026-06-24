@@ -562,18 +562,30 @@ std::optional<std::string> wo_repl_live_readline(
 
     const auto render = [&](bool with_cursor = true)
     {
-        // \r: back to column 0; \033[K: erase to end-of-line (clears stale tail).
         // The cursor is shown inline rather than repositioned by a column
         // index (which drifts under East Asian wide characters): the code
         // point at `cur` is underlined in insert mode / inverse video in
         // overwrite mode, and a styled space marks the end-of-line position.
         // with_cursor == false produces a plain redraw, used to clear the
         // inline marker from a line before it is submitted or abandoned.
+        //
+        // Flicker avoidance: overwrite the existing cells in place first
+        // (\r back to column 0, then print), and only THEN erase the trailing
+        // tail with \033[K. Erasing *before* reprinting blanks the whole line
+        // for a frame and is the classic source of line-editor flicker. The
+        // whole repaint is assembled into one string and written in a single
+        // flush so the terminal never renders a partial/blank intermediate.
         const char* cursor_style = with_cursor
             ? (overwrite ? WOORT_ANSI_INV : WOORT_ANSI_UNDERLNE)
             : nullptr;
-        std::cout << "\r\033[K" << prompt_color << prompt << WOORT_ANSI_RST
-                  << highlight_source_ex(buf, cur, cursor_style) << std::flush;
+        std::string line;
+        line += "\r";
+        line += prompt_color;
+        line += prompt;
+        line += WOORT_ANSI_RST;
+        line += highlight_source_ex(buf, cur, cursor_style);
+        line += WOORT_ANSI_RST "\033[K";
+        std::cout << line << std::flush;
     };
 
     render();
