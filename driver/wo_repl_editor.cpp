@@ -15,6 +15,7 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #if defined(_WIN32)
 #   include <windows.h>
@@ -295,10 +296,13 @@ enum class key_kind
     cancel,    // Ctrl-C
     ctrl_d,    // Ctrl-D (EOF on empty input)
     enter,
+    tab,
     backspace,
     del,
     left,
     right,
+    up,
+    down,
     home,
     end,
     char_text,
@@ -350,7 +354,8 @@ key_event decode_escape(console_in& src)
         {
         case 'C': return key_event{ key_kind::right, {} };
         case 'D': return key_event{ key_kind::left,  {} };
-        case 'A': case 'B': return key_event{ key_kind::other, {} }; // up/down: unused
+        case 'A': return key_event{ key_kind::up,    {} };
+        case 'B': return key_event{ key_kind::down,  {} };
         case 'H': return key_event{ key_kind::home,  {} };
         case 'F': return key_event{ key_kind::end,   {} };
         case '3': // CSI 3 ~  -> Delete
@@ -371,7 +376,8 @@ key_event decode_escape(console_in& src)
     {
     case 'C': return key_event{ key_kind::right, {} };
     case 'D': return key_event{ key_kind::left,  {} };
-    case 'A': case 'B': return key_event{ key_kind::other, {} };
+    case 'A': return key_event{ key_kind::up,    {} };
+    case 'B': return key_event{ key_kind::down,  {} };
     case 'H': return key_event{ key_kind::home,  {} };
     case 'F': return key_event{ key_kind::end,   {} };
     default:  return key_event{ key_kind::other, {} };
@@ -389,6 +395,8 @@ key_event next_key(console_in& src)
     case '\n':
     case '\r':
         return key_event{ key_kind::enter, {} };
+    case '\t':
+        return key_event{ key_kind::tab, {} };
     case 0x03: // Ctrl-C
         return key_event{ key_kind::cancel, {} };
     case 0x04: // Ctrl-D
@@ -428,7 +436,8 @@ std::string wo_repl_render_highlight(std::string_view src)
     return highlight_source(src);
 }
 
-std::optional<std::string> wo_repl_live_readline(std::string_view prompt)
+std::optional<std::string> wo_repl_live_readline(
+    std::string_view prompt, std::vector<std::string>& history)
 {
     raw_mode_guard raw(true);
     if (!raw.ok())
@@ -440,6 +449,12 @@ std::optional<std::string> wo_repl_live_readline(std::string_view prompt)
     std::string  buf;   // input bytes
     size_t       cur = 0; // cursor byte offset
     console_in   src;
+
+    // History navigation state. hist_idx == history.size() means the user is
+    // editing a fresh line; draft preserves whatever they had typed before
+    // they first pressed Up.
+    size_t       hist_idx = history.size();
+    std::string  draft;
 
     const auto render = [&]()
     {
@@ -481,8 +496,23 @@ std::optional<std::string> wo_repl_live_readline(std::string_view prompt)
             continue;
 
         case key_kind::enter:
+        {
             std::cout << "\r\n" << std::flush;
+
+            // Decide whether the submitted line becomes a new history entry.
+            // Skip: blank lines, lines recalled from history and resubmitted
+            // unchanged (even non-consecutive), and consecutive duplicates.
+            const bool blank =
+                (buf.find_first_not_of(" \t") == std::string::npos);
+            const bool recalled_unchanged =
+                (hist_idx < history.size() && buf == history[hist_idx]);
+            const bool dup_of_last =
+                (!history.empty() && buf == history.back());
+            if (!blank && !recalled_unchanged && !dup_of_last)
+                history.push_back(buf);
+
             return buf;
+        }
 
         case key_kind::backspace:
             if (cur > 0)
@@ -526,6 +556,43 @@ std::optional<std::string> wo_repl_live_readline(std::string_view prompt)
         case key_kind::end:
             cur = buf.size();
             render();
+            break;
+
+        case key_kind::tab:
+        {
+            static const std::string four_spaces = "    ";
+            buf.insert(cur, four_spaces);
+            cur += four_spaces.size();
+            render();
+            break;
+        }
+
+        case key_kind::up:
+            if (!history.empty())
+            {
+                if (hist_idx == history.size())
+                    draft = buf; // first Up: preserve the in-progress line
+                if (hist_idx > 0)
+                {
+                    --hist_idx;
+                    buf = history[hist_idx];
+                    cur = buf.size();
+                    render();
+                }
+            }
+            break;
+
+        case key_kind::down:
+            if (!history.empty() && hist_idx < history.size())
+            {
+                ++hist_idx;
+                if (hist_idx == history.size())
+                    buf = draft; // past newest: restore the saved draft
+                else
+                    buf = history[hist_idx];
+                cur = buf.size();
+                render();
+            }
             break;
 
         case key_kind::char_text:
