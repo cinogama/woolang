@@ -140,9 +140,9 @@ int _wo_driver_run_repl()
 {
     std::cout << "Woolang REPL (c) 2021 Cinogama project.\n";
     std::cout << "Version: " << wo_version() << '\n';
-    std::cout << "Type :q to exit.\n\n";
+    std::cout << "Type :help for available commands, :q to exit.\n\n";
 
-    wo_ReplSession* const session = wo_repl_create();
+    wo_ReplSession* session = wo_repl_create();
     if (session == nullptr)
     {
         std::cerr << "Failed to create REPL session.\n";
@@ -203,9 +203,46 @@ int _wo_driver_run_repl()
         else
             line.erase(rtrim + 1);
 
-        // Exit command — works in both normal and continuation mode.
+        // Colon commands — work in both normal and continuation mode.
+        // In continuation mode they discard the pending multi-line buffer.
         if (line == ":q" || line == ":quit")
             break;
+
+        if (line == ":help" || line == ":h" || line == ":?")
+        {
+            buffer.clear();
+            std::cout << "REPL commands:\n"
+                         "  :q, :quit      Exit the REPL.\n"
+                         "  :help, :h, :?  Show this help.\n"
+                         "  :cls, :clear   Clear the screen.\n"
+                         "  :reset         Reset session (clear variables/state).\n";
+            continue;
+        }
+
+        if (line == ":cls" || line == ":clear")
+        {
+            // ANSI clear-screen + cursor home. VT output processing is enabled
+            // in woort_env bootup (Windows) and native on POSIX.
+            buffer.clear();
+            std::cout << "\033[2J\033[H" << std::flush;
+            continue;
+        }
+
+        if (line == ":reset")
+        {
+            // Destroy and recreate the session: wipes variables, imports,
+            // compiler/VM state. Command history is preserved.
+            buffer.clear();
+            wo_repl_destroy(session);
+            session = wo_repl_create();
+            if (session == nullptr)
+            {
+                std::cerr << "Failed to recreate REPL session.\n";
+                return -3;
+            }
+            std::cout << "Session reset.\n";
+            continue;
+        }
 
         // Skip empty lines when not in continuation mode.
         if (buffer.empty() && line.empty())
