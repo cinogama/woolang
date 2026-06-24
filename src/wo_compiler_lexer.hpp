@@ -189,11 +189,13 @@ namespace wo
         using declared_macro_map_t =
             std::unordered_map<wo_pstring_t, std::optional<std::unique_ptr<macro>>,
                 wstring_pool::pstr_hasher, wstring_pool::pstr_equal>;
-    private:
+        // Public so the REPL session can save/restore these verbatim
+        // across evals (see _wo_ReplSession).
         using imported_source_path_set_t =
             std::unordered_set<wo_pstring_t>;
         using who_import_me_map_t =
             std::unordered_map<wo_pstring_t, std::unordered_set<wo_pstring_t>>;
+    private:
         using export_import_map_t = who_import_me_map_t;
 
     private:
@@ -500,12 +502,29 @@ namespace wo
         // REPL support: get all source paths that have been imported in this
         // lexer's shared context.
         [[nodiscard]]
-        const std::unordered_set<wo_pstring_t>& get_linked_script_paths() const;
+        const imported_source_path_set_t& get_linked_script_paths() const;
 
-        // REPL support: mark the given source paths as imported by this
-        // lexer's source file, so symbols from those files are visible.
+        // REPL support: get the full import-relationship tree (imported path
+        // -> set of importers, including transitive closure) as maintained by
+        // record_import_relationship, so the session can restore it verbatim.
+        [[nodiscard]]
+        const who_import_me_map_t& get_import_relationships() const;
+
+        // REPL support: get the export-import map (source -> set of paths it
+        // re-exports via `export import`), so the session can restore it
+        // verbatim and re-export chains survive across evals even when the
+        // re-exporting file is not re-parsed.
+        [[nodiscard]]
+        const who_import_me_map_t& get_export_import_map() const;
+
+        // REPL support: restore the linked-source set, the import-relationship
+        // tree, and the export-import map into this lexer's shared context,
+        // preserving the full transitive structure (rather than rebuilding a
+        // single level) and the re-export chains.
         void register_imported_sources(
-            const std::unordered_set<wo_pstring_t>& sources);
+            const imported_source_path_set_t& linked_sources,
+            const who_import_me_map_t& import_relationships,
+            const who_import_me_map_t& export_imports);
 
         void get_now_location(size_t* out_row, size_t* out_col) const;
         void drop_source_stream_for_lspv2();

@@ -58,9 +58,17 @@ struct _wo_ReplSession
     // same file.
     wo_pstring_t m_repl_group_token;
 
-    // All source paths imported by prior lines (stdlib, etc.).
-    // Each new line inherits these so imports persist across the session.
-    std::unordered_set<wo_pstring_t> m_known_imports;
+    // All source paths imported by prior lines (stdlib, etc.), plus the full
+    // import-relationship tree and the export-import map. Each new line
+    // inherits these so imports persist across the session. All three are
+    // saved/restored verbatim (not flattened) so the transitive closure
+    // maintained by record_import_relationship and the re-export chains
+    // survive across evals, and the symbol-import visibility check
+    // (check_source_has_been_imported_by_specify_source) behaves correctly.
+    // wo_pstring_t values are kept alive by m_repl_pool.
+    wo::lexer::imported_source_path_set_t m_linked_script_path_set;
+    wo::lexer::who_import_me_map_t m_who_import_me_map_tree;
+    wo::lexer::who_import_me_map_t m_export_import_map;
 
     _wo_ReplSession();
     ~_wo_ReplSession();

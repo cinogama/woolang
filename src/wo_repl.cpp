@@ -260,7 +260,13 @@ wo_repl_result wo_repl_eval(
         S->m_repl_group_token);
 
     // Inject known imports from prior lines (so stdlib etc. stays visible).
-    lex->register_imported_sources(S->m_known_imports);
+    // Restores the linked-source set, the full import-relationship tree, and
+    // the export-import map verbatim, preserving the transitive closure and
+    // re-export chains across evals.
+    lex->register_imported_sources(
+        S->m_linked_script_path_set,
+        S->m_who_import_me_map_tree,
+        S->m_export_import_map);
 
     // --- 6. Parse ---
     wo::ast::AstBase* ast_root = nullptr;
@@ -297,8 +303,11 @@ wo_repl_result wo_repl_eval(
     }
 
     // --- Harvest imports from this line for future lines ---
-    for (wo_pstring_t p : lex->get_linked_script_paths())
-        S->m_known_imports.insert(p);
+    // Copy all three structures back before the lexer is dropped. Done only
+    // on the success path, so a failed eval does not pollute session state.
+    S->m_linked_script_path_set = lex->get_linked_script_paths();
+    S->m_who_import_me_map_tree = lex->get_import_relationships();
+    S->m_export_import_map = lex->get_export_import_map();
 
     // On success we can drop the lexer.
     lex.reset();

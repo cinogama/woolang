@@ -1005,27 +1005,50 @@ extern func macro_entry(lexer: std::lexer)=> string
         return m_who_import_me;
     }
 
-    const std::unordered_set<wo_pstring_t>& lexer::get_linked_script_paths() const
+    const lexer::imported_source_path_set_t& lexer::get_linked_script_paths() const
     {
         return m_shared_context->m_linked_script_path_set;
     }
 
-    void lexer::register_imported_sources(
-        const std::unordered_set<wo_pstring_t>& sources)
+    const lexer::who_import_me_map_t& lexer::get_import_relationships() const
     {
-        if (!m_source_group.has_value())
-            return;
+        return m_shared_context->m_who_import_me_map_tree;
+    }
 
-        // Register this source (by its stable group identity) as an importer
-        // of every prior import, so later REPL evals inherit visibility.
-        wo_pstring_t my_path = m_source_group.value();
+    const lexer::who_import_me_map_t& lexer::get_export_import_map() const
+    {
+        return m_shared_context->m_export_import_map;
+    }
+
+    void lexer::register_imported_sources(
+        const imported_source_path_set_t& linked_sources,
+        const who_import_me_map_t& import_relationships,
+        const who_import_me_map_t& export_imports)
+    {
+        // Restore all three structures verbatim (merge into the fresh shared
+        // context). The import tree and export map start empty on a
+        // just-created context, so merging them is a faithful copy: the full
+        // transitive closure built by record_import_relationship and the
+        // re-export chains are preserved across REPL evals instead of being
+        // flattened to a single level.
+        //
+        // m_linked_script_path_set differs: the SharedContext ctor
+        // pre-inserts this lexer's own source_path, so the merge is a union
+        // that keeps both the new eval's own path and the prior session's
+        // linked paths.
+        auto& linked_set = m_shared_context->m_linked_script_path_set;
+        for (wo_pstring_t src : linked_sources)
+            linked_set.insert(src);
+
         auto& tree = m_shared_context->m_who_import_me_map_tree;
+        for (const auto& entry : import_relationships)
+            for (wo_pstring_t importer : entry.second)
+                tree[entry.first].insert(importer);
 
-        for (wo_pstring_t src : sources)
-        {
-            tree[src].insert(my_path);
-            m_shared_context->m_linked_script_path_set.insert(src);
-        }
+        auto& exp_map = m_shared_context->m_export_import_map;
+        for (const auto& entry : export_imports)
+            for (wo_pstring_t reexported : entry.second)
+                exp_map[entry.first].insert(reexported);
     }
     void lexer::get_now_location(size_t* out_row, size_t* out_col) const
     {
