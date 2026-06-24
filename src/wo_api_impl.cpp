@@ -215,7 +215,8 @@ wo::compile_result _wo_compile_impl(
         compile_lexer = std::make_unique<wo::lexer>(
             append_macro_define_to_this_lexer,
             wo::wstring_pool::get_pstr(real_file_path),
-            std::move(source_stream));
+            std::move(source_stream),
+            std::nullopt);
 
         if (binary_loading_failed.has_value())
         {

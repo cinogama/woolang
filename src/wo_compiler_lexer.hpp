@@ -353,7 +353,7 @@ namespace wo
             std::optional<lexer*> who_import_me,
             const std::optional<wo_pstring_t>& source_path,
             std::optional<std::unique_ptr<std::istream>>&& source_stream,
-            std::optional<wo_pstring_t> source_group = std::nullopt);
+            std::optional<wo_pstring_t> source_group);
     private:
         void    produce_token(lex_type type, std::string&& moved_token_text);
         void    token_pre_begin_here();

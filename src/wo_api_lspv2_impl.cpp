@@ -858,7 +858,8 @@ wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src)
         new wo::lexer(
             std::nullopt,
             std::nullopt,
-            std::make_unique<std::istringstream>(src)));
+            std::make_unique<std::istringstream>(src),
+            std::nullopt));
 }
 void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer)
 {

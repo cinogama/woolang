@@ -78,7 +78,8 @@ namespace wo
                     lexer new_lex(
                         &lex,
                         src_full_path_pstr,
-                        std::move(srcfile_stream.value()));
+                        std::move(srcfile_stream.value()),
+                        std::nullopt);
 
                     auto* imported_ast = wo::get_grammar_instance()->gen(new_lex, nullptr);
                     if (imported_ast != nullptr)

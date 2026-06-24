@@ -2011,7 +2011,8 @@ extern func macro_entry(lexer: std::lexer)=> string
                 this, // We can generate macro define by macro result.
                 result_content_vfile,
                 std::make_unique<std::istringstream>(
-                    woort_string(s + 0)));
+                    woort_string(s + 0)),
+                std::nullopt);
 
             woort_pop(2);
             (void)woort_vm_swap(last);
