@@ -775,7 +775,7 @@ namespace wo
         grammar();
         grammar(const std::vector<rule>& p);
 
-        bool check_lr1(std::ostream& ostrm = std::cout);
+        bool has_lr1_conflict(std::ostream& ostrm = std::cout);
         void finish_rt();
         ast::AstBase* gen(lexer& tkr, /* OPTIONAL */ bool* out_is_incomplete) const;
     };

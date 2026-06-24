@@ -28,7 +28,8 @@ struct wo_driver_options {
 void _wo_driver_show_banner()
 {
     std::cout << "Woolang (c) 2021 Cinogama project.\n\n";
-    std::cout << "Version: " << wo_version() << '\n';
+    std::cout << "Compiler version: " << wo_version() << '\n';
+    std::cout << "Runtime version: " << woort_version() << '\n';
     std::cout << "Commit:  " << wo_commit_sha() << '\n';
     std::cout << "Date:    " << wo_compile_date() << "\n\n";
     std::cout << "Usage:\n";
@@ -138,9 +139,12 @@ int _wo_driver_run_program(woort_CodeEnv* cenv)
 
 int _wo_driver_run_repl()
 {
-    std::cout << "Woolang REPL (c) 2021 Cinogama project.\n";
-    std::cout << "Version: " << wo_version() << '\n';
-    std::cout << "Type :help for available commands, :q to exit.\n\n";
+    std::cout << "Woolang (c) 2021 Cinogama project.\n";
+    std::cout << "Woolang REPL driver(c) 2026 Cinogama project.\n";
+    std::cout << "Compiler version: " << wo_version() << '\n';
+    std::cout << "Runtime version: " << woort_version() << '\n';
+
+    std::cout << "\nType :help for available commands, :q to exit.\n\n";
 
     wo_ReplSession* session = wo_repl_create();
     if (session == nullptr)

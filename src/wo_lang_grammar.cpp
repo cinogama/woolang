@@ -694,7 +694,7 @@ namespace wo
             grammar_instance = std::make_unique<grammar>(produces);
 
             std::cout << ANSI_HIY "WooGramma: " ANSI_RST "Checking LR(1) table..." << std::endl;
-            if (grammar_instance->check_lr1())
+            if (grammar_instance->has_lr1_conflict())
             {
                 std::cout << ANSI_HIR "WooGramma: " ANSI_RST "LR(1) have some problem, abort." << std::endl;
                 exit(-1);

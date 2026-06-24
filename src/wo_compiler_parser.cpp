@@ -27,6 +27,7 @@ namespace wo
     {
         size_t al_sz = static_cast<size_t>(al);
         wo_assert((al_sz & (al_sz - 1)) == 0); // al_sz is power of 2
+        wo_assert(sz <= PAGE_SIZE);
 
         size_t alligned_next_offset = (m_allocated_offset_in_page + (al_sz - 1)) & (~(al_sz - 1));
         if (alligned_next_offset + sz > PAGE_SIZE)
@@ -132,7 +133,6 @@ namespace wo
                                 if (current_next_sign < item.item_rule.second.size())
                                 {
                                     auto& beta_set = FIRST(item.item_rule.second[current_next_sign]);
-                                    auto& beta_follow = FOLLOW_READ(ntv);
 
                                     for (auto& beta : beta_set)
                                     {
@@ -140,7 +140,6 @@ namespace wo
                                             has_e_prod = true;
                                         else
                                         {
-                                            wo_assert(beta_follow.find(beta) != beta_follow.end());
                                             add_ietm.insert(lr_item{ rule{ntv, prule}, 0, beta });
                                         }
                                     }
@@ -377,40 +376,25 @@ namespace wo
                 {
                     if (std::holds_alternative<nt>(single_rule.second[pindex]))
                     {
-                        nt nxt = std::get<nt>(single_rule.second[pindex]);
-
-                        if (pindex == single_rule.second.size() - 1)
+                        bool all_nullable_to_end = true;
+                        for (size_t after = pindex + 1; after < single_rule.second.size(); after++)
                         {
-                            auto& follow_set = FOLLOW_SET[single_rule.first];
-                            FOLLOW_SET[single_rule.second[pindex]].insert(follow_set.begin(), follow_set.end());
-                        }
-                        else
-                        {
-                            // NON-TE CAN HAVE FOLLOW SET
-                            auto& first_set = FIRST(single_rule.second[pindex + 1]);
-
-                            bool have_e_prud = false;
+                            auto& first_set = FIRST(single_rule.second[after]);
                             for (auto& token_in_first : first_set)
                             {
                                 if (token_in_first.t_type != ttype::l_empty)
                                     FOLLOW_SET[single_rule.second[pindex]].insert(token_in_first);
-                                else
-                                    have_e_prud = true;
                             }
-                            if (have_e_prud)
+                            if (first_set.find(te(ttype::l_empty)) == first_set.end())
                             {
-                                if (pindex == single_rule.second.size() - 2)
-                                {
-                                    auto& follow_set = FOLLOW_SET[single_rule.first];
-                                    FOLLOW_SET[single_rule.second[pindex]].insert(follow_set.begin(), follow_set.end());
-                                }
-                                else
-                                {
-                                    auto& next_symb_follow_set = FIRST(single_rule.second[pindex + 2]);
-                                    FOLLOW_SET[single_rule.second[pindex]].insert(next_symb_follow_set.begin(), next_symb_follow_set.end());
-                                }
+                                all_nullable_to_end = false;
+                                break;
                             }
-                            // first_set.begin(), first_set.end());
+                        }
+                        if (all_nullable_to_end)
+                        {
+                            auto& follow_set = FOLLOW_SET[single_rule.first];
+                            FOLLOW_SET[single_rule.second[pindex]].insert(follow_set.begin(), follow_set.end());
                         }
                     }
                 }
@@ -595,7 +579,7 @@ namespace wo
         }
     }
 
-    bool grammar::check_lr1(std::ostream& ostrm)
+    bool grammar::has_lr1_conflict(std::ostream& ostrm)
     {
         bool result = false;
         for (size_t i = 0; i < ORGIN_P.size(); i++)
@@ -728,6 +712,9 @@ namespace wo
     }
     ast::AstBase* grammar::gen(lexer& tkr, /* OPTIONAL */ bool* out_is_incomplete) const
     {
+        if (out_is_incomplete != nullptr)
+            *out_is_incomplete = false;
+
         size_t last_error_rowno = 0;
         size_t last_error_colno = 0;
         size_t try_recover_count = 0;
@@ -837,14 +824,16 @@ namespace wo
 
                             if (peeked_token_instance->m_lex_type == lex_type::l_eof)
                             {
-                                err_info = WO_ERR_UNEXCEPT_EOF;
-                                eof_error = true;
+                                if (out_is_incomplete != nullptr)
+                                {
+                                    *out_is_incomplete = true;
+                                    return nullptr;
+                                }
+                                else
+                                    err_info = WO_ERR_UNEXCEPT_EOF;
                             }
                             else
-                            {
                                 err_info = WO_ERR_UNEXCEPT_TOKEN + ("'" + *peeked_token_instance->m_token_text + "'");
-                                eof_error = false;
-                            }
 
                             (void)tkr.record_parser_error(lexer::msglevel_t::error, err_info.c_str());
                         }
@@ -915,10 +904,7 @@ namespace wo
                             goto error_handle_fail;
                     }
                 error_handle_fail:
-                    if (out_is_incomplete != nullptr)
-                        *out_is_incomplete = eof_error;
-                    else
-                        (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
+                    (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;
 
                 error_progress_end:
