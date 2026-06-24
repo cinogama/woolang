@@ -196,13 +196,14 @@ int _wo_driver_run_repl()
         if (eof)
             break;
 
-        // Trim leading/trailing whitespace for command detection.
-        const auto not_space = [](char c) { return !std::isspace(static_cast<unsigned char>(c)); };
-        const auto ltrim = line.find_first_not_of(" \t\r\n");
-        if (ltrim == std::string::npos)
+        // Trim trailing whitespace only; preserve leading whitespace so
+        // indented input (e.g. continuation lines) reaches the compiler
+        // verbatim. A whitespace-only line still collapses to empty.
+        const auto rtrim = line.find_last_not_of(" \t\r\n");
+        if (rtrim == std::string::npos)
             line.clear();
         else
-            line = line.substr(ltrim, line.find_last_not_of(" \t\r\n") - ltrim + 1);
+            line.erase(rtrim + 1);
 
         // Exit command — works in both normal and continuation mode.
         if (line == ":q" || line == ":quit")
