@@ -1057,9 +1057,13 @@ namespace wo
                 {
                     wo_assert(node.read_token().type == lex_type::l_empty);
 
-                    (void)tkr.record_parser_error(
-                        lexer::msglevel_t::error,
-                        WO_ERR_SOURCE_CANNOT_BE_EMPTY);
+                    if (out_is_incomplete != nullptr)
+                        *out_is_incomplete = true;
+                    else
+                        (void)tkr.record_parser_error(
+                            lexer::msglevel_t::error,
+                            WO_ERR_SOURCE_CANNOT_BE_EMPTY);
+
                     return nullptr;
                 }
             }

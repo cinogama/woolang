@@ -273,7 +273,7 @@ int _wo_driver_run_repl()
         }
         else if (result == WO_REPL_RUNTIME_ERROR)
         {
-            std::cerr << "Runtime error occurred." << std::endl;
+            std::cerr << "Execution has been terminated." << std::endl;
         }
         else if (result == WO_REPL_OK)
         {
