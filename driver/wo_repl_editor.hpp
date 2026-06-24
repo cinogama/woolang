@@ -5,11 +5,6 @@
 #include <string_view>
 #include <vector>
 
-// Returns true when stdin is an interactive console (terminal), i.e. raw-mode
-// live editing is appropriate. When false, the caller should fall back to the
-// plain blocking line reader (woort_console_readline).
-bool wo_repl_stdin_is_tty();
-
 // Tokenize `src` with the public LSP lexer and return it wrapped in
 // WOORT_ANSI_* colors (whitespace preserved verbatim). Exposed so the driver
 // can render highlighted snippets (e.g. for the --hl-demo diagnostic).

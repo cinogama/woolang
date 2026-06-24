@@ -38,7 +38,7 @@ void _wo_driver_show_banner()
     std::cout << "    woolang <path> [options...]\n";
     std::cout << "\nOptions:\n";
     std::cout << "    -o <output>   Compile and save bytecode to the given path.\n";
-    std::cout << "    -c, --check   Compile only, report syntax errors without running.\n";
+    std::cout << "    --check   Compile only, report syntax errors without running.\n";
     std::cout << "    -h, --help    Show this help message.\n";
     std::cout << '\n';
     wo_print_compiler_help();
@@ -155,18 +155,16 @@ int _wo_driver_run_repl()
     // Command history for Up/Down recall (in-memory, current session only).
     std::vector<std::string> history;
 
-    // Interactive consoles get a live syntax-highlighting line editor; piped
-    // / redirected stdin falls back to the plain blocking reader so automation
-    // and tests keep working without ANSI noise.
-    const bool interactive = wo_repl_stdin_is_tty();
-
     while (true)
     {
         const std::string prompt = buffer.empty() ? ">>> " : "... ";
 
         bool eof = false;
 
-        if (interactive)
+        // Interactive consoles get a live syntax-highlighting line editor; piped
+        // or redirected stdin falls back to the plain blocking reader so automation
+        // and tests keep working without ANSI noise.
+        if (woort_stdin_isatty())
         {
             std::optional<std::string> got = wo_repl_live_readline(prompt, history);
             if (got.has_value())

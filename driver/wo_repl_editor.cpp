@@ -426,11 +426,6 @@ key_event next_key(console_in& src)
 // Public API
 // ====================================================================
 
-bool wo_repl_stdin_is_tty()
-{
-    return woort_stdin_isatty() != 0;
-}
-
 std::string wo_repl_render_highlight(std::string_view src)
 {
     return highlight_source(src);
