@@ -64,9 +64,9 @@ if (WO_BUILD_FOR_ASAN_TEST)
 endif()
 
 if (BUILD_SHARED_LIBS)
-    target_compile_definitions(woolang_options INTERFACE -DWO_SHARED_LIB)
+    target_compile_definitions(woolang_options INTERFACE -DWO_SHARED_LIB -DWOORT_SHARED_LIB)
 else ()
-    target_compile_definitions(woolang_options INTERFACE -DWO_STATIC_LIB)
+    target_compile_definitions(woolang_options INTERFACE -DWO_STATIC_LIB -DWOORT_STATIC_LIB)
 endif ()
 
 add_subdirectory ("src")
