@@ -9,6 +9,62 @@
 #include <unordered_set>
 
 // ===================================================================
+//  TLS guard — scopes thread-local state to each wo_repl_eval call
+// ===================================================================
+
+namespace
+{
+// Installs the REPL's string pool and AST arena into thread-local storage
+// on construction; restores the caller's previous TLS on destruction.
+// This ensures TLS is only modified for the duration of an eval (or
+// session construction/destruction), not held across the session lifetime.
+struct _wo_repl_tls_guard
+{
+    _wo_ReplSession&              S;
+    wo::wstring_pool::tls_state   saved_pool{ nullptr, 0 };
+    wo::ast::AstAllocator         saved_ast;
+
+    explicit _wo_repl_tls_guard(_wo_ReplSession& s) : S(s)
+    {
+        // --- String pool ---
+        // Create the pool on first use (session constructor).
+        if (S.m_repl_pool == nullptr)
+        {
+            wo::wstring_pool::begin_new_pool();
+            S.m_repl_pool =
+                wo::wstring_pool::exchange_this_thread_pool({ nullptr, 0 }).pool;
+        }
+        // Install REPL pool into thread-local, saving caller's state.
+        saved_pool =
+            wo::wstring_pool::exchange_this_thread_pool({ S.m_repl_pool, 1 });
+
+        // --- AST arena (two-step exchange to satisfy assertion) ---
+        // Step 1: extract current thread-local into saved_ast (empty param).
+        wo::ast::AstBase::exchange_this_thread_ast(saved_ast);
+        // Step 2: install REPL arena (thread-local is now empty).
+        wo::ast::AstBase::exchange_this_thread_ast(S.m_repl_ast_arena);
+    }
+
+    ~_wo_repl_tls_guard()
+    {
+        // Extract REPL arena back from thread-local.
+        wo::ast::AstBase::exchange_this_thread_ast(S.m_repl_ast_arena);
+        // Restore caller's AST (thread-local is now empty).
+        wo::ast::AstBase::exchange_this_thread_ast(saved_ast);
+
+        // Restore caller's pool, save REPL pool back.
+        auto cur = wo::wstring_pool::exchange_this_thread_pool(saved_pool);
+        S.m_repl_pool = cur.pool;
+    }
+
+    _wo_repl_tls_guard(const _wo_repl_tls_guard&)            = delete;
+    _wo_repl_tls_guard(_wo_repl_tls_guard&&)                 = delete;
+    _wo_repl_tls_guard& operator=(const _wo_repl_tls_guard&) = delete;
+    _wo_repl_tls_guard& operator=(_wo_repl_tls_guard&&)      = delete;
+};
+} // namespace
+
+// ===================================================================
 //  Lifecycle
 // ===================================================================
 
@@ -18,8 +74,10 @@ _wo_ReplSession::_wo_ReplSession()
     , m_repl_seq_num(0)
     , m_repl_group_token(nullptr)
 {
-    // 1. Session-level string pool: all wo_pstring_t values stay valid.
-    m_string_pool_guard = std::make_unique<wo::start_string_pool_guard>();
+    // Install REPL TLS (creates the session string pool on first use).
+    // The guard detaches TLS when construction completes so the caller's
+    // thread-local state is not held for the session lifetime.
+    _wo_repl_tls_guard guard(*this);
 
     // Allocate the session-stable logical source identity. Every REPL eval
     // carries this in source_location.source_group (not source_file, which
@@ -33,12 +91,7 @@ _wo_ReplSession::_wo_ReplSession()
         m_repl_group_token = wo::wstring_pool::get_pstr(group_buf);
     }
 
-    // 2. Session-level AST arena: install a fresh thread-local allocator
-    //    so AST nodes persist across lines (save previous for restore).
-    m_need_restore_ast =
-        wo::ast::AstBase::exchange_this_thread_ast(m_previous_ast_context);
-
-    // 3. Persistent compiler state.
+    // Persistent compiler state.
     m_lang_context = std::make_unique<wo::LangContext>();
 
     // Pre-register builtin types at session creation so they are always
@@ -51,53 +104,58 @@ _wo_ReplSession::_wo_ReplSession()
     // share mutable state with the current eval through a common GC box.
     m_lang_context->m_repl_pvalue_indirect_for_mutable_statics = true;
 
-    // 4. Persistent VM.
+    // Persistent VM.
     m_vm = woort_vm_create();
 }
 
 _wo_ReplSession::~_wo_ReplSession()
 {
-    for (size_t i = 0; i <= m_repl_seq_num; ++i)
+    // Phase 1: cleanup under REPL TLS.
     {
-        char repl_vfs_path[64];
-        (void)snprintf(
-            repl_vfs_path,
-            sizeof(repl_vfs_path),
-            "<Repl[%p]:%zu>",
-            this,
-            i);
-        (void)woort_vfs_remove(repl_vfs_path);
+        _wo_repl_tls_guard guard(*this);
+
+        for (size_t i = 0; i <= m_repl_seq_num; ++i)
+        {
+            char repl_vfs_path[64];
+            (void)snprintf(
+                repl_vfs_path,
+                sizeof(repl_vfs_path),
+                "<Repl[%p]:%zu>",
+                this,
+                i);
+            (void)woort_vfs_remove(repl_vfs_path);
+        }
+
+        // Drop all session CodeEnvs.
+        for (woort_CodeEnv* cenv : m_cenv_history)
+            woort_codeenv_drop(cenv);
+        m_cenv_history.clear();
+
+        // Destroy VM (swap out first to avoid GC deadlock).
+        if (m_vm != nullptr)
+        {
+            woort_vm_close(m_vm);
+            m_vm = nullptr;
+        }
+
+        // Destroy LangContext (releases symbol table, type table, etc.).
+        m_lang_context.reset();
+
+        // guard destructor detaches TLS here.
     }
 
-    // Drop all session CodeEnvs.
-    for (woort_CodeEnv* cenv : m_cenv_history)
-        woort_codeenv_drop(cenv);
-    m_cenv_history.clear();
-
-    // Destroy VM (swap out first to avoid GC deadlock).
-    if (m_vm != nullptr)
-    {
-        woort_vm_close(m_vm);
-        m_vm = nullptr;
-    }
-
-    // Destroy LangContext (releases symbol table, type table, etc.).
-    m_lang_context.reset();
-
-    // Clean session AST arena.
-    wo::ast::AstBase::clean_this_thread_ast();
-    if (m_need_restore_ast)
-        wo::ast::AstBase::exchange_this_thread_ast(m_previous_ast_context);
-
-    // End session string pool.
-    m_string_pool_guard.reset();
+    // Phase 2: free REPL-owned TLS resources (no TLS needed — AST node
+    // destructors and operator delete do not touch thread-local state).
+    // m_repl_ast_arena is a member; its destructor runs automatically.
+    delete m_repl_pool;
+    m_repl_pool = nullptr;
 }
 
 // ===================================================================
 //  Internal helpers
 // ===================================================================
 
-static void rollback_new_symbols(
+static void _wo_rollback_new_symbols(
     wo::lang_Scope* root_scope,
     const std::unordered_set<wo_pstring_t>& known_names)
 {
@@ -141,6 +199,10 @@ wo_repl_result wo_repl_eval(
 
     auto* S = reinterpret_cast<_wo_ReplSession*>(session);
     auto* lc = S->m_lang_context.get();
+
+    // Install REPL TLS state (string pool + AST arena) for the duration
+    // of this eval. Restored automatically on every return path.
+    _wo_repl_tls_guard tls_guard(*S);
 
     // --- 1. Reset IR context (fresh IRCompiler for this line) ---
     lc->m_ircontext.reset();
@@ -230,7 +292,7 @@ wo_repl_result wo_repl_eval(
         else
             lex.reset();
 
-        rollback_new_symbols(root_scope, known_names);
+        _wo_rollback_new_symbols(root_scope, known_names);
         return WO_REPL_COMPILE_ERROR;
     }
 
@@ -245,7 +307,7 @@ wo_repl_result wo_repl_eval(
     auto cenv_opt = lc->m_ircontext.finalize();
     if (!cenv_opt.has_value())
     {
-        rollback_new_symbols(root_scope, known_names);
+        _wo_rollback_new_symbols(root_scope, known_names);
         return WO_REPL_OUT_OF_MEMORY;
     }
     woort_CodeEnv* const cenv = cenv_opt.value();

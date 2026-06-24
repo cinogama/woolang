@@ -17,15 +17,17 @@ struct _wo_ReplSession
     // Persistent compiler state: accumulates symbols/types across evaluations.
     std::unique_ptr<wo::LangContext> m_lang_context;
 
-    // Session-level string pool guard: keeps all wo_pstring_t values alive.
-    std::unique_ptr<wo::start_string_pool_guard> m_string_pool_guard;
+    // REPL-owned string pool. Detached from thread-local between evals;
+    // installed via repl_tls_guard at each wo_repl_eval entry so that the
+    // caller's TLS is not held for the session lifetime. Keeps all
+    // wo_pstring_t values alive across the whole session.
+    wo::wstring_pool* m_repl_pool = nullptr;
 
-    // Session-level AST arena management.
-    //   At construction, we swap in a fresh thread-local AST allocator so that
-    //   AST nodes from every REPL line persist for the whole session (needed
-    //   for template instantiation, error "defined here" pointers, etc.).
-    wo::ast::AstAllocator m_previous_ast_context;
-    bool m_need_restore_ast;
+    // REPL-owned AST arena. Accumulates AST nodes across evals; installed
+    // into thread-local via repl_tls_guard and extracted back on exit.
+    // Needs to persist for template instantiation, error "defined here"
+    // pointers, etc.
+    wo::ast::AstAllocator m_repl_ast_arena;
 
     // Persistent VM: survives across evaluations, holds runtime state.
     woort_vm* m_vm;

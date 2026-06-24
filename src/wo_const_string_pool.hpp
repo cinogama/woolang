@@ -239,6 +239,19 @@ namespace wo
             }
         }
 
+        struct tls_state
+        {
+            wstring_pool* pool;
+            size_t        count;
+        };
+        static tls_state exchange_this_thread_pool(tls_state install)
+        {
+            tls_state prev{ _m_this_thread_pool, _m_this_thread_pool_count };
+            _m_this_thread_pool       = install.pool;
+            _m_this_thread_pool_count = install.count;
+            return prev;
+        }
+
         static wo_pstring_t get_pstr(const std::string& str)
         {
             wo_assert(_m_this_thread_pool);
