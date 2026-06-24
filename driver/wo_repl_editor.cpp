@@ -11,6 +11,7 @@
 #include "wo_repl_common.hpp"
 #include "wo_repl_editor.hpp"
 
+#include <cstdint>
 #include <cstdio>
 #include <iostream>
 #include <string>
@@ -79,21 +80,139 @@ const char* color_for_token(wo_lspv2_lexer_token t)
     return nullptr;
 }
 
-// Tokenize `src` with the public LSP lexer and return it wrapped in ANSI
-// colors. Inter-token whitespace is emitted verbatim (uncolored) so the
-// original byte layout is preserved exactly. Token columns are byte offsets
-// (the lexer's column counter advances once per source byte), so slicing a
-// UTF-8 std::string by [begin_col, end_col) is exact.
-std::string highlight_source(std::string_view src)
+// ====================================================================
+// UTF-8 helpers (operate on byte offsets within a std::string[_view])
+// ====================================================================
+
+int utf8_seq_len(unsigned char b)
+{
+    if ((b & 0x80) == 0)   return 1;
+    if ((b & 0xE0) == 0xC0) return 2;
+    if ((b & 0xF0) == 0xE0) return 3;
+    if ((b & 0xF8) == 0xF0) return 4;
+    return 1; // invalid lead byte: treat as a single byte
+}
+
+size_t cp_len_at(std::string_view s, size_t i)
+{
+    if (i >= s.size())
+        return 0;
+    return static_cast<size_t>(utf8_seq_len(static_cast<unsigned char>(s[i])));
+}
+
+size_t prev_cp(std::string_view s, size_t cur)
+{
+    if (cur == 0)
+        return 0;
+    size_t i = cur - 1;
+    while (i > 0 && (static_cast<unsigned char>(s[i]) & 0xC0) == 0x80)
+        --i;
+    return i;
+}
+
+// Emit src[from,to) into `out`. With a non-null `color` the range is wrapped in
+// `color ... WOORT_ANSI_RST`. If `cursor_style` is non-null and the cursor code
+// point (at cursor_byte) falls inside [from,to), that single code point is
+// instead wrapped in `cursor_style ... WOORT_ANSI_RST`, and the token `color`
+// is re-applied to any bytes following it.
+void emit_segment(std::string& out, std::string_view src,
+                  size_t from, size_t to, const char* color,
+                  size_t cursor_byte, const char* cursor_style)
+{
+    if (cursor_style == nullptr || cursor_byte < from || cursor_byte >= to)
+    {
+        if (color != nullptr)
+        {
+            out += color;
+            out.append(src.data() + from, to - from);
+            out += WOORT_ANSI_RST;
+        }
+        else
+        {
+            out.append(src.data() + from, to - from);
+        }
+        return;
+    }
+
+    // Bytes before the cursor code point.
+    if (cursor_byte > from)
+    {
+        if (color != nullptr)
+        {
+            out += color;
+            out.append(src.data() + from, cursor_byte - from);
+            out += WOORT_ANSI_RST;
+        }
+        else
+        {
+            out.append(src.data() + from, cursor_byte - from);
+        }
+    }
+
+    // The cursor code point itself.
+    size_t cp = cp_len_at(src, cursor_byte);
+    if (cp == 0)
+        cp = 1;
+    out += cursor_style;
+    out.append(src.data() + cursor_byte, cp);
+    out += WOORT_ANSI_RST;
+
+    // Bytes after the cursor code point.
+    const size_t after = cursor_byte + cp;
+    if (to > after)
+    {
+        if (color != nullptr)
+        {
+            out += color;
+            out.append(src.data() + after, to - after);
+            out += WOORT_ANSI_RST;
+        }
+        else
+        {
+            out.append(src.data() + after, to - after);
+        }
+    }
+}
+
+// Tokenize `src` with the public LSP lexer and wrap it in ANSI colors.
+// Inter-token whitespace is emitted verbatim (uncolored) so the original byte
+// layout is preserved exactly. Token columns are byte offsets (the lexer's
+// column counter advances once per source byte), so slicing a UTF-8
+// std::string by [begin_col, end_col) is exact.
+//
+// When cursor_style is non-null, the code point at cursor_byte is additionally
+// wrapped in cursor_style to mark the editing position; if cursor_byte is at or
+// past the end of src, a single styled space is appended (the end-of-line
+// insertion point). A null cursor_style produces plain highlighting.
+std::string highlight_source_ex(std::string_view src,
+                                size_t cursor_byte,
+                                const char* cursor_style)
 {
     std::string out;
     if (src.empty())
+    {
+        if (cursor_style != nullptr)
+        {
+            out += cursor_style;
+            out += ' ';
+            out += WOORT_ANSI_RST;
+        }
         return out;
+    }
 
     std::string zterm(src);
     wo_lspv2_lexer* lex = wo_lspv2_lexer_create(zterm.c_str());
     if (lex == nullptr)
-        return std::string(src);
+    {
+        emit_segment(out, src, 0, src.size(), nullptr, cursor_byte, cursor_style);
+        if (cursor_style != nullptr && cursor_byte >= src.size())
+        {
+            out += cursor_style;
+            out += ' ';
+            out += WOORT_ANSI_RST;
+        }
+        return out;
+    }
 
     size_t pos = 0;
     for (;;)
@@ -118,22 +237,11 @@ std::string highlight_source(std::string_view src)
 
         // Uncolored gap (whitespace / anything the lexer skipped).
         if (b > pos)
-            out.append(src.data() + pos, b - pos);
+            emit_segment(out, src, pos, b, nullptr, cursor_byte, cursor_style);
 
         const char* color = color_for_token(tt);
         if (e > b)
-        {
-            if (color != nullptr)
-            {
-                out += color;
-                out.append(src.data() + b, e - b);
-                out += WOORT_ANSI_RST;
-            }
-            else
-            {
-                out.append(src.data() + b, e - b);
-            }
-        }
+            emit_segment(out, src, b, e, color, cursor_byte, cursor_style);
         pos = e;
 
         if (e <= b)
@@ -149,38 +257,20 @@ std::string highlight_source(std::string_view src)
     wo_lspv2_lexer_free(lex);
 
     if (pos < src.size())
-        out.append(src.data() + pos, src.size() - pos);
+        emit_segment(out, src, pos, src.size(), nullptr, cursor_byte, cursor_style);
+
+    if (cursor_style != nullptr && cursor_byte >= src.size())
+    {
+        out += cursor_style;
+        out += ' ';
+        out += WOORT_ANSI_RST;
+    }
     return out;
 }
 
-// ====================================================================
-// UTF-8 helpers (operate on byte offsets within a std::string)
-// ====================================================================
-
-int utf8_seq_len(unsigned char b)
+std::string highlight_source(std::string_view src)
 {
-    if ((b & 0x80) == 0)   return 1;
-    if ((b & 0xE0) == 0xC0) return 2;
-    if ((b & 0xF0) == 0xE0) return 3;
-    if ((b & 0xF8) == 0xF0) return 4;
-    return 1; // invalid lead byte: treat as a single byte
-}
-
-size_t cp_len_at(const std::string& s, size_t i)
-{
-    if (i >= s.size())
-        return 0;
-    return static_cast<size_t>(utf8_seq_len(static_cast<unsigned char>(s[i])));
-}
-
-size_t prev_cp(const std::string& s, size_t cur)
-{
-    if (cur == 0)
-        return 0;
-    size_t i = cur - 1;
-    while (i > 0 && (static_cast<unsigned char>(s[i]) & 0xC0) == 0x80)
-        --i;
-    return i;
+    return highlight_source_ex(src, 0, nullptr);
 }
 
 // ====================================================================
@@ -287,6 +377,18 @@ public:
 #endif
 
 // ====================================================================
+// Cursor visibility guard: hide the terminal's block cursor for the
+// duration of line editing (the cursor position is shown inline instead).
+// Restores the cursor when editing ends, on every exit path.
+// ====================================================================
+
+struct cursor_hide_guard
+{
+    cursor_hide_guard()  { std::cout << "\033[?25l" << std::flush; }
+    ~cursor_hide_guard() { std::cout << "\033[?25h" << std::flush; }
+};
+
+// ====================================================================
 // Key-event decoding
 // ====================================================================
 
@@ -299,6 +401,7 @@ enum class key_kind
     tab,
     backspace,
     del,
+    insert,
     left,
     right,
     up,
@@ -358,6 +461,9 @@ key_event decode_escape(console_in& src)
         case 'B': return key_event{ key_kind::down,  {} };
         case 'H': return key_event{ key_kind::home,  {} };
         case 'F': return key_event{ key_kind::end,   {} };
+        case '2': // CSI 2 ~  -> Insert (toggle insert/overwrite mode)
+            (void)src.get();
+            return key_event{ key_kind::insert, {} };
         case '3': // CSI 3 ~  -> Delete
             (void)src.get();
             return key_event{ key_kind::del, {} };
@@ -438,11 +544,14 @@ std::optional<std::string> wo_repl_live_readline(
     if (!raw.ok())
         return std::nullopt; // caller falls back to the plain reader
 
+    cursor_hide_guard hidden;
+
     const bool   main_prompt = !prompt.empty() && prompt[0] == '>';
     const char*  prompt_color = main_prompt ? WOORT_ANSI_HIB : WOORT_ANSI_BLU;
 
     std::string  buf;   // input bytes
     size_t       cur = 0; // cursor byte offset
+    bool         overwrite = false; // Insert key toggles overwrite mode
     console_in   src;
 
     // History navigation state. hist_idx == history.size() means the user is
@@ -454,11 +563,14 @@ std::optional<std::string> wo_repl_live_readline(
     const auto render = [&]()
     {
         // \r: back to column 0; \033[K: erase to end-of-line (clears stale tail).
-        std::cout << "\r\033[K" << prompt_color << prompt << WOORT_ANSI_RST;
-        std::cout << highlight_source(buf);
-        // Absolute cursor column (1-based). Byte-based: exact for ASCII,
-        // approximate for wide characters.
-        std::cout << "\033[" << (prompt.size() + cur + 1) << 'G' << std::flush;
+        // The cursor is shown inline rather than repositioned by a column
+        // index (which drifts under East Asian wide characters): the code
+        // point at `cur` is underlined in insert mode / inverse video in
+        // overwrite mode, and a styled space marks the end-of-line position.
+        const char* cursor_style =
+            overwrite ? WOORT_ANSI_INV : WOORT_ANSI_UNDERLNE;
+        std::cout << "\r\033[K" << prompt_color << prompt << WOORT_ANSI_RST
+                  << highlight_source_ex(buf, cur, cursor_style) << std::flush;
     };
 
     render();
@@ -527,6 +639,11 @@ std::optional<std::string> wo_repl_live_readline(
             }
             break;
 
+        case key_kind::insert: // Insert key: toggle insert / overwrite mode.
+            overwrite = !overwrite;
+            render();
+            break;
+
         case key_kind::left:
             if (cur > 0)
             {
@@ -593,8 +710,17 @@ std::optional<std::string> wo_repl_live_readline(
         case key_kind::char_text:
             if (!k.utf8.empty())
             {
-                buf.insert(cur, k.utf8);
-                cur += k.utf8.size();
+                if (overwrite && cur < buf.size())
+                {
+                    // Overwrite the code point under the cursor.
+                    buf.replace(cur, cp_len_at(buf, cur), k.utf8);
+                    cur += k.utf8.size();
+                }
+                else
+                {
+                    buf.insert(cur, k.utf8);
+                    cur += k.utf8.size();
+                }
                 render();
             }
             break;

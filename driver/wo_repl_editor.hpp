@@ -17,10 +17,14 @@ std::string wo_repl_render_highlight(std::string_view src);
 // followed by the input colored via the public LSP lexer. Editing supported:
 // UTF-8 text entry, Backspace, Delete, Left/Right, Home/End, Ctrl-A/E,
 // Ctrl-C (clear current input), Ctrl-D (EOF on empty input), Enter (submit),
-// Tab (insert 4 spaces), Up/Down (navigate command history).
+// Tab (insert 4 spaces), Up/Down (navigate command history), Insert (toggle
+// insert/overwrite mode).
 //
-// The cursor is positioned by byte offset, so it is exact for ASCII input and
-// only approximate for wide (e.g. CJK) characters.
+// The terminal's block cursor is hidden during editing; the cursor position is
+// shown inline instead -- the code point under the cursor is underlined in
+// insert mode and shown in inverse video in overwrite mode. Because the line
+// is streamed left-to-right on every render, East Asian wide characters never
+// cause cursor drift.
 //
 // prompt is the prefix to render (">>> " or "... "); its first character
 // selects the prompt color.
