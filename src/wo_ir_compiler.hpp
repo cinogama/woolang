@@ -225,58 +225,58 @@ namespace wo
         void lnot(woort_IRValue* dst, const woort_IRValue* src);
 
         /* --- Index Load --- */
-        void ldidxvec(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
-        void ldidxvecx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
-        void ldidxstruct(woort_IRValue* dst, const woort_IRValue* container, uint32_t idx);
-        void ldidxstring(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
-        void ldidxdicti(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
-        void ldidxdictr(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
-        void ldidxdictb(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
-        void ldidxdictx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
-        void ldidxdictix(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
-        void ldidxdictrx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
-        void ldidxdictbx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
-        void ldidxdictxx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldidvec(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldidvecx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldidstruct(woort_IRValue* dst, const woort_IRValue* container, uint32_t idx);
+        void ldidstring(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldiddicti(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldiddictr(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldiddictb(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldiddictx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldiddictix(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldiddictrx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldiddictbx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
+        void ldiddictxx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx);
 
         /* --- Index Store --- */
-        void stidxveci(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxvecr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxvecb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxvecx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidveci(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidvecr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidvecb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidvecx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
 
-        void stidxdictii(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictir(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictib(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictix(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictri(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictrr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictrb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictrx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictbi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictbr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictbb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictbx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictxi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictxr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictxb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxdictxx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapii(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapir(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapib(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapix(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapri(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmaprr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmaprb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmaprx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapbi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapbr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapbb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapbx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapxi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapxr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapxb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxmapxx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
-        void stidxstruct(const woort_IRValue* c, uint32_t idx, const woort_IRValue* val);
+        void stiddictii(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictir(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictib(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictix(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictri(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictrr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictrb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictrx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictbi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictbr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictbb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictbx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictxi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictxr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictxb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stiddictxx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapii(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapir(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapib(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapix(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapri(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmaprr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmaprb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmaprx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapbi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapbr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapbb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapbx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapxi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapxr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapxb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidmapxx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
+        void stidstruct(const woort_IRValue* c, uint32_t idx, const woort_IRValue* val);
 
         /* --- Unpacking --- */
         void unpackvec(uint8_t count, const woort_IRValue* val);
@@ -285,10 +285,10 @@ namespace wo
         void unpackvecxall(woort_IRValue* dst, uint8_t count, const woort_IRValue* val);
 
         /* --- Struct Field Push to Stack --- */
-        void pushidxstruct(const woort_IRValue* src, uint32_t idx);
-        void pushidxstboxi(const woort_IRValue* src, uint32_t idx);
-        void pushidxstboxr(const woort_IRValue* src, uint32_t idx);
-        void pushidxstboxb(const woort_IRValue* src, uint32_t idx);
+        void pushidstruct(const woort_IRValue* src, uint32_t idx);
+        void pushidstboxi(const woort_IRValue* src, uint32_t idx);
+        void pushidstboxr(const woort_IRValue* src, uint32_t idx);
+        void pushidstboxb(const woort_IRValue* src, uint32_t idx);
 
         /* --- Atomic --- */
         void astore(woort_IRStaticIndex idx, const woort_IRValue* src);

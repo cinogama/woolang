@@ -1066,494 +1066,494 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::ldidxvec(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldidvec(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXVEC(cur, dst, container, idx))
+        if (!woort_IR_LDIDVEC(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxvecx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldidvecx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXVECX(cur, dst, container, idx))
+        if (!woort_IR_LDIDVECX(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxstruct(woort_IRValue* dst, const woort_IRValue* container, uint32_t idx)
+    void IRCompiler::ldidstruct(woort_IRValue* dst, const woort_IRValue* container, uint32_t idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXSTRUCT(cur, dst, container, idx))
+        if (!woort_IR_LDIDSTRUCT(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxstring(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldidstring(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXSTRING(cur, dst, container, idx))
+        if (!woort_IR_LDIDSTRING(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxdicti(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldiddicti(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXDICTI(cur, dst, container, idx))
+        if (!woort_IR_LDIDDICTI(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxdictr(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldiddictr(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXDICTR(cur, dst, container, idx))
+        if (!woort_IR_LDIDDICTR(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxdictb(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldiddictb(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXDICTB(cur, dst, container, idx))
+        if (!woort_IR_LDIDDICTB(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxdictx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldiddictx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXDICTX(cur, dst, container, idx))
+        if (!woort_IR_LDIDDICTX(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxdictix(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldiddictix(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXDICTIX(cur, dst, container, idx))
+        if (!woort_IR_LDIDDICTIX(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxdictrx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldiddictrx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXDICTRX(cur, dst, container, idx))
+        if (!woort_IR_LDIDDICTRX(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxdictbx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldiddictbx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXDICTBX(cur, dst, container, idx))
+        if (!woort_IR_LDIDDICTBX(cur, dst, container, idx))
             abondon();
     }
 
-    void IRCompiler::ldidxdictxx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
+    void IRCompiler::ldiddictxx(woort_IRValue* dst, const woort_IRValue* container, const woort_IRValue* idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_LDIDXDICTXX(cur, dst, container, idx))
+        if (!woort_IR_LDIDDICTXX(cur, dst, container, idx))
             abondon();
     }
 
 
-    void IRCompiler::stidxveci(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidveci(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXVECI(cur, c, idx, val))
+        if (!woort_IR_STIDVECI(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxvecr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidvecr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXVECR(cur, c, idx, val))
+        if (!woort_IR_STIDVECR(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxvecb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidvecb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXVECB(cur, c, idx, val))
+        if (!woort_IR_STIDVECB(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxvecx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidvecx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXVECX(cur, c, idx, val))
+        if (!woort_IR_STIDVECX(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictii(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictii(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTII(cur, c, idx, val))
+        if (!woort_IR_STIDDICTII(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictir(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictir(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTIR(cur, c, idx, val))
+        if (!woort_IR_STIDDICTIR(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictib(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictib(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTIB(cur, c, idx, val))
+        if (!woort_IR_STIDDICTIB(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictix(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictix(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTIX(cur, c, idx, val))
+        if (!woort_IR_STIDDICTIX(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictri(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictri(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTRI(cur, c, idx, val))
+        if (!woort_IR_STIDDICTRI(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictrr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictrr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTRR(cur, c, idx, val))
+        if (!woort_IR_STIDDICTRR(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictrb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictrb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTRB(cur, c, idx, val))
+        if (!woort_IR_STIDDICTRB(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictrx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictrx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTRX(cur, c, idx, val))
+        if (!woort_IR_STIDDICTRX(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictbi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictbi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTBI(cur, c, idx, val))
+        if (!woort_IR_STIDDICTBI(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictbr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictbr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTBR(cur, c, idx, val))
+        if (!woort_IR_STIDDICTBR(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictbb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictbb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTBB(cur, c, idx, val))
+        if (!woort_IR_STIDDICTBB(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictbx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictbx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTBX(cur, c, idx, val))
+        if (!woort_IR_STIDDICTBX(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictxi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictxi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTXI(cur, c, idx, val))
+        if (!woort_IR_STIDDICTXI(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictxr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictxr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTXR(cur, c, idx, val))
+        if (!woort_IR_STIDDICTXR(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictxb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictxb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTXB(cur, c, idx, val))
+        if (!woort_IR_STIDDICTXB(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxdictxx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stiddictxx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXDICTXX(cur, c, idx, val))
+        if (!woort_IR_STIDDICTXX(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapii(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapii(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPII(cur, c, idx, val))
+        if (!woort_IR_STIDMAPII(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapir(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapir(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPIR(cur, c, idx, val))
+        if (!woort_IR_STIDMAPIR(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapib(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapib(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPIB(cur, c, idx, val))
+        if (!woort_IR_STIDMAPIB(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapix(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapix(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPIX(cur, c, idx, val))
+        if (!woort_IR_STIDMAPIX(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapri(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapri(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPRI(cur, c, idx, val))
+        if (!woort_IR_STIDMAPRI(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmaprr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmaprr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPRR(cur, c, idx, val))
+        if (!woort_IR_STIDMAPRR(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmaprb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmaprb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPRB(cur, c, idx, val))
+        if (!woort_IR_STIDMAPRB(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmaprx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmaprx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPRX(cur, c, idx, val))
+        if (!woort_IR_STIDMAPRX(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapbi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapbi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPBI(cur, c, idx, val))
+        if (!woort_IR_STIDMAPBI(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapbr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapbr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPBR(cur, c, idx, val))
+        if (!woort_IR_STIDMAPBR(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapbb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapbb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPBB(cur, c, idx, val))
+        if (!woort_IR_STIDMAPBB(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapbx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapbx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPBX(cur, c, idx, val))
+        if (!woort_IR_STIDMAPBX(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapxi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapxi(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPXI(cur, c, idx, val))
+        if (!woort_IR_STIDMAPXI(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapxr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapxr(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPXR(cur, c, idx, val))
+        if (!woort_IR_STIDMAPXR(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapxb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapxb(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPXB(cur, c, idx, val))
+        if (!woort_IR_STIDMAPXB(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxmapxx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
+    void IRCompiler::stidmapxx(const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXMAPXX(cur, c, idx, val))
+        if (!woort_IR_STIDMAPXX(cur, c, idx, val))
             abondon();
     }
 
-    void IRCompiler::stidxstruct(const woort_IRValue* c, uint32_t idx, const woort_IRValue* val)
+    void IRCompiler::stidstruct(const woort_IRValue* c, uint32_t idx, const woort_IRValue* val)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_STIDXSTRUCT(cur, c, idx, val))
+        if (!woort_IR_STIDSTRUCT(cur, c, idx, val))
             abondon();
     }
 
@@ -1597,43 +1597,43 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::pushidxstboxi(const woort_IRValue* src, uint32_t idx)
+    void IRCompiler::pushidstboxi(const woort_IRValue* src, uint32_t idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_PUSHIDXSTBOXI(cur, src, idx))
+        if (!woort_IR_PUSHIDSTBOXI(cur, src, idx))
             abondon();
     }
 
-    void IRCompiler::pushidxstboxr(const woort_IRValue* src, uint32_t idx)
+    void IRCompiler::pushidstboxr(const woort_IRValue* src, uint32_t idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_PUSHIDXSTBOXR(cur, src, idx))
+        if (!woort_IR_PUSHIDSTBOXR(cur, src, idx))
             abondon();
     }
 
-    void IRCompiler::pushidxstboxb(const woort_IRValue* src, uint32_t idx)
+    void IRCompiler::pushidstboxb(const woort_IRValue* src, uint32_t idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_PUSHIDXSTBOXB(cur, src, idx))
+        if (!woort_IR_PUSHIDSTBOXB(cur, src, idx))
             abondon();
     }
 
-    void IRCompiler::pushidxstruct(const woort_IRValue* src, uint32_t idx)
+    void IRCompiler::pushidstruct(const woort_IRValue* src, uint32_t idx)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_PUSHIDXSTRUCT(cur, src, idx))
+        if (!woort_IR_PUSHIDSTRUCT(cur, src, idx))
             abondon();
     }
 

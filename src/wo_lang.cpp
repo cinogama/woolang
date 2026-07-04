@@ -3146,7 +3146,7 @@ namespace wo
                 m_result_type = ResultKind::RESULT_STACK_TEMP;
                 m_result_stack = ctx.c().new_value();
 
-                ctx.c().ldidxstruct(m_result_stack, structure, index);
+                ctx.c().ldidstruct(m_result_stack, structure, index);
                 ctx.c().boxdyn(m_result_stack, box_type, m_result_stack);
                 break;
             }
@@ -3157,7 +3157,7 @@ namespace wo
             m_result_type = ResultKind::RESULT_STACK_TEMP;
             m_result_stack = ctx.c().new_value();
 
-            ctx.c().ldidxstruct(m_result_stack, structure, index);
+            ctx.c().ldidstruct(m_result_stack, structure, index);
             break;
         case Request::PUSH_BOXED_RESULT_AND_IGNORE:
         {
@@ -3167,13 +3167,13 @@ namespace wo
                 switch (box_type)
                 {
                 case WOORT_BOX_VALUE_TYPE_INT:
-                    ctx.c().pushidxstboxi(structure, index);
+                    ctx.c().pushidstboxi(structure, index);
                     break;
                 case WOORT_BOX_VALUE_TYPE_REAL:
-                    ctx.c().pushidxstboxr(structure, index);
+                    ctx.c().pushidstboxr(structure, index);
                     break;
                 case WOORT_BOX_VALUE_TYPE_BOOL:
-                    ctx.c().pushidxstboxb(structure, index);
+                    ctx.c().pushidstboxb(structure, index);
                     break;
                 default:
                     wo_error("Unknown box_type for struct field.");
@@ -3185,7 +3185,7 @@ namespace wo
         /* fallthrough */
         [[fallthrough]];
         case Request::PUSH_RESULT_AND_IGNORE:
-            ctx.c().pushidxstruct(structure, index);
+            ctx.c().pushidstruct(structure, index);
             break;
         case Request::ASSIGN_TO_TARGET_AND_GET_TARGET:
         case Request::ASSIGN_BOXED_TO_TARGET_AND_GET_TARGET:

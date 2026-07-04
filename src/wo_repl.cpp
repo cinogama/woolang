@@ -343,7 +343,7 @@ wo_repl_result wo_repl_eval(
     }
     else
     {
-        status = woort_bootup_codeenv(v, cenv);
+        status = woort_bootup(v, cenv, true);
         woort_pop(1);
     }
 

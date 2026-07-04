@@ -123,7 +123,7 @@ int _wo_driver_run_program(woort_CodeEnv* cenv)
         std::cerr << "Failed to run: cannot reserve stack.\n";
         ret = EXIT_INTERNAL_ERROR;
     }
-    else if (woort_bootup_codeenv(v, cenv) == WOORT_VM_CALL_STATUS_NORMAL)
+    else if (woort_bootup(v, cenv, true) == WOORT_VM_CALL_STATUS_NORMAL)
     {
         ret = static_cast<int>(woort_int(v));
     }

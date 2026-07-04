@@ -140,7 +140,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
                 // Donot jit to make debug friendly.
                 if (WOORT_VM_CALL_STATUS_NORMAL
-                    != woort_bootup_codeenv(WOORT_IGNORE, _macro_codes.value()))
+                    != woort_bootup(WOORT_IGNORE, _macro_codes.value(), false))
                 {
                     macro_failed = true;
 

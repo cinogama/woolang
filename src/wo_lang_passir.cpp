@@ -172,7 +172,7 @@ namespace wo
                 woort_IRValue* const v =
                     m_ircontext.c().new_value();
 
-                m_ircontext.c().ldidxstruct(v, opnumval, index);
+                m_ircontext.c().ldidstruct(v, opnumval, index);
                 store_src = v;
             }
             else
@@ -193,7 +193,7 @@ namespace wo
             if (tuple_member_offset.has_value())
             {
                 const uint16_t index = tuple_member_offset.value();
-                m_ircontext.c().ldidxstruct(storage.m_stack_slot, opnumval, index);
+                m_ircontext.c().ldidstruct(storage.m_stack_slot, opnumval, index);
             }
             else
                 m_ircontext.c().mov(storage.m_stack_slot, opnumval);
@@ -235,7 +235,7 @@ namespace wo
                 uint16_t index = tuple_member_offset.value();
                 woort_IRValue* tuple_source_for_write = m_ircontext.c().new_value();
 
-                m_ircontext.c().ldidxstruct(tuple_source_for_write, opnumval, index);
+                m_ircontext.c().ldidstruct(tuple_source_for_write, opnumval, index);
                 tuple_source = tuple_source_for_write;
             }
             else
@@ -754,7 +754,7 @@ namespace wo
 
             auto* matching_value = m_ircontext.get_eval_result();
             woort_IRValue* const matching_index = m_ircontext.c().new_value();
-            m_ircontext.c().ldidxstruct(
+            m_ircontext.c().ldidstruct(
                 matching_index,
                 matching_value,
                 0);
@@ -2956,7 +2956,7 @@ namespace wo
                         const uint32_t tuple_elem_count = (uint32_t)tuple_info->m_element_types.size();
 
                         for (uint32_t i = 0; i < tuple_elem_count; ++i)
-                            m_ircontext.c().pushidxstruct(unpacking_opnum, i);
+                            m_ircontext.c().pushidstruct(unpacking_opnum, i);
                     }
                     else
                     {
@@ -2974,19 +2974,19 @@ namespace wo
 
                                     if (i - 1 < unpack_requirement.m_require_unpack_count
                                         || !tuple_info->m_element_types[i - 1]->is_need_to_box_in_IR(&box_type))
-                                        m_ircontext.c().pushidxstruct(unpacking_opnum, i - 1);
+                                        m_ircontext.c().pushidstruct(unpacking_opnum, i - 1);
                                     else
                                     {
                                         switch (box_type)
                                         {
                                         case WOORT_BOX_VALUE_TYPE_INT:
-                                            m_ircontext.c().pushidxstboxi(unpacking_opnum, i - 1);
+                                            m_ircontext.c().pushidstboxi(unpacking_opnum, i - 1);
                                             break;
                                         case WOORT_BOX_VALUE_TYPE_REAL:
-                                            m_ircontext.c().pushidxstboxr(unpacking_opnum, i - 1);
+                                            m_ircontext.c().pushidstboxr(unpacking_opnum, i - 1);
                                             break;
                                         case WOORT_BOX_VALUE_TYPE_BOOL:
-                                            m_ircontext.c().pushidxstboxb(unpacking_opnum, i - 1);
+                                            m_ircontext.c().pushidstboxb(unpacking_opnum, i - 1);
                                             break;
                                         default:
                                             /* Unexpected */
@@ -3001,7 +3001,7 @@ namespace wo
                                 if (unpack_requirement.m_require_unpack_count != 0)
                                 {
                                     for (uint32_t i = (uint32_t)unpack_requirement.m_require_unpack_count; i > 0; --i)
-                                        m_ircontext.c().pushidxstruct(unpacking_opnum, i - 1);
+                                        m_ircontext.c().pushidstruct(unpacking_opnum, i - 1);
                                 }
                             }
                         }
@@ -3856,7 +3856,7 @@ namespace wo
                                     ? *target_irvalue
                                     : m_ircontext.c().new_value();
 
-                                m_ircontext.c().ldidxstruct(v, container_opnum, fast_index);
+                                m_ircontext.c().ldidstruct(v, container_opnum, fast_index);
                                 if (need_box.has_value())
                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
@@ -3929,10 +3929,10 @@ namespace wo
                                 auto* container_opnum = m_ircontext.get_eval_result();
 
                                 if (use_x_variant)
-                                    m_ircontext.c().ldidxvecx(
+                                    m_ircontext.c().ldidvecx(
                                         make_result_target, container_opnum, index_opnum);
                                 else
-                                    m_ircontext.c().ldidxvec(
+                                    m_ircontext.c().ldidvec(
                                         make_result_target, container_opnum, index_opnum);
 
                                 break;
@@ -3953,16 +3953,16 @@ namespace wo
                                     switch (key_determined_type->m_base_type)
                                     {
                                     case lang_TypeInstance::DeterminedType::INTEGER:
-                                        m_ircontext.c().ldidxdictix(make_result_target, container_opnum, index_opnum);
+                                        m_ircontext.c().ldiddictix(make_result_target, container_opnum, index_opnum);
                                         break;
                                     case lang_TypeInstance::DeterminedType::REAL:
-                                        m_ircontext.c().ldidxdictrx(make_result_target, container_opnum, index_opnum);
+                                        m_ircontext.c().ldiddictrx(make_result_target, container_opnum, index_opnum);
                                         break;
                                     case lang_TypeInstance::DeterminedType::BOOLEAN:
-                                        m_ircontext.c().ldidxdictbx(make_result_target, container_opnum, index_opnum);
+                                        m_ircontext.c().ldiddictbx(make_result_target, container_opnum, index_opnum);
                                         break;
                                     default:
-                                        m_ircontext.c().ldidxdictxx(make_result_target, container_opnum, index_opnum);
+                                        m_ircontext.c().ldiddictxx(make_result_target, container_opnum, index_opnum);
                                         break;
                                     }
                                 }
@@ -3971,16 +3971,16 @@ namespace wo
                                     switch (key_determined_type->m_base_type)
                                     {
                                     case lang_TypeInstance::DeterminedType::INTEGER:
-                                        m_ircontext.c().ldidxdicti(make_result_target, container_opnum, index_opnum);
+                                        m_ircontext.c().ldiddicti(make_result_target, container_opnum, index_opnum);
                                         break;
                                     case lang_TypeInstance::DeterminedType::REAL:
-                                        m_ircontext.c().ldidxdictr(make_result_target, container_opnum, index_opnum);
+                                        m_ircontext.c().ldiddictr(make_result_target, container_opnum, index_opnum);
                                         break;
                                     case lang_TypeInstance::DeterminedType::BOOLEAN:
-                                        m_ircontext.c().ldidxdictb(make_result_target, container_opnum, index_opnum);
+                                        m_ircontext.c().ldiddictb(make_result_target, container_opnum, index_opnum);
                                         break;
                                     default:
-                                        m_ircontext.c().ldidxdictx(make_result_target, container_opnum, index_opnum);
+                                        m_ircontext.c().ldiddictx(make_result_target, container_opnum, index_opnum);
                                         break;
                                     }
                                 }
@@ -3996,7 +3996,7 @@ namespace wo
                                 auto* index_opnum = m_ircontext.get_eval_result();
                                 auto* container_opnum = m_ircontext.get_eval_result();
 
-                                m_ircontext.c().ldidxstring(make_result_target, container_opnum, index_opnum);
+                                m_ircontext.c().ldidstring(make_result_target, container_opnum, index_opnum);
                                 if (need_box.has_value())
                                     m_ircontext.c().boxdyn(make_result_target, need_box.value(), make_result_target);
                                 break;
@@ -4832,16 +4832,16 @@ namespace wo
                                 {
                                 case lang_TypeInstance::DeterminedType::base_type::INTEGER:
                                 case lang_TypeInstance::DeterminedType::base_type::HANDLE:
-                                    stdx_operate = &IRCompiler::stidxdictii;
+                                    stdx_operate = &IRCompiler::stiddictii;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::REAL:
-                                    stdx_operate = &IRCompiler::stidxdictri;
+                                    stdx_operate = &IRCompiler::stiddictri;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                                    stdx_operate = &IRCompiler::stidxdictbi;
+                                    stdx_operate = &IRCompiler::stiddictbi;
                                     break;
                                 default:
-                                    stdx_operate = &IRCompiler::stidxdictxi;
+                                    stdx_operate = &IRCompiler::stiddictxi;
                                     break;
                                 }
                                 break;
@@ -4853,16 +4853,16 @@ namespace wo
                                 {
                                 case lang_TypeInstance::DeterminedType::base_type::INTEGER:
                                 case lang_TypeInstance::DeterminedType::base_type::HANDLE:
-                                    stdx_operate = &IRCompiler::stidxdictir;
+                                    stdx_operate = &IRCompiler::stiddictir;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::REAL:
-                                    stdx_operate = &IRCompiler::stidxdictrr;
+                                    stdx_operate = &IRCompiler::stiddictrr;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                                    stdx_operate = &IRCompiler::stidxdictbr;
+                                    stdx_operate = &IRCompiler::stiddictbr;
                                     break;
                                 default:
-                                    stdx_operate = &IRCompiler::stidxdictxr;
+                                    stdx_operate = &IRCompiler::stiddictxr;
                                     break;
                                 }
                                 break;
@@ -4874,16 +4874,16 @@ namespace wo
                                 {
                                 case lang_TypeInstance::DeterminedType::base_type::INTEGER:
                                 case lang_TypeInstance::DeterminedType::base_type::HANDLE:
-                                    stdx_operate = &IRCompiler::stidxdictib;
+                                    stdx_operate = &IRCompiler::stiddictib;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::REAL:
-                                    stdx_operate = &IRCompiler::stidxdictrb;
+                                    stdx_operate = &IRCompiler::stiddictrb;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                                    stdx_operate = &IRCompiler::stidxdictbb;
+                                    stdx_operate = &IRCompiler::stiddictbb;
                                     break;
                                 default:
-                                    stdx_operate = &IRCompiler::stidxdictxb;
+                                    stdx_operate = &IRCompiler::stiddictxb;
                                     break;
                                 }
                                 break;
@@ -4895,16 +4895,16 @@ namespace wo
                                 {
                                 case lang_TypeInstance::DeterminedType::base_type::INTEGER:
                                 case lang_TypeInstance::DeterminedType::base_type::HANDLE:
-                                    stdx_operate = &IRCompiler::stidxdictix;
+                                    stdx_operate = &IRCompiler::stiddictix;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::REAL:
-                                    stdx_operate = &IRCompiler::stidxdictrx;
+                                    stdx_operate = &IRCompiler::stiddictrx;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                                    stdx_operate = &IRCompiler::stidxdictbx;
+                                    stdx_operate = &IRCompiler::stiddictbx;
                                     break;
                                 default:
-                                    stdx_operate = &IRCompiler::stidxdictxx;
+                                    stdx_operate = &IRCompiler::stiddictxx;
                                     break;
                                 }
                                 break;
@@ -4926,16 +4926,16 @@ namespace wo
                                 {
                                 case lang_TypeInstance::DeterminedType::base_type::INTEGER:
                                 case lang_TypeInstance::DeterminedType::base_type::HANDLE:
-                                    stdx_operate = &IRCompiler::stidxmapii;
+                                    stdx_operate = &IRCompiler::stidmapii;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::REAL:
-                                    stdx_operate = &IRCompiler::stidxmapri;
+                                    stdx_operate = &IRCompiler::stidmapri;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                                    stdx_operate = &IRCompiler::stidxmapbi;
+                                    stdx_operate = &IRCompiler::stidmapbi;
                                     break;
                                 default:
-                                    stdx_operate = &IRCompiler::stidxmapxi;
+                                    stdx_operate = &IRCompiler::stidmapxi;
                                     break;
                                 }
                                 break;
@@ -4947,16 +4947,16 @@ namespace wo
                                 {
                                 case lang_TypeInstance::DeterminedType::base_type::INTEGER:
                                 case lang_TypeInstance::DeterminedType::base_type::HANDLE:
-                                    stdx_operate = &IRCompiler::stidxmapir;
+                                    stdx_operate = &IRCompiler::stidmapir;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::REAL:
-                                    stdx_operate = &IRCompiler::stidxmaprr;
+                                    stdx_operate = &IRCompiler::stidmaprr;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                                    stdx_operate = &IRCompiler::stidxmapbr;
+                                    stdx_operate = &IRCompiler::stidmapbr;
                                     break;
                                 default:
-                                    stdx_operate = &IRCompiler::stidxmapxr;
+                                    stdx_operate = &IRCompiler::stidmapxr;
                                     break;
                                 }
                                 break;
@@ -4968,16 +4968,16 @@ namespace wo
                                 {
                                 case lang_TypeInstance::DeterminedType::base_type::INTEGER:
                                 case lang_TypeInstance::DeterminedType::base_type::HANDLE:
-                                    stdx_operate = &IRCompiler::stidxmapib;
+                                    stdx_operate = &IRCompiler::stidmapib;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::REAL:
-                                    stdx_operate = &IRCompiler::stidxmaprb;
+                                    stdx_operate = &IRCompiler::stidmaprb;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                                    stdx_operate = &IRCompiler::stidxmapbb;
+                                    stdx_operate = &IRCompiler::stidmapbb;
                                     break;
                                 default:
-                                    stdx_operate = &IRCompiler::stidxmapxb;
+                                    stdx_operate = &IRCompiler::stidmapxb;
                                     break;
                                 }
                                 break;
@@ -4989,16 +4989,16 @@ namespace wo
                                 {
                                 case lang_TypeInstance::DeterminedType::base_type::INTEGER:
                                 case lang_TypeInstance::DeterminedType::base_type::HANDLE:
-                                    stdx_operate = &IRCompiler::stidxmapix;
+                                    stdx_operate = &IRCompiler::stidmapix;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::REAL:
-                                    stdx_operate = &IRCompiler::stidxmaprx;
+                                    stdx_operate = &IRCompiler::stidmaprx;
                                     break;
                                 case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                                    stdx_operate = &IRCompiler::stidxmapbx;
+                                    stdx_operate = &IRCompiler::stidmapbx;
                                     break;
                                 default:
-                                    stdx_operate = &IRCompiler::stidxmapxx;
+                                    stdx_operate = &IRCompiler::stidmapxx;
                                     break;
                                 }
                                 break;
@@ -5013,16 +5013,16 @@ namespace wo
                             {
                             case lang_TypeInstance::DeterminedType::base_type::INTEGER:
                             case lang_TypeInstance::DeterminedType::base_type::HANDLE:
-                                stdx_operate = &IRCompiler::stidxveci;
+                                stdx_operate = &IRCompiler::stidveci;
                                 break;
                             case lang_TypeInstance::DeterminedType::base_type::REAL:
-                                stdx_operate = &IRCompiler::stidxvecr;
+                                stdx_operate = &IRCompiler::stidvecr;
                                 break;
                             case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                                stdx_operate = &IRCompiler::stidxvecb;
+                                stdx_operate = &IRCompiler::stidvecb;
                                 break;
                             default:
-                                stdx_operate = &IRCompiler::stidxvecx;
+                                stdx_operate = &IRCompiler::stidvecx;
                                 break;
                             }
                         }
@@ -5037,7 +5037,7 @@ namespace wo
                     case lang_TypeInstance::DeterminedType::STRUCT:
                     case lang_TypeInstance::DeterminedType::TUPLE:
                     {
-                        m_ircontext.c().stidxstruct(
+                        m_ircontext.c().stidstruct(
                             container_opnum,
                             (uint32_t)pattern_index->m_index->m_LANG_fast_index_for_struct.value(),
                             eval_result_for_upper);

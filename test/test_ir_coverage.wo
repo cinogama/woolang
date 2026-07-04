@@ -39,7 +39,7 @@ namespace test_ir_coverage
 
     /* Typed dict stores with non-int key/value types.
        Covers passir.cpp:4690-4761 dict-store dispatch and
-       ir_compiler.cpp:1190-1330 STIDXDICT* emission.
+       ir_compiler.cpp:1190-1330 STIDDICT* emission.
        Dict values must be `mut` to allow index assignment. */
     func test_typed_dict_stores()
     {
@@ -60,7 +60,7 @@ namespace test_ir_coverage
 
     /* Typed map stores with non-int key/value types.
        Covers passir.cpp:4784-4856 map-store dispatch and
-       ir_compiler.cpp:1350-1480 STIDXMAP* emission.
+       ir_compiler.cpp:1350-1480 STIDMAP* emission.
        Map values must be `mut` to allow index assignment. */
     func test_typed_map_stores()
     {
@@ -78,7 +78,7 @@ namespace test_ir_coverage
     }
 
     /* Dict load by real / bool key.
-       Covers passir.cpp:3883-3888 and ir_compiler.cpp:1069-1119 LDIDXDICT* . */
+       Covers passir.cpp:3883-3888 and ir_compiler.cpp:1069-1119 LDIDDICT* . */
     func test_dict_typed_read()
     {
         let dr = {[1.5] = "a", [2.5] = "b"};
@@ -91,7 +91,7 @@ namespace test_ir_coverage
     }
 
     /* Vec store of a real element.
-       Covers passir.cpp:4872 (stidxvecr) and ir_compiler.cpp:1150 (STIDXVECR).
+       Covers passir.cpp:4872 (stidvecr) and ir_compiler.cpp:1150 (STIDVECR).
        Vec elements must be `mut` to allow index assignment. */
     func test_vec_real_store()
     {
