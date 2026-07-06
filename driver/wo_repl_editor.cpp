@@ -306,6 +306,48 @@ struct console_in
 };
 
 // ====================================================================
+// Line-start guard: ensure the prompt is drawn on a fresh line.
+// ====================================================================
+
+// If the previously evaluated program wrote text without a trailing newline
+// (e.g. woo::std::print), the cursor sits in the middle of that line. The
+// editor repaints the prompt with '\r' + "\033[K", which would then clobber
+// the surviving output. Before the first render we ask the terminal for the
+// cursor column (DSR cursor-position report); when it is not at column 1 we
+// advance to a new line, leaving the prior output intact above it.
+//
+// Runs only on a real interactive terminal (the caller has already checked
+// woort_stdin_isatty()), where every common terminal answers DSR promptly.
+// Should no CPR arrive, the next user keystroke unblocks peek() and the
+// function simply assumes column 1 -- it never blocks indefinitely.
+void ensure_fresh_line(console_in& src)
+{
+    std::cout << "\033[6n" << std::flush; // DSR: report cursor position
+
+    if (src.peek() != 0x1B) // no ESC pending: no CPR, assume column 1
+        return;             // (the byte is left in the lookahead for the editor)
+    (void)src.get();        // consume ESC
+
+    if (src.get() != '[')   // not a CSI reply: nothing safe to conclude
+        return;
+
+    // Reply layout: [ <row> ; <col> R   (row and col are 1-based).
+    int ch;
+    while ((ch = src.get()) >= 0 && ch != ';' && ch != 'R')
+    { /* skip the row field */ }
+    if (ch != ';')
+        return;
+
+    int col = 0;
+    while ((ch = src.get()) >= 0 && ch >= '0' && ch <= '9')
+        col = col * 10 + (ch - '0');
+    // 'ch' is now the terminating 'R' (or EOF): the column is complete.
+
+    if (col > 1)
+        std::cout << "\r\n" << std::flush; // preserve prior text, drop a line
+}
+
+// ====================================================================
 // Raw-mode RAII guard
 // ====================================================================
 
@@ -587,6 +629,8 @@ std::optional<std::string> wo_repl_live_readline(
         line += WOORT_ANSI_RST "\033[K";
         std::cout << line << std::flush;
     };
+
+    ensure_fresh_line(src);
 
     render();
     for (;;)
