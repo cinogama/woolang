@@ -76,7 +76,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         } while (scope_count);
 
         if (meet_eof)
-            lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
+            lex.produce_lexer_error(lexer::msglevel_t::error, WO_ERR_UNEXPECTED_EOF);
         else
         {
             auto macro_end_place = lex.m_source_stream->tellg();
@@ -1191,7 +1191,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     if (following_ch != EOF)
                         append_result_char(following_ch);
                     else
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
+                        return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXPECTED_EOF);
                 }
             }
             else
@@ -1213,11 +1213,15 @@ extern func macro_entry(lexer: std::lexer)=> string
                     switch (wo::u8strnlen(token_literal_result.data(), token_literal_result.size()))
                     {
                     case 0:
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_NO_CHAR_IN_CHAR);
+                        return produce_lexer_error(
+                            msglevel_t::error, WO_ERR_NO_CHAR_IN_CHAR);
                     case 1:
-                        return produce_token(lex_type::l_literal_char, std::move(token_literal_result));
+                        return produce_token(
+                            lex_type::l_literal_char,
+                            std::move(token_literal_result));
                     default:
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_TOO_MANY_CHAR_IN_CHAR);
+                        return produce_lexer_error(
+                            msglevel_t::error, WO_ERR_TOO_MANY_CHAR_IN_CHAR);
                     }
                     wo_error("Cannot be here.");
                 }
@@ -1337,14 +1341,18 @@ extern func macro_entry(lexer: std::lexer)=> string
                         }
                         default:
                         str_escape_sequences_fail:
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNKNOWN_ESCSEQ_BEGIN_WITH_CH, escape_ch);
                         }
                     }
                     else
                         append_result_char(following_ch);
                 }
+                else if (readed_char == '\'')
+                    return produce_lexer_error(
+                        msglevel_t::error, WO_ERR_UNEXPECTED_EOL_IN_CHAR);
                 else
-                    return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
+                    return produce_lexer_error(
+                        msglevel_t::error, WO_ERR_UNEXPECTED_EOL_IN_STRING);
             }
 
             wo_error("Cannot be here.");
@@ -1511,7 +1519,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                             }
                             else if (peeked_token_type == lex_type::l_eof)
                             {
-                                produce_lexer_error(lexer::msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
+                                produce_lexer_error(lexer::msglevel_t::error, WO_ERR_UNEXPECTED_EOF);
                                 break;
                             }
                         }
@@ -1657,19 +1665,19 @@ extern func macro_entry(lexer: std::lexer)=> string
                         {
                             append_result_char(read_char());
                             if (is_real)
-                                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
+                                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXPECTED_CH_AFTER_CH, following_chs);
                             is_real = true;
                         }
                         else if (following_chs == 'H' || following_chs == 'h')
                         {
                             if (is_real)
-                                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
+                                return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXPECTED_CH_AFTER_CH, following_chs);
                             (void)read_char();
                             is_handle = true;
                             break;
                         }
                         else if (lexer::lex_isalnum(following_chs))
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL, following_chs);
                         else
                             break;                  // end read
                     }
@@ -1678,7 +1686,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (lexer::lex_isxdigit(following_chs) || following_chs == 'X' || following_chs == 'x')
                             append_result_char(read_char());
                         else if (following_chs == '.')
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXPECTED_CH_AFTER_CH, following_chs);
                         else if (following_chs == 'H' || following_chs == 'h')
                         {
                             (void)read_char();
@@ -1686,7 +1694,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                             break;
                         }
                         else if (lexer::lex_isalnum(following_chs))
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL, following_chs);
                         else
                             break;                  // end read
                     }
@@ -1695,7 +1703,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (lexer::lex_isodigit(following_chs))
                             append_result_char(read_char());
                         else if (following_chs == '.')
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXPECTED_CH_AFTER_CH, following_chs);
                         else if (following_chs == 'H' || following_chs == 'h')
                         {
                             (void)read_char();
@@ -1703,7 +1711,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                             break;
                         }
                         else if (lexer::lex_isalnum(following_chs))
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL, following_chs);
                         else
                             break;                  // end read
                     }
@@ -1712,19 +1720,19 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (following_chs == '1' || following_chs == '0' || following_chs == 'B' || following_chs == 'b')
                             append_result_char(read_char());
                         else if (following_chs == '.')
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, readed_char, following_chs);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_UNEXPECTED_CH_AFTER_CH, following_chs);
                         else if (following_chs == 'H' || following_chs == 'b')
                         {
                             (void)read_char();
                             is_handle = true;
                         }
                         else if (lexer::lex_isalnum(following_chs))
-                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL);
+                            return produce_lexer_error(msglevel_t::error, WO_ERR_ILLEGAL_LITERAL, following_chs);
                         else
                             break;                  // end read
                     }
                     else
-                        return produce_lexer_error(msglevel_t::error, WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE);
+                        return produce_lexer_error(msglevel_t::error, WO_ERR_LEXER_ERR_UNKNOWN_NUM_BASE);
 
                 } while (true);
 
@@ -1785,7 +1793,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 } while (true);
 
                 if (operator_type == lex_type::l_error)
-                    return produce_lexer_error(msglevel_t::error, WO_ERR_UNKNOW_OPERATOR_STR, token_literal_result.c_str());
+                    return produce_lexer_error(msglevel_t::error, WO_ERR_UNKNOWN_OPERATOR_STR, token_literal_result.c_str());
 
                 return produce_token(operator_type, std::move(token_literal_result));
             }
@@ -1942,7 +1950,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     default:
                     str_escape_sequences_fail_in_format_begin:
                         return produce_lexer_error(
-                            msglevel_t::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                            msglevel_t::error, WO_ERR_UNKNOWN_ESCSEQ_BEGIN_WITH_CH, escape_ch);
                     }
                 }
                 else
@@ -1950,7 +1958,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             }
             else
                 return produce_lexer_error(
-                    msglevel_t::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
+                    msglevel_t::error, WO_ERR_UNEXPECTED_EOL_IN_STRING);
         }
 
         // Cannot be here.

@@ -1624,7 +1624,7 @@ namespace wo
 
                 lex.record_lang_error(lexer::msglevel_t::error,
                     symbol->m_symbol_declare_ast.value(),
-                    WO_ERR_UNSED_VARIABLE,
+                    WO_ERR_UNUSED_VARIABLE,
                     get_symbol_name(symbol.get()));
                 have_unused_local_variable = true;
             }

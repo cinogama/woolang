@@ -127,7 +127,7 @@ namespace wo
         {
             return token{
                 lex.record_parser_error(
-                    lexer::msglevel_t::error, WO_ERR_UNEXCEPT_TOKEN_2, WO_NEED_TOKEN(0).identifier->c_str()) };
+                    lexer::msglevel_t::error, WO_ERR_UNEXPECTED_TOKEN, WO_NEED_TOKEN(0).identifier->c_str()) };
         }
         auto pass_enum_item_create::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {

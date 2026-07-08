@@ -820,8 +820,6 @@ namespace wo
                         }
                         else
                         {
-                            std::string err_info;
-
                             if (peeked_token_instance->m_lex_type == lex_type::l_eof)
                             {
                                 if (out_is_incomplete != nullptr)
@@ -830,12 +828,13 @@ namespace wo
                                     return nullptr;
                                 }
                                 else
-                                    err_info = WO_ERR_UNEXCEPT_EOF;
+                                    (void)tkr.record_parser_error(
+                                        lexer::msglevel_t::error, WO_ERR_UNEXPECTED_EOF);
                             }
                             else
-                                err_info = WO_ERR_UNEXCEPT_TOKEN + ("'" + *peeked_token_instance->m_token_text + "'");
-
-                            (void)tkr.record_parser_error(lexer::msglevel_t::error, err_info.c_str());
+                                (void)tkr.record_parser_error(
+                                    lexer::msglevel_t::error, WO_ERR_UNEXPECTED_TOKEN,
+                                    peeked_token_instance->m_token_text->c_str());
                         }
 
                         try_recover_count = 0;
@@ -1060,7 +1059,7 @@ namespace wo
 
         } while (true);
 
-        (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNEXCEPT_EOF);
+        (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNEXPECTED_EOF);
 
         return nullptr;
     }

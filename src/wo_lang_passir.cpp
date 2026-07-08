@@ -1927,7 +1927,7 @@ namespace wo
         if (!value_instance->m_IR_storage.has_value())
         {
             lex.record_lang_error(lexer::msglevel_t::error, node,
-                WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED,
+                WO_ERR_VARIABLE_STORAGE_NOT_DETERMINED,
                 get_value_name(value_instance));
 
             if (value_instance->m_symbol->m_symbol_declare_ast.has_value())
@@ -4307,7 +4307,7 @@ namespace wo
                 if (!assign_value_instance->m_IR_storage.has_value())
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node,
-                        WO_ERR_VARIBALE_STORAGE_NOT_DETERMINED,
+                        WO_ERR_VARIABLE_STORAGE_NOT_DETERMINED,
                         get_value_name(assign_value_instance));
 
                     if (assign_value_instance->m_symbol->m_symbol_declare_ast.has_value())
