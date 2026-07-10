@@ -41,12 +41,6 @@ namespace wo
                     libpath.c_str(),
                     libpath.c_str(),
                     script_path.c_str(), false);
-
-                if (m_extern_library != nullptr)
-                {
-                    if (auto* entry = (woort_NativeFunction)woort_dylib_load_func(m_extern_library, "woolib_entry"))
-                        entry();
-                }
             }
             woort_NativeFunction load_func(const char* funcname)
             {
@@ -58,12 +52,7 @@ namespace wo
             ~extern_lib_guard()
             {
                 if (m_extern_library != nullptr)
-                {
-                    if (auto* leave = (woort_NativeFunction)woort_dylib_load_func(m_extern_library, "woolib_exit"))
-                        leave();
-
                     woort_dylib_unload(m_extern_library, WOORT_DYLIB_UNREF);
-                }
             }
         };
 
