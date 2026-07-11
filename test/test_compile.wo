@@ -11,7 +11,7 @@ namespace test_compile
     func compile_program(src: string)
     {
         return dumpling::Program::create(
-            "test_compile/test_tmp_script.wo", src as buffer);
+            "test_compile/test_tmp_script.wo", src as buffer, false);
     }
     func assure_compile_success(src: string)
     {
@@ -2679,8 +2679,8 @@ func main()
     func main()
     {
         let test_threads = []mut as vec<thread>;
-        // for (let mut i = 0 ; i < 4; i += 1)
-        //     test_threads->add(thread::create(test_compile_success_or_fail));
+        for (let mut i = 0 ; i < 4; i += 1)
+            test_threads->add(thread::create(test_compile_success_or_fail));
             
         test_compile_success_or_fail();
         
