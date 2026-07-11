@@ -6,7 +6,6 @@
 #include "woort.h"
 
 #include <istream>
-#include <memory_resource>
 #include <streambuf>
 #include <array>
 
@@ -33,11 +32,12 @@ namespace wo
         std::vector<std::string> search_dir_strings;
         std::vector<const char*> search_dirs;
 
-        std::array<std::byte, 256> buf;
-        std::pmr::monotonic_buffer_resource pool{ buf.data(), buf.size() };
 
         /* Walk the lexer import chain to collect source directories */
         auto finding_lex = lex;
+
+        std::vector<char> dir_buf;
+
         while (finding_lex.has_value())
         {
             auto* lex_instance = finding_lex.value();
@@ -46,7 +46,6 @@ namespace wo
             size_t need = woort_get_file_loc(src_path, nullptr, 0);
             if (need > 0)
             {
-                std::pmr::vector<char> dir_buf{ &pool };
                 dir_buf.resize(need + 1);
 
                 (void)woort_get_file_loc(src_path, dir_buf.data(), dir_buf.size());

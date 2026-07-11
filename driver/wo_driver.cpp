@@ -1,4 +1,4 @@
-#include "wo_repl_common.hpp"
+#include "wo.h"
 
 #include "wo_repl_editor.hpp"
 

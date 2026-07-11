@@ -2,6 +2,18 @@
 
 #include <set>
 
+const char* _wo_strdupn(const char* str, size_t len)
+{
+    char* new_str = (char*)malloc(len + 1);
+    memcpy(new_str, str, len);
+    new_str[len] = '\0';
+    return new_str;
+}
+const char* _wo_strdup(const char* str)
+{
+    return _wo_strdupn(str, strlen(str));
+}
+
 #ifndef WO_DISABLE_COMPILER
 
 static_assert(WO_NEED_LSP_API);
@@ -39,18 +51,6 @@ struct _wo_lspv2_source_meta
     using source_expr_collection_t = std::unordered_map<wo_pstring_t, expr_location_map_t>;
     source_expr_collection_t m_source_expr_collection;
 };
-
-const char* _wo_strdupn(const char* str, size_t len)
-{
-    char* new_str = (char*)malloc(len + 1);
-    memcpy(new_str, str, len);
-    new_str[len] = '\0';
-    return new_str;
-}
-const char* _wo_strdup(const char* str)
-{
-    return _wo_strdupn(str, strlen(str));
-}
 
 wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     const char* virtual_src_path,
@@ -845,64 +845,6 @@ void wo_lspv2_constant_info_free(wo_lspv2_constant_info* info)
     delete info;
 }
 
-wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src)
-{
-    // The lexer interns token text through the thread-local string pool
-    // (wstring_pool::get_pstr), so a pool must be active on this thread for
-    // the lifetime of the handle. Open one here and close it in
-    // wo_lspv2_lexer_free. begin_new_pool()/end_pool() are refcounted, so this
-    // is safe even when the caller already has a pool open (e.g. a REPL
-    // session).
-    wo::wstring_pool::begin_new_pool();
-    return reinterpret_cast<wo_lspv2_lexer*>(
-        new wo::lexer(
-            std::nullopt,
-            std::nullopt,
-            std::make_unique<std::istringstream>(src),
-            std::nullopt));
-}
-void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer)
-{
-    delete reinterpret_cast<wo::lexer*>(lexer);
-    wo::wstring_pool::end_pool();
-}
-wo_lspv2_token_info* wo_lspv2_lexer_peek(
-    wo_lspv2_lexer* lexer)
-{
-    wo::lexer* lex = reinterpret_cast<wo::lexer*>(lexer);
-    auto* token = lex->peek(false);
-
-    return new wo_lspv2_token_info{
-        (wo_lspv2_lexer_token)token->m_lex_type,
-        _wo_strdupn(token->m_token_text->data(), token->m_token_text->size()),
-        token->m_token_text->size(),
-         wo_lspv2_location{
-            nullptr,
-            { token->m_token_begin[0], token->m_token_begin[1] },
-            { token->m_token_end[0], token->m_token_end[1] },
-        },
-    };
-}
-void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer)
-{
-    wo::lexer* lex = reinterpret_cast<wo::lexer*>(lexer);
-
-    lex->consume_forward();
-}
-void wo_lspv2_token_info_free(wo_lspv2_token_info* info)
-{
-    free(const_cast<void*>(info->m_token_serial));
-    delete info;
-}
-
-const char* wo_lspv2_token_info_enstring(
-    const void* p, size_t len)
-{
-    thread_local std::string str;
-    str = wo::u8enstring(reinterpret_cast<const char*>(p), len, false);
-    return str.c_str();
-}
-
 // ==================== Semantic Tokens API ====================
 
 struct _semantic_token_entry
@@ -1154,3 +1096,61 @@ void wo_lspv2_semantic_token_info_free(wo_lspv2_semantic_token_info* info)
 }
 
 #endif
+
+wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src)
+{
+    // The lexer interns token text through the thread-local string pool
+    // (wstring_pool::get_pstr), so a pool must be active on this thread for
+    // the lifetime of the handle. Open one here and close it in
+    // wo_lspv2_lexer_free. begin_new_pool()/end_pool() are refcounted, so this
+    // is safe even when the caller already has a pool open (e.g. a REPL
+    // session).
+    wo::wstring_pool::begin_new_pool();
+    return reinterpret_cast<wo_lspv2_lexer*>(
+        new wo::lexer(
+            std::nullopt,
+            std::nullopt,
+            std::make_unique<std::istringstream>(src),
+            std::nullopt));
+}
+void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer)
+{
+    delete reinterpret_cast<wo::lexer*>(lexer);
+    wo::wstring_pool::end_pool();
+}
+wo_lspv2_token_info* wo_lspv2_lexer_peek(
+    wo_lspv2_lexer* lexer)
+{
+    wo::lexer* lex = reinterpret_cast<wo::lexer*>(lexer);
+    auto* token = lex->peek(false);
+
+    return new wo_lspv2_token_info{
+        (wo_lspv2_lexer_token)token->m_lex_type,
+        _wo_strdupn(token->m_token_text->data(), token->m_token_text->size()),
+        token->m_token_text->size(),
+         wo_lspv2_location{
+            nullptr,
+            { token->m_token_begin[0], token->m_token_begin[1] },
+            { token->m_token_end[0], token->m_token_end[1] },
+        },
+    };
+}
+void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer)
+{
+    wo::lexer* lex = reinterpret_cast<wo::lexer*>(lexer);
+
+    lex->consume_forward();
+}
+void wo_lspv2_token_info_free(wo_lspv2_token_info* info)
+{
+    free(const_cast<void*>(info->m_token_serial));
+    delete info;
+}
+
+const char* wo_lspv2_token_info_enstring(
+    const void* p, size_t len)
+{
+    thread_local std::string str;
+    str = wo::u8enstring(reinterpret_cast<const char*>(p), len, false);
+    return str.c_str();
+}

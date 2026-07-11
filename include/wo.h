@@ -330,6 +330,177 @@ WO_API uint64_t wo_crc64_file_from_path(const char* filepath);
 
 /* ========== LSP (Language Server Protocol) API ========== */
 
+#if defined(WO_NEED_LSP_API) || defined(WO_NEED_LSP_LEXER_API)
+/** @name LSP Lexer API */
+/**@{*/
+
+/** @brief Source location spanning a range in a file. */
+typedef struct _wo_lspv2_location
+{
+    const char* m_file_name;         /**< @brief Source file path. */
+    size_t m_begin_location[2];      /**< @brief Start position [row, col] (0-based). */
+    size_t m_end_location[2];        /**< @brief End position [row, col] (0-based). */
+} wo_lspv2_location;
+
+/**
+ * @brief Lexer token types for the Woolang tokenizer (LSP use).
+ */
+typedef enum _wo_lspv2_lexer_token
+{
+    WO_LSPV2_TOKEN_EOF = -1,                /**< @brief End of input. */
+    WO_LSPV2_TOKEN_ERROR = 0,               /**< @brief Lexer error. */
+    WO_LSPV2_TOKEN_EMPTY,                   /**< @brief Empty token. */
+    WO_LSPV2_TOKEN_IDENTIFIER,              /**< @brief Identifier. */
+    WO_LSPV2_TOKEN_LITERAL_INTEGER,         /**< @brief Integer literal (e.g. 1, 0x1234). */
+    WO_LSPV2_TOKEN_LITERAL_HANDLE,          /**< @brief Handle literal (e.g. 0L, 0xFFL). */
+    WO_LSPV2_TOKEN_LITERAL_REAL,            /**< @brief Real literal (e.g. 0.2). */
+    WO_LSPV2_TOKEN_LITERAL_STRING,          /**< @brief String literal ("hello"). */
+    WO_LSPV2_TOKEN_LITERAL_RAW_STRING,      /**< @brief Raw string literal (@ raw @). */
+    WO_LSPV2_TOKEN_LITERAL_CHAR,            /**< @brief Character literal ('x'). */
+    WO_LSPV2_TOKEN_FORMAT_STRING_BEGIN,     /**< @brief Format string begin (F"..{). */
+    WO_LSPV2_TOKEN_FORMAT_STRING,           /**< @brief Format string middle (}..{). */
+    WO_LSPV2_TOKEN_FORMAT_STRING_END,       /**< @brief Format string end (}.."). */
+    WO_LSPV2_TOKEN_SEMICOLON,               /**< @brief ; */
+    WO_LSPV2_TOKEN_COMMA,                   /**< @brief , */
+    WO_LSPV2_TOKEN_ADD,                     /**< @brief + */
+    WO_LSPV2_TOKEN_SUB,                     /**< @brief - */
+    WO_LSPV2_TOKEN_MUL,                     /**< @brief * */
+    WO_LSPV2_TOKEN_DIV,                     /**< @brief / */
+    WO_LSPV2_TOKEN_MOD,                     /**< @brief % */
+    WO_LSPV2_TOKEN_ASSIGN,                  /**< @brief = */
+    WO_LSPV2_TOKEN_ADD_ASSIGN,              /**< @brief += */
+    WO_LSPV2_TOKEN_SUB_ASSIGN,              /**< @brief -= */
+    WO_LSPV2_TOKEN_MUL_ASSIGN,              /**< @brief *= */
+    WO_LSPV2_TOKEN_DIV_ASSIGN,              /**< @brief /= */
+    WO_LSPV2_TOKEN_MOD_ASSIGN,              /**< @brief %= */
+    WO_LSPV2_TOKEN_VALUE_ASSIGN,            /**< @brief := */
+    WO_LSPV2_TOKEN_VALUE_ADD_ASSIGN,        /**< @brief +:= */
+    WO_LSPV2_TOKEN_VALUE_SUB_ASSIGN,        /**< @brief -:= */
+    WO_LSPV2_TOKEN_VALUE_MUL_ASSIGN,        /**< @brief *:= */
+    WO_LSPV2_TOKEN_VALUE_DIV_ASSIGN,        /**< @brief /:= */
+    WO_LSPV2_TOKEN_VALUE_MOD_ASSIGN,        /**< @brief %:= */
+    WO_LSPV2_TOKEN_EQUAL,                   /**< @brief == */
+    WO_LSPV2_TOKEN_NOT_EQUAL,               /**< @brief != */
+    WO_LSPV2_TOKEN_LARG_OR_EQUAL,           /**< @brief >= */
+    WO_LSPV2_TOKEN_LESS_OR_EQUAL,           /**< @brief <= */
+    WO_LSPV2_TOKEN_LESS,                    /**< @brief < */
+    WO_LSPV2_TOKEN_LARG,                    /**< @brief > */
+    WO_LSPV2_TOKEN_LAND,                    /**< @brief && */
+    WO_LSPV2_TOKEN_LOR,                     /**< @brief || */
+    WO_LSPV2_TOKEN_OR,                      /**< @brief | */
+    WO_LSPV2_TOKEN_LNOT,                    /**< @brief ! */
+    WO_LSPV2_TOKEN_SCOPEING,                /**< @brief :: */
+    WO_LSPV2_TOKEN_TEMPLATE_USING_BEGIN,    /**< @brief :< */
+    WO_LSPV2_TOKEN_TYPECAST,                /**< @brief : */
+    WO_LSPV2_TOKEN_INDEX_POINT,             /**< @brief . */
+    WO_LSPV2_TOKEN_DOUBLE_INDEX_POINT,      /**< @brief .. [Reserved] */
+    WO_LSPV2_TOKEN_VARIADIC_SIGN,           /**< @brief ... */
+    WO_LSPV2_TOKEN_INDEX_BEGIN,             /**< @brief '[' */
+    WO_LSPV2_TOKEN_INDEX_END,               /**< @brief ']' */
+    WO_LSPV2_TOKEN_DIRECT,                  /**< @brief -> */
+    WO_LSPV2_TOKEN_INV_DIRECT,              /**< @brief <| */
+    WO_LSPV2_TOKEN_FUNCTION_RESULT,         /**< @brief => */
+    WO_LSPV2_TOKEN_BIND_MONAD,              /**< @brief =>> */
+    WO_LSPV2_TOKEN_MAP_MONAD,               /**< @brief ->> */
+    WO_LSPV2_TOKEN_LEFT_BRACKETS,           /**< @brief ( */
+    WO_LSPV2_TOKEN_RIGHT_BRACKETS,          /**< @brief ) */
+    WO_LSPV2_TOKEN_LEFT_CURLY_BRACES,       /**< @brief { */
+    WO_LSPV2_TOKEN_RIGHT_CURLY_BRACES,      /**< @brief } */
+    WO_LSPV2_TOKEN_QUESTION,                /**< @brief ? */
+
+    /* Keywords */
+    WO_LSPV2_TOKEN_IMPORT,                  /**< @brief import */
+    WO_LSPV2_TOKEN_EXPORT,                  /**< @brief export */
+    WO_LSPV2_TOKEN_NIL,                     /**< @brief nil */
+    WO_LSPV2_TOKEN_TRUE,                    /**< @brief true */
+    WO_LSPV2_TOKEN_FALSE,                   /**< @brief false */
+    WO_LSPV2_TOKEN_WHILE,                   /**< @brief while */
+    WO_LSPV2_TOKEN_IF,                      /**< @brief if */
+    WO_LSPV2_TOKEN_ELSE,                    /**< @brief else */
+    WO_LSPV2_TOKEN_NAMESPACE,               /**< @brief namespace */
+    WO_LSPV2_TOKEN_FOR,                     /**< @brief for */
+    WO_LSPV2_TOKEN_EXTERN,                  /**< @brief extern */
+    WO_LSPV2_TOKEN_LET,                     /**< @brief let */
+    WO_LSPV2_TOKEN_MUT,                     /**< @brief mut */
+    WO_LSPV2_TOKEN_FUNC,                    /**< @brief func */
+    WO_LSPV2_TOKEN_RETURN,                  /**< @brief return */
+    WO_LSPV2_TOKEN_USING,                   /**< @brief using */
+    WO_LSPV2_TOKEN_ALIAS,                   /**< @brief alias */
+    WO_LSPV2_TOKEN_ENUM,                    /**< @brief enum */
+    WO_LSPV2_TOKEN_AS,                      /**< @brief as */
+    WO_LSPV2_TOKEN_IS,                      /**< @brief is */
+    WO_LSPV2_TOKEN_TYPEOF,                  /**< @brief typeof */
+    WO_LSPV2_TOKEN_PRIVATE,                 /**< @brief private */
+    WO_LSPV2_TOKEN_PUBLIC,                  /**< @brief public */
+    WO_LSPV2_TOKEN_PROTECTED,               /**< @brief protected */
+    WO_LSPV2_TOKEN_STATIC,                  /**< @brief static */
+    WO_LSPV2_TOKEN_BREAK,                   /**< @brief break */
+    WO_LSPV2_TOKEN_CONTINUE,                /**< @brief continue */
+    WO_LSPV2_TOKEN_LAMBDA,                  /**< @brief lambda */
+    WO_LSPV2_TOKEN_AT,                      /**< @brief @ */
+    WO_LSPV2_TOKEN_DO,                      /**< @brief do */
+    WO_LSPV2_TOKEN_WHERE,                   /**< @brief where */
+    WO_LSPV2_TOKEN_OPERATOR,                /**< @brief operator */
+    WO_LSPV2_TOKEN_UNION,                   /**< @brief union */
+    WO_LSPV2_TOKEN_MATCH,                   /**< @brief match */
+    WO_LSPV2_TOKEN_STRUCT,                  /**< @brief struct */
+    WO_LSPV2_TOKEN_IMMUT,                   /**< @brief immut */
+    WO_LSPV2_TOKEN_TYPEID,                  /**< @brief typeid */
+    WO_LSPV2_TOKEN_DEFER,                   /**< @brief defer */
+    WO_LSPV2_TOKEN_MACRO,                   /**< @brief macro */
+
+    /* Comments */
+    WO_LSPV2_TOKEN_LINE_COMMENT,            /**< @brief Line comment (//). */
+    WO_LSPV2_TOKEN_BLOCK_COMMENT,           /**< @brief Block comment. */
+    WO_LSPV2_TOKEN_SHEBANG_COMMENT,         /**< @brief Shebang comment (#!). */
+    WO_LSPV2_TOKEN_UNKNOWN_TOKEN,           /**< @brief Unknown/unrecognized token. */
+
+} wo_lspv2_lexer_token;
+
+/** @brief Opaque handle to the LSP lexer. */
+typedef struct _wo_lspv2_lexer wo_lspv2_lexer;
+
+/** @brief Information about a single lexer token. */
+typedef struct _wo_lspv2_token_info
+{
+    wo_lspv2_lexer_token m_token;   /**< @brief Token type. */
+    const void* m_token_serial;     /**< @brief Token serialized representation. */
+    size_t m_token_length;          /**< @brief Length of the token text. */
+    wo_lspv2_location m_location;   /**< @brief Source location of the token. */
+
+} wo_lspv2_token_info;
+
+/**
+ * @brief Create a lexer for tokenizing Woolang source code.
+ * @param src  The source code to tokenize.
+ * @return A new lexer handle.
+ */
+WO_API wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src);
+
+/** @brief Destroy a lexer handle. */
+WO_API void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer);
+
+/**
+ * @brief Peek at the next token without consuming it.
+ * @param lexer  The lexer handle.
+ * @return Token info for the next token.
+ */
+WO_API wo_lspv2_token_info* wo_lspv2_lexer_peek(wo_lspv2_lexer* lexer);
+
+/**
+ * @brief Consume (advance past) the current token.
+ * @param lexer  The lexer handle.
+ */
+WO_API void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer);
+
+/** @brief Free token info. */
+WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
+
+/**@}*/
+
+#endif /* WO_NEED_LSP_API || WO_NEED_LSP_LEXER_API */
+
+
 #if defined(WO_NEED_LSP_API)
 /**
  * @brief LSP API provides metadata about Woolang source code for language tooling.
@@ -348,14 +519,6 @@ typedef enum _wo_lsp_error_level
 
 /** @name LSPv2 Common Types */
 /**@{*/
-
-/** @brief Source location spanning a range in a file. */
-typedef struct _wo_lspv2_location
-{
-    const char* m_file_name;         /**< @brief Source file path. */
-    size_t m_begin_location[2];      /**< @brief Start position [row, col] (0-based). */
-    size_t m_end_location[2];        /**< @brief End position [row, col] (0-based). */
-} wo_lspv2_location;
 
 /** @brief Opaque handle to compiled source metadata. */
 typedef struct _wo_lspv2_source_meta wo_lspv2_source_meta;
@@ -511,134 +674,6 @@ typedef struct _wo_lspv2_macro_info
     const char* m_name;            /**< @brief Macro name. */
     wo_lspv2_location m_location;  /**< @brief Macro definition location. */
 } wo_lspv2_macro_info;
-
-/**
- * @brief Lexer token types for the Woolang tokenizer (LSP use).
- */
-typedef enum _wo_lspv2_lexer_token
-{
-    WO_LSPV2_TOKEN_EOF = -1,                /**< @brief End of input. */
-    WO_LSPV2_TOKEN_ERROR = 0,               /**< @brief Lexer error. */
-    WO_LSPV2_TOKEN_EMPTY,                   /**< @brief Empty token. */
-    WO_LSPV2_TOKEN_IDENTIFIER,              /**< @brief Identifier. */
-    WO_LSPV2_TOKEN_LITERAL_INTEGER,         /**< @brief Integer literal (e.g. 1, 0x1234). */
-    WO_LSPV2_TOKEN_LITERAL_HANDLE,          /**< @brief Handle literal (e.g. 0L, 0xFFL). */
-    WO_LSPV2_TOKEN_LITERAL_REAL,            /**< @brief Real literal (e.g. 0.2). */
-    WO_LSPV2_TOKEN_LITERAL_STRING,          /**< @brief String literal ("hello"). */
-    WO_LSPV2_TOKEN_LITERAL_RAW_STRING,      /**< @brief Raw string literal (@ raw @). */
-    WO_LSPV2_TOKEN_LITERAL_CHAR,            /**< @brief Character literal ('x'). */
-    WO_LSPV2_TOKEN_FORMAT_STRING_BEGIN,     /**< @brief Format string begin (F"..{). */
-    WO_LSPV2_TOKEN_FORMAT_STRING,           /**< @brief Format string middle (}..{). */
-    WO_LSPV2_TOKEN_FORMAT_STRING_END,       /**< @brief Format string end (}.."). */
-    WO_LSPV2_TOKEN_SEMICOLON,               /**< @brief ; */
-    WO_LSPV2_TOKEN_COMMA,                   /**< @brief , */
-    WO_LSPV2_TOKEN_ADD,                     /**< @brief + */
-    WO_LSPV2_TOKEN_SUB,                     /**< @brief - */
-    WO_LSPV2_TOKEN_MUL,                     /**< @brief * */
-    WO_LSPV2_TOKEN_DIV,                     /**< @brief / */
-    WO_LSPV2_TOKEN_MOD,                     /**< @brief % */
-    WO_LSPV2_TOKEN_ASSIGN,                  /**< @brief = */
-    WO_LSPV2_TOKEN_ADD_ASSIGN,              /**< @brief += */
-    WO_LSPV2_TOKEN_SUB_ASSIGN,              /**< @brief -= */
-    WO_LSPV2_TOKEN_MUL_ASSIGN,              /**< @brief *= */
-    WO_LSPV2_TOKEN_DIV_ASSIGN,              /**< @brief /= */
-    WO_LSPV2_TOKEN_MOD_ASSIGN,              /**< @brief %= */
-    WO_LSPV2_TOKEN_VALUE_ASSIGN,            /**< @brief := */
-    WO_LSPV2_TOKEN_VALUE_ADD_ASSIGN,        /**< @brief +:= */
-    WO_LSPV2_TOKEN_VALUE_SUB_ASSIGN,        /**< @brief -:= */
-    WO_LSPV2_TOKEN_VALUE_MUL_ASSIGN,        /**< @brief *:= */
-    WO_LSPV2_TOKEN_VALUE_DIV_ASSIGN,        /**< @brief /:= */
-    WO_LSPV2_TOKEN_VALUE_MOD_ASSIGN,        /**< @brief %:= */
-    WO_LSPV2_TOKEN_EQUAL,                   /**< @brief == */
-    WO_LSPV2_TOKEN_NOT_EQUAL,               /**< @brief != */
-    WO_LSPV2_TOKEN_LARG_OR_EQUAL,           /**< @brief >= */
-    WO_LSPV2_TOKEN_LESS_OR_EQUAL,           /**< @brief <= */
-    WO_LSPV2_TOKEN_LESS,                    /**< @brief < */
-    WO_LSPV2_TOKEN_LARG,                    /**< @brief > */
-    WO_LSPV2_TOKEN_LAND,                    /**< @brief && */
-    WO_LSPV2_TOKEN_LOR,                     /**< @brief || */
-    WO_LSPV2_TOKEN_OR,                      /**< @brief | */
-    WO_LSPV2_TOKEN_LNOT,                    /**< @brief ! */
-    WO_LSPV2_TOKEN_SCOPEING,                /**< @brief :: */
-    WO_LSPV2_TOKEN_TEMPLATE_USING_BEGIN,    /**< @brief :< */
-    WO_LSPV2_TOKEN_TYPECAST,                /**< @brief : */
-    WO_LSPV2_TOKEN_INDEX_POINT,             /**< @brief . */
-    WO_LSPV2_TOKEN_DOUBLE_INDEX_POINT,      /**< @brief .. [Reserved] */
-    WO_LSPV2_TOKEN_VARIADIC_SIGN,           /**< @brief ... */
-    WO_LSPV2_TOKEN_INDEX_BEGIN,             /**< @brief '[' */
-    WO_LSPV2_TOKEN_INDEX_END,               /**< @brief ']' */
-    WO_LSPV2_TOKEN_DIRECT,                  /**< @brief -> */
-    WO_LSPV2_TOKEN_INV_DIRECT,              /**< @brief <| */
-    WO_LSPV2_TOKEN_FUNCTION_RESULT,         /**< @brief => */
-    WO_LSPV2_TOKEN_BIND_MONAD,              /**< @brief =>> */
-    WO_LSPV2_TOKEN_MAP_MONAD,               /**< @brief ->> */
-    WO_LSPV2_TOKEN_LEFT_BRACKETS,           /**< @brief ( */
-    WO_LSPV2_TOKEN_RIGHT_BRACKETS,          /**< @brief ) */
-    WO_LSPV2_TOKEN_LEFT_CURLY_BRACES,       /**< @brief { */
-    WO_LSPV2_TOKEN_RIGHT_CURLY_BRACES,      /**< @brief } */
-    WO_LSPV2_TOKEN_QUESTION,                /**< @brief ? */
-
-    /* Keywords */
-    WO_LSPV2_TOKEN_IMPORT,                  /**< @brief import */
-    WO_LSPV2_TOKEN_EXPORT,                  /**< @brief export */
-    WO_LSPV2_TOKEN_NIL,                     /**< @brief nil */
-    WO_LSPV2_TOKEN_TRUE,                    /**< @brief true */
-    WO_LSPV2_TOKEN_FALSE,                   /**< @brief false */
-    WO_LSPV2_TOKEN_WHILE,                   /**< @brief while */
-    WO_LSPV2_TOKEN_IF,                      /**< @brief if */
-    WO_LSPV2_TOKEN_ELSE,                    /**< @brief else */
-    WO_LSPV2_TOKEN_NAMESPACE,               /**< @brief namespace */
-    WO_LSPV2_TOKEN_FOR,                     /**< @brief for */
-    WO_LSPV2_TOKEN_EXTERN,                  /**< @brief extern */
-    WO_LSPV2_TOKEN_LET,                     /**< @brief let */
-    WO_LSPV2_TOKEN_MUT,                     /**< @brief mut */
-    WO_LSPV2_TOKEN_FUNC,                    /**< @brief func */
-    WO_LSPV2_TOKEN_RETURN,                  /**< @brief return */
-    WO_LSPV2_TOKEN_USING,                   /**< @brief using */
-    WO_LSPV2_TOKEN_ALIAS,                   /**< @brief alias */
-    WO_LSPV2_TOKEN_ENUM,                    /**< @brief enum */
-    WO_LSPV2_TOKEN_AS,                      /**< @brief as */
-    WO_LSPV2_TOKEN_IS,                      /**< @brief is */
-    WO_LSPV2_TOKEN_TYPEOF,                  /**< @brief typeof */
-    WO_LSPV2_TOKEN_PRIVATE,                 /**< @brief private */
-    WO_LSPV2_TOKEN_PUBLIC,                  /**< @brief public */
-    WO_LSPV2_TOKEN_PROTECTED,               /**< @brief protected */
-    WO_LSPV2_TOKEN_STATIC,                  /**< @brief static */
-    WO_LSPV2_TOKEN_BREAK,                   /**< @brief break */
-    WO_LSPV2_TOKEN_CONTINUE,                /**< @brief continue */
-    WO_LSPV2_TOKEN_LAMBDA,                  /**< @brief lambda */
-    WO_LSPV2_TOKEN_AT,                      /**< @brief @ */
-    WO_LSPV2_TOKEN_DO,                      /**< @brief do */
-    WO_LSPV2_TOKEN_WHERE,                   /**< @brief where */
-    WO_LSPV2_TOKEN_OPERATOR,                /**< @brief operator */
-    WO_LSPV2_TOKEN_UNION,                   /**< @brief union */
-    WO_LSPV2_TOKEN_MATCH,                   /**< @brief match */
-    WO_LSPV2_TOKEN_STRUCT,                  /**< @brief struct */
-    WO_LSPV2_TOKEN_IMMUT,                   /**< @brief immut */
-    WO_LSPV2_TOKEN_TYPEID,                  /**< @brief typeid */
-    WO_LSPV2_TOKEN_DEFER,                   /**< @brief defer */
-    WO_LSPV2_TOKEN_MACRO,                   /**< @brief macro */
-
-    /* Comments */
-    WO_LSPV2_TOKEN_LINE_COMMENT,            /**< @brief Line comment (//). */
-    WO_LSPV2_TOKEN_BLOCK_COMMENT,           /**< @brief Block comment. */
-    WO_LSPV2_TOKEN_SHEBANG_COMMENT,         /**< @brief Shebang comment (#!). */
-    WO_LSPV2_TOKEN_UNKNOWN_TOKEN,           /**< @brief Unknown/unrecognized token. */
-
-} wo_lspv2_lexer_token;
-
-/** @brief Opaque handle to the LSP lexer. */
-typedef struct _wo_lspv2_lexer wo_lspv2_lexer;
-
-/** @brief Information about a single lexer token. */
-typedef struct _wo_lspv2_token_info
-{
-    wo_lspv2_lexer_token m_token;   /**< @brief Token type. */
-    const void* m_token_serial;     /**< @brief Token serialized representation. */
-    size_t m_token_length;          /**< @brief Length of the token text. */
-    wo_lspv2_location m_location;   /**< @brief Source location of the token. */
-
-} wo_lspv2_token_info;
 
 /** @} */ /* end LSPv2 Common Types */
 
@@ -922,37 +957,6 @@ WO_API void wo_lspv2_constant_info_free(wo_lspv2_constant_info* info);
 
 /**@}*/
 
-/** @name LSP Lexer API */
-/**@{*/
-
-/**
- * @brief Create a lexer for tokenizing Woolang source code.
- * @param src  The source code to tokenize.
- * @return A new lexer handle.
- */
-WO_API wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src);
-
-/** @brief Destroy a lexer handle. */
-WO_API void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer);
-
-/**
- * @brief Peek at the next token without consuming it.
- * @param lexer  The lexer handle.
- * @return Token info for the next token.
- */
-WO_API wo_lspv2_token_info* wo_lspv2_lexer_peek(wo_lspv2_lexer* lexer);
-
-/**
- * @brief Consume (advance past) the current token.
- * @param lexer  The lexer handle.
- */
-WO_API void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer);
-
-/** @brief Free token info. */
-WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);
-
-/**@}*/
-
 /** @name LSP Semantic Tokens API */
 /**@{*/
 
@@ -980,7 +984,7 @@ typedef enum _wo_lspv2_semantic_token_type
 typedef enum _wo_lspv2_semantic_modifier
 {
     WO_LSPV2_SEMANTIC_MOD_DECLARATION = 1 << 0, /**< @brief Token is a declaration. */
-    WO_LSPV2_SEMANTIC_MOD_READONLY    = 1 << 1, /**< @brief Token is read-only. */
+    WO_LSPV2_SEMANTIC_MOD_READONLY = 1 << 1, /**< @brief Token is read-only. */
 
 } wo_lspv2_semantic_modifier;
 
@@ -1004,7 +1008,7 @@ typedef struct _wo_lspv2_semantic_token_info
  * @return A semantic token iterator, or NULL if grammar analysis failed.
  */
 WO_API /* OPTIONAL */ wo_lspv2_semantic_token_iter*
-    wo_lspv2_meta_get_semantic_token_iter(wo_lspv2_source_meta* meta);
+wo_lspv2_meta_get_semantic_token_iter(wo_lspv2_source_meta* meta);
 
 /**
  * @brief Advance the iterator and return the next semantic token info.
@@ -1012,7 +1016,7 @@ WO_API /* OPTIONAL */ wo_lspv2_semantic_token_iter*
  * @return Next token info (free with wo_lspv2_semantic_token_info_free), or NULL when exhausted.
  */
 WO_API /* OPTIONAL */ wo_lspv2_semantic_token_info*
-    wo_lspv2_semantic_token_next(wo_lspv2_semantic_token_iter* iter);
+wo_lspv2_semantic_token_next(wo_lspv2_semantic_token_iter* iter);
 
 /**
  * @brief Free a semantic token info struct.

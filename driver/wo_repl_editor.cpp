@@ -1,3 +1,7 @@
+#define WO_NEED_LSP_LEXER_API 1
+
+#include "wo.h"
+
 // Live syntax-highlighting line editor for the Woolang REPL.
 //
 // Re-tokenizes the current input with the public LSP lexer on every edit and
@@ -6,9 +10,6 @@
 // keys etc. as VT escape sequences), so both platforms share one escape
 // decoder.
 
-#define NOMINMAX
-
-#include "wo_repl_common.hpp"
 #include "wo_repl_editor.hpp"
 
 #include <cstdint>
@@ -19,6 +20,7 @@
 #include <vector>
 
 #if defined(_WIN32)
+#   define NOMINMAX
 #   include <windows.h>
 #else
 #   include <unistd.h>
