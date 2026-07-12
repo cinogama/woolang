@@ -1780,6 +1780,11 @@ namespace wo
                         node->m_LANG_determined_return_type.value());
                 }
 
+                // NOTE: To avoid cascading errors, a type is forcibly assigned/inferred 
+                //      for the function here.
+                if (failed)
+                    return FAILED;
+
                 node->m_LANG_captured_context.m_finished = true;
                 if (!node->m_LANG_captured_context.m_captured_variables.empty())
                 {
@@ -1798,16 +1803,11 @@ namespace wo
                                     get_value_name(captured_from));
                             }
                         }
-                        failed = true;
+                        return FAILED;
                     }
                 }
-
-                // NOTE: To avoid cascading errors, a type 
-                // is forcibly assigned/inferred for the function here.
-                node->decide_final_constant_value(node);
-
-                if (failed)
-                    return FAILED;
+                else
+                    node->decide_final_constant_value(node);
 
                 break;
             }
