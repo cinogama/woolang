@@ -1716,7 +1716,7 @@ namespace wo
             }
             case AstValueFunction::HOLD_FOR_BODY_EVAL:
             {
-                const bool has_unused =
+                bool failed =
                     !node->m_LANG_extern_information.has_value()
                     && check_unused_local_variables_in_scope(lex, get_current_scope());
 
@@ -1727,9 +1727,6 @@ namespace wo
                 node->m_LANG_function_body_end_with_return_flag_for_IR =
                     node->m_LANG_extern_information.has_value()
                     || check_node_type_and_get_end_state(node->m_body) == ast::AstScope::LANG_end_state::END_WITH_RETURN;
-
-                if (has_unused)
-                    return FAILED;
 
                 if (node->m_LANG_determined_return_type.has_value() == false)
                 {
@@ -1749,7 +1746,7 @@ namespace wo
                         lex.record_lang_error(lexer::msglevel_t::error, node,
                             WO_ERR_FUNCTION_MAY_NO_RETURN_VALUE);
 
-                        return FAILED;
+                        failed = true;
                     }
                 }
 
@@ -1771,7 +1768,8 @@ namespace wo
                             WO_ERR_UNMATCHED_RETURN_TYPE_NAMED,
                             get_type_name(determined_return_type),
                             get_type_name(return_type_instance));
-                        return FAILED;
+
+                        failed = true;
                     }
                 }
                 else
@@ -1800,13 +1798,16 @@ namespace wo
                                     get_value_name(captured_from));
                             }
                         }
-                        return FAILED;
+                        failed = true;
                     }
                 }
-                else
-                {
-                    node->decide_final_constant_value(node);
-                }
+
+                // NOTE: To avoid cascading errors, a type 
+                // is forcibly assigned/inferred for the function here.
+                node->decide_final_constant_value(node);
+
+                if (failed)
+                    return FAILED;
 
                 break;
             }
@@ -1817,6 +1818,54 @@ namespace wo
         }
         else
         {
+            // This function evaled failed, to avoid cascading errors, a type 
+            // is forcibly assigned/inferred for the function here.
+            if (node->m_LANG_hold_state > AstValueFunction::HOLD_FOR_PARAMETER_EVAL)
+            {
+                if (!node->m_LANG_determined_return_type.has_value())
+                {
+                    // Check if function's param type has been determined?
+                    switch (node->m_LANG_hold_state)
+                    {
+                    default:
+                    {
+                        if (node->m_marked_return_type.has_value()
+                            && node->m_marked_return_type.value()
+                            ->m_LANG_determined_type.has_value())
+                        {
+                            node->m_LANG_determined_return_type =
+                                node->m_marked_return_type.value()
+                                ->m_LANG_determined_type.value();
+                        }
+                        else
+                        {
+                            node->m_LANG_determined_return_type =
+                                m_origin_types.m_nothing.m_type_instance;
+                        }
+                        break;
+                    }
+                    case AstValueFunction::HOLD_FOR_BODY_EVAL:
+                    {
+                        const bool end_with_return =
+                            node->m_LANG_extern_information.has_value()
+                            || check_node_type_and_get_end_state(node->m_body)
+                            == ast::AstScope::LANG_end_state::END_WITH_RETURN;
+
+                        node->m_LANG_determined_return_type = end_with_return
+                            ? m_origin_types.m_nothing.m_type_instance
+                            : m_origin_types.m_void.m_type_instance;
+                        break;
+                    }
+                    }
+                    // Apply
+                    if (!node->m_LANG_determined_type.has_value())
+                    {
+                        decided_function_return_type(
+                            node->m_LANG_determined_return_type.value());
+                    }
+                }
+            }
+
             end_last_function(); // Failed, leave the function.
             if (node->m_LANG_determined_template_arguments.has_value())
                 end_last_scope(); // Failed, leave the template type alias.
