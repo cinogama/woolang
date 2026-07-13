@@ -719,8 +719,6 @@ namespace wo
         size_t last_error_colno = 0;
         size_t try_recover_count = 0;
 
-        bool eof_error = false;
-
         struct source_info
         {
             size_t row_no;

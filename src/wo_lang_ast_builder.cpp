@@ -1720,7 +1720,6 @@ namespace wo
         {
             AstValueBase* symbol;
             std::optional<AstValueBase*> library = std::nullopt;
-            std::optional<AstList*> attributes = std::nullopt;
 
             if (input.size() == 6)
             {

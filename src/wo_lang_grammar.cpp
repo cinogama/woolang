@@ -75,8 +75,6 @@ namespace wo
                 <<
                 std::endl;
 
-            using SL = wo::grammar::symlist;
-
             using namespace ast;
 
 #define B WO_ASTBUILDER_INDEX
