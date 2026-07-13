@@ -353,7 +353,7 @@ namespace wo
             m_determined_base_type_or_mutable)
             .has_value() == false);
 
-        DeterminedType::ExternalTypeDescription extern_desc;
+        DeterminedType::ExternalTypeDescription extern_desc{};
         switch (copy_type.m_base_type)
         {
         case DeterminedType::base_type::ARRAY:

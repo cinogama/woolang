@@ -4823,7 +4823,7 @@ namespace wo
                         using stdx_operate_t = void (IRCompiler::*)(
                             const woort_IRValue* c, const woort_IRValue* idx, const woort_IRValue* val);
 
-                        stdx_operate_t stdx_operate;
+                        stdx_operate_t stdx_operate = nullptr;
 
                         // NOTE: index_opnum must be valid, check m_LANG_fast_index_for_struct to make sure it.
                         //  if m_LANG_fast_index_for_struct should be nullopt here.
@@ -5039,6 +5039,8 @@ namespace wo
                                 break;
                             }
                         }
+
+                        wo_assert(stdx_operate != nullptr);
 
                         (m_ircontext.c().*stdx_operate)(
                             container_opnum,
