@@ -1347,10 +1347,11 @@ namespace wo
                 m_macros.push_back(std::make_unique<lang_Macro>(*macro_msg.value()));
         }
 
-        if (!m_builtin_types_registered)
+        if (!m_repl_context.has_value() || !m_repl_context.value()->m_builtin_types_registered)
         {
             pass_0_5_register_builtin_types();
-            m_builtin_types_registered = true;
+            if (m_repl_context.has_value())
+                m_repl_context.value()->m_builtin_types_registered = true;
         }
 
         if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination, false))
@@ -1430,8 +1431,9 @@ namespace wo
                 // bytecode address (see IRCompiler::commit). Clearing the
                 // stale IR function pointer signals commit() to use the prior
                 // bytecode instead of querying this CodeEnv.
-                if (m_ircontext.c().m_repl_prior_function_bytecode.find(eval_function)
-                    != m_ircontext.c().m_repl_prior_function_bytecode.end())
+                if (m_repl_context.has_value()
+                    && m_repl_context.value()->m_prior_function_bytecode.find(eval_function)
+                        != m_repl_context.value()->m_prior_function_bytecode.end())
                 {
                     eval_function->m_IR_function_MUST_BE_CLEAR_FOR_REPL.reset();
                     continue;
@@ -2951,7 +2953,7 @@ namespace wo
         for (woort_Dylib* lib : handles)
             m_ir_compiler.add_extern_lib(lib);
 
-        return c().commit();
+        return c().commit(m_repl_context);
     }
 
     BytecodeGenerateContext::BytecodeGenerateContext() noexcept

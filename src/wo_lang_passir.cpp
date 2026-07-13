@@ -138,7 +138,8 @@ namespace wo
             const woort_IRStaticIndex static_storage =
                 m_ircontext.c().alloc_static();
 
-            const bool use_pvalue = m_repl_pvalue_indirect_for_mutable_statics
+            const bool use_pvalue = m_repl_context.has_value()
+                && m_repl_context.value()->m_pvalue_indirect_for_mutable_statics
                 && instance->m_mutable;
 
             instance->m_IR_storage.emplace(
@@ -998,7 +999,8 @@ namespace wo
                             const woort_IRStaticIndex static_storage =
                                 m_ircontext.c().alloc_static();
 
-                            const bool use_pvalue = m_repl_pvalue_indirect_for_mutable_statics
+                            const bool use_pvalue = m_repl_context.has_value()
+                                && m_repl_context.value()->m_pvalue_indirect_for_mutable_statics
                                 && template_value_instance->m_mutable;
 
                             template_value_instance->m_IR_storage.emplace(
@@ -1073,7 +1075,8 @@ namespace wo
                     const woort_IRStaticIndex static_storage =
                         m_ircontext.c().alloc_static();
 
-                    const bool use_pvalue = m_repl_pvalue_indirect_for_mutable_statics
+                    const bool use_pvalue = m_repl_context.has_value()
+                        && m_repl_context.value()->m_pvalue_indirect_for_mutable_statics
                         && pattern_symbol->m_value_instance->m_mutable;
 
                     pattern_symbol->m_value_instance->m_IR_storage.emplace(
@@ -1650,8 +1653,9 @@ namespace wo
                     auto func_opt = func_var->m_LANG_variable_instance.value()->
                         m_determined_constant_or_function.value().value_try_function();
                     if (func_opt.has_value()
-                        && m_ircontext.c().m_repl_prior_function_bytecode.find(func_opt.value())
-                            == m_ircontext.c().m_repl_prior_function_bytecode.end())
+                        && (!m_repl_context.has_value()
+                            || m_repl_context.value()->m_prior_function_bytecode.find(func_opt.value())
+                                == m_repl_context.value()->m_prior_function_bytecode.end()))
                     {
                         node->m_IR_invoking_function_near = func_opt.value();
                     }

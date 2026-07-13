@@ -17,6 +17,9 @@ struct _wo_ReplSession
     // Persistent compiler state: accumulates symbols/types across evaluations.
     std::unique_ptr<wo::LangContext> m_lang_context;
 
+    // REPL-only state extracted from LangContext / IRCompiler.
+    wo::REPLContext m_repl_context;
+
     // REPL-owned string pool. Detached from thread-local between evals;
     // installed via repl_tls_guard at each wo_repl_eval entry so that the
     // caller's TLS is not held for the session lifetime. Keeps all
@@ -165,15 +168,20 @@ _wo_ReplSession::_wo_ReplSession()
     // Persistent compiler state.
     m_lang_context = std::make_unique<wo::LangContext>();
 
+    // Wire REPLContext into LangContext and its BytecodeGenerateContext so
+    // the compiler passes and IRCompiler::commit() can access REPL state.
+    m_lang_context->m_repl_context = &m_repl_context;
+    m_lang_context->m_ircontext.m_repl_context = &m_repl_context;
+
     // Pre-register builtin types at session creation so they are always
     // present before any wo_repl_eval snapshot/rollback.
     m_lang_context->pass_0_5_register_builtin_types();
-    m_lang_context->m_builtin_types_registered = true;
+    m_repl_context.m_builtin_types_registered = true;
 
     // Enable pvalue-indirect storage for mutable static variables so that
     // closures defined in prior evals (FAR CALL into a prior CodeEnv) can
     // share mutable state with the current eval through a common GC box.
-    m_lang_context->m_repl_pvalue_indirect_for_mutable_statics = true;
+    m_repl_context.m_pvalue_indirect_for_mutable_statics = true;
 
     // Persistent VM.
     m_vm = woort_vm_create();

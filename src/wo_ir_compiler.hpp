@@ -19,6 +19,8 @@ namespace wo
         class AstBase;
     }
 
+    struct REPLContext;
+
     struct NamedLabelInAst
     {
         ast::AstBase* m_ast;
@@ -98,14 +100,6 @@ namespace wo
         std::vector<TupleImm*> m_ordered_tuple_imm_list;
 
     public:
-        // REPL: maps script functions emitted in a prior eval to their
-        // bytecode entry point in the prior CodeEnv. NOT cleared by
-        // reset(), so it persists across REPL evals (the IRCompiler object
-        // itself is a long-lived member of BytecodeGenerateContext). Empty
-        // in non-REPL mode, so all lookups are no-ops there.
-        std::unordered_map<ast::AstValueFunction*, const woort_Bytecode*>
-            m_repl_prior_function_bytecode;
-
         IRCompiler();
         ~IRCompiler();
 
@@ -122,7 +116,7 @@ namespace wo
         woort_IRConstantIndex alloc_constant();
         woort_IRStaticIndex alloc_static();
 
-        std::optional<woort_CodeEnv*> commit();
+        std::optional<woort_CodeEnv*> commit(const std::optional<REPLContext*>& repl_ctx);
         const woort_Bytecode* get_function(woort_CodeEnv* cenv, woort_IRFunction* irfunc);
         void register_extern_symbols(std::string_view name, woort_IRConstantIndex cidx);
         void add_extern_lib(woort_Dylib* lib);

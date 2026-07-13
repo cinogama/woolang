@@ -2,6 +2,7 @@
 
 #include "wo_lang_ast.hpp"
 #include "wo_ir_compiler.hpp"
+#include "wo_repl_context.hpp"
 #include "wo_lang_extern_symbol_loader.hpp"
 
 #include <memory>
@@ -500,6 +501,10 @@ namespace wo
     {
         IRCompiler m_ir_compiler;
 
+        // REPL context (nullopt in non-REPL mode). Passed to IRCompiler::commit()
+        // so prior-eval function bytecode can be recorded/looked up.
+        std::optional<REPLContext*> m_repl_context;
+
         // Processing and processed function instances
         std::unordered_set<ast::AstValueFunction*> m_processed_function_instance;
         std::unordered_set<ast::AstValueFunction*> m_being_used_function_instance;
@@ -853,13 +858,10 @@ namespace wo
         // Used for bytecode generation
         BytecodeGenerateContext m_ircontext;
 
-        // REPL: track whether builtins have been registered (only once per session).
-        bool m_builtin_types_registered = false;
-
-        // REPL: when true, mutable static (global / static-lifecycle) variables
-        // allocated during IR generation use pvalue-indirect storage so that
-        // closure FAR CALLs across REPL CodeEnvs share the same heap box.
-        bool m_repl_pvalue_indirect_for_mutable_statics = false;
+        // REPL context (nullopt in non-REPL mode). When set, provides
+        // session-persistent REPL state (prior function bytecode, pvalue-
+        // indirect flag, builtin registration latch).
+        std::optional<REPLContext*> m_repl_context;
 
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
