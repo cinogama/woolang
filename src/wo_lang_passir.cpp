@@ -1643,9 +1643,18 @@ namespace wo
                 if (func_var->m_LANG_variable_instance.value()->m_determined_constant_or_function.has_value())
                 {
                     // If no captured variables, we can call near.
-                    node->m_IR_invoking_function_near =
-                        func_var->m_LANG_variable_instance.value()->
+                    // But in REPL, skip near-call for functions emitted in a
+                    // prior eval — those must go through CALL via a FAR-CALL
+                    // closure that references the prior CodeEnv, rather than
+                    // being re-emitted in this CodeEnv via CALLNWO.
+                    auto func_opt = func_var->m_LANG_variable_instance.value()->
                         m_determined_constant_or_function.value().value_try_function();
+                    if (func_opt.has_value()
+                        && m_ircontext.c().m_repl_prior_function_bytecode.find(func_opt.value())
+                            == m_ircontext.c().m_repl_prior_function_bytecode.end())
+                    {
+                        node->m_IR_invoking_function_near = func_opt.value();
+                    }
                 }
             }
             else if (node->m_function->node_type == AstBase::AST_VALUE_FUNCTION)

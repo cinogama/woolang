@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <unordered_map>
 
 #include "wo_const_string_pool.hpp"
 
@@ -97,6 +98,14 @@ namespace wo
         std::vector<TupleImm*> m_ordered_tuple_imm_list;
 
     public:
+        // REPL: maps script functions emitted in a prior eval to their
+        // bytecode entry point in the prior CodeEnv. NOT cleared by
+        // reset(), so it persists across REPL evals (the IRCompiler object
+        // itself is a long-lived member of BytecodeGenerateContext). Empty
+        // in non-REPL mode, so all lookups are no-ops there.
+        std::unordered_map<ast::AstValueFunction*, const woort_Bytecode*>
+            m_repl_prior_function_bytecode;
+
         IRCompiler();
         ~IRCompiler();
 

@@ -1424,6 +1424,19 @@ namespace wo
                     continue;
                 }
 
+                // REPL: do not re-emit script functions compiled in a prior
+                // eval. Their bytecode already lives in a prior CodeEnv; calls
+                // reach them via FAR-CALL closures built from the recorded
+                // bytecode address (see IRCompiler::commit). Clearing the
+                // stale IR function pointer signals commit() to use the prior
+                // bytecode instead of querying this CodeEnv.
+                if (m_ircontext.c().m_repl_prior_function_bytecode.find(eval_function)
+                    != m_ircontext.c().m_repl_prior_function_bytecode.end())
+                {
+                    eval_function->m_IR_function_MUST_BE_CLEAR_FOR_REPL.reset();
+                    continue;
+                }
+
                 if (eval_function->m_LANG_value_instance_to_update.has_value())
                 {
                     lang_ValueInstance* value_instance = eval_function->m_LANG_value_instance_to_update.value();
