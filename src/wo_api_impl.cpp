@@ -252,7 +252,7 @@ wo::compile_result _wo_compile_impl(
                     {
                         // Finish!, finalize the compiler.
                         compile_env_result =
-                            lang_context->m_ircontext.finalize();
+                            lang_context->m_ircontext.finalize(lang_context->m_repl_context);
 
                         if (!compile_env_result.has_value())
                         {

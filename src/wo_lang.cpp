@@ -2946,14 +2946,14 @@ namespace wo
         m_eval_result_storage_target.pop();
     }
 
-    std::optional<woort_CodeEnv*> BytecodeGenerateContext::finalize()
+    std::optional<woort_CodeEnv*> BytecodeGenerateContext::finalize(std::optional<REPLContext*> repl_context)
     {
         // Transfer loaded extern library handles to IRCompiler for CodeEnv binding
         auto handles = m_extern_libs.collect_handles();
         for (woort_Dylib* lib : handles)
             m_ir_compiler.add_extern_lib(lib);
 
-        return c().commit(m_repl_context);
+        return c().commit(repl_context);
     }
 
     BytecodeGenerateContext::BytecodeGenerateContext() noexcept

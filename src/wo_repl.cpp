@@ -168,10 +168,9 @@ _wo_ReplSession::_wo_ReplSession()
     // Persistent compiler state.
     m_lang_context = std::make_unique<wo::LangContext>();
 
-    // Wire REPLContext into LangContext and its BytecodeGenerateContext so
-    // the compiler passes and IRCompiler::commit() can access REPL state.
+    // Wire REPLContext into LangContext so the compiler passes and
+    // IRCompiler::commit() can access REPL state.
     m_lang_context->m_repl_context = &m_repl_context;
-    m_lang_context->m_ircontext.m_repl_context = &m_repl_context;
 
     // Pre-register builtin types at session creation so they are always
     // present before any wo_repl_eval snapshot/rollback.
@@ -392,7 +391,7 @@ wo_repl_result wo_repl_eval(
     lex.reset();
 
     // --- 8. Finalize -> CodeEnv ---
-    auto cenv_opt = lc->m_ircontext.finalize();
+    auto cenv_opt = lc->m_ircontext.finalize(lc->m_repl_context);
     if (!cenv_opt.has_value())
     {
         _wo_rollback_new_symbols(root_scope, known_names);

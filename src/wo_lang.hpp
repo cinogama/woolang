@@ -501,10 +501,6 @@ namespace wo
     {
         IRCompiler m_ir_compiler;
 
-        // REPL context (nullopt in non-REPL mode). Passed to IRCompiler::commit()
-        // so prior-eval function bytecode can be recorded/looked up.
-        std::optional<REPLContext*> m_repl_context;
-
         // Processing and processed function instances
         std::unordered_set<ast::AstValueFunction*> m_processed_function_instance;
         std::unordered_set<ast::AstValueFunction*> m_being_used_function_instance;
@@ -626,7 +622,7 @@ namespace wo
         {
             return m_ir_compiler;
         }
-        std::optional<woort_CodeEnv*> finalize();
+        std::optional<woort_CodeEnv*> finalize(std::optional<REPLContext*> repl_context);
 
         void eval_to_assign(woort_IRValue* target, const std::optional<ast::AstBase*>& pdinode);
         void eval_to_assign_static(woort_IRStaticIndex target, const std::optional<ast::AstBase*>& pdinode);
