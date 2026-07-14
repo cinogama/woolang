@@ -23,6 +23,7 @@ struct wo_driver_options {
     const char* source_path = nullptr;
     const char* output_path = nullptr;
     bool        check_only  = false;
+    bool        force_repl  = false;
 };
 
 void _wo_driver_show_banner()
@@ -40,6 +41,7 @@ void _wo_driver_show_banner()
     std::cout << "\nOptions:\n";
     std::cout << "    -o <output>   Compile and save bytecode to the given path.\n";
     std::cout << "    --check   Compile only, report syntax errors without running.\n";
+    std::cout << "    --repl         Always enter REPL mode, ignoring <path>.\n";
     std::cout << "    -h, --help    Show this help message.\n";
     std::cout << '\n';
     wo_print_compiler_help();
@@ -72,6 +74,10 @@ bool _wo_driver_parse_option(int argc, char** argv, wo_driver_options* out)
         else if (arg == "-c" || arg == "--check")
         {
             out->check_only = true;
+        }
+        else if (arg == "--repl")
+        {
+            out->force_repl = true;
         }
         else if (out->source_path == nullptr)
         {
@@ -306,9 +312,9 @@ int main(int argc, char** argv)
         return EXIT_OK;
     }
 
-    if (opts.source_path == nullptr)
+    if (opts.source_path == nullptr || opts.force_repl)
     {
-        // No source file: enter REPL mode.
+        // No source file (or -repl requested): enter REPL mode.
         int repl_ret = _wo_driver_run_repl();
         wo_finish(nullptr, nullptr);
         return repl_ret;

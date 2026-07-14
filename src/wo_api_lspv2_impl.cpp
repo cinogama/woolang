@@ -5,6 +5,8 @@
 const char* _wo_strdupn(const char* str, size_t len)
 {
     char* new_str = (char*)malloc(len + 1);
+    wo_assert(new_str != nullptr);
+
     memcpy(new_str, str, len);
     new_str[len] = '\0';
     return new_str;

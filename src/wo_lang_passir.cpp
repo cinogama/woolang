@@ -1657,7 +1657,7 @@ namespace wo
                             || m_repl_context.value()->m_prior_function_bytecode.find(func_opt.value())
                                 == m_repl_context.value()->m_prior_function_bytecode.end()))
                     {
-                        node->m_IR_invoking_function_near = func_opt.value();
+                        node->m_IR_invoking_function_near.emplace(func_opt.value());
                     }
                 }
             }
