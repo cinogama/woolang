@@ -288,8 +288,7 @@ wo_repl_result wo_repl_eval(
     // Clear the per-eval transient scratch of REPL-owned emitted functions.
     // commit() consumes it; clearing here also drops stale pointers from a
     // failed prior eval (whose process() aborted before reaching commit()).
-    if (lc->m_repl_context.has_value())
-        lc->m_repl_context.value()->clean_emitted_script_funcs();
+    lc->m_repl_context.value()->clean_emitted_script_funcs();
 
     // --- 2. Reserve static slots for carried-over values ---
     // Re-create the carried-over static slot range [0..N-1] in the new
