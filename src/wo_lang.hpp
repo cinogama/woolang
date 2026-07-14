@@ -856,8 +856,16 @@ namespace wo
 
         // REPL context (nullopt in non-REPL mode). When set, provides
         // session-persistent REPL state (prior function bytecode, pvalue-
-        // indirect flag, builtin registration latch).
+        // indirect flag).
         std::optional<REPLContext*> m_repl_context;
+
+        // Latch: whether builtin types have been registered for this
+        // LangContext. LangContext is normally one-shot (created and
+        // discarded per compile), so this stays false and builtins register
+        // every time. Only REPL reuses a LangContext across compiles, in
+        // which case the session pre-registers and latches this true so
+        // later evals skip re-registration.
+        bool m_builtin_types_registered_for_REPL;
 
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;

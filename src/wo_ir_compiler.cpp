@@ -170,7 +170,7 @@ namespace wo
         // call in the next REPL eval.
         if (repl_ctx.has_value())
         {
-            auto& emitted = repl_ctx.value()->m_emitted_script_functions_for_REPL;
+            auto& emitted = repl_ctx.value()->m_new_emitted_script_functions;
             for (ast::AstValueFunction* func : emitted)
             {
                 repl_ctx.value()->m_prior_function_bytecode[func] =

@@ -24,7 +24,7 @@ struct _wo_ReplSession
     // installed via repl_tls_guard at each wo_repl_eval entry so that the
     // caller's TLS is not held for the session lifetime. Keeps all
     // wo_pstring_t values alive across the whole session.
-    wo::wstring_pool* m_repl_pool = nullptr;
+    std::optional<wo::wstring_pool*> m_repl_pool;
 
     // REPL-owned AST arena. Accumulates AST nodes across evals; installed
     // into thread-local via repl_tls_guard and extracted back on exit.
@@ -102,15 +102,15 @@ struct _wo_repl_tls_guard
     {
         // --- String pool ---
         // Create the pool on first use (session constructor).
-        if (S.m_repl_pool == nullptr)
+        if (!S.m_repl_pool.has_value())
         {
             wo::wstring_pool::begin_new_pool();
-            S.m_repl_pool =
-                wo::wstring_pool::exchange_this_thread_pool({ nullptr, 0 }).pool;
+            S.m_repl_pool.emplace(
+                wo::wstring_pool::exchange_this_thread_pool({ nullptr, 0 }).pool);
         }
         // Install REPL pool into thread-local, saving caller's state.
         saved_pool =
-            wo::wstring_pool::exchange_this_thread_pool({ S.m_repl_pool, 1 });
+            wo::wstring_pool::exchange_this_thread_pool({ S.m_repl_pool.value(), 1 });
 
         // --- AST arena (two-step exchange to satisfy assertion) ---
         // Step 1: extract current thread-local into saved_ast (empty param).
@@ -143,11 +143,14 @@ struct _wo_repl_tls_guard
 // ===================================================================
 
 _wo_ReplSession::_wo_ReplSession()
-    : m_vm(nullptr)
+    : m_repl_pool(std::nullopt)
+    , m_vm(woort_vm_create())
     , m_line_counter(0)
     , m_repl_seq_num(0)
     , m_repl_group_token(nullptr)
 {
+    wo_assert(m_vm != nullptr);
+
     // Install REPL TLS (creates the session string pool on first use).
     // The guard detaches TLS when construction completes so the caller's
     // thread-local state is not held for the session lifetime.
@@ -175,15 +178,12 @@ _wo_ReplSession::_wo_ReplSession()
     // Pre-register builtin types at session creation so they are always
     // present before any wo_repl_eval snapshot/rollback.
     m_lang_context->pass_0_5_register_builtin_types();
-    m_repl_context.m_builtin_types_registered = true;
+    m_lang_context->m_builtin_types_registered_for_REPL = true;
 
     // Enable pvalue-indirect storage for mutable static variables so that
     // closures defined in prior evals (FAR CALL into a prior CodeEnv) can
     // share mutable state with the current eval through a common GC box.
     m_repl_context.m_pvalue_indirect_for_mutable_statics = true;
-
-    // Persistent VM.
-    m_vm = woort_vm_create();
 }
 
 _wo_ReplSession::~_wo_ReplSession()
@@ -225,8 +225,8 @@ _wo_ReplSession::~_wo_ReplSession()
     // Phase 2: free REPL-owned TLS resources (no TLS needed — AST node
     // destructors and operator delete do not touch thread-local state).
     // m_repl_ast_arena is a member; its destructor runs automatically.
-    delete m_repl_pool;
-    m_repl_pool = nullptr;
+    delete m_repl_pool.value();
+    m_repl_pool.reset();
 }
 
 // ===================================================================

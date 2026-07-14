@@ -28,15 +28,12 @@ namespace wo
         // IRCompiler::commit() to record their bytecode into
         // m_prior_function_bytecode, regardless of whether they also appear
         // in an immediate pool.
-        std::vector<ast::AstValueFunction*> m_emitted_script_functions_for_REPL;
+        std::vector<ast::AstValueFunction*> m_new_emitted_script_functions;
 
         // When true, mutable static (global / static-lifecycle) variables
         // allocated during IR generation use pvalue-indirect storage so that
         // closure FAR CALLs across REPL CodeEnvs share the same heap box.
         bool m_pvalue_indirect_for_mutable_statics;
-
-        // Track whether builtins have been registered (only once per session).
-        bool m_builtin_types_registered;
 
         REPLContext();
         ~REPLContext() = default;

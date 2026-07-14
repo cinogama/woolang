@@ -7,18 +7,17 @@ namespace wo
 {
     REPLContext::REPLContext()
         : m_pvalue_indirect_for_mutable_statics(false)
-        , m_builtin_types_registered(false)
     {
     }
 
     void REPLContext::clean_emitted_script_funcs()
     {
-        m_emitted_script_functions_for_REPL.clear();
+        m_new_emitted_script_functions.clear();
     }
 
     void REPLContext::emit_script_func(ast::AstValueFunction* func)
     {
-        m_emitted_script_functions_for_REPL.push_back(func);
+        m_new_emitted_script_functions.push_back(func);
     }
 }
 #endif

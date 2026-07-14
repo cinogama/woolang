@@ -1148,6 +1148,7 @@ namespace wo
 
     LangContext::LangContext()
         : m_root_namespace(std::make_unique<lang_Namespace>(WO_PSTR(EMPTY), std::nullopt)), m_created_symbol_edge(0)
+        , m_builtin_types_registered_for_REPL(false)
     {
         m_scope_stack.push(m_root_namespace->m_this_scope.get());
     }
@@ -1347,11 +1348,10 @@ namespace wo
                 m_macros.push_back(std::make_unique<lang_Macro>(*macro_msg.value()));
         }
 
-        if (!m_repl_context.has_value() || !m_repl_context.value()->m_builtin_types_registered)
+        if (!m_builtin_types_registered_for_REPL)
         {
             pass_0_5_register_builtin_types();
-            if (m_repl_context.has_value())
-                m_repl_context.value()->m_builtin_types_registered = true;
+            m_builtin_types_registered_for_REPL = true;
         }
 
         if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination, false))
