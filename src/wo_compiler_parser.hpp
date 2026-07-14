@@ -148,6 +148,8 @@ namespace wo
 
                 AST_NOP,
 
+                AST_ECHO_FOR_REPL,
+
                 //////////////////////////////////////////////////////
 
                 AST_VALUE_FUNCTION_CALL_FAKE_AST_ARGUMENT_DEDUCTION_CONTEXT_A,

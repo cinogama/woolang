@@ -310,6 +310,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstNop, AstBase::AST_NOP, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstEchoForREPL, AstBase::AST_ECHO_FOR_REPL, passir_A);
 
         // WO_LANG_REGISTER_PROCESSER(AstValueNothing, AstBase::AST_VALUE_NOTHING, passir_B);
         WO_LANG_REGISTER_PROCESSER(AstValueMarkAsMutable, AstBase::AST_VALUE_MARK_AS_MUTABLE, passir_B);
@@ -1223,6 +1224,24 @@ namespace wo
         wo_assert(state == UNPROCESSED);
 
         m_ircontext.c().nop();
+
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstEchoForREPL)
+    {
+        wo_assert(state == UNPROCESSED);
+
+        woort_IRConstantIndex echo_cidx =
+            m_ircontext.c().alloc_direct_extern_function(
+                rslib_extern_symbols::g_builtin_debug_print);
+
+        m_ircontext.eval_to_push_box();
+        if (!pass_final_value(lex, node->m_expression))
+            return FAILED;
+
+        m_ircontext.c().pushchk(m_ircontext.c().load_imm_int(1));
+
+        m_ircontext.c().callnfp(echo_cidx, 2, nullptr);
 
         return OKAY;
     }

@@ -98,6 +98,14 @@ namespace wo
             }
         };
 
+        struct pass_repl_expression : public astnode_builder
+        {
+            static grammar::produce build(lexer&, const inputs_t& input)
+            {
+                return new AstEchoForREPL(WO_NEED_AST_VALUE(0));
+            }
+        };
+
         template <size_t from, size_t to_list>
         struct pass_append_list : public astnode_builder
         {

@@ -2791,6 +2791,22 @@ namespace wo
             return new_instance;
         }
 
+        AstEchoForREPL::AstEchoForREPL(AstValueBase* expr)
+            : AstBase(AST_ECHO_FOR_REPL)
+            , m_expression(expr)
+        {
+        }
+        AstBase* AstEchoForREPL::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstEchoForREPL* new_instance = exist_instance
+                ? static_cast<AstEchoForREPL*>(exist_instance.value())
+                : new AstEchoForREPL(m_expression)
+                ;
+            out_continues.push_back(AstBase::make_holder(
+                reinterpret_cast<AstBase**>(&new_instance->m_expression)));
+            return new_instance;
+        }
+
         ////////////////////////////////////////////////////////
 
         AstToken::AstToken(const token& token)

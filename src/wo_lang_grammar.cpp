@@ -97,6 +97,8 @@ namespace wo
             P(PROGRAM, pass_direct<0>, (TE(l_empty)));
             P(PROGRAM, pass_direct<0>, (NT(USELESS_TOKEN)));
             P(PROGRAM, pass_direct<0>, (NT(PARAGRAPH)));
+            /* Only work for REPL. */
+            P(PROGRAM, pass_repl_expression, (NT(EXPRESSION)));
             P(PARAGRAPH, pass_direct<0>, (NT(SENTENCE_LIST)));
             P(SENTENCE_LIST, pass_append_list<1, 0>, (NT(SENTENCE_LIST), NT(SENTENCE)));
             P(SENTENCE_LIST, pass_create_list<0>, (NT(SENTENCE)));

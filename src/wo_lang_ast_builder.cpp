@@ -1750,6 +1750,7 @@ namespace wo
             WO_AST_BUILDER(pass_direct<2>);
             WO_AST_BUILDER(pass_create_list<0>);
             WO_AST_BUILDER(pass_create_list<1>);
+            WO_AST_BUILDER(pass_repl_expression);
             WO_AST_BUILDER(pass_append_list<1, 0>);
             WO_AST_BUILDER(pass_append_list<0, 1>);
             WO_AST_BUILDER(pass_append_list<2, 0>);

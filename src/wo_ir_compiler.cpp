@@ -55,6 +55,7 @@ namespace wo
         m_function_imm_pool.clear();
         m_extern_symbols.clear();
         m_loaded_extern_libs.clear();
+        m_direct_extern_function_consts.clear();
         m_tuple_imm_pool.clear();
         m_ordered_tuple_imm_list.clear();
 
@@ -227,6 +228,13 @@ namespace wo
         }
 
 
+        // Apply direct extern function constants.
+        for (const auto& [cidx, func_ptr] : m_direct_extern_function_consts)
+        {
+            woort_CodeEnv_set_const_extern_function(cenv, cidx, func_ptr);
+        }
+
+
         // NOTE: Make sure tuple constant set at last, and use `m_ordered_tuple_imm_list` 
         //      instead of walking `m_tuple_imm_pool` to keep order.
         for (const auto* tuple_imm : m_ordered_tuple_imm_list)
@@ -290,6 +298,17 @@ namespace wo
     void IRCompiler::add_extern_lib(woort_Dylib* lib)
     {
         (void)m_loaded_extern_libs.insert(lib);
+    }
+
+    woort_IRConstantIndex IRCompiler::alloc_direct_extern_function(
+        woort_NativeFunction func_ptr)
+    {
+        if (is_abondoned())
+            return 0;
+
+        woort_IRConstantIndex cidx = alloc_constant();
+        m_direct_extern_function_consts.emplace(cidx, func_ptr);
+        return cidx;
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////

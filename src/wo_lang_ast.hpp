@@ -933,6 +933,7 @@ namespace wo
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstDefer;
+        struct AstEchoForREPL;
         struct AstScope : public AstBase
         {
             enum LANG_hold_state
@@ -1269,6 +1270,13 @@ namespace wo
             AstScope* m_body;
 
             AstDefer(AstScope* defer_body);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        struct AstEchoForREPL : public AstBase
+        {
+            AstValueBase* m_expression;
+
+            AstEchoForREPL(AstValueBase* expr);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstToken : public AstBase

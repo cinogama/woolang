@@ -999,7 +999,8 @@ namespace wo
     WO_AST_MACRO(AstUsingNamespace);\
     WO_AST_MACRO(AstToken);\
     WO_AST_MACRO(AstExternInformation);\
-    WO_AST_MACRO(AstNop)
+    WO_AST_MACRO(AstNop);\
+    WO_AST_MACRO(AstEchoForREPL)
 
 #define WO_ALL_AST_LIST\
     WO_ALL_AST_LIST_A;\
@@ -1019,6 +1020,7 @@ namespace wo
         WO_PASS_PROCESSER(AstEnumDeclare, pass0);
         WO_PASS_PROCESSER(AstUnionDeclare, pass0);
         WO_PASS_PROCESSER(AstUsingNamespace, pass0);
+        WO_PASS_PROCESSER(AstEchoForREPL, pass0);
 
 #define WO_AST_MACRO(AST)\
         WO_PASS_PROCESSER(AST, pass1)

@@ -143,6 +143,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstEchoForREPL, AstBase::AST_ECHO_FOR_REPL, pass0);
     }
 
 #define WO_PASS_PROCESSER(AST) WO_PASS_PROCESSER_IMPL(AST, pass0)
@@ -152,6 +153,16 @@ namespace wo
         if (state == UNPROCESSED)
         {
             WO_CONTINUE_PROCESS_LIST(node->m_list);
+
+            return HOLD;
+        }
+        return WO_EXCEPT_ERROR(state, OKAY);
+    }
+    WO_PASS_PROCESSER(AstEchoForREPL)
+    {
+        if (state == UNPROCESSED)
+        {
+            WO_CONTINUE_PROCESS(node->m_expression);
 
             return HOLD;
         }
