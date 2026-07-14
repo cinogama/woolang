@@ -1707,17 +1707,17 @@ namespace wo
                 m_external_type_description.m_function->m_param_types.size();
 
             size_t arg_index = 0;
-            for (auto* arguments : node->m_arguments)
+            for (auto* argument : node->m_arguments)
             {
                 // Functions arguments will be pushed into stack inversely.
                 // So here we eval them by origin order, stack pop will be in reverse order.
 
-                if (arguments->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
+                if (argument->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
                 {
                     if (node->m_LANG_has_runtime_full_unpackargs)
                     {
                         AstFakeValueUnpack* const ast_fake_value_unpack =
-                            static_cast<AstFakeValueUnpack*>(arguments);
+                            static_cast<AstFakeValueUnpack*>(argument);
 
                         wo_assert(ast_fake_value_unpack->m_LANG_unpack_method ==
                             AstFakeValueUnpack::IR_unpack_method::UNPACK_FOR_FUNCTION_CALL);
@@ -1737,7 +1737,7 @@ namespace wo
 
                 ++arg_index;
 
-                WO_CONTINUE_PROCESS(arguments);
+                WO_CONTINUE_PROCESS(argument);
             }
 
             wo_assert(node->m_LANG_has_runtime_full_unpackargs ==
