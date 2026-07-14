@@ -1790,9 +1790,7 @@ namespace wo
                     ++fact_argument_to_pop;
                 }
 
-                // Ok, invoke finished.
-                if (m_ircontext.is_eval_result_just_ignored())
-                {
+                auto emit_invoke_call = [&](woort_IRValue* dst) {
                     if (node->m_IR_invoking_function_near.has_value())
                     {
                         AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
@@ -1802,18 +1800,24 @@ namespace wo
                             m_ircontext.c().callnfp(
                                 m_ircontext.c().imm_function(invoking_function),
                                 fact_argument_to_pop,
-                                nullptr);
+                                dst);
                         else
                             m_ircontext.c().callnwo(
                                 m_ircontext.c().imm_function(invoking_function),
                                 fact_argument_to_pop,
-                                nullptr);
+                                dst);
                     }
                     else
                     {
                         auto* opnumbase = m_ircontext.get_eval_result();
-                        m_ircontext.c().call(opnumbase, fact_argument_to_pop, nullptr);
+                        m_ircontext.c().call(opnumbase, fact_argument_to_pop, dst);
                     }
+                    };
+
+                // Ok, invoke finished.
+                if (m_ircontext.is_eval_result_just_ignored())
+                {
+                    emit_invoke_call(nullptr);
 
                     if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
                         m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
@@ -1823,106 +1827,57 @@ namespace wo
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
                         lang_TypeInstance* const type_instance = node->m_LANG_determined_type.value();
-
-                        const auto& target_storage = result.get_assign_target(type_instance);
                         const bool is_void = type_instance->is_based_on_void_in_IR();
 
-                        if (target_storage.has_value())
+                        if (is_void)
                         {
-                            auto& [need_box, target] = target_storage.value();
-                            woort_IRValue* const* const target_irvalue =
-                                std::get_if<woort_IRValue*>(&target);
-
-                            if (target_irvalue == nullptr)
-                            {
-                                woort_IRValue* const v = m_ircontext.c().new_value();
-
-                                if (node->m_IR_invoking_function_near.has_value())
-                                {
-                                    AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
-                                    wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
-
-                                    if (invoking_function->m_LANG_extern_information.has_value())
-                                        m_ircontext.c().callnfp(
-                                            m_ircontext.c().imm_function(invoking_function),
-                                            fact_argument_to_pop,
-                                            v);
-                                    else
-                                        m_ircontext.c().callnwo(
-                                            m_ircontext.c().imm_function(invoking_function),
-                                            fact_argument_to_pop,
-                                            v);
-                                }
-                                else
-                                {
-                                    auto* opnumbase = m_ircontext.get_eval_result();
-                                    m_ircontext.c().call(opnumbase, fact_argument_to_pop, v);
-                                }
-
-                                if (need_box.has_value())
-                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
-
-                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                            }
-                            else
-                            {
-                                if (node->m_IR_invoking_function_near.has_value())
-                                {
-                                    AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
-                                    wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
-
-                                    if (invoking_function->m_LANG_extern_information.has_value())
-                                        m_ircontext.c().callnfp(
-                                            m_ircontext.c().imm_function(invoking_function),
-                                            fact_argument_to_pop,
-                                            *target_irvalue);
-                                    else
-                                        m_ircontext.c().callnwo(
-                                            m_ircontext.c().imm_function(invoking_function),
-                                            fact_argument_to_pop,
-                                            *target_irvalue);
-                                }
-                                else
-                                {
-                                    auto* opnumbase = m_ircontext.get_eval_result();
-                                    m_ircontext.c().call(opnumbase, fact_argument_to_pop, *target_irvalue);
-                                }
-
-                                if (need_box.has_value())
-                                    m_ircontext.c().boxdyn(*target_irvalue, need_box.value(), *target_irvalue);
-                            }
+                            emit_invoke_call(nullptr);
                             if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
                                 m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
+
+                            result.set_result_junk(m_ircontext);
                         }
                         else
                         {
-                            woort_IRValue* const v = m_ircontext.c().new_value();
-                            if (node->m_IR_invoking_function_near.has_value())
-                            {
-                                AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
-                                wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
+                            const auto& target_storage = result.get_assign_target(type_instance);
 
-                                if (invoking_function->m_LANG_extern_information.has_value())
-                                    m_ircontext.c().callnfp(
-                                        m_ircontext.c().imm_function(invoking_function),
-                                        fact_argument_to_pop,
-                                        v);
+                            if (target_storage.has_value())
+                            {
+                                auto& [need_box, target] = target_storage.value();
+                                woort_IRValue* const* const target_irvalue =
+                                    std::get_if<woort_IRValue*>(&target);
+
+                                if (target_irvalue == nullptr)
+                                {
+                                    woort_IRValue* const v = m_ircontext.c().new_value();
+
+                                    emit_invoke_call(v);
+
+                                    if (need_box.has_value())
+                                        m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                }
                                 else
-                                    m_ircontext.c().callnwo(
-                                        m_ircontext.c().imm_function(invoking_function),
-                                        fact_argument_to_pop,
-                                        v);
+                                {
+                                    emit_invoke_call(*target_irvalue);
+
+                                    if (need_box.has_value())
+                                        m_ircontext.c().boxdyn(*target_irvalue, need_box.value(), *target_irvalue);
+                                }
+                                if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
+                                    m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
                             }
                             else
                             {
-                                auto* opnumbase = m_ircontext.get_eval_result();
-                                m_ircontext.c().call(opnumbase, fact_argument_to_pop, v);
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                emit_invoke_call(v);
+
+                                if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
+                                    m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
+
+                                result.set_result_stack_temp(m_ircontext, v, node->m_LANG_determined_type.value());
                             }
-
-                            if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
-                                m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
-
-                            result.set_result_stack_temp(m_ircontext, v, node->m_LANG_determined_type.value());
                         }
                     });
 
@@ -3858,6 +3813,8 @@ namespace wo
                         lang_TypeInstance* const result_type_instance =
                             node->m_LANG_determined_type.value();
 
+                        const bool is_void = result_type_instance->is_based_on_void_in_IR();
+
                         const auto& asigned_target =
                             result.get_assign_target(result_type_instance);
 
@@ -3877,28 +3834,37 @@ namespace wo
 
                             if (asigned_target.has_value())
                             {
-                                const auto& [need_box, target] = asigned_target.value();
-                                woort_IRValue* const* const target_irvalue =
-                                    std::get_if<woort_IRValue*>(&target);
+                                if (is_void)
+                                    ;
+                                else
+                                {
+                                    const auto& [need_box, target] = asigned_target.value();
+                                    woort_IRValue* const* const target_irvalue =
+                                        std::get_if<woort_IRValue*>(&target);
 
-                                woort_IRValue* const v = target_irvalue
-                                    ? *target_irvalue
-                                    : m_ircontext.c().new_value();
+                                    woort_IRValue* const v = target_irvalue
+                                        ? *target_irvalue
+                                        : m_ircontext.c().new_value();
 
-                                m_ircontext.c().ldidstruct(v, container_opnum, fast_index);
-                                if (need_box.has_value())
-                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+                                    m_ircontext.c().ldidstruct(v, container_opnum, fast_index);
+                                    if (need_box.has_value())
+                                        m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                if (target_irvalue == nullptr)
-                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                    if (target_irvalue == nullptr)
+                                        m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                }
                             }
-                            else
+                            else if (!is_void)
                             {
                                 result.set_result_struct_index(
                                     m_ircontext, container_opnum, fast_index, node->m_LANG_determined_type.value());
                             }
+                            else
+                            {
+                                result.set_result_junk(m_ircontext);
+                            }
                         }
-                        else
+                        else if (!is_void)
                         {
                             woort_IRValue* make_result_target = nullptr;
 
@@ -3906,9 +3872,6 @@ namespace wo
                                 std::nullopt;
 
                             std::optional<woort_BoxValueType> need_box;
-
-                            auto* const determined_result_type =
-                                result_type_instance->get_determined_type().value();
 
                             if (asigned_target.has_value())
                             {
@@ -3932,6 +3895,9 @@ namespace wo
                             }
                             else
                                 make_result_target = m_ircontext.c().new_value();
+
+                            auto* const determined_result_type =
+                                result_type_instance->get_determined_type().value();
 
                             bool use_x_variant = determined_result_type->m_base_type ==
                                 lang_TypeInstance::DeterminedType::base_type::DYNAMIC;
@@ -4054,6 +4020,10 @@ namespace wo
                                     make_result_target,
                                     node->m_LANG_determined_type.value());
                             }
+                        }
+                        else if (!asigned_target.has_value())
+                        {
+                            result.set_result_junk(m_ircontext);
                         }
                         /////////////////////////////////////////////////////////////////////////
                     }
@@ -4442,13 +4412,13 @@ namespace wo
                 // ATTENTION: We will do bad things to update index op's container & index by AstValueIROpnum
                 if (!pattern_index->m_index->m_LANG_fast_index_for_struct.has_value())
                 {
-                    AstValueIROpnum* index_opnum = new AstValueIROpnum(m_ircontext.get_eval_result());
+                    AstValueIROpnum* const index_opnum = new AstValueIROpnum(m_ircontext.get_eval_result());
                     index_opnum->m_LANG_determined_type = pattern_index->m_index->m_index->m_LANG_determined_type;
                     index_opnum->source_location = pattern_index->m_index->m_index->source_location;
                     pattern_index->m_index->m_index = index_opnum;
                 }
 
-                AstValueIROpnum* container_opnum = new AstValueIROpnum(m_ircontext.get_eval_result());
+                AstValueIROpnum* const container_opnum = new AstValueIROpnum(m_ircontext.get_eval_result());
                 container_opnum->m_LANG_determined_type = pattern_index->m_index->m_container->m_LANG_determined_type;
                 container_opnum->source_location = pattern_index->m_index->m_container->source_location;
                 pattern_index->m_index->m_container = container_opnum;
