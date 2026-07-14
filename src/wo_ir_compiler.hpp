@@ -85,16 +85,15 @@ namespace wo
             m_closure_imm_pool;
         std::unordered_map<ast::AstValueFunction*, woort_IRConstantIndex>
             m_function_imm_pool;
-
-        std::unordered_map<std::string, woort_IRConstantIndex>
-            m_extern_symbols;
-
         // Direct extern function constants: constant index → native function
         // pointer. Applied during commit() via woort_CodeEnv_set_const_extern_function.
         // Used for compiler-internal calls to builtin functions (e.g. REPL echo)
         // that bypass the normal AstValueFunction extern resolution path.
-        std::unordered_map<woort_IRConstantIndex, woort_NativeFunction>
-            m_direct_extern_function_consts;
+        std::unordered_map<woort_NativeFunction, woort_IRConstantIndex>
+            m_direct_extern_function_imm_pool;
+
+        std::unordered_map<std::string, woort_IRConstantIndex>
+            m_extern_symbols;
 
         // Loaded extern library handles for lifecycle binding to CodeEnv
         std::unordered_set<woort_Dylib*> m_loaded_extern_libs;
@@ -128,7 +127,6 @@ namespace wo
         const woort_Bytecode* get_function(woort_CodeEnv* cenv, woort_IRFunction* irfunc);
         void register_extern_symbols(std::string_view name, woort_IRConstantIndex cidx);
         void add_extern_lib(woort_Dylib* lib);
-        woort_IRConstantIndex alloc_direct_extern_function(woort_NativeFunction func_ptr);
 
     public:
         const woort_IRValue* fetch_constant(woort_IRConstantIndex cidx);
@@ -357,11 +355,12 @@ namespace wo
             const ast::ConstantValue& constant);
         woort_IRConstantIndex imm_box_const(
             const ast::ConstantValue& constant);
+        woort_IRConstantIndex imm_extern_function(
+            woort_NativeFunction native_func);
         const woort_IRValue* load_imm_const(
             const ast::ConstantValue& constant);
         const woort_IRValue* load_imm_box_const(
             const ast::ConstantValue& constant);
-
 
         /* --- Debug --- */
         void nop();

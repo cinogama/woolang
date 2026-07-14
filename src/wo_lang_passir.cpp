@@ -1231,8 +1231,8 @@ namespace wo
     {
         wo_assert(state == UNPROCESSED);
 
-        woort_IRConstantIndex echo_cidx =
-            m_ircontext.c().alloc_direct_extern_function(
+        const woort_IRConstantIndex echo_cidx =
+            m_ircontext.c().imm_extern_function(
                 rslib_extern_symbols::g_builtin_debug_print);
 
         m_ircontext.eval_to_push_box();
