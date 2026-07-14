@@ -1655,7 +1655,7 @@ namespace wo
                     if (func_opt.has_value()
                         && (!m_repl_context.has_value()
                             || m_repl_context.value()->m_prior_function_bytecode.find(func_opt.value())
-                                == m_repl_context.value()->m_prior_function_bytecode.end()))
+                            == m_repl_context.value()->m_prior_function_bytecode.end()))
                     {
                         node->m_IR_invoking_function_near.emplace(func_opt.value());
                     }
@@ -1822,7 +1822,11 @@ namespace wo
                 m_ircontext.apply_eval_result(
                     [&](BytecodeGenerateContext::EvalResult& result)
                     {
-                        const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
+                        lang_TypeInstance* const type_instance = node->m_LANG_determined_type.value();
+
+                        const auto& target_storage = result.get_assign_target(type_instance);
+                        const bool is_void = type_instance->is_based_on_void_in_IR();
+
                         if (target_storage.has_value())
                         {
                             auto& [need_box, target] = target_storage.value();
@@ -1957,70 +1961,78 @@ namespace wo
         m_ircontext.apply_eval_result(
             [&](BytecodeGenerateContext::EvalResult& result)
             {
-                const auto target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
+                lang_TypeInstance* const type_instance = node->m_LANG_determined_type.value();
+                const bool is_void = type_instance->is_based_on_void_in_IR();
+
+                const auto target_storage = result.get_assign_target(type_instance);
                 if (target_storage.has_value())
                 {
-                    const auto& [need_box, target] = target_storage.value();
-
-                    woort_IRValue* const* const target_irvalue =
-                        std::get_if<woort_IRValue*>(&target);
-
-                    if (target_irvalue == nullptr)
-                    {
-                        // Assigned to static.
-                        if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL)
-                        {
-                            woort_IRValue* const v = m_ircontext.c().new_value();
-                            m_ircontext.c().load(v, variable_storage.m_static_index);
-
-                            if (variable_storage.m_is_pvalue_indirect)
-                                m_ircontext.c().loadpvalue(v, v);
-
-                            if (need_box.has_value())
-                                m_ircontext.c().boxdyn(v, need_box.value(), v);
-
-                            m_ircontext.c().store(
-                                std::get<woort_IRStaticIndex>(target), v);
-                        }
-                        else
-                        {
-                            wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
-
-                            woort_IRValue* v = variable_storage.m_stack_slot;
-
-                            if (need_box.has_value())
-                            {
-                                v = m_ircontext.c().new_value();
-                                m_ircontext.c().boxdyn(v, need_box.value(), variable_storage.m_stack_slot);
-                            }
-
-                            m_ircontext.c().store(
-                                std::get<woort_IRStaticIndex>(target), v);
-                        }
-                    }
+                    if (is_void)
+                        ; // Nothing to do, void value is junk.
                     else
                     {
-                        if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL)
+                        const auto& [need_box, target] = target_storage.value();
+
+                        woort_IRValue* const* const target_irvalue =
+                            std::get_if<woort_IRValue*>(&target);
+
+                        if (target_irvalue == nullptr)
                         {
-                            woort_IRValue* const v = m_ircontext.c().new_value();
-                            m_ircontext.c().load(v, variable_storage.m_static_index);
+                            // Assigned to static.
+                            if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL)
+                            {
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                m_ircontext.c().load(v, variable_storage.m_static_index);
 
-                            if (variable_storage.m_is_pvalue_indirect)
-                                m_ircontext.c().loadpvalue(v, v);
+                                if (variable_storage.m_is_pvalue_indirect)
+                                    m_ircontext.c().loadpvalue(v, v);
 
-                            m_ircontext.c().mov(*target_irvalue, v);
+                                if (need_box.has_value())
+                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
+
+                                m_ircontext.c().store(
+                                    std::get<woort_IRStaticIndex>(target), v);
+                            }
+                            else
+                            {
+                                wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
+
+                                woort_IRValue* v = variable_storage.m_stack_slot;
+
+                                if (need_box.has_value())
+                                {
+                                    v = m_ircontext.c().new_value();
+                                    m_ircontext.c().boxdyn(v, need_box.value(), variable_storage.m_stack_slot);
+                                }
+
+                                m_ircontext.c().store(
+                                    std::get<woort_IRStaticIndex>(target), v);
+                            }
                         }
                         else
                         {
-                            wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
-                            m_ircontext.c().mov(*target_irvalue, variable_storage.m_stack_slot);
-                        }
+                            if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL)
+                            {
+                                woort_IRValue* const v = m_ircontext.c().new_value();
+                                m_ircontext.c().load(v, variable_storage.m_static_index);
 
-                        if (need_box.has_value())
-                            m_ircontext.c().boxdyn(*target_irvalue, need_box.value(), *target_irvalue);
+                                if (variable_storage.m_is_pvalue_indirect)
+                                    m_ircontext.c().loadpvalue(v, v);
+
+                                m_ircontext.c().mov(*target_irvalue, v);
+                            }
+                            else
+                            {
+                                wo_assert(variable_storage.m_type == lang_ValueInstance::Storage::STACKOFFSET);
+                                m_ircontext.c().mov(*target_irvalue, variable_storage.m_stack_slot);
+                            }
+
+                            if (need_box.has_value())
+                                m_ircontext.c().boxdyn(*target_irvalue, need_box.value(), *target_irvalue);
+                        }
                     }
                 }
-                else
+                else if (!is_void)
                 {
                     if (variable_storage.m_type == lang_ValueInstance::Storage::GLOBAL)
                     {
@@ -2047,6 +2059,10 @@ namespace wo
                             variable_storage.m_stack_slot,
                             node->m_LANG_determined_type.value());
                     }
+                }
+                else
+                {
+                    result.set_result_junk(m_ircontext);
                 }
             });
 
@@ -4468,7 +4484,7 @@ namespace wo
                     switch (node->m_assign_type)
                     {
                     case AstValueAssign::ASSIGN:
-                        if (storage.m_type == lang_ValueInstance::Storage::StorageType::GLOBAL 
+                        if (storage.m_type == lang_ValueInstance::Storage::StorageType::GLOBAL
                             && storage.m_is_pvalue_indirect)
                         {
                             const woort_IRValue* const rhs_result =

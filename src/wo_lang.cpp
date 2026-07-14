@@ -279,6 +279,10 @@ namespace wo
     {
         return !is_immutable();
     }
+    bool lang_TypeInstance::is_based_on_void_in_IR() const
+    {
+        return get_determined_type().value()->m_base_type == DeterminedType::base_type::VOID;
+    }
     std::optional<const lang_TypeInstance::DeterminedType*> lang_TypeInstance::get_determined_type() const
     {
         const std::optional<DeterminedType>* dtype = std::get_if<std::optional<DeterminedType>>(
@@ -2188,7 +2192,7 @@ namespace wo
 
         if (immutable_type_instance->m_symbol->m_is_builtin)
         {
-            auto* base_determined_type = immutable_type_instance->get_determined_type().value();
+            auto* const base_determined_type = immutable_type_instance->get_determined_type().value();
             switch (base_determined_type->m_base_type)
             {
             case lang_TypeInstance::DeterminedType::ARRAY:

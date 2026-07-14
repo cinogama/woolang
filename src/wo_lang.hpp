@@ -146,6 +146,7 @@ namespace wo
 
         bool is_immutable() const;
         bool is_mutable() const;
+        bool is_based_on_void_in_IR() const;
         std::optional<const DeterminedType*> get_determined_type() const;
         bool is_need_to_box_in_IR(woort_BoxValueType* out_type) const;
 
