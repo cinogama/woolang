@@ -1106,13 +1106,20 @@ namespace map
         )}>)
         public func get_or_set<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
     extern(
-        dynamic::type_traits::extern_symbol_variant:<
-        {"woostd_map_get_or_set_default_do"},
-        (KT, VT),
-        {(
-            dynamic::type_traits::irbx,
-            dynamic::type_traits::irbx,
-        )}>)
+        std::type_traits::is_based_on:<void, VT> 
+            ?  dynamic::type_traits::extern_symbol_variant:<
+                {"woostd_map_get_or_set_default_do"},
+                (KT,),
+                {(
+                    dynamic::type_traits::irbx,
+                )}> + "v"
+            | dynamic::type_traits::extern_symbol_variant:<
+                {"woostd_map_get_or_set_default_do"},
+                (KT, VT),
+                {(
+                    dynamic::type_traits::irbx,
+                    dynamic::type_traits::irbx,
+                )}>)
         public func get_or_set_do<KT, VT>(self: map<KT, VT>, index: KT, defalt_do: ()=>VT)=> VT;
     public func get_or_do<KT, VT>(self: map<KT, VT>, index: KT, f: ()=> VT)=> VT
     {

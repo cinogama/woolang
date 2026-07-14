@@ -1829,18 +1829,19 @@ namespace wo
                         lang_TypeInstance* const type_instance = node->m_LANG_determined_type.value();
                         const bool is_void = type_instance->is_based_on_void_in_IR();
 
+                        const auto& target_storage = result.get_assign_target(type_instance);
+
                         if (is_void)
                         {
                             emit_invoke_call(nullptr);
                             if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
                                 m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
 
-                            result.set_result_junk(m_ircontext);
+                            if (!target_storage.has_value())
+                                result.set_result_junk(m_ircontext);
                         }
                         else
                         {
-                            const auto& target_storage = result.get_assign_target(type_instance);
-
                             if (target_storage.has_value())
                             {
                                 auto& [need_box, target] = target_storage.value();

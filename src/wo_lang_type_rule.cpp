@@ -366,16 +366,8 @@ namespace wo
                     is_type_accepted(lex, node, aimtype, immutable_srctype))
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
 
-                // 2. If aimtype is void, Ok
+                // 1. If aimtype is void, Ok
                 if (immutable_aimtype == m_origin_types.m_void.m_type_instance)
-                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
-
-                // 1. If srctype is void. reject.
-                if (immutable_srctype == m_origin_types.m_void.m_type_instance)
-                    return lang_TypeInstance::TypeCheckResult::REJECT;
-
-                // 3. If aimtype is dynamic, Ok
-                if (immutable_aimtype == m_origin_types.m_dynamic.m_type_instance)
                     return lang_TypeInstance::TypeCheckResult::ACCEPT;
 
                 // Following step needs determined base type.
@@ -400,84 +392,37 @@ namespace wo
                 auto* determined_srctype = determined_srctype_may_null.value();
                 auto* determined_aimtype = determined_aimtype_may_null.value();
 
-                // 4. All the type can cast to string, besides void.
-                if (immutable_aimtype == m_origin_types.m_string.m_type_instance &&
-                    determined_srctype->m_base_type != lang_TypeInstance::DeterminedType::VOID)
-                {
-                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
-                }
-
-                // 5. bool, handle, real, string can cast to int.
-                if (immutable_aimtype == m_origin_types.m_int.m_type_instance &&
-                    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_real.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_string.m_type_instance))
-                {
-                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
-                }
-
-                // 6. bool, int, handle, string can cast to real.
-                if (immutable_aimtype == m_origin_types.m_real.m_type_instance &&
-                    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_int.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_string.m_type_instance))
-                {
-                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
-                }
-
-                // 7. bool, int, real, string can cast to handle.
-                if (immutable_aimtype == m_origin_types.m_handle.m_type_instance &&
-                    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_int.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_real.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_string.m_type_instance))
-                {
-                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
-                }
-
-                // 8. integer, handle, real, string can cast to bool.
-                if (immutable_aimtype == m_origin_types.m_bool.m_type_instance &&
-                    (immutable_srctype == m_origin_types.m_int.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_real.m_type_instance ||
-                        immutable_srctype == m_origin_types.m_string.m_type_instance))
-                {
-                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
-                }
-
-                // 8. User defined type can cast to basic type, basic type can cast to user defined type.
-                std::pair<
-                    lang_TypeInstance::DeterminedType::base_type,
-                    OriginTypeHolder::OriginNoTemplateSymbolAndInstance OriginTypeHolder::*>
-                    base_type_record_table[] =
-                {
-                    std::make_pair(lang_TypeInstance::DeterminedType::VOID, &OriginTypeHolder::m_void),
-                    std::make_pair(lang_TypeInstance::DeterminedType::DYNAMIC, &OriginTypeHolder::m_dynamic),
-                    std::make_pair(lang_TypeInstance::DeterminedType::NIL, &OriginTypeHolder::m_nil),
-                    std::make_pair(lang_TypeInstance::DeterminedType::INTEGER, &OriginTypeHolder::m_int),
-                    std::make_pair(lang_TypeInstance::DeterminedType::REAL, &OriginTypeHolder::m_real),
-                    std::make_pair(lang_TypeInstance::DeterminedType::HANDLE, &OriginTypeHolder::m_handle),
-                    std::make_pair(lang_TypeInstance::DeterminedType::BOOLEAN, &OriginTypeHolder::m_bool),
-                    std::make_pair(lang_TypeInstance::DeterminedType::STRING, &OriginTypeHolder::m_string),
-                    std::make_pair(lang_TypeInstance::DeterminedType::GCHANDLE, &OriginTypeHolder::m_gchandle),
-                };
-                for (auto& [base_type, instance_member] : base_type_record_table)
-                {
-                    if ((immutable_aimtype == (m_origin_types.*instance_member).m_type_instance &&
-                        determined_srctype->m_base_type == base_type)
-                        || (immutable_srctype == (m_origin_types.*instance_member).m_type_instance &&
-                            determined_aimtype->m_base_type == base_type))
-                    {
-                        return lang_TypeInstance::TypeCheckResult::ACCEPT;
-                    }
-                }
-
                 // 9. User defined type based on:
                 // function, struct, tuple, array, vec, map, dict, need to check detailed.
                 if (determined_srctype->m_base_type == determined_aimtype->m_base_type)
                 {
+                    // 8. User defined type can cast to basic type, basic type can cast to user defined type.
+                    const std::pair<
+                        lang_TypeInstance::DeterminedType::base_type,
+                        OriginTypeHolder::OriginNoTemplateSymbolAndInstance OriginTypeHolder::*>
+                        base_type_record_table[] =
+                    {
+                        std::make_pair(lang_TypeInstance::DeterminedType::VOID, &OriginTypeHolder::m_void),
+                        std::make_pair(lang_TypeInstance::DeterminedType::DYNAMIC, &OriginTypeHolder::m_dynamic),
+                        std::make_pair(lang_TypeInstance::DeterminedType::NIL, &OriginTypeHolder::m_nil),
+                        std::make_pair(lang_TypeInstance::DeterminedType::INTEGER, &OriginTypeHolder::m_int),
+                        std::make_pair(lang_TypeInstance::DeterminedType::REAL, &OriginTypeHolder::m_real),
+                        std::make_pair(lang_TypeInstance::DeterminedType::HANDLE, &OriginTypeHolder::m_handle),
+                        std::make_pair(lang_TypeInstance::DeterminedType::BOOLEAN, &OriginTypeHolder::m_bool),
+                        std::make_pair(lang_TypeInstance::DeterminedType::STRING, &OriginTypeHolder::m_string),
+                        std::make_pair(lang_TypeInstance::DeterminedType::GCHANDLE, &OriginTypeHolder::m_gchandle),
+                    };
+                    for (auto& [base_type, instance_member] : base_type_record_table)
+                    {
+                        if ((immutable_aimtype == (m_origin_types.*instance_member).m_type_instance &&
+                            determined_srctype->m_base_type == base_type)
+                            || (immutable_srctype == (m_origin_types.*instance_member).m_type_instance &&
+                                determined_aimtype->m_base_type == base_type))
+                        {
+                            return lang_TypeInstance::TypeCheckResult::ACCEPT;
+                        }
+                    }
+
                     switch (determined_srctype->m_base_type)
                     {
                     case lang_TypeInstance::DeterminedType::DICTIONARY:
@@ -611,6 +556,61 @@ namespace wo
                     default:
                         break;
                     }
+                }
+
+                // 2. If srctype is void. reject.
+                if (immutable_srctype == m_origin_types.m_void.m_type_instance)
+                    return lang_TypeInstance::TypeCheckResult::REJECT;
+
+                // 3. If aimtype is dynamic, Ok
+                if (immutable_aimtype == m_origin_types.m_dynamic.m_type_instance)
+                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
+
+                // 4. All the type can cast to string, besides void.
+                if (immutable_aimtype == m_origin_types.m_string.m_type_instance &&
+                    determined_srctype->m_base_type != lang_TypeInstance::DeterminedType::VOID)
+                {
+                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
+                }
+
+                // 5. bool, handle, real, string can cast to int.
+                if (immutable_aimtype == m_origin_types.m_int.m_type_instance &&
+                    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_real.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_string.m_type_instance))
+                {
+                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
+                }
+
+                // 6. bool, int, handle, string can cast to real.
+                if (immutable_aimtype == m_origin_types.m_real.m_type_instance &&
+                    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_int.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_string.m_type_instance))
+                {
+                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
+                }
+
+                // 7. bool, int, real, string can cast to handle.
+                if (immutable_aimtype == m_origin_types.m_handle.m_type_instance &&
+                    (immutable_srctype == m_origin_types.m_bool.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_int.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_real.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_string.m_type_instance))
+                {
+                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
+                }
+
+                // 8. integer, handle, real, string can cast to bool.
+                if (immutable_aimtype == m_origin_types.m_bool.m_type_instance &&
+                    (immutable_srctype == m_origin_types.m_int.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_handle.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_real.m_type_instance ||
+                        immutable_srctype == m_origin_types.m_string.m_type_instance))
+                {
+                    return lang_TypeInstance::TypeCheckResult::ACCEPT;
                 }
 
                 // 10. Following types can cast from dynamic:
