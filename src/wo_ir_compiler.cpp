@@ -53,6 +53,7 @@ namespace wo
         m_string_imm_pool.clear();
         m_closure_imm_pool.clear();
         m_function_imm_pool.clear();
+        m_emitted_script_functions_for_REPL.clear();
         m_extern_symbols.clear();
         m_loaded_extern_libs.clear();
         m_tuple_imm_pool.clear();
@@ -85,6 +86,11 @@ namespace wo
     {
         if (!is_abondoned())
             m_current_functions_stack.pop_back();
+    }
+
+    void IRCompiler::note_emitted_function_for_REPL(ast::AstValueFunction* func)
+    {
+        m_emitted_script_functions_for_REPL.push_back(func);
     }
 
     woort_IRConstantIndex IRCompiler::alloc_constant()
@@ -160,66 +166,69 @@ namespace wo
             woort_CodeEnv_set_const_box_bool(cenv, *m_boxed_false_imm, false);
         }
 
+        // Record bytecodes for all script functions emitted in this compile
+        // session into m_prior_function_bytecode. This is a dedicated step,
+        // decoupled from the imm-pool loops below, so that every emitted
+        // function is recorded — including ones never referenced via an
+        // immediate (e.g. functions whose eval result was ignored). Without
+        // this, a prior-eval function missing from the map would cause
+        // AstValueFunctionCall to wrongly dispatch callnwo instead of far
+        // call in the next REPL eval.
+        wo_assert(m_emitted_script_functions_for_REPL.empty() || repl_ctx.has_value());
+        if (repl_ctx.has_value())
+        {
+            for (ast::AstValueFunction* func : m_emitted_script_functions_for_REPL)
+            {
+                repl_ctx.value()->m_prior_function_bytecode[func] =
+                    get_function(cenv, func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.value());
+            }
+        }
+
         for (const auto& [func, cidx] : m_function_imm_pool)
         {
-            if (func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.has_value())
+            if (func->m_LANG_extern_information.has_value())
             {
-                const woort_Bytecode* const bc =
-                    get_function(cenv, func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.value());
-                
-                woort_CodeEnv_set_const_script_function(cenv, cidx, bc);
-
-                if (repl_ctx.has_value())
-                    repl_ctx.value()->m_prior_function_bytecode[func] = bc;
-            }
-            else if (func->m_LANG_extern_information.has_value())
-            {
-                auto& extern_info = func->m_LANG_extern_information.value();
-
                 woort_CodeEnv_set_const_extern_function(
                     cenv,
                     cidx,
-                    extern_info->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value());
+                    func->m_LANG_extern_information.value()
+                        ->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value());
+            }
+            else if (repl_ctx.has_value())
+            {
+                // All script functions (freshly emitted or prior-eval) are
+                // in m_prior_function_bytecode after the recording step above.
+                woort_CodeEnv_set_const_script_function(
+                    cenv, cidx, repl_ctx.value()->m_prior_function_bytecode.at(func));
             }
             else
             {
-                wo_assert(repl_ctx.has_value());
-
-                // REPL: prior-eval script function referenced via near-call.
-                // Should not be reached — near-call is disabled for prior
-                // functions — but handle defensively in case of edge cases.
                 woort_CodeEnv_set_const_script_function(
-                    cenv, cidx, repl_ctx.value()->m_prior_function_bytecode.at(func));
+                    cenv, cidx,
+                    get_function(cenv, func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.value()));
             }
         }
 
         for (const auto& [func, cidx] : m_closure_imm_pool)
         {
-            if (func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.has_value())
-            {
-                const woort_Bytecode* const bc =
-                    get_function(cenv, func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.value());
-                woort_CodeEnv_set_const_script_closure(cenv, cidx, bc);
-                if (repl_ctx.has_value())
-                    repl_ctx.value()->m_prior_function_bytecode[func] = bc;
-            }
-            else if (func->m_LANG_extern_information.has_value())
+            if (func->m_LANG_extern_information.has_value())
             {
                 woort_CodeEnv_set_const_extern_closure(
                     cenv,
                     cidx,
-                    func->m_LANG_extern_information.value()->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value());
+                    func->m_LANG_extern_information.value()
+                        ->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value());
+            }
+            else if (repl_ctx.has_value())
+            {
+                woort_CodeEnv_set_const_script_closure(
+                    cenv, cidx, repl_ctx.value()->m_prior_function_bytecode.at(func));
             }
             else
             {
-                // REPL: prior-eval script function — reuse the bytecode
-                // entry point from the prior CodeEnv. The closure inherits
-                // the CodeEnv from the bytecode address, enabling a FAR CALL.
-                wo_assert(repl_ctx.has_value() && "prior function has no recorded bytecode");
-                auto it = repl_ctx.value()->m_prior_function_bytecode.find(func);
-                wo_assert(it != repl_ctx.value()->m_prior_function_bytecode.end()
-                    && "prior function has no recorded bytecode");
-                woort_CodeEnv_set_const_script_closure(cenv, cidx, it->second);
+                woort_CodeEnv_set_const_script_closure(
+                    cenv, cidx,
+                    get_function(cenv, func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.value()));
             }
         }
 

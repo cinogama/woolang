@@ -1462,6 +1462,9 @@ namespace wo
                         (uint32_t)eval_function->m_parameters.size() + (eval_function->m_is_variadic ? 1 : 0),
                         (uint32_t)eval_function->m_LANG_captured_context.m_captured_variables.size()));
 
+                if (m_repl_context.has_value())
+                    m_ircontext.c().note_emitted_function_for_REPL(eval_function);
+
                 woort_IRFunction_set_name(
                     eval_function->m_IR_function_MUST_BE_CLEAR_FOR_REPL.value(),
                     get_function_name(eval_function));
