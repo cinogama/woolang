@@ -53,7 +53,6 @@ namespace wo
         m_string_imm_pool.clear();
         m_closure_imm_pool.clear();
         m_function_imm_pool.clear();
-        m_emitted_script_functions_for_REPL.clear();
         m_extern_symbols.clear();
         m_loaded_extern_libs.clear();
         m_tuple_imm_pool.clear();
@@ -86,11 +85,6 @@ namespace wo
     {
         if (!is_abondoned())
             m_current_functions_stack.pop_back();
-    }
-
-    void IRCompiler::note_emitted_function_for_REPL(ast::AstValueFunction* func)
-    {
-        m_emitted_script_functions_for_REPL.push_back(func);
     }
 
     woort_IRConstantIndex IRCompiler::alloc_constant()
@@ -174,10 +168,10 @@ namespace wo
         // this, a prior-eval function missing from the map would cause
         // AstValueFunctionCall to wrongly dispatch callnwo instead of far
         // call in the next REPL eval.
-        wo_assert(m_emitted_script_functions_for_REPL.empty() || repl_ctx.has_value());
         if (repl_ctx.has_value())
         {
-            for (ast::AstValueFunction* func : m_emitted_script_functions_for_REPL)
+            auto& emitted = repl_ctx.value()->m_emitted_script_functions_for_REPL;
+            for (ast::AstValueFunction* func : emitted)
             {
                 repl_ctx.value()->m_prior_function_bytecode[func] =
                     get_function(cenv, func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.value());

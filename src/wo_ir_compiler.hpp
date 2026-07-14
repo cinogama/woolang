@@ -86,12 +86,6 @@ namespace wo
         std::unordered_map<ast::AstValueFunction*, woort_IRConstantIndex>
             m_function_imm_pool;
 
-        // All script functions actually emitted (push_function) in this
-        // compile session. Used by commit() to record their bytecode into
-        // REPLContext::m_prior_function_bytecode, regardless of whether
-        // they also appear in an immediate pool.
-        std::vector<ast::AstValueFunction*> m_emitted_script_functions_for_REPL;
-
         std::unordered_map<std::string, woort_IRConstantIndex>
             m_extern_symbols;
 
@@ -119,8 +113,6 @@ namespace wo
         woort_IRFunction* push_function(uint32_t param_count, uint32_t captured_count);
         void set_entry_function(woort_IRFunction* f);
         void pop_function();
-
-        void note_emitted_function_for_REPL(ast::AstValueFunction* func);
 
         woort_IRConstantIndex alloc_constant();
         woort_IRStaticIndex alloc_static();
