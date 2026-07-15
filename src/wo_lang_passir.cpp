@@ -1412,7 +1412,83 @@ namespace wo
                 }
                 case lang_TypeInstance::DeterminedType::base_type::UNION:
                 {
+                    woort_IRValue* const tag = c->new_value();
+                    c->ldidstruct(tag, boxed_val, 0);
 
+                    std::vector<std::pair<wo_pstring_t,
+                        const lang_TypeInstance::DeterminedType::Union::UnionMember*>>
+                        sorted_labels;
+                    for (const auto& [name, member] :
+                        determined_type->m_external_type_description.m_union->m_union_label)
+                    {
+                        sorted_labels.emplace_back(name, &member);
+                    }
+                    std::sort(sorted_labels.begin(), sorted_labels.end(),
+                        [](const auto& a, const auto& b)
+                        { return a.second->m_label < b.second->m_label; });
+
+                    wo_pstring_t type_prefix = wstring_pool::get_pstr(
+                        *t->m_symbol->m_name + "::");
+
+                    woort_IRLabel* const union_display_end = c->new_label();
+
+                    for (const auto& [label_name, member] : sorted_labels)
+                    {
+                        woort_IRLabel* const next_check = c->new_label();
+
+                        c->jcc_ne(tag, c->load_imm_int(member->m_label), next_check);
+
+                        c->pushchk(c->load_imm_string(type_prefix));
+                        c->pushchk(c->load_imm_int(1));
+                        c->callnfp(echo, 2, nullptr);
+
+                        c->pushchk(c->load_imm_string(label_name));
+                        c->pushchk(c->load_imm_int(1));
+                        c->callnfp(echo, 2, nullptr);
+
+                        if (member->m_item_type.has_value())
+                        {
+                            c->pushchk(c->load_imm_string(wstring_pool::get_pstr("(")));
+                            c->pushchk(c->load_imm_int(1));
+                            c->callnfp(echo, 2, nullptr);
+
+                            woort_IRValue* const item_value = c->new_value();
+                            c->ldidstruct(item_value, boxed_val, 1);
+
+                            const lang_TypeInstance::DeterminedType* const item_det_type =
+                                member->m_item_type.value()->get_determined_type().value();
+                            switch (item_det_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                                c->boxdyn(item_value, WOORT_BOX_VALUE_TYPE_INT, item_value);
+                                break;
+                            case lang_TypeInstance::DeterminedType::base_type::REAL:
+                                c->boxdyn(item_value, WOORT_BOX_VALUE_TYPE_REAL, item_value);
+                                break;
+                            case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                c->boxdyn(item_value, WOORT_BOX_VALUE_TYPE_BOOL, item_value);
+                                break;
+                            default:
+                                break;
+                            }
+
+                            generate_ir_displayer(c, item_value, member->m_item_type.value());
+
+                            c->pushchk(c->load_imm_string(wstring_pool::get_pstr(")")));
+                            c->pushchk(c->load_imm_int(1));
+                            c->callnfp(echo, 2, nullptr);
+                        }
+
+                        c->jmp(union_display_end);
+                        c->bind(next_check);
+                    }
+
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("<bad union>")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+
+                    c->bind(union_display_end);
+                    break;
                 }
                 case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
                 case lang_TypeInstance::DeterminedType::base_type::MAPPING:
