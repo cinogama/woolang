@@ -48,6 +48,14 @@ namespace std
                     using _B = T;
                     do n as _B;
                 });
+        public let is_gc_type<T> =
+            !is_based_on:<void, T>
+            && !is_based_on:<nil, T>
+            && !is_based_on:<int, T>
+            && !is_based_on:<handle, T>
+            && !is_based_on:<real, T>
+            && !is_based_on:<bool, T>
+            && !is_based_on:<dynamic, T>;
     }
     
     public func iterator<T>(v: T)
@@ -154,8 +162,10 @@ namespace std
         public func cmdlines()=> array<string>;
     extern("woostd_host_path")
         public func host_path()=> string;
-    extern("woostd_is_same")
-        public func is_same<LT, RT>(a: LT, b: RT)=> bool;
+    extern(std::type_traits::is_gc_type:<T> 
+        ? "woostd_is_same_gc_unit"
+        | "woostd_is_same")
+        public func is_same<T>(a: T, b: T)=> bool;
     extern((dynamic::type_traits::need_box:<T> || std::type_traits::is_based_on:<string, T>)
         ? "woostd_return_it_self"
         | "woostd_make_dup")
