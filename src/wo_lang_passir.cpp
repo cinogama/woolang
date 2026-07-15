@@ -1319,7 +1319,7 @@ namespace wo
                             c->callnfp(echo, 2, nullptr);
                         }
 
-                        const lang_TypeInstance::DeterminedType* const elem_type = 
+                        const lang_TypeInstance::DeterminedType* const elem_type =
                             elem_type_instance->get_determined_type().value();
 
                         c->ldidstruct(elem_value, boxed_val, idx);
@@ -4307,8 +4307,6 @@ namespace wo
                         lang_TypeInstance* const result_type_instance =
                             node->m_LANG_determined_type.value();
 
-                        const bool is_void = result_type_instance->is_based_on_void_in_IR();
-
                         const auto& asigned_target =
                             result.get_assign_target(result_type_instance);
 
@@ -4328,37 +4326,31 @@ namespace wo
 
                             if (asigned_target.has_value())
                             {
-                                if (is_void)
-                                    ;
-                                else
-                                {
-                                    const auto& [need_box, target] = asigned_target.value();
-                                    woort_IRValue* const* const target_irvalue =
-                                        std::get_if<woort_IRValue*>(&target);
+                                const auto& [need_box, target] = asigned_target.value();
+                                woort_IRValue* const* const target_irvalue =
+                                    std::get_if<woort_IRValue*>(&target);
 
-                                    woort_IRValue* const v = target_irvalue
-                                        ? *target_irvalue
-                                        : m_ircontext.c().new_value();
+                                woort_IRValue* const v = target_irvalue
+                                    ? *target_irvalue
+                                    : m_ircontext.c().new_value();
 
-                                    m_ircontext.c().ldidstruct(v, container_opnum, fast_index);
-                                    if (need_box.has_value())
-                                        m_ircontext.c().boxdyn(v, need_box.value(), v);
+                                m_ircontext.c().ldidstruct(v, container_opnum, fast_index);
+                                if (need_box.has_value())
+                                    m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                    if (target_irvalue == nullptr)
-                                        m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
-                                }
-                            }
-                            else if (!is_void)
-                            {
-                                result.set_result_struct_index(
-                                    m_ircontext, container_opnum, fast_index, node->m_LANG_determined_type.value());
+                                if (target_irvalue == nullptr)
+                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                             }
                             else
                             {
-                                result.set_result_junk(m_ircontext);
+                                result.set_result_struct_index(
+                                    m_ircontext,
+                                    container_opnum,
+                                    fast_index,
+                                    node->m_LANG_determined_type.value());
                             }
                         }
-                        else if (!is_void)
+                        else
                         {
                             woort_IRValue* make_result_target = nullptr;
 
@@ -4393,8 +4385,18 @@ namespace wo
                             auto* const determined_result_type =
                                 result_type_instance->get_determined_type().value();
 
-                            bool use_x_variant = determined_result_type->m_base_type ==
-                                lang_TypeInstance::DeterminedType::base_type::DYNAMIC;
+                            bool use_x_variant = true;
+                            switch (determined_result_type->m_base_type)
+                            {
+                            case lang_TypeInstance::DeterminedType::base_type::HANDLE:
+                            case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                            case lang_TypeInstance::DeterminedType::base_type::REAL:
+                            case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                                /* Only IRB need unbox */
+                                use_x_variant = false;
+                            default:
+                                break;
+                            }
 
                             bool need_extra_box_for_unsafe_cast_optimize = false;
                             if (need_box.has_value())
@@ -4514,10 +4516,6 @@ namespace wo
                                     make_result_target,
                                     node->m_LANG_determined_type.value());
                             }
-                        }
-                        else if (!asigned_target.has_value())
-                        {
-                            result.set_result_junk(m_ircontext);
                         }
                         /////////////////////////////////////////////////////////////////////////
                     }
