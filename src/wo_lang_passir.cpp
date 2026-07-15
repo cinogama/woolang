@@ -1303,16 +1303,63 @@ namespace wo
                 switch (determined_type->m_base_type)
                 {
                 case lang_TypeInstance::DeterminedType::base_type::TUPLE:
-                case lang_TypeInstance::DeterminedType::base_type::STRUCT:
-                case lang_TypeInstance::DeterminedType::base_type::UNION:
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("<cplx>")));
+                {
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("(")));
                     c->pushchk(c->load_imm_int(1));
                     c->callnfp(echo, 2, nullptr);
+
+                    uint32_t idx = 0;
+                    woort_IRValue* const elem_value = c->new_value();
+                    for (auto& elem_type_instance : determined_type->m_external_type_description.m_tuple->m_element_types)
+                    {
+                        if (idx != 0)
+                        {
+                            c->pushchk(c->load_imm_string(wstring_pool::get_pstr(", ")));
+                            c->pushchk(c->load_imm_int(1));
+                            c->callnfp(echo, 2, nullptr);
+                        }
+
+                        const lang_TypeInstance::DeterminedType* const elem_type = 
+                            elem_type_instance->get_determined_type().value();
+
+                        c->ldidstruct(elem_value, boxed_val, idx);
+                        switch (elem_type->m_base_type)
+                        {
+                        case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                            c->boxdyn(elem_value, WOORT_BOX_VALUE_TYPE_INT, elem_value);
+                            break;
+                        case lang_TypeInstance::DeterminedType::base_type::REAL:
+                            c->boxdyn(elem_value, WOORT_BOX_VALUE_TYPE_REAL, elem_value);
+                            break;
+                        case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                            c->boxdyn(elem_value, WOORT_BOX_VALUE_TYPE_BOOL, elem_value);
+                            break;
+                        default:
+                            break;
+                        }
+
+                        generate_ir_displayer(c, elem_value, elem_type_instance);
+                        ++idx;
+                    }
+
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr(")")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+
                     break;
+                }
+                case lang_TypeInstance::DeterminedType::base_type::STRUCT:
+                {
+
+                }
+                case lang_TypeInstance::DeterminedType::base_type::UNION:
+                {
+
+                }
                 case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
                 case lang_TypeInstance::DeterminedType::base_type::MAPPING:
                     c->pushchk(c->load_imm_string(wstring_pool::get_pstr("<cplx>")));
-                    c->pushchk(c->load_imm_int(1));
+                        c->pushchk(c->load_imm_int(1));
                     c->callnfp(echo, 2, nullptr);
                     break;
                 case lang_TypeInstance::DeterminedType::base_type::ARRAY:
