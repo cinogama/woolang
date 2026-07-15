@@ -901,7 +901,6 @@ namespace wo
                             goto error_handle_fail;
                     }
                 error_handle_fail:
-                    (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;
 
                 error_progress_end:

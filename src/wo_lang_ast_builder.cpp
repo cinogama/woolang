@@ -66,7 +66,8 @@ namespace wo
             {
                 const std::string candidate2 = path + "/" + filename + ".wo";
                 if (!wo::check_virtual_file_path(candidate2, std::optional(&lex), &src_full_path))
-                    return token{ lex.record_parser_error(lexer::msglevel_t::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
+                    return token{ lex.record_lang_error(
+                        lexer::msglevel_t::error, import_scopes, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
             wo_pstring_t src_full_path_pstr = wstring_pool::get_pstr(src_full_path);
@@ -88,7 +89,8 @@ namespace wo
                         return token{ lex_type::l_error };
                 }
                 else
-                    return token{ lex.record_parser_error(lexer::msglevel_t::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
+                    return token{ lex.record_lang_error(
+                        lexer::msglevel_t::error, import_scopes, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
             // Record import relationship.

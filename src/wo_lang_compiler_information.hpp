@@ -43,7 +43,6 @@
 #define WO_ERR_HERE_SHOULD_HAVE u8"此处缺少 `%s`"
 #define WO_ERR_LEXER_ERR_UNKNOWN_NUM_BASE u8"词法错误: 未知的数字进制"
 #define WO_ERR_SOURCE_CANNOT_BE_EMPTY u8"不能编译空的源代码"
-#define WO_ERR_UNABLE_RECOVER_FROM_ERR u8"无法从当前错误恢复, 编译终止"
 
 // PASS AST BUILDER
 #define WO_ERR_CANNOT_OPEN_FILE u8"无法打开文件 `%s`"

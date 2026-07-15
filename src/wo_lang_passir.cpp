@@ -1589,13 +1589,26 @@ namespace wo
             if (!is_type_contain_struct(t, TypeWalkingSet{}))
             {
                 // No aggregate to walk: display it directly via debug_print.
-                const woort_IRConstantIndex echo_detail =
-                    c->imm_extern_function(
-                        rslib_extern_symbols::g_builtin_debug_print);
+                if (t->is_based_on_void_in_IR())
+                {
+                    const woort_IRConstantIndex echo =
+                        c->imm_extern_function(
+                            rslib_extern_symbols::g_builtin_print);
 
-                c->pushchk(boxed_val);
-                c->pushchk(c->load_imm_int(1));
-                c->callnfp(echo_detail, 2, nullptr);
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("(void)")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+                }
+                else
+                {
+                    const woort_IRConstantIndex echo_detail =
+                        c->imm_extern_function(
+                            rslib_extern_symbols::g_builtin_debug_print);
+
+                    c->pushchk(boxed_val);
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo_detail, 2, nullptr);
+                }
                 return;
             }
 
