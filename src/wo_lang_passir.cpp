@@ -1293,12 +1293,12 @@ namespace wo
             const woort_IRValue* boxed_val,
             lang_TypeInstance* t)
         {
-            const woort_IRConstantIndex echo =
-                c->imm_extern_function(
-                    rslib_extern_symbols::g_builtin_debug_print);
-
             if (is_type_contain_struct(t, TypeWalkingSet{}))
             {
+                const woort_IRConstantIndex echo =
+                    c->imm_extern_function(
+                        rslib_extern_symbols::g_builtin_print);
+
                 auto* const determined_type = t->get_determined_type().value();
                 switch (determined_type->m_base_type)
                 {
@@ -1350,7 +1350,65 @@ namespace wo
                 }
                 case lang_TypeInstance::DeterminedType::base_type::STRUCT:
                 {
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("struct{")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
 
+                    std::vector<std::pair<wo_pstring_t,
+                        const lang_TypeInstance::DeterminedType::Struct::StructMember*>>
+                        sorted_members;
+                    for (const auto& [name, member] :
+                        determined_type->m_external_type_description.m_struct->m_member_types)
+                    {
+                        sorted_members.emplace_back(name, &member);
+                    }
+                    std::sort(sorted_members.begin(), sorted_members.end(),
+                        [](const auto& a, const auto& b)
+                        { return a.second->m_offset < b.second->m_offset; });
+
+                    bool first = true;
+                    woort_IRValue* const member_value = c->new_value();
+                    for (auto& [name, member] : sorted_members)
+                    {
+                        if (!first)
+                        {
+                            c->pushchk(c->load_imm_string(wstring_pool::get_pstr(", ")));
+                            c->pushchk(c->load_imm_int(1));
+                            c->callnfp(echo, 2, nullptr);
+                        }
+
+                        c->pushchk(c->load_imm_string(wstring_pool::get_pstr("= ")));
+                        c->pushchk(c->load_imm_string(name));
+                        c->pushchk(c->load_imm_int(2));
+                        c->callnfp(echo, 3, nullptr);
+
+                        const lang_TypeInstance::DeterminedType* const member_type =
+                            member->m_member_type->get_determined_type().value();
+
+                        c->ldidstruct(member_value, boxed_val, (uint32_t)member->m_offset);
+                        switch (member_type->m_base_type)
+                        {
+                        case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                            c->boxdyn(member_value, WOORT_BOX_VALUE_TYPE_INT, member_value);
+                            break;
+                        case lang_TypeInstance::DeterminedType::base_type::REAL:
+                            c->boxdyn(member_value, WOORT_BOX_VALUE_TYPE_REAL, member_value);
+                            break;
+                        case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                            c->boxdyn(member_value, WOORT_BOX_VALUE_TYPE_BOOL, member_value);
+                            break;
+                        default:
+                            break;
+                        }
+
+                        generate_ir_displayer(c, member_value, member->m_member_type);
+                        first = false;
+                    }
+
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("}")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+                    break;
                 }
                 case lang_TypeInstance::DeterminedType::base_type::UNION:
                 {
@@ -1450,12 +1508,14 @@ namespace wo
             }
             else
             {
+                const woort_IRConstantIndex echo_detail =
+                    c->imm_extern_function(
+                        rslib_extern_symbols::g_builtin_debug_print);
+
                 // Display it directly.
                 c->pushchk(boxed_val);
                 c->pushchk(c->load_imm_int(1));
-                c->callnfp(echo, 2, nullptr);
-
-
+                c->callnfp(echo_detail, 2, nullptr);
             }
         }
     };
