@@ -25,10 +25,10 @@ namespace test_enum
 
     func main()
     {
-        test_equal(EnumA::ZERO, 0);
-        test_equal(EnumB::ZERO, 0);
-        test_equal(EnumA::FIVE, 5);
-        test_equal(EnumB::SIX, 6);
+        test_equal(EnumA::ZERO as int, 0);
+        test_equal(EnumB::ZERO as int, 0);
+        test_equal(EnumA::FIVE as int, 5);
+        test_equal(EnumB::SIX as int, 6);
         test_equal(foo(EnumA::ZERO, EnumB::ZERO), 0);
     }
 }

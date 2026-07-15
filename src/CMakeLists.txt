@@ -71,18 +71,11 @@ if (MSVC)
     list(APPEND woo_src_cpp resources.rc)
 endif()
 
-if(NOT MSVC AND NOT WO_DISABLE_FUNCTION_FOR_WASM)
-    list(APPEND woo_system_libs dl)
-endif()
-
 add_library(woolang_library_options INTERFACE)
 target_compile_definitions(woolang_library_options INTERFACE -DWO_SRC_PATH="${PROJECT_SOURCE_DIR}")
 
 if (WO_DISABLE_COMPILER)
     target_compile_definitions(woolang_library_options INTERFACE -DWO_DISABLE_COMPILER=1)
-endif()
-if (WO_DISABLE_FUNCTION_FOR_WASM)
-    target_compile_definitions(woolang_library_options INTERFACE -DWO_DISABLE_FUNCTION_FOR_WASM=1)
 endif()
 
 if (BUILD_SHARED_LIBS)

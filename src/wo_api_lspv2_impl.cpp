@@ -917,6 +917,7 @@ static uint32_t _classify_type_symbol(wo::lang_Symbol* symbol)
     return WO_LSPV2_SEMANTIC_TYPE;
 }
 
+#if 0
 static void _walk_scope_for_semantic_tokens(
     wo_lspv2_scope* scope_handle,
     std::vector<_semantic_token_entry>& tokens,
@@ -960,6 +961,7 @@ static void _walk_scope_for_semantic_tokens(
         _walk_scope_for_semantic_tokens(sub_scope, tokens, seen);
     }
 }
+#endif
 
 static void _collect_all_semantic_tokens(
     wo_lspv2_source_meta* meta,

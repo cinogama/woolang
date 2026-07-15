@@ -2,12 +2,14 @@
 
 #include "wo_compiler_parser.hpp"
 
+static constexpr size_t WO_PARSER_AST_ALLOCATE_PAGE_SIZE = 1024 * 1024;
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
     ast::AstAllocator::AstAllocator()
         // Make sure new page create when first time alloc node.
-        : m_allocated_offset_in_page(PAGE_SIZE)
+        : m_allocated_offset_in_page(WO_PARSER_AST_ALLOCATE_PAGE_SIZE)
     {
     }
     ast::AstAllocator::~AstAllocator()
@@ -27,12 +29,12 @@ namespace wo
     {
         size_t al_sz = static_cast<size_t>(al);
         wo_assert((al_sz & (al_sz - 1)) == 0); // al_sz is power of 2
-        wo_assert(sz <= PAGE_SIZE);
+        wo_assert(sz <= WO_PARSER_AST_ALLOCATE_PAGE_SIZE);
 
         size_t alligned_next_offset = (m_allocated_offset_in_page + (al_sz - 1)) & (~(al_sz - 1));
-        if (alligned_next_offset + sz > PAGE_SIZE)
+        if (alligned_next_offset + sz > WO_PARSER_AST_ALLOCATE_PAGE_SIZE)
         {
-            char* new_page = reinterpret_cast<char*>(malloc(PAGE_SIZE));
+            char* new_page = reinterpret_cast<char*>(malloc(WO_PARSER_AST_ALLOCATE_PAGE_SIZE));
             wo_assert(new_page != nullptr);
 
             m_allocated_pages.push_back(new_page);

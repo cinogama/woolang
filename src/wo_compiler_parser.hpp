@@ -31,8 +31,6 @@ namespace wo
     {
         class AstAllocator
         {
-            static constexpr size_t PAGE_SIZE = 1024 * 1024;
-
             std::vector<char*> m_allocated_pages;
             std::vector<AstBase*> m_created_ast_nodes;
             size_t m_allocated_offset_in_page;

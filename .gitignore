@@ -360,3 +360,4 @@ _deps
 /build/
 /build2/
 /build_ninja/
+.msvc/

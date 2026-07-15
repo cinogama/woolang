@@ -40,9 +40,9 @@ public func execute_all_test()
     }
 }
 
-private func _test_compare<AT, BT>(a: AT, b :BT)
+private func _test_compare<T>(a: T, b :T)
 {
-    if ((a is string) && (b is string))
+    if (a is string)
         return a == b;
     else
         return std::is_same(a, b);
@@ -59,7 +59,7 @@ public func print_traceback()
         std::println("...");
 }
 
-public func test_equal<AT, BT>(a: AT, b: BT)
+public func test_equal<T>(a: T, b: T)
 {
     let result = _test_compare(a, b);
 
