@@ -1288,418 +1288,343 @@ namespace wo
                 return false;
             }
         }
+        // Print a literal (already-interned) string via echo.
+        static void emit_echo_str(
+            IRCompiler* c,
+            woort_IRConstantIndex echo,
+            wo_pstring_t str)
+        {
+            c->pushchk(c->load_imm_string(str));
+            c->pushchk(c->load_imm_int(1));
+            c->callnfp(echo, 2, nullptr);
+        }
+
+        // Box a primitive (int/real/bool) value into a dynamic value so it can
+        // be displayed generically. No-op for non-primitive types.
+        static void emit_boxdyn_if_primitive(
+            IRCompiler* c,
+            woort_IRValue* value,
+            const lang_TypeInstance::DeterminedType* det_type)
+        {
+            switch (det_type->m_base_type)
+            {
+            case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                c->boxdyn(value, WOORT_BOX_VALUE_TYPE_INT, value);
+                break;
+            case lang_TypeInstance::DeterminedType::base_type::REAL:
+                c->boxdyn(value, WOORT_BOX_VALUE_TYPE_REAL, value);
+                break;
+            case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                c->boxdyn(value, WOORT_BOX_VALUE_TYPE_BOOL, value);
+                break;
+            default:
+                break;
+            }
+        }
+
+        static void emit_tuple_display(
+            IRCompiler* c,
+            woort_IRConstantIndex echo,
+            const woort_IRValue* boxed_val,
+            const lang_TypeInstance::DeterminedType* dt)
+        {
+            emit_echo_str(c, echo, wstring_pool::get_pstr("("));
+
+            uint32_t idx = 0;
+            woort_IRValue* const elem_value = c->new_value();
+            for (auto& elem_type_instance : dt->m_external_type_description.m_tuple->m_element_types)
+            {
+                if (idx != 0)
+                {
+                    emit_echo_str(c, echo, wstring_pool::get_pstr(", "));
+                }
+
+                const lang_TypeInstance::DeterminedType* const elem_type =
+                    elem_type_instance->get_determined_type().value();
+
+                c->ldidstruct(elem_value, boxed_val, idx);
+                emit_boxdyn_if_primitive(c, elem_value, elem_type);
+
+                generate_ir_displayer(c, elem_value, elem_type_instance);
+                ++idx;
+            }
+
+            emit_echo_str(c, echo, wstring_pool::get_pstr(")"));
+        }
+
+        static void emit_struct_display(
+            IRCompiler* c,
+            woort_IRConstantIndex echo,
+            const woort_IRValue* boxed_val,
+            const lang_TypeInstance::DeterminedType* dt)
+        {
+            emit_echo_str(c, echo, wstring_pool::get_pstr("struct{"));
+
+            std::vector<std::pair<wo_pstring_t,
+                const lang_TypeInstance::DeterminedType::Struct::StructMember*>>
+                sorted_members;
+            for (const auto& [name, member] :
+                dt->m_external_type_description.m_struct->m_member_types)
+            {
+                sorted_members.emplace_back(name, &member);
+            }
+            std::sort(sorted_members.begin(), sorted_members.end(),
+                [](const auto& a, const auto& b)
+                { return a.second->m_offset < b.second->m_offset; });
+
+            bool first = true;
+            woort_IRValue* const member_value = c->new_value();
+            for (auto& [name, member] : sorted_members)
+            {
+                if (!first)
+                {
+                    emit_echo_str(c, echo, wstring_pool::get_pstr(", "));
+                }
+
+                c->pushchk(c->load_imm_string(wstring_pool::get_pstr("= ")));
+                c->pushchk(c->load_imm_string(name));
+                c->pushchk(c->load_imm_int(2));
+                c->callnfp(echo, 3, nullptr);
+
+                const lang_TypeInstance::DeterminedType* const member_type =
+                    member->m_member_type->get_determined_type().value();
+
+                c->ldidstruct(member_value, boxed_val, (uint32_t)member->m_offset);
+                emit_boxdyn_if_primitive(c, member_value, member_type);
+
+                generate_ir_displayer(c, member_value, member->m_member_type);
+                first = false;
+            }
+
+            emit_echo_str(c, echo, wstring_pool::get_pstr("}"));
+        }
+
+        static void emit_union_display(
+            IRCompiler* c,
+            woort_IRConstantIndex echo,
+            const woort_IRValue* boxed_val,
+            lang_TypeInstance* t,
+            const lang_TypeInstance::DeterminedType* dt)
+        {
+            woort_IRValue* const tag = c->new_value();
+            c->ldidstruct(tag, boxed_val, 0);
+
+            std::vector<std::pair<wo_pstring_t,
+                const lang_TypeInstance::DeterminedType::Union::UnionMember*>>
+                sorted_labels;
+            for (const auto& [name, member] :
+                dt->m_external_type_description.m_union->m_union_label)
+            {
+                sorted_labels.emplace_back(name, &member);
+            }
+            std::sort(sorted_labels.begin(), sorted_labels.end(),
+                [](const auto& a, const auto& b)
+                { return a.second->m_label < b.second->m_label; });
+
+            wo_pstring_t type_prefix = wstring_pool::get_pstr(
+                *t->m_symbol->m_name + "::");
+
+            woort_IRLabel* const union_display_end = c->new_label();
+
+            for (const auto& [label_name, member] : sorted_labels)
+            {
+                woort_IRLabel* const next_check = c->new_label();
+
+                c->jcc_ne(tag, c->load_imm_int(member->m_label), next_check);
+
+                emit_echo_str(c, echo, type_prefix);
+                emit_echo_str(c, echo, label_name);
+
+                if (member->m_item_type.has_value())
+                {
+                    emit_echo_str(c, echo, wstring_pool::get_pstr("("));
+
+                    woort_IRValue* const item_value = c->new_value();
+                    c->ldidstruct(item_value, boxed_val, 1);
+
+                    const lang_TypeInstance::DeterminedType* const item_det_type =
+                        member->m_item_type.value()->get_determined_type().value();
+                    emit_boxdyn_if_primitive(c, item_value, item_det_type);
+
+                    generate_ir_displayer(c, item_value, member->m_item_type.value());
+
+                    emit_echo_str(c, echo, wstring_pool::get_pstr(")"));
+                }
+
+                c->jmp(union_display_end);
+                c->bind(next_check);
+            }
+
+            emit_echo_str(c, echo, wstring_pool::get_pstr("<bad union>"));
+
+            c->bind(union_display_end);
+        }
+
+        static void emit_dict_mapping_display(
+            IRCompiler* c,
+            woort_IRConstantIndex echo,
+            const woort_IRValue* boxed_val,
+            const lang_TypeInstance::DeterminedType* dt)
+        {
+            emit_echo_str(c, echo, wstring_pool::get_pstr("{"));
+
+            // keys = map_keys(dict)
+            woort_IRValue* const dict_keys = c->new_value();
+            c->pushchk(boxed_val);
+            c->callnfp(
+                c->imm_extern_function(
+                    rslib_extern_symbols::g_builtin_map_keys),
+                1,
+                dict_keys);
+
+            // len = array_len(keys)
+            woort_IRValue* const dict_len = c->new_value();
+            c->pushchk(dict_keys);
+            c->callnfp(
+                c->imm_extern_function(
+                    rslib_extern_symbols::g_builtin_array_len),
+                1,
+                dict_len);
+
+            woort_IRValue* const dict_i = c->new_value();
+            c->load(dict_i, c->imm_int(0));
+
+            woort_IRLabel* const loop_begin = c->new_label();
+            woort_IRLabel* const loop_cond = c->new_label();
+
+            c->jmp(loop_cond);
+            c->bind(loop_begin);
+
+            woort_IRLabel* const display_comma_end = c->new_label();
+            c->jccz(dict_i, display_comma_end);
+
+            emit_echo_str(c, echo, wstring_pool::get_pstr(", "));
+
+            c->bind(display_comma_end);
+
+            // key = keys[i]
+            woort_IRValue* const dict_key = c->new_value();
+            c->ldidvecx(dict_key, dict_keys, dict_i);
+
+            // Display key
+            generate_ir_displayer(
+                c,
+                dict_key,
+                dt->m_external_type_description.m_dictionary_or_mapping->m_key_type);
+
+            emit_echo_str(c, echo, wstring_pool::get_pstr(": "));
+
+            // val = dict[key]
+            woort_IRValue* const dict_val = c->new_value();
+            c->ldiddictxx(dict_val, boxed_val, dict_key);
+
+            // Display value
+            generate_ir_displayer(
+                c,
+                dict_val,
+                dt->m_external_type_description.m_dictionary_or_mapping->m_value_type);
+
+            c->addi(dict_i, dict_i, c->load_imm_int(1));
+            c->bind(loop_cond);
+
+            c->jcc_lt(dict_i, dict_len, loop_begin);
+
+            emit_echo_str(c, echo, wstring_pool::get_pstr("}"));
+        }
+
+        static void emit_array_vector_display(
+            IRCompiler* c,
+            woort_IRConstantIndex echo,
+            const woort_IRValue* boxed_val,
+            const lang_TypeInstance::DeterminedType* dt)
+        {
+            emit_echo_str(c, echo, wstring_pool::get_pstr("["));
+
+            woort_IRValue* const vec_len = c->new_value();
+
+            c->pushchk(boxed_val);
+            c->callnfp(
+                c->imm_extern_function(
+                    rslib_extern_symbols::g_builtin_array_len),
+                1,
+                vec_len);
+
+            woort_IRValue* const vec_i = c->new_value();
+            c->load(vec_i, c->imm_int(0));
+
+            woort_IRLabel* const loop_begin = c->new_label();
+            woort_IRLabel* const loop_cond = c->new_label();
+
+            c->jmp(loop_cond);
+            c->bind(loop_begin);
+
+            woort_IRLabel* const display_comma_end = c->new_label();
+            c->jccz(vec_i, display_comma_end);
+
+            emit_echo_str(c, echo, wstring_pool::get_pstr(", "));
+
+            c->bind(display_comma_end);
+
+            woort_IRValue* const element = c->new_value();
+            c->ldidvecx(element, boxed_val, vec_i);
+
+            generate_ir_displayer(
+                c,
+                element,
+                dt->m_external_type_description.m_array_or_vector->m_element_type);
+
+            c->addi(vec_i, vec_i, c->load_imm_int(1));
+            c->bind(loop_cond);
+
+            c->jcc_lt(vec_i, vec_len, loop_begin);
+
+            emit_echo_str(c, echo, wstring_pool::get_pstr("]"));
+        }
+
         static void generate_ir_displayer(
             IRCompiler* c,
             const woort_IRValue* boxed_val,
             lang_TypeInstance* t)
         {
-            if (is_type_contain_struct(t, TypeWalkingSet{}))
+            if (!is_type_contain_struct(t, TypeWalkingSet{}))
             {
-                const woort_IRConstantIndex echo =
-                    c->imm_extern_function(
-                        rslib_extern_symbols::g_builtin_print);
-
-                auto* const determined_type = t->get_determined_type().value();
-                switch (determined_type->m_base_type)
-                {
-                case lang_TypeInstance::DeterminedType::base_type::TUPLE:
-                {
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("(")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-
-                    uint32_t idx = 0;
-                    woort_IRValue* const elem_value = c->new_value();
-                    for (auto& elem_type_instance : determined_type->m_external_type_description.m_tuple->m_element_types)
-                    {
-                        if (idx != 0)
-                        {
-                            c->pushchk(c->load_imm_string(wstring_pool::get_pstr(", ")));
-                            c->pushchk(c->load_imm_int(1));
-                            c->callnfp(echo, 2, nullptr);
-                        }
-
-                        const lang_TypeInstance::DeterminedType* const elem_type =
-                            elem_type_instance->get_determined_type().value();
-
-                        c->ldidstruct(elem_value, boxed_val, idx);
-                        switch (elem_type->m_base_type)
-                        {
-                        case lang_TypeInstance::DeterminedType::base_type::INTEGER:
-                            c->boxdyn(elem_value, WOORT_BOX_VALUE_TYPE_INT, elem_value);
-                            break;
-                        case lang_TypeInstance::DeterminedType::base_type::REAL:
-                            c->boxdyn(elem_value, WOORT_BOX_VALUE_TYPE_REAL, elem_value);
-                            break;
-                        case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                            c->boxdyn(elem_value, WOORT_BOX_VALUE_TYPE_BOOL, elem_value);
-                            break;
-                        default:
-                            break;
-                        }
-
-                        generate_ir_displayer(c, elem_value, elem_type_instance);
-                        ++idx;
-                    }
-
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr(")")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-
-                    break;
-                }
-                case lang_TypeInstance::DeterminedType::base_type::STRUCT:
-                {
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("struct{")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-
-                    std::vector<std::pair<wo_pstring_t,
-                        const lang_TypeInstance::DeterminedType::Struct::StructMember*>>
-                        sorted_members;
-                    for (const auto& [name, member] :
-                        determined_type->m_external_type_description.m_struct->m_member_types)
-                    {
-                        sorted_members.emplace_back(name, &member);
-                    }
-                    std::sort(sorted_members.begin(), sorted_members.end(),
-                        [](const auto& a, const auto& b)
-                        { return a.second->m_offset < b.second->m_offset; });
-
-                    bool first = true;
-                    woort_IRValue* const member_value = c->new_value();
-                    for (auto& [name, member] : sorted_members)
-                    {
-                        if (!first)
-                        {
-                            c->pushchk(c->load_imm_string(wstring_pool::get_pstr(", ")));
-                            c->pushchk(c->load_imm_int(1));
-                            c->callnfp(echo, 2, nullptr);
-                        }
-
-                        c->pushchk(c->load_imm_string(wstring_pool::get_pstr("= ")));
-                        c->pushchk(c->load_imm_string(name));
-                        c->pushchk(c->load_imm_int(2));
-                        c->callnfp(echo, 3, nullptr);
-
-                        const lang_TypeInstance::DeterminedType* const member_type =
-                            member->m_member_type->get_determined_type().value();
-
-                        c->ldidstruct(member_value, boxed_val, (uint32_t)member->m_offset);
-                        switch (member_type->m_base_type)
-                        {
-                        case lang_TypeInstance::DeterminedType::base_type::INTEGER:
-                            c->boxdyn(member_value, WOORT_BOX_VALUE_TYPE_INT, member_value);
-                            break;
-                        case lang_TypeInstance::DeterminedType::base_type::REAL:
-                            c->boxdyn(member_value, WOORT_BOX_VALUE_TYPE_REAL, member_value);
-                            break;
-                        case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                            c->boxdyn(member_value, WOORT_BOX_VALUE_TYPE_BOOL, member_value);
-                            break;
-                        default:
-                            break;
-                        }
-
-                        generate_ir_displayer(c, member_value, member->m_member_type);
-                        first = false;
-                    }
-
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("}")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-                    break;
-                }
-                case lang_TypeInstance::DeterminedType::base_type::UNION:
-                {
-                    woort_IRValue* const tag = c->new_value();
-                    c->ldidstruct(tag, boxed_val, 0);
-
-                    std::vector<std::pair<wo_pstring_t,
-                        const lang_TypeInstance::DeterminedType::Union::UnionMember*>>
-                        sorted_labels;
-                    for (const auto& [name, member] :
-                        determined_type->m_external_type_description.m_union->m_union_label)
-                    {
-                        sorted_labels.emplace_back(name, &member);
-                    }
-                    std::sort(sorted_labels.begin(), sorted_labels.end(),
-                        [](const auto& a, const auto& b)
-                        { return a.second->m_label < b.second->m_label; });
-
-                    wo_pstring_t type_prefix = wstring_pool::get_pstr(
-                        *t->m_symbol->m_name + "::");
-
-                    woort_IRLabel* const union_display_end = c->new_label();
-
-                    for (const auto& [label_name, member] : sorted_labels)
-                    {
-                        woort_IRLabel* const next_check = c->new_label();
-
-                        c->jcc_ne(tag, c->load_imm_int(member->m_label), next_check);
-
-                        c->pushchk(c->load_imm_string(type_prefix));
-                        c->pushchk(c->load_imm_int(1));
-                        c->callnfp(echo, 2, nullptr);
-
-                        c->pushchk(c->load_imm_string(label_name));
-                        c->pushchk(c->load_imm_int(1));
-                        c->callnfp(echo, 2, nullptr);
-
-                        if (member->m_item_type.has_value())
-                        {
-                            c->pushchk(c->load_imm_string(wstring_pool::get_pstr("(")));
-                            c->pushchk(c->load_imm_int(1));
-                            c->callnfp(echo, 2, nullptr);
-
-                            woort_IRValue* const item_value = c->new_value();
-                            c->ldidstruct(item_value, boxed_val, 1);
-
-                            const lang_TypeInstance::DeterminedType* const item_det_type =
-                                member->m_item_type.value()->get_determined_type().value();
-                            switch (item_det_type->m_base_type)
-                            {
-                            case lang_TypeInstance::DeterminedType::base_type::INTEGER:
-                                c->boxdyn(item_value, WOORT_BOX_VALUE_TYPE_INT, item_value);
-                                break;
-                            case lang_TypeInstance::DeterminedType::base_type::REAL:
-                                c->boxdyn(item_value, WOORT_BOX_VALUE_TYPE_REAL, item_value);
-                                break;
-                            case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                                c->boxdyn(item_value, WOORT_BOX_VALUE_TYPE_BOOL, item_value);
-                                break;
-                            default:
-                                break;
-                            }
-
-                            generate_ir_displayer(c, item_value, member->m_item_type.value());
-
-                            c->pushchk(c->load_imm_string(wstring_pool::get_pstr(")")));
-                            c->pushchk(c->load_imm_int(1));
-                            c->callnfp(echo, 2, nullptr);
-                        }
-
-                        c->jmp(union_display_end);
-                        c->bind(next_check);
-                    }
-
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("<bad union>")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-
-                    c->bind(union_display_end);
-                    break;
-                }
-                case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
-                case lang_TypeInstance::DeterminedType::base_type::MAPPING:
-                {
-                    /*
-                        pushchk "{"
-                        pushchk 1
-                        callnfp echo
-                        ;
-                        pushchk dict
-                        callnfp map_keys
-                        result keys, popr 1
-                        ;
-                        pushchk keys
-                        callnfp array_len
-                        result len, popr 1
-                        load i = 0
-                        jmp loop_cond
-                    loop_begin:
-                        jz i != 0 ? display_comma_end
-                        pushchk ", "
-                        pushchk 1
-                        callnfp echo
-                    display_comma_end:
-                        ldidvecx k = keys[i]
-                        -- generate_ir_displayer(k) --
-                        pushchk ": "
-                        pushchk 1
-                        callnfp echo
-                        ldiddictxx v = dict[k]
-                        -- generate_ir_displayer(v) --
-                        caddi i, 1
-                    loop_cond:
-                        jiflt i < len ? loop_begin
-                        ;
-                        pushchk "}"
-                        pushchk 1
-                        callnfp echo
-                    */
-
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("{")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-
-                    // keys = map_keys(dict)
-                    woort_IRValue* const dict_keys = c->new_value();
-                    c->pushchk(boxed_val);
-                    c->callnfp(
-                        c->imm_extern_function(
-                            rslib_extern_symbols::g_builtin_map_keys),
-                        1,
-                        dict_keys);
-
-                    // len = array_len(keys)
-                    woort_IRValue* const dict_len = c->new_value();
-                    c->pushchk(dict_keys);
-                    c->callnfp(
-                        c->imm_extern_function(
-                            rslib_extern_symbols::g_builtin_array_len),
-                        1,
-                        dict_len);
-
-                    woort_IRValue* const dict_i = c->new_value();
-                    c->load(dict_i, c->imm_int(0));
-
-                    woort_IRLabel* const loop_begin = c->new_label();
-                    woort_IRLabel* const loop_cond = c->new_label();
-
-                    c->jmp(loop_cond);
-                    c->bind(loop_begin);
-
-                    woort_IRLabel* const display_comma_end = c->new_label();
-                    c->jccz(dict_i, display_comma_end);
-
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr(", ")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-
-                    c->bind(display_comma_end);
-
-                    // key = keys[i]
-                    woort_IRValue* const dict_key = c->new_value();
-                    c->ldidvecx(dict_key, dict_keys, dict_i);
-
-                    // Display key
-                    generate_ir_displayer(
-                        c,
-                        dict_key,
-                        determined_type->m_external_type_description.m_dictionary_or_mapping->m_key_type);
-
-                    // Print ": "
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr(": ")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-
-                    // val = dict[key]
-                    woort_IRValue* const dict_val = c->new_value();
-                    c->ldiddictxx(dict_val, boxed_val, dict_key);
-
-                    // Display value
-                    generate_ir_displayer(
-                        c,
-                        dict_val,
-                        determined_type->m_external_type_description.m_dictionary_or_mapping->m_value_type);
-
-                    c->addi(dict_i, dict_i, c->load_imm_int(1));
-                    c->bind(loop_cond);
-
-                    c->jcc_lt(dict_i, dict_len, loop_begin);
-
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("}")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-                    break;
-                }
-                case lang_TypeInstance::DeterminedType::base_type::ARRAY:
-                case lang_TypeInstance::DeterminedType::base_type::VECTOR:
-                {
-                    /*
-                        pushchk "["
-                        pushchk 1
-                        callnfp echo
-                        popr 2
-                        ;
-                        pushchk v
-                        callnfp array_len
-                        result len, popr 1
-                        load i = 0
-                        jmp loop_cond
-                    loop_begin:
-                        jz i != 0 ? display_comma_end
-                        pushchk ", "
-                        pushchk 1
-                        callnfp echo
-                        popr 2
-                    display_comma_end:
-                        ldidvecx e = v[i]
-                        -- generate_ir_displayer(e) --
-                        caddi i, 1
-                    loop_cond:
-                        jiflt i < len ? loop_begin
-                        ;
-                        pushchk "["
-                        pushchk 1
-                        callnfp echo
-                        popr 2
-                    */
-
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("[")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-
-                    woort_IRValue* const vec_len = c->new_value();
-
-                    c->pushchk(boxed_val);
-                    c->callnfp(
-                        c->imm_extern_function(
-                            rslib_extern_symbols::g_builtin_array_len),
-                        1,
-                        vec_len);
-
-                    woort_IRValue* const vec_i = c->new_value();
-                    c->load(vec_i, c->imm_int(0));
-
-                    woort_IRLabel* const loop_begin = c->new_label();
-                    woort_IRLabel* const loop_cond = c->new_label();
-
-                    c->jmp(loop_cond);
-                    c->bind(loop_begin);
-
-                    woort_IRLabel* const display_comma_end = c->new_label();
-                    c->jccz(vec_i, display_comma_end);
-
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr(", ")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-
-                    c->bind(display_comma_end);
-
-                    woort_IRValue* const element = c->new_value();
-                    c->ldidvecx(element, boxed_val, vec_i);
-
-                    generate_ir_displayer(
-                        c,
-                        element,
-                        determined_type->m_external_type_description.m_array_or_vector->m_element_type);
-
-                    c->addi(vec_i, vec_i, c->load_imm_int(1));
-                    c->bind(loop_cond);
-
-                    c->jcc_lt(vec_i, vec_len, loop_begin);
-
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("]")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
-                    break;
-                }
-                default:
-                    wo_error("Cannot be here.");
-                }
-            }
-            else
-            {
+                // No aggregate to walk: display it directly via debug_print.
                 const woort_IRConstantIndex echo_detail =
                     c->imm_extern_function(
                         rslib_extern_symbols::g_builtin_debug_print);
 
-                // Display it directly.
                 c->pushchk(boxed_val);
                 c->pushchk(c->load_imm_int(1));
                 c->callnfp(echo_detail, 2, nullptr);
+                return;
+            }
+
+            const woort_IRConstantIndex echo =
+                c->imm_extern_function(
+                    rslib_extern_symbols::g_builtin_print);
+
+            auto* const determined_type = t->get_determined_type().value();
+            switch (determined_type->m_base_type)
+            {
+            case lang_TypeInstance::DeterminedType::base_type::TUPLE:
+                emit_tuple_display(c, echo, boxed_val, determined_type);
+                break;
+            case lang_TypeInstance::DeterminedType::base_type::STRUCT:
+                emit_struct_display(c, echo, boxed_val, determined_type);
+                break;
+            case lang_TypeInstance::DeterminedType::base_type::UNION:
+                emit_union_display(c, echo, boxed_val, t, determined_type);
+                break;
+            case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
+            case lang_TypeInstance::DeterminedType::base_type::MAPPING:
+                emit_dict_mapping_display(c, echo, boxed_val, determined_type);
+                break;
+            case lang_TypeInstance::DeterminedType::base_type::ARRAY:
+            case lang_TypeInstance::DeterminedType::base_type::VECTOR:
+                emit_array_vector_display(c, echo, boxed_val, determined_type);
+                break;
+            default:
+                wo_error("Cannot be here.");
             }
         }
     };

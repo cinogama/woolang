@@ -60,6 +60,7 @@
 #define WO_ERR_CANNOT_USING_UNSAFE u8"出于安全考虑, 不能直接使用 `unsafe` 命名空间"
 
 // PASS0_1 TYPE CHECK PARSE
+#define WO_ERR_REPL_ONLY u8"表达式末尾缺少分号"
 #define WO_ERR_UNFOUND_TYPE_NAMED u8"未找到类型 `%s`"
 #define WO_ERR_UNFOUND_VARIABLE_NAMED u8"未找到变量、常量或函数 `%s`"
 #define WO_ERR_UNEXPECTED_TEMPLATE_COUNT u8"需要 %zu 个泛型参数, 但提供了 %zu 个"

@@ -162,6 +162,12 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            if (!m_repl_context.has_value())
+            {
+                lex.record_lang_error(lexer::msglevel_t::error, node, WO_ERR_REPL_ONLY);
+                return FAILED;
+            }
+
             WO_CONTINUE_PROCESS(node->m_expression);
 
             return HOLD;
