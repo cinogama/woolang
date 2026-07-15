@@ -4,7 +4,6 @@ namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
     using namespace ast;
-
     void BytecodeGenerateContext::begin_loop_while(ast::AstWhile* ast)
     {
         m_loop_content_stack.push_back(
@@ -1227,21 +1226,205 @@ namespace wo
 
         return OKAY;
     }
+
+
+    struct REPLEchoIRGenerator
+    {
+        using TypeWalkingSet = std::unordered_set<lang_TypeInstance*>;
+
+        struct TypewalkGuard
+        {
+            TypewalkGuard(const TypewalkGuard&) = delete;
+            TypewalkGuard(TypewalkGuard&&) = delete;
+            TypewalkGuard& operator = (const TypewalkGuard&) = delete;
+            TypewalkGuard& operator = (TypewalkGuard&&) = delete;
+
+            lang_TypeInstance* m_walking_type;
+            TypeWalkingSet* m_walking_set;
+
+            TypewalkGuard(
+                lang_TypeInstance* walking_type,
+                TypeWalkingSet* walking_set)
+                : m_walking_type(walking_type)
+                , m_walking_set(walking_set)
+            {
+            }
+            ~TypewalkGuard()
+            {
+                (void)m_walking_set->erase(m_walking_type);
+            }
+        };
+
+        static bool is_type_contain_struct(
+            lang_TypeInstance* t, TypeWalkingSet& walked_set)
+        {
+            // Recursive type.
+            if (!walked_set.insert(t).second)
+                return false;
+
+            TypewalkGuard g(t, &walked_set);
+            (void)g;
+
+            auto* const determined_type = t->get_determined_type().value();
+            switch (determined_type->m_base_type)
+            {
+            case lang_TypeInstance::DeterminedType::base_type::TUPLE:
+            case lang_TypeInstance::DeterminedType::base_type::STRUCT:
+            case lang_TypeInstance::DeterminedType::base_type::UNION:
+                return true;
+                /* ============== */
+
+            case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
+            case lang_TypeInstance::DeterminedType::base_type::MAPPING:
+                return is_type_contain_struct(
+                    determined_type->m_external_type_description.m_dictionary_or_mapping->m_key_type, walked_set)
+                    || is_type_contain_struct(
+                        determined_type->m_external_type_description.m_dictionary_or_mapping->m_value_type, walked_set);
+            case lang_TypeInstance::DeterminedType::base_type::ARRAY:
+            case lang_TypeInstance::DeterminedType::base_type::VECTOR:
+                return is_type_contain_struct(
+                    determined_type->m_external_type_description.m_array_or_vector->m_element_type, walked_set);
+            default:
+                return false;
+            }
+        }
+        static void generate_ir_displayer(
+            IRCompiler* c,
+            const woort_IRValue* boxed_val,
+            lang_TypeInstance* t)
+        {
+            const woort_IRConstantIndex echo =
+                c->imm_extern_function(
+                    rslib_extern_symbols::g_builtin_debug_print);
+
+            if (is_type_contain_struct(t, TypeWalkingSet{}))
+            {
+                auto* const determined_type = t->get_determined_type().value();
+                switch (determined_type->m_base_type)
+                {
+                case lang_TypeInstance::DeterminedType::base_type::TUPLE:
+                case lang_TypeInstance::DeterminedType::base_type::STRUCT:
+                case lang_TypeInstance::DeterminedType::base_type::UNION:
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("<cplx>")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+                    break;
+                case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
+                case lang_TypeInstance::DeterminedType::base_type::MAPPING:
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("<cplx>")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+                    break;
+                case lang_TypeInstance::DeterminedType::base_type::ARRAY:
+                case lang_TypeInstance::DeterminedType::base_type::VECTOR:
+                {
+                    /*
+                        pushchk "["
+                        pushchk 1
+                        callnfp echo
+                        popr 2
+                        ;
+                        pushchk v
+                        callnfp array_len
+                        result len, popr 1
+                        load i = 0
+                        jmp loop_cond
+                    loop_begin:
+                        jz i != 0 ? display_comma_end
+                        pushchk ", "
+                        pushchk 1
+                        callnfp echo
+                        popr 2
+                    display_comma_end:
+                        ldidvecx e = v[i]
+                        -- generate_ir_displayer(e) --
+                        caddi i, 1
+                    loop_cond:
+                        jiflt i < len ? loop_begin
+                        ;
+                        pushchk "["
+                        pushchk 1
+                        callnfp echo
+                        popr 2
+                    */
+
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("[")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+
+                    woort_IRValue* const vec_len = c->new_value();
+
+                    c->pushchk(boxed_val);
+                    c->callnfp(
+                        c->imm_extern_function(
+                            rslib_extern_symbols::g_builtin_array_len),
+                        1,
+                        vec_len);
+
+                    woort_IRValue* const vec_i = c->new_value();
+                    c->load(vec_i, c->imm_int(0));
+
+                    woort_IRLabel* const loop_begin = c->new_label();
+                    woort_IRLabel* const loop_cond = c->new_label();
+
+                    c->jmp(loop_cond);
+                    c->bind(loop_begin);
+
+                    woort_IRLabel* const display_comma_end = c->new_label();
+                    c->jccz(vec_i, display_comma_end);
+
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr(", ")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+
+                    c->bind(display_comma_end);
+
+                    woort_IRValue* const element = c->new_value();
+                    c->ldidvecx(element, boxed_val, vec_i);
+
+                    generate_ir_displayer(
+                        c,
+                        element,
+                        determined_type->m_external_type_description.m_array_or_vector->m_element_type);
+
+                    c->addi(vec_i, vec_i, c->load_imm_int(1));
+                    c->bind(loop_cond);
+
+                    c->jcc_lt(vec_i, vec_len, loop_begin);
+
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("]")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+                    break;
+                }
+                default:
+                    wo_error("Cannot be here.");
+                }
+            }
+            else
+            {
+                // Display it directly.
+                c->pushchk(boxed_val);
+                c->pushchk(c->load_imm_int(1));
+                c->callnfp(echo, 2, nullptr);
+
+
+            }
+        }
+    };
+
     WO_PASS_PROCESSER(AstEchoForREPL)
     {
         wo_assert(state == UNPROCESSED);
 
-        const woort_IRConstantIndex echo_cidx =
-            m_ircontext.c().imm_extern_function(
-                rslib_extern_symbols::g_builtin_debug_print);
-
-        m_ircontext.eval_to_push_box();
+        m_ircontext.begin_eval_readonly_box();
         if (!pass_final_value(lex, node->m_expression))
             return FAILED;
 
-        m_ircontext.c().pushchk(m_ircontext.c().load_imm_int(1));
-
-        m_ircontext.c().callnfp(echo_cidx, 2, nullptr);
+        REPLEchoIRGenerator::generate_ir_displayer(
+            &m_ircontext.c(),
+            m_ircontext.get_eval_result(),
+            node->m_expression->m_LANG_determined_type.value());
 
         return OKAY;
     }

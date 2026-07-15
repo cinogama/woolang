@@ -19,6 +19,7 @@ namespace wo
         inline static woort_NativeFunction g_builtin_return_it_self = nullptr;
         inline static woort_NativeFunction g_builtin_bad_function = nullptr;
         inline static woort_NativeFunction g_builtin_debug_print = nullptr;
+        inline static woort_NativeFunction g_builtin_array_len = nullptr;
 
         static void cache_builtin_pointers()
         {
@@ -29,8 +30,12 @@ namespace wo
                     (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_return_it_self");
                 g_builtin_bad_function =
                     (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_bad_function");
+
+                // For REPL.
                 g_builtin_debug_print =
                     (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_debug_print");
+                g_builtin_array_len =
+                    (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_array_len");                    
             }
         }
 
