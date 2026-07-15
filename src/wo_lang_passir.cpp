@@ -1292,11 +1292,13 @@ namespace wo
         static void emit_echo_str(
             IRCompiler* c,
             woort_IRConstantIndex echo,
+            const woort_IRValue* repl_printer,
             wo_pstring_t str)
         {
             c->pushchk(c->load_imm_string(str));
-            c->pushchk(c->load_imm_int(1));
-            c->callnfp(echo, 2, nullptr);
+            c->pushchk(repl_printer);
+            c->pushchk(c->load_imm_int(2));
+            c->callnfp(echo, 3, nullptr);
         }
 
         // Box a primitive (int/real/bool) value into a dynamic value so it can
@@ -1325,10 +1327,11 @@ namespace wo
         static void emit_tuple_display(
             IRCompiler* c,
             woort_IRConstantIndex echo,
+            const woort_IRValue* repl_printer,
             const woort_IRValue* boxed_val,
             const lang_TypeInstance::DeterminedType* dt)
         {
-            emit_echo_str(c, echo, wstring_pool::get_pstr("("));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("("));
 
             uint32_t idx = 0;
             woort_IRValue* const elem_value = c->new_value();
@@ -1336,7 +1339,7 @@ namespace wo
             {
                 if (idx != 0)
                 {
-                    emit_echo_str(c, echo, wstring_pool::get_pstr(", "));
+                    emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
                 }
 
                 const lang_TypeInstance::DeterminedType* const elem_type =
@@ -1345,20 +1348,21 @@ namespace wo
                 c->ldidstruct(elem_value, boxed_val, idx);
                 emit_boxdyn_if_primitive(c, elem_value, elem_type);
 
-                generate_ir_displayer(c, elem_value, elem_type_instance);
+                generate_ir_displayer(c, repl_printer, elem_value, elem_type_instance);
                 ++idx;
             }
 
-            emit_echo_str(c, echo, wstring_pool::get_pstr(")"));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(")"));
         }
 
         static void emit_struct_display(
             IRCompiler* c,
             woort_IRConstantIndex echo,
+            const woort_IRValue* repl_printer,
             const woort_IRValue* boxed_val,
             const lang_TypeInstance::DeterminedType* dt)
         {
-            emit_echo_str(c, echo, wstring_pool::get_pstr("struct{"));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("struct{"));
 
             std::vector<std::pair<wo_pstring_t,
                 const lang_TypeInstance::DeterminedType::Struct::StructMember*>>
@@ -1378,13 +1382,14 @@ namespace wo
             {
                 if (!first)
                 {
-                    emit_echo_str(c, echo, wstring_pool::get_pstr(", "));
+                    emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
                 }
 
                 c->pushchk(c->load_imm_string(wstring_pool::get_pstr("= ")));
                 c->pushchk(c->load_imm_string(name));
-                c->pushchk(c->load_imm_int(2));
-                c->callnfp(echo, 3, nullptr);
+                c->pushchk(repl_printer);
+                c->pushchk(c->load_imm_int(3));
+                c->callnfp(echo, 4, nullptr);
 
                 const lang_TypeInstance::DeterminedType* const member_type =
                     member->m_member_type->get_determined_type().value();
@@ -1392,16 +1397,17 @@ namespace wo
                 c->ldidstruct(member_value, boxed_val, (uint32_t)member->m_offset);
                 emit_boxdyn_if_primitive(c, member_value, member_type);
 
-                generate_ir_displayer(c, member_value, member->m_member_type);
+                generate_ir_displayer(c, repl_printer, member_value, member->m_member_type);
                 first = false;
             }
 
-            emit_echo_str(c, echo, wstring_pool::get_pstr("}"));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("}"));
         }
 
         static void emit_union_display(
             IRCompiler* c,
             woort_IRConstantIndex echo,
+            const woort_IRValue* repl_printer,
             const woort_IRValue* boxed_val,
             lang_TypeInstance* t,
             const lang_TypeInstance::DeterminedType* dt)
@@ -1432,12 +1438,12 @@ namespace wo
 
                 c->jcc_ne(tag, c->load_imm_int(member->m_label), next_check);
 
-                emit_echo_str(c, echo, type_prefix);
-                emit_echo_str(c, echo, label_name);
+                emit_echo_str(c, echo, repl_printer, type_prefix);
+                emit_echo_str(c, echo, repl_printer, label_name);
 
                 if (member->m_item_type.has_value())
                 {
-                    emit_echo_str(c, echo, wstring_pool::get_pstr("("));
+                    emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("("));
 
                     woort_IRValue* const item_value = c->new_value();
                     c->ldidstruct(item_value, boxed_val, 1);
@@ -1446,16 +1452,16 @@ namespace wo
                         member->m_item_type.value()->get_determined_type().value();
                     emit_boxdyn_if_primitive(c, item_value, item_det_type);
 
-                    generate_ir_displayer(c, item_value, member->m_item_type.value());
+                    generate_ir_displayer(c, repl_printer, item_value, member->m_item_type.value());
 
-                    emit_echo_str(c, echo, wstring_pool::get_pstr(")"));
+                    emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(")"));
                 }
 
                 c->jmp(union_display_end);
                 c->bind(next_check);
             }
 
-            emit_echo_str(c, echo, wstring_pool::get_pstr("<bad union>"));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("<bad union>"));
 
             c->bind(union_display_end);
         }
@@ -1463,10 +1469,11 @@ namespace wo
         static void emit_dict_mapping_display(
             IRCompiler* c,
             woort_IRConstantIndex echo,
+            const woort_IRValue* repl_printer,
             const woort_IRValue* boxed_val,
             const lang_TypeInstance::DeterminedType* dt)
         {
-            emit_echo_str(c, echo, wstring_pool::get_pstr("{"));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("{"));
 
             // keys = map_keys(dict)
             woort_IRValue* const dict_keys = c->new_value();
@@ -1498,7 +1505,7 @@ namespace wo
             woort_IRLabel* const display_comma_end = c->new_label();
             c->jccz(dict_i, display_comma_end);
 
-            emit_echo_str(c, echo, wstring_pool::get_pstr(", "));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
 
             c->bind(display_comma_end);
 
@@ -1509,10 +1516,11 @@ namespace wo
             // Display key
             generate_ir_displayer(
                 c,
+                repl_printer,
                 dict_key,
                 dt->m_external_type_description.m_dictionary_or_mapping->m_key_type);
 
-            emit_echo_str(c, echo, wstring_pool::get_pstr(": "));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(": "));
 
             // val = dict[key]
             woort_IRValue* const dict_val = c->new_value();
@@ -1521,6 +1529,7 @@ namespace wo
             // Display value
             generate_ir_displayer(
                 c,
+                repl_printer,
                 dict_val,
                 dt->m_external_type_description.m_dictionary_or_mapping->m_value_type);
 
@@ -1529,16 +1538,17 @@ namespace wo
 
             c->jcc_lt(dict_i, dict_len, loop_begin);
 
-            emit_echo_str(c, echo, wstring_pool::get_pstr("}"));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("}"));
         }
 
         static void emit_array_vector_display(
             IRCompiler* c,
             woort_IRConstantIndex echo,
+            const woort_IRValue* repl_printer,
             const woort_IRValue* boxed_val,
             const lang_TypeInstance::DeterminedType* dt)
         {
-            emit_echo_str(c, echo, wstring_pool::get_pstr("["));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("["));
 
             woort_IRValue* const vec_len = c->new_value();
 
@@ -1561,7 +1571,7 @@ namespace wo
             woort_IRLabel* const display_comma_end = c->new_label();
             c->jccz(vec_i, display_comma_end);
 
-            emit_echo_str(c, echo, wstring_pool::get_pstr(", "));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
 
             c->bind(display_comma_end);
 
@@ -1570,6 +1580,7 @@ namespace wo
 
             generate_ir_displayer(
                 c,
+                repl_printer,
                 element,
                 dt->m_external_type_description.m_array_or_vector->m_element_type);
 
@@ -1578,63 +1589,67 @@ namespace wo
 
             c->jcc_lt(vec_i, vec_len, loop_begin);
 
-            emit_echo_str(c, echo, wstring_pool::get_pstr("]"));
+            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("]"));
         }
 
         static void generate_ir_displayer(
             IRCompiler* c,
+            const woort_IRValue* repl_printer,
             const woort_IRValue* boxed_val,
             lang_TypeInstance* t)
         {
-            if (!is_type_contain_struct(t, TypeWalkingSet{}))
+            TypeWalkingSet walking_set;
+            if (!is_type_contain_struct(t, walking_set))
             {
                 // No aggregate to walk: display it directly via debug_print.
                 if (t->is_based_on_void_in_IR())
                 {
                     const woort_IRConstantIndex echo =
                         c->imm_extern_function(
-                            rslib_extern_symbols::g_builtin_print);
+                            rslib_extern_symbols::g_builtin_repl_print_normal);
 
                     c->pushchk(c->load_imm_string(wstring_pool::get_pstr("(void)")));
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo, 2, nullptr);
+                    c->pushchk(repl_printer);
+                    c->pushchk(c->load_imm_int(2));
+                    c->callnfp(echo, 3, nullptr);
                 }
                 else
                 {
                     const woort_IRConstantIndex echo_detail =
                         c->imm_extern_function(
-                            rslib_extern_symbols::g_builtin_debug_print);
+                            rslib_extern_symbols::g_builtin_repl_print_debug);
 
                     c->pushchk(boxed_val);
-                    c->pushchk(c->load_imm_int(1));
-                    c->callnfp(echo_detail, 2, nullptr);
+                    c->pushchk(repl_printer);
+                    c->pushchk(c->load_imm_int(2));
+                    c->callnfp(echo_detail, 3, nullptr);
                 }
                 return;
             }
 
             const woort_IRConstantIndex echo =
                 c->imm_extern_function(
-                    rslib_extern_symbols::g_builtin_print);
+                    rslib_extern_symbols::g_builtin_repl_print_normal);
 
             auto* const determined_type = t->get_determined_type().value();
             switch (determined_type->m_base_type)
             {
             case lang_TypeInstance::DeterminedType::base_type::TUPLE:
-                emit_tuple_display(c, echo, boxed_val, determined_type);
+                emit_tuple_display(c, echo, repl_printer, boxed_val, determined_type);
                 break;
             case lang_TypeInstance::DeterminedType::base_type::STRUCT:
-                emit_struct_display(c, echo, boxed_val, determined_type);
+                emit_struct_display(c, echo, repl_printer, boxed_val, determined_type);
                 break;
             case lang_TypeInstance::DeterminedType::base_type::UNION:
-                emit_union_display(c, echo, boxed_val, t, determined_type);
+                emit_union_display(c, echo, repl_printer, boxed_val, t, determined_type);
                 break;
             case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
             case lang_TypeInstance::DeterminedType::base_type::MAPPING:
-                emit_dict_mapping_display(c, echo, boxed_val, determined_type);
+                emit_dict_mapping_display(c, echo, repl_printer, boxed_val, determined_type);
                 break;
             case lang_TypeInstance::DeterminedType::base_type::ARRAY:
             case lang_TypeInstance::DeterminedType::base_type::VECTOR:
-                emit_array_vector_display(c, echo, boxed_val, determined_type);
+                emit_array_vector_display(c, echo, repl_printer, boxed_val, determined_type);
                 break;
             default:
                 wo_error("Cannot be here.");
@@ -1650,8 +1665,15 @@ namespace wo
         if (!pass_final_value(lex, node->m_expression))
             return FAILED;
 
+        // Load the session REPL printer pointer as an integer immediate so the
+        // woostd_repl_print_* native functions receive it (slot 1) ahead of the
+        // echoed values. m_repl_context is always set for REPL AST nodes.
+        const woort_IRValue* const repl_printer = m_ircontext.c().load_imm_int(
+            (woort_Int)(uintptr_t)m_repl_context.value()->m_repl_printer);
+
         REPLEchoIRGenerator::generate_ir_displayer(
             &m_ircontext.c(),
+            repl_printer,
             m_ircontext.get_eval_result(),
             node->m_expression->m_LANG_determined_type.value());
 

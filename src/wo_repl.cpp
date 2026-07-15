@@ -35,6 +35,12 @@ struct _wo_ReplSession
     // Persistent VM: survives across evaluations, holds runtime state.
     woort_vm* m_vm;
 
+    // Session-owned REPL printer. Bare-expression echoes (AstEchoForREPL) are
+    // buffered here via the woostd_repl_print_* native functions during
+    // wo_repl_eval; flushed (invoking the user callback, or stdout) after each
+    // successful evaluation. m_repl_printer tracks whether creation succeeded.
+    woort_REPLPrinter* m_repl_printer;
+
     // Flat snapshot of ALL static storage slots from the last booted CodeEnv.
     // m_static_values[i] is the runtime value at woort_IRStaticIndex i.
     // Preserved across evals by bulk-reserving slots [0..N-1] in each new
@@ -75,7 +81,7 @@ struct _wo_ReplSession
     wo::lexer::who_import_me_map_t m_who_import_me_map_tree;
     wo::lexer::who_import_me_map_t m_export_import_map;
 
-    _wo_ReplSession();
+    _wo_ReplSession(woort_REPLPrinter_ResultCallback callback);
     ~_wo_ReplSession();
 
     _wo_ReplSession(const _wo_ReplSession&) = delete;
@@ -144,49 +150,59 @@ struct _wo_repl_tls_guard
 //  Lifecycle
 // ===================================================================
 
-_wo_ReplSession::_wo_ReplSession()
+    _wo_ReplSession::_wo_ReplSession(woort_REPLPrinter_ResultCallback callback)
     : m_repl_pool(std::nullopt)
     , m_vm(woort_vm_create())
     , m_line_counter(0)
     , m_repl_seq_num(0)
     , m_repl_group_token(nullptr)
-{
-    wo_assert(m_vm != nullptr);
-
-    // Install REPL TLS (creates the session string pool on first use).
-    // The guard detaches TLS when construction completes so the caller's
-    // thread-local state is not held for the session lifetime.
-    _wo_repl_tls_guard guard(*this);
-
-    // Allocate the session-stable logical source identity. Every REPL eval
-    // carries this in source_location.source_group (not source_file, which
-    // holds the unique per-snippet VFS path) so compiler-semantic
-    // mechanisms (using-namespace, PRIVATE access, import visibility) treat
-    // all snippets as the same file. The session pointer disambiguates
-    // concurrent sessions in the same process.
     {
-        char group_buf[48];
-        (void)snprintf(group_buf, sizeof(group_buf), "<Repl[%p]>", this);
-        m_repl_group_token = wo::wstring_pool::get_pstr(group_buf);
+        wo_assert(m_vm != nullptr);
+
+        // Install REPL TLS (creates the session string pool on first use).
+        // The guard detaches TLS when construction completes so the caller's
+        // thread-local state is not held for the session lifetime.
+        _wo_repl_tls_guard guard(*this);
+
+        // Allocate the session-stable logical source identity. Every REPL eval
+        // carries this in source_location.source_group (not source_file, which
+        // holds the unique per-snippet VFS path) so compiler-semantic
+        // mechanisms (using-namespace, PRIVATE access, import visibility) treat
+        // all snippets as the same file. The session pointer disambiguates
+        // concurrent sessions in the same process.
+        {
+            char group_buf[48];
+            (void)snprintf(group_buf, sizeof(group_buf), "<Repl[%p]>", this);
+            m_repl_group_token = wo::wstring_pool::get_pstr(group_buf);
+        }
+
+        // Persistent compiler state.
+        m_lang_context = std::make_unique<wo::LangContext>();
+
+        // Wire REPLContext into LangContext so the compiler passes and
+        // IRCompiler::commit() can access REPL state.
+        m_lang_context->m_repl_context = &m_repl_context;
+
+        // Pre-register builtin types at session creation so they are always
+        // present before any wo_repl_eval snapshot/rollback.
+        m_lang_context->pass_0_5_register_builtin_types();
+        m_lang_context->m_builtin_types_registered_for_REPL = true;
+
+        // Enable pvalue-indirect storage for mutable static variables so that
+        // closures defined in prior evals (FAR CALL into a prior CodeEnv) can
+        // share mutable state with the current eval through a common GC box.
+        m_repl_context.m_pvalue_indirect_for_mutable_statics = true;
+
+        // Create the REPL printer that buffers bare-expression echoes. The
+        // callback (if any) receives flushed UTF-8 text after each eval; a NULL
+        // callback flushes to stdout. Expose the printer to the IR generator
+        // (REPLEchoIRGenerator) via REPLContext so the woostd_repl_print_*
+        // native calls receive it as their first argument.
+        if (!woort_REPLPrinter_create(callback, &m_repl_printer))
+            m_repl_printer = nullptr;
+
+        m_repl_context.m_repl_printer = m_repl_printer;
     }
-
-    // Persistent compiler state.
-    m_lang_context = std::make_unique<wo::LangContext>();
-
-    // Wire REPLContext into LangContext so the compiler passes and
-    // IRCompiler::commit() can access REPL state.
-    m_lang_context->m_repl_context = &m_repl_context;
-
-    // Pre-register builtin types at session creation so they are always
-    // present before any wo_repl_eval snapshot/rollback.
-    m_lang_context->pass_0_5_register_builtin_types();
-    m_lang_context->m_builtin_types_registered_for_REPL = true;
-
-    // Enable pvalue-indirect storage for mutable static variables so that
-    // closures defined in prior evals (FAR CALL into a prior CodeEnv) can
-    // share mutable state with the current eval through a common GC box.
-    m_repl_context.m_pvalue_indirect_for_mutable_statics = true;
-}
 
 _wo_ReplSession::~_wo_ReplSession()
 {
@@ -221,6 +237,12 @@ _wo_ReplSession::~_wo_ReplSession()
         // Destroy LangContext (releases symbol table, type table, etc.).
         m_lang_context.reset();
 
+        // Destroy the REPL printer (drops any unflushed buffered output).
+        if (m_repl_printer != nullptr)
+            woort_REPLPrinter_destroy(m_repl_printer);
+
+        m_repl_context.m_repl_printer = nullptr;
+
         // guard destructor detaches TLS here.
     }
 
@@ -253,10 +275,13 @@ static void _wo_rollback_new_symbols(
 //  Public API
 // ===================================================================
 
-wo_ReplSession* wo_repl_create(void)
+wo_ReplSession* wo_repl_create(woort_REPLPrinter_ResultCallback callback)
 {
-    auto* s = new (std::nothrow) _wo_ReplSession();
-    if (s == nullptr || s->m_vm == nullptr || s->m_lang_context == nullptr)
+    auto* s = new (std::nothrow) _wo_ReplSession(callback);
+    if (s == nullptr 
+        || s->m_vm == nullptr 
+        || s->m_lang_context == nullptr
+        || s->m_repl_printer == nullptr)
     {
         delete s;
         return nullptr;
@@ -445,6 +470,13 @@ wo_repl_result wo_repl_eval(
         return WO_REPL_RUNTIME_ERROR;
     }
 
+    // --- Flush buffered REPL echo output ---
+    // Bare-expression echoes (AstEchoForREPL) ran through the REPL printer
+    // during boot. Deliver them now: invokes the user callback if one was
+    // supplied to wo_repl_create, otherwise writes the text to stdout. Done
+    // with the session VM already swapped out, so no GC deadlock risk.
+    (void)woort_REPLPrinter_flush(S->m_repl_printer);
+
     // --- 11. Snapshot ALL static values from the booted CodeEnv ---
     // Read back every static slot (including newly declared ones) so the
     // full state is available for the next eval. Symbols retain their
@@ -485,8 +517,9 @@ wo_repl_result wo_repl_eval(
 //  wo_repl_create() always fails; callers should handle a NULL session.
 // ===================================================================
 
-wo_ReplSession* wo_repl_create(void)
+wo_ReplSession* wo_repl_create(woort_REPLPrinter_ResultCallback callback)
 {
+    (void)callback;
     return nullptr;
 }
 

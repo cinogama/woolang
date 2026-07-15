@@ -7,6 +7,7 @@ namespace wo
 {
     REPLContext::REPLContext()
         : m_pvalue_indirect_for_mutable_statics(false)
+        , m_repl_printer(nullptr)
     {
     }
 

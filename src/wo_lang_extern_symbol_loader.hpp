@@ -18,8 +18,8 @@ namespace wo
     public:
         inline static woort_NativeFunction g_builtin_return_it_self = nullptr;
         inline static woort_NativeFunction g_builtin_bad_function = nullptr;
-        inline static woort_NativeFunction g_builtin_print = nullptr;
-        inline static woort_NativeFunction g_builtin_debug_print = nullptr;
+        inline static woort_NativeFunction g_builtin_repl_print_normal = nullptr;
+        inline static woort_NativeFunction g_builtin_repl_print_debug = nullptr;
         inline static woort_NativeFunction g_builtin_array_len = nullptr;
         inline static woort_NativeFunction g_builtin_map_keys = nullptr;
 
@@ -33,11 +33,12 @@ namespace wo
                 g_builtin_bad_function =
                     (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_bad_function");
 
-                // For REPL.
-                g_builtin_print =
-                    (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_print");
-                g_builtin_debug_print =
-                    (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_debug_print");
+                // For REPL echo (AstEchoForREPL): route bare-expression
+                // results through the REPL printer instead of stdout.
+                g_builtin_repl_print_normal =
+                    (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_repl_print_normal");
+                g_builtin_repl_print_debug =
+                    (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_repl_print_debug");
                 g_builtin_array_len =
                     (woort_NativeFunction)woort_dylib_load_func(lib, "woostd_array_len");     
                 g_builtin_map_keys =

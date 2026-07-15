@@ -35,6 +35,13 @@ namespace wo
         // closure FAR CALLs across REPL CodeEnvs share the same heap box.
         bool m_pvalue_indirect_for_mutable_statics;
 
+        // Pointer to the session-owned REPL printer. The IR generated for
+        // AstEchoForREPL passes this as the first argument to the
+        // woostd_repl_print_* native functions so that echoed bare-expression
+        // results are buffered here instead of written directly to stdout.
+        // nullptr in non-REPL mode; set by _wo_ReplSession construction.
+        woort_REPLPrinter* m_repl_printer;
+
         REPLContext();
         ~REPLContext() = default;
 

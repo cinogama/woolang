@@ -10,7 +10,7 @@
  */
 
 /** @brief Woolang version encoded as (major, minor, patch, tweak). */
-#define WO_VERSION WO_VERSION_WRAP(1, 15, 3, 6)
+#define WO_VERSION WO_VERSION_WRAP(1, 15, 4, 0)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
@@ -260,9 +260,17 @@ typedef enum _wo_repl_result
  * and a persistent VM. The caller must destroy the session with
  * wo_repl_destroy().
  *
+ * Each bare expression evaluated by wo_repl_eval() is echoed into an internal
+ * REPL printer. After every successful evaluation the printer is flushed:
+ * if @p callback is non-NULL it receives the flushed UTF-8 text, otherwise the
+ * text is written to stdout.
+ *
+ * @param callback  Optional callback invoked on each flush to deliver REPL
+ *                  evaluation-result text (may be NULL).
  * @return A new REPL session handle, or NULL on failure.
  */
-WO_API /* OPTIONAL */ wo_ReplSession* wo_repl_create(void);
+WO_API /* OPTIONAL */ wo_ReplSession* wo_repl_create(
+    /* OPTIONAL */ woort_REPLPrinter_ResultCallback callback);
 
 /**
  * @brief Destroy a REPL session and release all resources.
