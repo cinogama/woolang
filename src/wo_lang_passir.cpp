@@ -1492,10 +1492,118 @@ namespace wo
                 }
                 case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
                 case lang_TypeInstance::DeterminedType::base_type::MAPPING:
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("<cplx>")));
-                        c->pushchk(c->load_imm_int(1));
+                {
+                    /*
+                        pushchk "{"
+                        pushchk 1
+                        callnfp echo
+                        ;
+                        pushchk dict
+                        callnfp map_keys
+                        result keys, popr 1
+                        ;
+                        pushchk keys
+                        callnfp array_len
+                        result len, popr 1
+                        load i = 0
+                        jmp loop_cond
+                    loop_begin:
+                        jz i != 0 ? display_comma_end
+                        pushchk ", "
+                        pushchk 1
+                        callnfp echo
+                    display_comma_end:
+                        ldidvecx k = keys[i]
+                        -- generate_ir_displayer(k) --
+                        pushchk ": "
+                        pushchk 1
+                        callnfp echo
+                        ldiddictxx v = dict[k]
+                        -- generate_ir_displayer(v) --
+                        caddi i, 1
+                    loop_cond:
+                        jiflt i < len ? loop_begin
+                        ;
+                        pushchk "}"
+                        pushchk 1
+                        callnfp echo
+                    */
+
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("{")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+
+                    // keys = map_keys(dict)
+                    woort_IRValue* const dict_keys = c->new_value();
+                    c->pushchk(boxed_val);
+                    c->callnfp(
+                        c->imm_extern_function(
+                            rslib_extern_symbols::g_builtin_map_keys),
+                        1,
+                        dict_keys);
+
+                    // len = array_len(keys)
+                    woort_IRValue* const dict_len = c->new_value();
+                    c->pushchk(dict_keys);
+                    c->callnfp(
+                        c->imm_extern_function(
+                            rslib_extern_symbols::g_builtin_array_len),
+                        1,
+                        dict_len);
+
+                    woort_IRValue* const dict_i = c->new_value();
+                    c->load(dict_i, c->imm_int(0));
+
+                    woort_IRLabel* const loop_begin = c->new_label();
+                    woort_IRLabel* const loop_cond = c->new_label();
+
+                    c->jmp(loop_cond);
+                    c->bind(loop_begin);
+
+                    woort_IRLabel* const display_comma_end = c->new_label();
+                    c->jccz(dict_i, display_comma_end);
+
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr(", ")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+
+                    c->bind(display_comma_end);
+
+                    // key = keys[i]
+                    woort_IRValue* const dict_key = c->new_value();
+                    c->ldidvecx(dict_key, dict_keys, dict_i);
+
+                    // Display key
+                    generate_ir_displayer(
+                        c,
+                        dict_key,
+                        determined_type->m_external_type_description.m_dictionary_or_mapping->m_key_type);
+
+                    // Print ": "
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr(": ")));
+                    c->pushchk(c->load_imm_int(1));
+                    c->callnfp(echo, 2, nullptr);
+
+                    // val = dict[key]
+                    woort_IRValue* const dict_val = c->new_value();
+                    c->ldiddictxx(dict_val, boxed_val, dict_key);
+
+                    // Display value
+                    generate_ir_displayer(
+                        c,
+                        dict_val,
+                        determined_type->m_external_type_description.m_dictionary_or_mapping->m_value_type);
+
+                    c->addi(dict_i, dict_i, c->load_imm_int(1));
+                    c->bind(loop_cond);
+
+                    c->jcc_lt(dict_i, dict_len, loop_begin);
+
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("}")));
+                    c->pushchk(c->load_imm_int(1));
                     c->callnfp(echo, 2, nullptr);
                     break;
+                }
                 case lang_TypeInstance::DeterminedType::base_type::ARRAY:
                 case lang_TypeInstance::DeterminedType::base_type::VECTOR:
                 {
