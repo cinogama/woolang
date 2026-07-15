@@ -4154,15 +4154,25 @@ namespace wo
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
-                    auto* const packed_opnum =
-                        node->m_packed_value.has_value()
+                    const bool has_mkunion_value = node->m_packed_value.has_value();
+
+                    auto* mkunion_value = has_mkunion_value
                         ? m_ircontext.get_eval_result()
                         : m_ircontext.c().load_imm_nil();
+
+                    // Void, use nil as packing value.
+                    if (has_mkunion_value
+                        && node->m_packed_value.value()->m_LANG_determined_type.value()->is_based_on_void_in_IR())
+                    {
+                        mkunion_value = m_ircontext.c().load_imm_nil();
+                    }
 
                     const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
                     if (target_storage.has_value())
                     {
                         auto& [need_box, target] = target_storage.value();
+                        (void)need_box;
+
                         woort_IRValue* const* const target_irvalue =
                             std::get_if<woort_IRValue*>(&target);
 
@@ -4172,11 +4182,8 @@ namespace wo
 
                             m_ircontext.c().mkunion(
                                 v,
-                                packed_opnum,
+                                mkunion_value,
                                 (uint32_t)node->m_index);
-
-                            if (need_box.has_value())
-                                m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                             m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
                         }
@@ -4184,12 +4191,8 @@ namespace wo
                         {
                             m_ircontext.c().mkunion(
                                 *target_irvalue,
-                                packed_opnum,
+                                mkunion_value,
                                 (uint32_t)node->m_index);
-
-                            if (need_box.has_value())
-                                m_ircontext.c().boxdyn(
-                                    *target_irvalue, need_box.value(), *target_irvalue);
                         }
                     }
                     else
@@ -4198,8 +4201,9 @@ namespace wo
 
                         m_ircontext.c().mkunion(
                             v,
-                            packed_opnum,
+                            mkunion_value,
                             (uint32_t)node->m_index);
+
                         result.set_result_stack_temp(
                             m_ircontext, v, node->m_LANG_determined_type.value());
                     }
