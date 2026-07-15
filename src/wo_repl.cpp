@@ -45,8 +45,10 @@ struct _wo_ReplSession
     // reserved range keeps their indices valid.
     std::vector<woort_Value> m_static_values;
 
-    // CodeEnvs kept alive (m_hold stays true) so that function closures
-    // defined in prior lines remain callable.
+    // CodeEnvs that introduced new static variables or script functions are
+    // kept alive so that closures defined in prior lines remain callable and
+    // static storage stays valid. CodeEnvs from pure-expression evals (no new
+    // definitions) are dropped immediately — nothing references them later.
     std::vector<woort_CodeEnv*> m_cenv_history;
 
     size_t m_line_counter;
@@ -456,8 +458,21 @@ wo_repl_result wo_repl_eval(
     }
     woort_CodeEnv_unlock(cenv);
 
-    // --- 12. Keep CodeEnv alive (for function closures) ---
-    S->m_cenv_history.push_back(cenv);
+    // --- 12. Keep or drop CodeEnv ---
+    // Only keep the CodeEnv if this eval introduced new static variables or
+    // script functions — those are the sole artifacts that require the
+    // CodeEnv's storage (bytecode / static slots) to persist for later evals.
+    // Pure expression evaluation produces nothing referenced later, so drop
+    // the CodeEnv to avoid unbounded m_cenv_history growth.
+    const bool has_new_statics = (S->m_static_values.size() > carry_count);
+    const bool has_new_functions =
+        !lc->m_repl_context.value()->m_new_emitted_script_functions.empty();
+
+    if (has_new_statics || has_new_functions)
+        S->m_cenv_history.push_back(cenv);
+    else
+        woort_codeenv_drop(cenv);
+
     ++session->m_repl_seq_num;
 
     return WO_REPL_OK;
