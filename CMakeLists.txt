@@ -41,10 +41,6 @@ else()
     target_compile_options(woolang_options INTERFACE -fno-exceptions)
 endif ()
 
-if (NOT WO_SPECIFY_PLATFORM_TYPE STREQUAL "")
-    target_compile_definitions(woolang_options INTERFACE -D${WO_SPECIFY_PLATFORM_TYPE})
-endif()
-
 if(UNIX)
     if(WO_BUILD_FOR_COVERAGE_TEST)
         target_compile_options(woolang_options INTERFACE "-fprofile-arcs")
