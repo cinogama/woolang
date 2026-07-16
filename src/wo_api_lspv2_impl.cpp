@@ -893,76 +893,6 @@ static void _collect_token(
     }
 }
 
-static uint32_t _classify_type_symbol(wo::lang_Symbol* symbol)
-{
-    if (symbol->m_symbol_kind != wo::lang_Symbol::kind::TYPE)
-        return WO_LSPV2_SEMANTIC_TYPE;
-
-    auto* type_instance = symbol->m_type_instance;
-    auto determined = type_instance->get_determined_type();
-    if (determined.has_value())
-    {
-        switch (determined.value()->m_base_type)
-        {
-        case wo::lang_TypeInstance::DeterminedType::base_type::STRUCT:
-            return WO_LSPV2_SEMANTIC_STRUCT;
-        case wo::lang_TypeInstance::DeterminedType::base_type::UNION:
-            return WO_LSPV2_SEMANTIC_ENUM;
-        case wo::lang_TypeInstance::DeterminedType::base_type::FUNCTION:
-            return WO_LSPV2_SEMANTIC_FUNCTION;
-        default:
-            return WO_LSPV2_SEMANTIC_TYPE;
-        }
-    }
-    return WO_LSPV2_SEMANTIC_TYPE;
-}
-
-#if 0
-static void _walk_scope_for_semantic_tokens(
-    wo_lspv2_scope* scope_handle,
-    std::vector<_semantic_token_entry>& tokens,
-    std::set<_semantic_token_key>& seen)
-{
-    wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope_handle));
-
-    for (auto& [name, symbol_ptr] : lang_scope->m_defined_symbols)
-    {
-        wo::lang_Symbol* symbol = symbol_ptr.get();
-
-        if (!symbol->m_symbol_declare_location.has_value())
-            continue;
-
-        uint32_t token_type = WO_LSPV2_SEMANTIC_VARIABLE;
-
-        switch (symbol->m_symbol_kind)
-        {
-        case wo::lang_Symbol::kind::VARIABLE:
-            token_type = WO_LSPV2_SEMANTIC_VARIABLE;
-            break;
-        case wo::lang_Symbol::kind::TYPE:
-            token_type = _classify_type_symbol(symbol);
-            break;
-        case wo::lang_Symbol::kind::ALIAS:
-            token_type = WO_LSPV2_SEMANTIC_TYPE;
-            break;
-        }
-
-        _collect_token(tokens, seen,
-            symbol->m_symbol_declare_location.value(),
-            token_type, WO_LSPV2_SEMANTIC_MOD_DECLARATION);
-    }
-
-    wo_lspv2_scope_iter* iter = wo_lspv2_scope_sub_scope_iter(scope_handle);
-    for (;;)
-    {
-        wo_lspv2_scope* sub_scope = wo_lspv2_scope_sub_scope_next(iter);
-        if (sub_scope == nullptr)
-            break;
-        _walk_scope_for_semantic_tokens(sub_scope, tokens, seen);
-    }
-}
-#endif
-
 static void _collect_all_semantic_tokens(
     wo_lspv2_source_meta* meta,
     std::vector<_semantic_token_entry>& out_tokens)
@@ -1018,16 +948,7 @@ static void _collect_all_semantic_tokens(
         }
     }
 
-    // Phase 2: scope tree
-#if 0
-    wo_lspv2_scope* global_scope = wo_lspv2_meta_get_global_scope(meta);
-    if (global_scope != nullptr)
-    {
-        _walk_scope_for_semantic_tokens(global_scope, out_tokens, seen);
-    }
-#endif
-
-    // Phase 3: macros
+    // Phase 2: macros
     wo_lspv2_macro_iter* macro_iter = wo_lspv2_meta_macro_iter(meta);
     if (macro_iter != nullptr)
     {
