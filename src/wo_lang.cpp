@@ -1151,7 +1151,89 @@ namespace wo
     lang_TypeInstance* LangContext::OriginTypeHolder::create_or_find_origin_type_by_determined_type(
         const lang_TypeInstance::DeterminedType* determined_type)
     {
+        switch (determined_type->m_base_type)
+        {
+        case lang_TypeInstance::DeterminedType::VOID:
+            return m_void.m_type_instance;
+        case lang_TypeInstance::DeterminedType::NOTHING:
+            return m_nothing.m_type_instance;
+        case lang_TypeInstance::DeterminedType::DYNAMIC:
+            return m_dynamic.m_type_instance;
+        case lang_TypeInstance::DeterminedType::NIL:
+            return m_nil.m_type_instance;
+        case lang_TypeInstance::DeterminedType::INTEGER:
+            return m_int.m_type_instance;
+        case lang_TypeInstance::DeterminedType::REAL:
+            return m_real.m_type_instance;
+        case lang_TypeInstance::DeterminedType::HANDLE:
+            return m_handle.m_type_instance;
+        case lang_TypeInstance::DeterminedType::BOOLEAN:
+            return m_bool.m_type_instance;
+        case lang_TypeInstance::DeterminedType::STRING:
+            return m_string.m_type_instance;
+        case lang_TypeInstance::DeterminedType::GCHANDLE:
+            return m_gchandle.m_type_instance;
+        case lang_TypeInstance::DeterminedType::DICTIONARY:
+        {
+            auto* desc = determined_type->m_external_type_description.m_dictionary_or_mapping;
+            return create_dictionary_type(desc->m_key_type, desc->m_value_type);
+        }
+        case lang_TypeInstance::DeterminedType::MAPPING:
+        {
+            auto* desc = determined_type->m_external_type_description.m_dictionary_or_mapping;
+            return create_mapping_type(desc->m_key_type, desc->m_value_type);
+        }
+        case lang_TypeInstance::DeterminedType::ARRAY:
+        {
+            auto* desc = determined_type->m_external_type_description.m_array_or_vector;
+            return create_array_type(desc->m_element_type);
+        }
+        case lang_TypeInstance::DeterminedType::VECTOR:
+        {
+            auto* desc = determined_type->m_external_type_description.m_array_or_vector;
+            return create_vector_type(desc->m_element_type);
+        }
+        case lang_TypeInstance::DeterminedType::TUPLE:
+        {
+            auto* desc = determined_type->m_external_type_description.m_tuple;
+            return create_tuple_type(desc->m_element_types);
+        }
+        case lang_TypeInstance::DeterminedType::FUNCTION:
+        {
+            auto* desc = determined_type->m_external_type_description.m_function;
+            return create_function_type(desc->m_is_variadic, desc->m_param_types, desc->m_return_type);
+        }
+        case lang_TypeInstance::DeterminedType::STRUCT:
+        {
+            auto* st = determined_type->m_external_type_description.m_struct;
 
+            std::vector<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>
+                member_types(st->m_member_types.size());
+            for (auto& [name, member] : st->m_member_types)
+            {
+                member_types[member.m_offset] =
+                    std::make_tuple(member.m_attrib, name, member.m_member_type);
+            }
+
+            return create_struct_type(member_types);
+        }
+        case lang_TypeInstance::DeterminedType::UNION:
+        {
+            auto* un = determined_type->m_external_type_description.m_union;
+
+            std::vector<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>
+                member_types(un->m_union_label.size());
+            for (auto& [name, member] : un->m_union_label)
+            {
+                member_types[member.m_label] = std::make_pair(name, member.m_item_type);
+            }
+
+            return create_union_type(member_types);
+        }
+        default:
+            wo_error("Unexpected determined base type.");
+        }
+        abort();
     }
 
     //////////////////////////////////////
