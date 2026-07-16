@@ -4,6 +4,7 @@ namespace std
 {
     public enum token_type
     {
+        // Operators
         l_eof = -1,
         l_error = 0,
         l_empty,                // [empty]
@@ -12,30 +13,30 @@ namespace std
         l_literal_handle,       // 0L 256L 0xFFL
         l_literal_real,         // 0.2  0.
         l_literal_string,       // "helloworld"
-        l_literal_raw_string,   // @ raw_string @
+        l_literal_raw_string,   // @"raw_string"@
         l_literal_char,         // 'x'
         l_format_string_begin,  // F"..{
-        l_format_string,        // }..{ 
+        l_format_string,        // }..{
         l_format_string_end,    // }.."
         l_semicolon,            // ;
         l_comma,                // ,
         l_add,                  // +
-        l_sub,                  // - 
-        l_mul,                  // * 
-        l_div,                  // / 
-        l_mod,                  // % 
+        l_sub,                  // -
+        l_mul,                  // *
+        l_div,                  // /
+        l_mod,                  // %
         l_assign,               // =
         l_add_assign,           // +=
-        l_sub_assign,           // -= 
+        l_sub_assign,           // -=
         l_mul_assign,           // *=
-        l_div_assign,           // /= 
-        l_mod_assign,           // %= 
+        l_div_assign,           // /=
+        l_mod_assign,           // %=
         l_value_assign,         // :=
         l_value_add_assign,     // +:=
-        l_value_sub_assign,     // -:= 
+        l_value_sub_assign,     // -:=
         l_value_mul_assign,     // *:=
-        l_value_div_assign,     // /:= 
-        l_value_mod_assign,     // %:= 
+        l_value_div_assign,     // /:=
+        l_value_mod_assign,     // %:=
         l_equal,                // ==
         l_not_equal,            // !=
         l_larg_or_equal,        // >=
@@ -64,64 +65,71 @@ namespace std
         l_left_curly_braces,    // {
         l_right_curly_braces,   // }
         l_question,             // ?
-        l_import,
-        l_export,
-        l_nil,
-        l_true,
-        l_false,
-        l_while,
-        l_if,
-        l_else,
-        l_namespace,
-        l_for,
-        l_extern,
-        l_let,
-        l_mut,
-        l_func,
-        l_return,
-        l_using,
+        
+        // Keywords
         l_alias,
-        l_enum,
         l_as,
-        l_is,
-        l_typeof,
-        l_private,
-        l_public,
-        l_protected,
-        l_static,
+        l_at,
+        l_baseof,
         l_break,
         l_continue,
-        l_lambda,
-        l_at,
-        l_do,
-        l_where,
-        l_operator,
-        l_union,
-        l_match,
-        l_struct,
-        l_immut,
-        l_typeid,
         l_defer,
-        l_macro,
+        l_do,
+        l_else,
+        l_enum,
+        l_export,
+        l_extern,
+        l_false,
+        l_for,
+        l_func,
+        l_if,
+        l_immut,
+        l_import,
+        l_is,
+        l_lambda,
+        l_let,
+        l_match,
+        l_mut,
+        l_namespace,
+        l_nil,
+        l_operator,
+        l_private,
+        l_protected,
+        l_public,
+        l_return,
+        l_static,
+        l_struct,
+        l_true,
+        l_typeid,
+        l_typeof,
+        l_union,
+        l_using,
+        l_where,
+        l_while,
+        
+        // Comments
         l_line_comment,
         l_block_comment,
         L_shebang_comment,
+        
+        // Others
+        l_macro,
         l_unknown_token,
-
+        
         lex_type_COUNT,
     }
-
+    
     public using lexer = handle
     {
         extern("woolang/compiler", "macro_lexer_error")
             public func error(lex: lexer, msg: string)=> void;
-
+            
         extern("woolang/compiler", "macro_lexer_peek")
             public func peek_token(lex: lexer)=> (token_type, string);
-
+            
         extern("woolang/compiler", "macro_lexer_next")
             public func next_token(lex: lexer)=> (token_type, string);
-        
+            
         private func wrap_token(type: token_type, str: string)
         {
             if (type == token_type::l_literal_string)
@@ -131,28 +139,28 @@ namespace std
             else if (type == token_type::l_format_string_begin)
             {
                 let enstr = str->enstring;
-                return "F" 
+                return "F"
                     + enstr->sub_len(0, enstr->len - 1)
-                        ->replace("{", "\\{") 
-                        ->replace("}", "\\}") 
+                    ->replace("{", "\\{")
+                    ->replace("}", "\\}")
                     + "{";
             }
             else if (type == token_type::l_format_string)
             {
                 let enstr = str->enstring;
-                return "}" 
-                    + enstr->sub_len(1, enstr->len - 2) 
-                        ->replace("{", "\\{") 
-                        ->replace("}", "\\}") 
+                return "}"
+                    + enstr->sub_len(1, enstr->len - 2)
+                    ->replace("{", "\\{")
+                    ->replace("}", "\\}")
                     + "{";
             }
             else if (type == token_type::l_format_string_end)
             {
                 let enstr = str->enstring;
-                return "}" 
+                return "}"
                     + enstr->sub_len(1, enstr->len - 1)
-                        ->replace("{", "\\{") 
-                        ->replace("}", "\\}") ;
+                    ->replace("{", "\\{")
+                    ->replace("}", "\\}") ;
             }
             else if (type == token_type::l_literal_char)
             {
@@ -161,10 +169,10 @@ namespace std
             }
             else if (type == token_type::l_macro)
                 return str + "!";
-
+                
             return str;
         }
-
+        
         public func peek(lex: lexer)
         {
             return wrap_token(lex->peek_token...);
@@ -173,13 +181,13 @@ namespace std
         {
             return wrap_token(lex->next_token...);
         }
-
+        
         extern("woolang/compiler", "macro_lexer_current_path")
             public func path(lex: lexer) => string;
-
+            
         extern("woolang/compiler", "macro_lexer_current_location")
             public func location(lex: lexer) => (int, int);
-
+            
         public func try_token(self: lexer, token: token_type)=> option<string>
         {
             let (tok, _) = self->peek_token;
