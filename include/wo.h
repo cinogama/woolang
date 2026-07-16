@@ -355,6 +355,7 @@ typedef struct _wo_lspv2_location
  */
 typedef enum _wo_lspv2_lexer_token
 {
+    /* Operators & Literals */
     WO_LSPV2_TOKEN_EOF = -1,                /**< @brief End of input. */
     WO_LSPV2_TOKEN_ERROR = 0,               /**< @brief Lexer error. */
     WO_LSPV2_TOKEN_EMPTY,                   /**< @brief Empty token. */
@@ -398,7 +399,7 @@ typedef enum _wo_lspv2_lexer_token
     WO_LSPV2_TOKEN_OR,                      /**< @brief | */
     WO_LSPV2_TOKEN_LNOT,                    /**< @brief ! */
     WO_LSPV2_TOKEN_SCOPEING,                /**< @brief :: */
-    WO_LSPV2_TOKEN_TEMPLATE_USING_BEGIN,    /**< @brief :< */
+    WO_LSPV2_TOKEN_TEMPLATE_USING_BEGIN,    /**< @brief ::< */
     WO_LSPV2_TOKEN_TYPECAST,                /**< @brief : */
     WO_LSPV2_TOKEN_INDEX_POINT,             /**< @brief . */
     WO_LSPV2_TOKEN_DOUBLE_INDEX_POINT,      /**< @brief .. [Reserved] */
@@ -416,51 +417,54 @@ typedef enum _wo_lspv2_lexer_token
     WO_LSPV2_TOKEN_RIGHT_CURLY_BRACES,      /**< @brief } */
     WO_LSPV2_TOKEN_QUESTION,                /**< @brief ? */
 
-    /* Keywords */
-    WO_LSPV2_TOKEN_IMPORT,                  /**< @brief import */
-    WO_LSPV2_TOKEN_EXPORT,                  /**< @brief export */
-    WO_LSPV2_TOKEN_NIL,                     /**< @brief nil */
-    WO_LSPV2_TOKEN_TRUE,                    /**< @brief true */
-    WO_LSPV2_TOKEN_FALSE,                   /**< @brief false */
-    WO_LSPV2_TOKEN_WHILE,                   /**< @brief while */
-    WO_LSPV2_TOKEN_IF,                      /**< @brief if */
-    WO_LSPV2_TOKEN_ELSE,                    /**< @brief else */
-    WO_LSPV2_TOKEN_NAMESPACE,               /**< @brief namespace */
-    WO_LSPV2_TOKEN_FOR,                     /**< @brief for */
-    WO_LSPV2_TOKEN_EXTERN,                  /**< @brief extern */
-    WO_LSPV2_TOKEN_LET,                     /**< @brief let */
-    WO_LSPV2_TOKEN_MUT,                     /**< @brief mut */
-    WO_LSPV2_TOKEN_FUNC,                    /**< @brief func */
-    WO_LSPV2_TOKEN_RETURN,                  /**< @brief return */
-    WO_LSPV2_TOKEN_USING,                   /**< @brief using */
+    /* Keywords (alphabetical, matching wo::lex_type) */
     WO_LSPV2_TOKEN_ALIAS,                   /**< @brief alias */
-    WO_LSPV2_TOKEN_ENUM,                    /**< @brief enum */
     WO_LSPV2_TOKEN_AS,                      /**< @brief as */
-    WO_LSPV2_TOKEN_IS,                      /**< @brief is */
-    WO_LSPV2_TOKEN_TYPEOF,                  /**< @brief typeof */
-    WO_LSPV2_TOKEN_PRIVATE,                 /**< @brief private */
-    WO_LSPV2_TOKEN_PUBLIC,                  /**< @brief public */
-    WO_LSPV2_TOKEN_PROTECTED,               /**< @brief protected */
-    WO_LSPV2_TOKEN_STATIC,                  /**< @brief static */
+    WO_LSPV2_TOKEN_AT,                      /**< @brief @ */
+    WO_LSPV2_TOKEN_BASEOF,                  /**< @brief baseof */
     WO_LSPV2_TOKEN_BREAK,                   /**< @brief break */
     WO_LSPV2_TOKEN_CONTINUE,                /**< @brief continue */
-    WO_LSPV2_TOKEN_LAMBDA,                  /**< @brief lambda */
-    WO_LSPV2_TOKEN_AT,                      /**< @brief @ */
-    WO_LSPV2_TOKEN_DO,                      /**< @brief do */
-    WO_LSPV2_TOKEN_WHERE,                   /**< @brief where */
-    WO_LSPV2_TOKEN_OPERATOR,                /**< @brief operator */
-    WO_LSPV2_TOKEN_UNION,                   /**< @brief union */
-    WO_LSPV2_TOKEN_MATCH,                   /**< @brief match */
-    WO_LSPV2_TOKEN_STRUCT,                  /**< @brief struct */
-    WO_LSPV2_TOKEN_IMMUT,                   /**< @brief immut */
-    WO_LSPV2_TOKEN_TYPEID,                  /**< @brief typeid */
     WO_LSPV2_TOKEN_DEFER,                   /**< @brief defer */
-    WO_LSPV2_TOKEN_MACRO,                   /**< @brief macro */
+    WO_LSPV2_TOKEN_DO,                      /**< @brief do */
+    WO_LSPV2_TOKEN_ELSE,                    /**< @brief else */
+    WO_LSPV2_TOKEN_ENUM,                    /**< @brief enum */
+    WO_LSPV2_TOKEN_EXPORT,                  /**< @brief export */
+    WO_LSPV2_TOKEN_EXTERN,                  /**< @brief extern */
+    WO_LSPV2_TOKEN_FALSE,                   /**< @brief false */
+    WO_LSPV2_TOKEN_FOR,                     /**< @brief for */
+    WO_LSPV2_TOKEN_FUNC,                    /**< @brief func */
+    WO_LSPV2_TOKEN_IF,                      /**< @brief if */
+    WO_LSPV2_TOKEN_IMMUT,                   /**< @brief immut */
+    WO_LSPV2_TOKEN_IMPORT,                  /**< @brief import */
+    WO_LSPV2_TOKEN_IS,                      /**< @brief is */
+    WO_LSPV2_TOKEN_LAMBDA,                  /**< @brief lambda */
+    WO_LSPV2_TOKEN_LET,                     /**< @brief let */
+    WO_LSPV2_TOKEN_MATCH,                   /**< @brief match */
+    WO_LSPV2_TOKEN_MUT,                     /**< @brief mut */
+    WO_LSPV2_TOKEN_NAMESPACE,               /**< @brief namespace */
+    WO_LSPV2_TOKEN_NIL,                     /**< @brief nil */
+    WO_LSPV2_TOKEN_OPERATOR,                /**< @brief operator */
+    WO_LSPV2_TOKEN_PRIVATE,                 /**< @brief private */
+    WO_LSPV2_TOKEN_PROTECTED,               /**< @brief protected */
+    WO_LSPV2_TOKEN_PUBLIC,                  /**< @brief public */
+    WO_LSPV2_TOKEN_RETURN,                  /**< @brief return */
+    WO_LSPV2_TOKEN_STATIC,                  /**< @brief static */
+    WO_LSPV2_TOKEN_STRUCT,                  /**< @brief struct */
+    WO_LSPV2_TOKEN_TRUE,                    /**< @brief true */
+    WO_LSPV2_TOKEN_TYPEID,                  /**< @brief typeid */
+    WO_LSPV2_TOKEN_TYPEOF,                  /**< @brief typeof */
+    WO_LSPV2_TOKEN_UNION,                   /**< @brief union */
+    WO_LSPV2_TOKEN_USING,                   /**< @brief using */
+    WO_LSPV2_TOKEN_WHERE,                   /**< @brief where */
+    WO_LSPV2_TOKEN_WHILE,                   /**< @brief while */
 
     /* Comments */
     WO_LSPV2_TOKEN_LINE_COMMENT,            /**< @brief Line comment (//). */
     WO_LSPV2_TOKEN_BLOCK_COMMENT,           /**< @brief Block comment. */
     WO_LSPV2_TOKEN_SHEBANG_COMMENT,         /**< @brief Shebang comment (#!). */
+
+    /* Others */
+    WO_LSPV2_TOKEN_MACRO,                   /**< @brief macro */
     WO_LSPV2_TOKEN_UNKNOWN_TOKEN,           /**< @brief Unknown/unrecognized token. */
 
 } wo_lspv2_lexer_token;

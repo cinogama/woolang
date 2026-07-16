@@ -126,9 +126,10 @@ const char* color_for_token(wo_lspv2_lexer_token t)
         break;
     }
 
-    // Remaining keywords (import..macro block, minus nil/true/false handled
-    // above): bright magenta.
-    if (t >= WO_LSPV2_TOKEN_IMPORT && t <= WO_LSPV2_TOKEN_MACRO)
+    // Remaining keywords (alias..while block, minus nil/true/false handled
+    // above), plus macro: bright magenta.
+    if ((t >= WO_LSPV2_TOKEN_ALIAS && t <= WO_LSPV2_TOKEN_WHILE) ||
+        t == WO_LSPV2_TOKEN_MACRO)
         return WOORT_ANSI_HIM;
 
     // Identifiers / operators / punctuation: default (no color).

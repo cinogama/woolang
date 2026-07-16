@@ -718,6 +718,7 @@ namespace wo
             return true;
         }
         case ast::AstTypeHolder::TYPEOF:
+        case ast::AstTypeHolder::BASEOF:
             // Junk! I cannot do any thing!
             return true;
         case ast::AstTypeHolder::FUNCTION:

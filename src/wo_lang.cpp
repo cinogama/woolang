@@ -321,7 +321,7 @@ namespace wo
         wo_assert(immutable_from_type->is_immutable());
 
         auto determined_type_may_null = immutable_from_type->get_determined_type();
-        if (determined_type_may_null)
+        if (determined_type_may_null.has_value())
             determine_base_type_copy(*determined_type_may_null.value());
         else
         {
@@ -1146,6 +1146,12 @@ namespace wo
             wo_error("Unexpected type holder formal.");
         }
         return std::nullopt;
+    }
+
+    lang_TypeInstance* LangContext::OriginTypeHolder::create_or_find_origin_type_by_determined_type(
+        const lang_TypeInstance::DeterminedType* determined_type)
+    {
+
     }
 
     //////////////////////////////////////
@@ -2196,7 +2202,9 @@ namespace wo
 
         if (immutable_type_instance->m_symbol->m_is_builtin)
         {
-            auto* const base_determined_type = immutable_type_instance->get_determined_type().value();
+            auto* const base_determined_type = 
+                immutable_type_instance->get_determined_type().value();
+
             switch (base_determined_type->m_base_type)
             {
             case lang_TypeInstance::DeterminedType::ARRAY:

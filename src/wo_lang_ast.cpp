@@ -609,6 +609,18 @@ namespace wo
         {
             new (&m_typeform.m_typefrom) AstValueBase* (expr);
         }
+        AstTypeHolder::AstTypeHolder(AstTypeHolder* type)
+            : AstBase(AST_TYPE_HOLDER)
+            , m_mutable_mark(NONE)
+            , m_formal(BASEOF)
+            , m_LANG_template_evalating_state(std::nullopt)
+            , m_LANG_determined_type(std::nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(std::nullopt)
+            , m_LANG_trying_advancing_type_judgement(false)
+            , m_LANG_refilling_template_target_symbol(std::nullopt)
+        {
+            new (&m_typeform.m_baseof) AstTypeHolder* (type);
+        }
         AstTypeHolder::AstTypeHolder(const FunctionType& functype)
             : AstBase(AST_TYPE_HOLDER)
             , m_mutable_mark(NONE)
@@ -663,6 +675,7 @@ namespace wo
             {
             case IDENTIFIER:
             case TYPEOF:
+            case BASEOF:
                 // Pointer type no need to invoke destructor.
                 break;
             case FUNCTION:
@@ -925,7 +938,9 @@ namespace wo
             case IDENTIFIER:
                 if (m_typeform.m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
                 {
-                    ast::AstTypeHolder** from_type = std::get_if<ast::AstTypeHolder*>(&m_typeform.m_identifier->m_from_type.value());
+                    ast::AstTypeHolder** from_type = std::get_if<ast::AstTypeHolder*>(
+                        &m_typeform.m_identifier->m_from_type.value());
+
                     if (from_type != nullptr)
                         (*from_type)->_check_if_template_exist_in(template_params, out_contain_flags);
                     return;
@@ -957,6 +972,9 @@ namespace wo
                 break;
             case TYPEOF:
                 m_typeform.m_typefrom->_check_if_template_exist_in(template_params, out_contain_flags);
+                break;
+            case BASEOF:
+                m_typeform.m_baseof->_check_if_template_exist_in(template_params, out_contain_flags);
                 break;
             case FUNCTION:
                 for (auto& param : m_typeform.m_function.m_parameters)
@@ -991,6 +1009,10 @@ namespace wo
             case TYPEOF:
                 if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_typefrom);
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_typeform.m_typefrom));
+                break;
+            case BASEOF:
+                if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_baseof);
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_typeform.m_baseof));
                 break;
             case FUNCTION:
                 if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_function);

@@ -270,6 +270,7 @@ namespace wo
             {
                 IDENTIFIER,
                 TYPEOF,
+                BASEOF,
                 FUNCTION,
                 STRUCTURE,
                 TUPLE,
@@ -314,6 +315,7 @@ namespace wo
             {
                 AstIdentifier* m_identifier;
                 AstValueBase* m_typefrom;
+                AstTypeHolder* m_baseof;
                 FunctionType m_function;
                 StructureType m_structure;
                 TupleType m_tuple;
@@ -333,6 +335,7 @@ namespace wo
         public:
             AstTypeHolder(AstIdentifier* ident);
             AstTypeHolder(AstValueBase* expr);
+            AstTypeHolder(AstTypeHolder* type);
             AstTypeHolder(const FunctionType& functype);
             AstTypeHolder(const StructureType& structtype);
             AstTypeHolder(const TupleType& tupletype);

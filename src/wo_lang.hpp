@@ -812,16 +812,27 @@ namespace wo
             lang_Symbol* m_struct;
             lang_Symbol* m_union;
 
-            std::optional<lang_TypeInstance*> create_or_find_origin_type(lexer& lex, LangContext* ctx, ast::AstTypeHolder* type_holder);
+            std::optional<lang_TypeInstance*> create_or_find_origin_type(
+                lexer& lex, LangContext* ctx, ast::AstTypeHolder* type_holder);
+            lang_TypeInstance* create_or_find_origin_type_by_determined_type(
+                const lang_TypeInstance::DeterminedType* determined_type);
 
-            lang_TypeInstance* create_dictionary_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type);
-            lang_TypeInstance* create_mapping_type(lang_TypeInstance* key_type, lang_TypeInstance* value_type);
-            lang_TypeInstance* create_array_type(lang_TypeInstance* element_type);
-            lang_TypeInstance* create_vector_type(lang_TypeInstance* element_type);
-            lang_TypeInstance* create_tuple_type(const std::vector<lang_TypeInstance*>& element_types);
-            lang_TypeInstance* create_function_type(bool is_variadic, const std::vector<lang_TypeInstance*>& param_types, lang_TypeInstance* return_type);
-            lang_TypeInstance* create_struct_type(const std::vector<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types);
-            lang_TypeInstance* create_union_type(const std::vector<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types);
+            lang_TypeInstance* create_dictionary_type(
+                lang_TypeInstance* key_type, lang_TypeInstance* value_type);
+            lang_TypeInstance* create_mapping_type(
+                lang_TypeInstance* key_type, lang_TypeInstance* value_type);
+            lang_TypeInstance* create_array_type(
+                lang_TypeInstance* element_type);
+            lang_TypeInstance* create_vector_type(
+                lang_TypeInstance* element_type);
+            lang_TypeInstance* create_tuple_type(
+                const std::vector<lang_TypeInstance*>& element_types);
+            lang_TypeInstance* create_function_type(
+                bool is_variadic, const std::vector<lang_TypeInstance*>& param_types, lang_TypeInstance* return_type);
+            lang_TypeInstance* create_struct_type(
+                const std::vector<std::tuple<ast::AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>>& member_types);
+            lang_TypeInstance* create_union_type(
+                const std::vector<std::pair<wo_pstring_t, std::optional<lang_TypeInstance*>>>& member_types);
 
             OriginTypeHolder() = default;
 

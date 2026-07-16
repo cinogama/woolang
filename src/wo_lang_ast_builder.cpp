@@ -670,12 +670,19 @@ namespace wo
         }
         auto pass_typeof::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            AstValueBase* value = WO_NEED_AST_VALUE(2);
+            AstValueBase* const value = WO_NEED_AST_VALUE(2);
             return new AstTypeHolder(value);
+        }
+        auto pass_baseof::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        {
+            AstTypeHolder* const type = 
+                static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
+
+            return new AstTypeHolder(type);
         }
         auto pass_build_identifier_typeof::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            AstList* scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
+            AstList* const scope_identifier = static_cast<AstList*>(WO_NEED_AST_TYPE(0, AstBase::AST_LIST));
             std::optional<AstList*> template_arguments = std::nullopt;
 
             wo_assert(scope_identifier->m_list.size() >= 2);
@@ -1792,6 +1799,7 @@ namespace wo
             WO_AST_BUILDER(pass_mark_mut);
             WO_AST_BUILDER(pass_mark_immut);
             WO_AST_BUILDER(pass_typeof);
+            WO_AST_BUILDER(pass_baseof);
             WO_AST_BUILDER(pass_build_identifier_typeof);
             WO_AST_BUILDER(pass_build_identifier_normal);
             WO_AST_BUILDER(pass_build_identifier_global);

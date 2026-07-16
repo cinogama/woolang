@@ -739,6 +739,9 @@ namespace wo
             case AstTypeHolder::TYPEOF:
                 WO_CONTINUE_PROCESS(node->m_typeform.m_typefrom);
                 break;
+            case AstTypeHolder::BASEOF:
+                WO_CONTINUE_PROCESS(node->m_typeform.m_baseof);
+                break;
             case AstTypeHolder::FUNCTION:
                 WO_CONTINUE_PROCESS_LIST(node->m_typeform.m_function.m_parameters);
                 WO_CONTINUE_PROCESS(node->m_typeform.m_function.m_return_type);
@@ -983,7 +986,9 @@ namespace wo
             case AstTypeHolder::TUPLE:
             case AstTypeHolder::UNION:
             case AstTypeHolder::STRUCTURE:
-                node->m_LANG_determined_type = m_origin_types.create_or_find_origin_type(lex, this, node);
+                node->m_LANG_determined_type = 
+                    m_origin_types.create_or_find_origin_type(lex, this, node);
+
                 if (!node->m_LANG_determined_type.has_value())
                     return FAILED;
                 break;
@@ -991,6 +996,22 @@ namespace wo
                 wo_assert(node->m_typeform.m_typefrom->m_LANG_determined_type);
                 node->m_LANG_determined_type = node->m_typeform.m_typefrom->m_LANG_determined_type.value();
                 break;
+            case AstTypeHolder::BASEOF:
+            {
+                wo_assert(node->m_typeform.m_baseof->m_LANG_determined_type);
+
+                lang_TypeInstance* const determined_type =
+                    node->m_typeform.m_typefrom->m_LANG_determined_type.value();
+
+                determined_type->get_determined_type();
+
+                //
+
+                //determined_type->get_determined_type().value();
+
+                //node->m_LANG_determined_type = 
+                break;
+            }
             default:
                 wo_error("unknown type holder formal");
                 break;

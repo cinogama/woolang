@@ -409,11 +409,15 @@ namespace wo
             P(ORIGIN_TYPE, pass_direct<0>, (NT(STRUCTABLE_TYPE)));
             P(STRUCTABLE_TYPE, pass_type_from_identifier, (NT(SCOPED_IDENTIFIER_FOR_TYPE)));
             P(STRUCTABLE_TYPE, pass_direct<0>, (NT(TYPEOF)));
+            P(STRUCTABLE_TYPE, pass_direct<0>, (NT(BASEOF)));
             P(STRUCTABLE_TYPE_FOR_CONSTRUCT, pass_type_from_identifier, (NT(SCOPED_IDENTIFIER_FOR_VAL)));
             P(STRUCTABLE_TYPE_FOR_CONSTRUCT, pass_direct<0>, (NT(TYPEOF)));
+            P(STRUCTABLE_TYPE_FOR_CONSTRUCT, pass_direct<0>, (NT(BASEOF)));
             P(TYPEOF, pass_typeof, (TE(l_typeof), TE(l_left_brackets), NT(EXPRESSION), TE(l_right_brackets)));
             P(TYPEOF, pass_direct<2>, (TE(l_typeof), TE(l_template_using_begin), NT(TYPE), TE(l_larg)));
             P(TYPEOF, pass_direct<2>, (TE(l_typeof), TE(l_less), NT(TYPE), TE(l_larg)));
+            P(BASEOF, pass_baseof, (TE(l_baseof), TE(l_template_using_begin), NT(TYPE), TE(l_larg)));
+            P(BASEOF, pass_baseof, (TE(l_baseof), TE(l_less), NT(TYPE), TE(l_larg)));
             P(ORIGIN_TYPE, pass_type_tuple, (NT(TUPLE_TYPE_LIST)));
             P(TUPLE_TYPE_LIST, pass_direct<1>, (
                 TE(l_left_brackets), NT(TUPLE_TYPE_LIST_ITEMS_MAY_EMPTY), TE(l_right_brackets)));

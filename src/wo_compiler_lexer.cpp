@@ -221,6 +221,7 @@ extern func macro_entry(lexer: std::lexer)=> string
     {
         {"alias", {lex_type::l_alias} },
         {"as", {lex_type::l_as}},
+        {"baseof", {lex_type::l_baseof}},
         {"break", {lex_type::l_break}},
         {"continue", {lex_type::l_continue}},
         {"defer", {lex_type::l_defer}},
