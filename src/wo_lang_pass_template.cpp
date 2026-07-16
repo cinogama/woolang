@@ -718,7 +718,7 @@ namespace wo
             return true;
         }
         case ast::AstTypeHolder::TYPEOF:
-        case ast::AstTypeHolder::BASEOF:
+        case ast::AstTypeHolder::UNDERLYING:
             // Junk! I cannot do any thing!
             return true;
         case ast::AstTypeHolder::FUNCTION:

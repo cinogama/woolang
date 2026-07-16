@@ -9,13 +9,13 @@ namespace test_gc
 {
     let mut global_list = []mut as vec<dynamic>;
     let global_list_mx = thread::mutex::create();
-
+    
     let TEST_TIME = 35.;
-
+    
     func test_gchandle_work()
     {
         std::println("test_gchandle_work begin");
-
+        
         let test_begin_time = std::clock();
         while (std::clock() - test_begin_time <= TEST_TIME)
         {
@@ -24,78 +24,81 @@ namespace test_gc
             {
                 let d = {["Hello"] = "world"};
                 do "Hello" + d["Hello"];
-
+                
                 for (let _: arr)
                 {
-                    // do nothing..
+                // do nothing..
                 }
             }
         }
     }
-
+    
     func test_gc_parallel_work(id: int)
     {
         std::println("test_gc_co/thread id=", id, "begin");
-
+        
         let local_list = [1 as dynamic,2 as dynamic,3 as dynamic,4 as dynamic,5 as dynamic]mut as vec<dynamic>;
         let tmp = []mut as vec<vec<int>>;
         let arr_a = [[12345678]mut,]mut, arr_b = []mut as vec<vec<int>>;
-
+        
         let test_begin_time = std::clock();
-
+        
         while (std::clock() - test_begin_time <= TEST_TIME)
         {
             {
                 global_list_mx->lock();
                 defer global_list_mx->unlock();
-
+                
                 global_list->add({["Hello"] = "world"} as dynamic);
                 global_list->add({["Hello"] = "world"} as dynamic);
                 global_list->add({["Hello"] = "world"} as dynamic);
-
-                if (std::rand(1, 50000) == 233)
+                
+                if (std::rand(1, 50000) == 233
+                    || global_list->len >= std::rand(0x1000, 0x10000))
+                {
                     global_list->clear();
+                }
             }
-
+            
             tmp->add(arr_a[0]);
             do arr_a->remove(0);
             arr_b->add(tmp[0]);
             do tmp->remove(0);
-
+            
             local_list->add(arr_a as dynamic);
             local_list->add(arr_b as dynamic);
-
+            
             test_assure(arr_b[0][0] == 12345678);
-
+            
             tmp->add(arr_b[0]);
             do arr_b->remove(0);
             arr_a->add(tmp[0]);
             do tmp->remove(0);
-
+            
             local_list->add(arr_a as dynamic);
             local_list->add(arr_b as dynamic);
-
+            
             if (std::rand(1, 50000) == 233)
                 local_list->clear();
-
+                
             test_assure(arr_a[0][0] == 12345678);
         }
-
+        
         global_list_mx->lock();
         defer global_list_mx->unlock();
         
         global_list->clear();
-
+        
         std::println("test_gc_co/thread id=", id, "finished!");
     }
-
+    
     func main()
     {
         global_list = [1 as dynamic,2 as dynamic,3 as dynamic,4 as dynamic,5 as dynamic]mut as vec<dynamic>;
         
         do thread::create(test_gchandle_work);
-
-        for (let (i, _): array::create(4, do nil)->iter |> iterator::enumerate) 
+        
+        for (let (i, _): array::create(4, do nil)->iter |> iterator::enumerate)
             do thread::create(\ = test_gc_parallel_work(i););
     }
 }

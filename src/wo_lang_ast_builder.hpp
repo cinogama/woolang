@@ -181,7 +181,7 @@ struct NAME : public astnode_builder                    \
         WO_AST_BUILDER(pass_mark_mut);
         WO_AST_BUILDER(pass_mark_immut);
         WO_AST_BUILDER(pass_typeof);
-        WO_AST_BUILDER(pass_baseof);
+        WO_AST_BUILDER(pass_underlying);
         WO_AST_BUILDER(pass_build_identifier_typeof);
         WO_AST_BUILDER(pass_build_identifier_normal);
         WO_AST_BUILDER(pass_build_identifier_global);

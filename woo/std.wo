@@ -20,42 +20,27 @@ namespace std
     {
         public alias invoke_result_t<F, ArgTs> = typeof(declval:<F>()(declval:<ArgTs>()...));
         public alias iterator_result_t<T> = option::item_t<typeof(declval:<T>()->next)>;
-        public let is_array<AT> = typeid(declval:<array::item_t<AT>>()) != 0;
-        public let is_vec<AT> = typeid(declval:<vec::item_t<AT>>()) != 0;
-        public let is_dict<DT> = typeid(declval:<dict::item_t<DT>>()) != 0;
-        public let is_map<DT> = typeid(declval:<map::item_t<DT>>()) != 0;
-        public let is_tuple<T> =
-            typeid((declval:<T>()...,)) != 0 && is_same:<T, typeof((declval:<T>()...,))>;
-        public let is_same<A, B> = typeid:<A> == typeid:<B> && typeid:<A> != 0;
-        public let is_mutable<A> = is_same:<A, mut A>;
-        public let is_invocable<F, ArgTs> = typeid(declval:<F>()(declval:<ArgTs>()...)) != 0;
-        public let is_function<F> = is_invocable:<F, array<nothing>>;
-        public let is_iterator<T> = typeid(declval:<iterator_result_t<T>>()) != 0;
-        public let is_iterable<T> =
-            typeid(declval:<T>()->iter) != 0 && is_iterator:<typeof(declval:<T>()->iter)>;
-        public let is_option<T> = typeid:<option::item_t<T>> != 0;
-        public let is_result<T> = typeid:<result::ok_t<T>> != 0;
         public alias expected_t<T> = typeof(
             is_option:<T>
                 ? declval:<option::item_t<T>>()
                 | is_result:<T>
                 ? declval:<result::ok_t<T>>()
                 | bad:<{"T should be a option or result."}>());
-        public let is_based_on<BaseT, T> =
-            0 != typeid(
-                func(n: BaseT)
-                {
-                    using _B = T;
-                    do n as _B;
-                });
-        public let is_gc_type<T> =
-            !is_based_on:<void, T>
-            && !is_based_on:<nil, T>
-            && !is_based_on:<int, T>
-            && !is_based_on:<handle, T>
-            && !is_based_on:<real, T>
-            && !is_based_on:<bool, T>
-            && !is_based_on:<dynamic, T>;
+        // ==
+        public let is_array<AT> = typeid(declval:<array::item_t<AT>>()) != 0;
+        public let is_vec<AT> = typeid(declval:<vec::item_t<AT>>()) != 0;
+        public let is_dict<DT> = typeid(declval:<dict::item_t<DT>>()) != 0;
+        public let is_map<DT> = typeid(declval:<map::item_t<DT>>()) != 0;
+        public let is_tuple<T> = is_same:<immut T, raw T> && typeid((declval:<T>()...,)) != 0;
+        public let is_same<A, B> = typeid:<A> == typeid:<B> && typeid:<A> != 0;
+        public let is_mut<A> = is_same:<A, mut A>;
+        public let is_invocable<F, ArgTs> = typeid(declval:<F>()(declval:<ArgTs>()...)) != 0;
+        public let is_function<F> = is_same:<immut F, raw F> && is_invocable:<F, array<nothing>>;
+        public let is_iterator<T> = typeid(declval:<iterator_result_t<T>>()) != 0;
+        public let is_iterable<T> = typeid(declval:<T>()->iter) != 0 && is_iterator:<typeof(declval:<T>()->iter)>;
+        public let is_option<T> = typeid:<option::item_t<T>> != 0;
+        public let is_result<T> = typeid:<result::ok_t<T>> != 0;
+        public let is_based_on<BaseT, T> = is_same:<BaseT, raw T>;
     }
     
     public func iterator<T>(v: T)
@@ -147,13 +132,14 @@ namespace std
             }
         }
     }
-    extern(std::type_traits::is_same:<T, int>
+    extern(type_traits::is_same:<T, int>
         ? "woostd_random_i"
         | "woostd_random_r")
         public func rand<T>(from: T, to: T)=> T
             where
-        std::type_traits::is_same:<T, int>
-        || std::type_traits::is_same:<T, real>;;
+        type_traits::is_same:<T, int>
+        || type_traits::is_same:<T, real>;
+    ;
     extern("woostd_yield")
         public func yield()=> void;
     extern("woostd_sleep")
@@ -162,11 +148,17 @@ namespace std
         public func cmdlines()=> array<string>;
     extern("woostd_host_path")
         public func host_path()=> string;
-    extern(std::type_traits::is_gc_type:<T> 
-        ? "woostd_is_same_gc_unit"
-        | "woostd_is_same")
+    extern((type_traits::is_based_on:<void, T>
+            || type_traits::is_based_on:<nil, T>
+            || type_traits::is_based_on:<int, T>
+            || type_traits::is_based_on:<handle, T>
+            || type_traits::is_based_on:<real, T>
+            || type_traits::is_based_on:<bool, T>
+            || type_traits::is_based_on:<dynamic, T>)
+        ? "woostd_is_same"
+        | "woostd_is_same_gc_unit")
         public func is_same<T>(a: T, b: T)=> bool;
-    extern((dynamic::type_traits::need_box:<T> || std::type_traits::is_based_on:<string, T>)
+    extern((dynamic::type_traits::need_box:<T> || type_traits::is_based_on:<string, T>)
         ? "woostd_return_it_self"
         | "woostd_make_dup")
         public func dup<T>(dupval: T)=> T;
@@ -967,9 +959,9 @@ namespace dict
         {"woostd_map_only_get"},
         (KT, VT),
         {(
-            dynamic::type_traits::irbx,
-            dynamic::type_traits::ur,
-        )}>)
+                dynamic::type_traits::irbx,
+                dynamic::type_traits::ur,
+            )}>)
         public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<VT>;
     extern(dynamic::type_traits::extern_symbol_variant_irbx:<{"woostd_map_find"}, KT>)
         public func contains<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
@@ -978,9 +970,9 @@ namespace dict
         {"woostd_map_get_or_default"},
         (KT, VT),
         {(
-            dynamic::type_traits::irbx,
-            dynamic::type_traits::ur,
-        )}>)
+                dynamic::type_traits::irbx,
+                dynamic::type_traits::ur,
+            )}>)
         public func get_or<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
     public func get_or_do<KT, VT>(self: dict<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
@@ -1009,9 +1001,9 @@ namespace dict
             {"woostd_map_iter_next"},
             (KT, VT),
             {(
-                dynamic::type_traits::ur,
-                dynamic::type_traits::ur,
-            )}>)
+                    dynamic::type_traits::ur,
+                    dynamic::type_traits::ur,
+                )}>)
             public func next<KT, VT>(iter: iterator<KT, VT>)=> option<(KT, VT)>;
     }
     extern("woostd_map_iter")
@@ -1069,9 +1061,9 @@ namespace map
         {"woostd_map_set"},
         (KT, VT),
         {(
-            dynamic::type_traits::irbx,
-            dynamic::type_traits::irbx,
-        )}>)
+                dynamic::type_traits::irbx,
+                dynamic::type_traits::irbx,
+            )}>)
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
     extern("woostd_map_len")
         public func len<KT, VT>(self: map<KT, VT>)=> int;
@@ -1093,43 +1085,43 @@ namespace map
         {"woostd_map_only_get"},
         (KT, VT),
         {(
-            dynamic::type_traits::irbx,
-            dynamic::type_traits::ur,
-        )}>)
+                dynamic::type_traits::irbx,
+                dynamic::type_traits::ur,
+            )}>)
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
     extern(
         dynamic::type_traits::extern_symbol_variant:<
         {"woostd_map_get_or_default"},
         (KT, VT),
         {(
-            dynamic::type_traits::irbx,
-            dynamic::type_traits::ur,
-        )}>)
+                dynamic::type_traits::irbx,
+                dynamic::type_traits::ur,
+            )}>)
         public func get_or<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
     extern(
         dynamic::type_traits::extern_symbol_variant:<
         {"woostd_map_get_or_set_default"},
         (KT, VT),
         {(
-            dynamic::type_traits::irbx,
-            dynamic::type_traits::irbx,
-        )}>)
+                dynamic::type_traits::irbx,
+                dynamic::type_traits::irbx,
+            )}>)
         public func get_or_set<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
     extern(
-        std::type_traits::is_based_on:<void, VT> 
+        std::type_traits::is_based_on:<void, VT>
             ?  dynamic::type_traits::extern_symbol_variant:<
-                {"woostd_map_get_or_set_default_do"},
-                (KT,),
-                {(
-                    dynamic::type_traits::irbx,
-                )}> + "v"
-            | dynamic::type_traits::extern_symbol_variant:<
-                {"woostd_map_get_or_set_default_do"},
-                (KT, VT),
-                {(
-                    dynamic::type_traits::irbx,
-                    dynamic::type_traits::irbx,
-                )}>)
+            {"woostd_map_get_or_set_default_do"},
+        (KT,),
+        {(
+                dynamic::type_traits::irbx,
+            )}> + "v"
+        | dynamic::type_traits::extern_symbol_variant:<
+        {"woostd_map_get_or_set_default_do"},
+        (KT, VT),
+        {(
+                dynamic::type_traits::irbx,
+                dynamic::type_traits::irbx,
+            )}>)
         public func get_or_set_do<KT, VT>(self: map<KT, VT>, index: KT, defalt_do: ()=>VT)=> VT;
     public func get_or_do<KT, VT>(self: map<KT, VT>, index: KT, f: ()=> VT)=> VT
     {
@@ -1161,9 +1153,9 @@ namespace map
             {"woostd_map_iter_next"},
             (KT, VT),
             {(
-                dynamic::type_traits::ur,
-                dynamic::type_traits::ur,
-            )}>)
+                    dynamic::type_traits::ur,
+                    dynamic::type_traits::ur,
+                )}>)
             public func next<KT, VT>(iter: iterator<KT, VT>)=> option<(KT, VT)>;
     }
     extern("woostd_map_iter")

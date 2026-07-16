@@ -612,7 +612,7 @@ namespace wo
         AstTypeHolder::AstTypeHolder(AstTypeHolder* type)
             : AstBase(AST_TYPE_HOLDER)
             , m_mutable_mark(NONE)
-            , m_formal(BASEOF)
+            , m_formal(UNDERLYING)
             , m_LANG_template_evalating_state(std::nullopt)
             , m_LANG_determined_type(std::nullopt)
             , m_LANG_alias_instance_only_for_lspv2(std::nullopt)
@@ -675,7 +675,7 @@ namespace wo
             {
             case IDENTIFIER:
             case TYPEOF:
-            case BASEOF:
+            case UNDERLYING:
                 // Pointer type no need to invoke destructor.
                 break;
             case FUNCTION:
@@ -973,7 +973,7 @@ namespace wo
             case TYPEOF:
                 m_typeform.m_typefrom->_check_if_template_exist_in(template_params, out_contain_flags);
                 break;
-            case BASEOF:
+            case UNDERLYING:
                 m_typeform.m_baseof->_check_if_template_exist_in(template_params, out_contain_flags);
                 break;
             case FUNCTION:
@@ -1010,7 +1010,7 @@ namespace wo
                 if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_typefrom);
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_typeform.m_typefrom));
                 break;
-            case BASEOF:
+            case UNDERLYING:
                 if (new_instance == nullptr)new_instance = new AstTypeHolder(m_typeform.m_baseof);
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_typeform.m_baseof));
                 break;

@@ -739,7 +739,7 @@ namespace wo
             case AstTypeHolder::TYPEOF:
                 WO_CONTINUE_PROCESS(node->m_typeform.m_typefrom);
                 break;
-            case AstTypeHolder::BASEOF:
+            case AstTypeHolder::UNDERLYING:
                 WO_CONTINUE_PROCESS(node->m_typeform.m_baseof);
                 break;
             case AstTypeHolder::FUNCTION:
@@ -996,7 +996,7 @@ namespace wo
                 wo_assert(node->m_typeform.m_typefrom->m_LANG_determined_type);
                 node->m_LANG_determined_type = node->m_typeform.m_typefrom->m_LANG_determined_type.value();
                 break;
-            case AstTypeHolder::BASEOF:
+            case AstTypeHolder::UNDERLYING:
             {
                 wo_assert(node->m_typeform.m_baseof->m_LANG_determined_type);
 

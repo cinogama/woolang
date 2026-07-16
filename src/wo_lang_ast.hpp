@@ -270,7 +270,7 @@ namespace wo
             {
                 IDENTIFIER,
                 TYPEOF,
-                BASEOF,
+                UNDERLYING,
                 FUNCTION,
                 STRUCTURE,
                 TUPLE,

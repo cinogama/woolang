@@ -673,10 +673,10 @@ namespace wo
             AstValueBase* const value = WO_NEED_AST_VALUE(2);
             return new AstTypeHolder(value);
         }
-        auto pass_baseof::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_underlying::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             AstTypeHolder* const type = 
-                static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
+                static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(1, AstBase::AST_TYPE_HOLDER));
 
             return new AstTypeHolder(type);
         }
@@ -1799,7 +1799,7 @@ namespace wo
             WO_AST_BUILDER(pass_mark_mut);
             WO_AST_BUILDER(pass_mark_immut);
             WO_AST_BUILDER(pass_typeof);
-            WO_AST_BUILDER(pass_baseof);
+            WO_AST_BUILDER(pass_underlying);
             WO_AST_BUILDER(pass_build_identifier_typeof);
             WO_AST_BUILDER(pass_build_identifier_normal);
             WO_AST_BUILDER(pass_build_identifier_global);

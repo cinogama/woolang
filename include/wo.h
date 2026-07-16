@@ -10,7 +10,7 @@
  */
 
 /** @brief Woolang version encoded as (major, minor, patch, tweak). */
-#define WO_VERSION WO_VERSION_WRAP(1, 15, 4, 0)
+#define WO_VERSION WO_VERSION_WRAP(1, 15, 4, 1)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
@@ -421,7 +421,6 @@ typedef enum _wo_lspv2_lexer_token
     WO_LSPV2_TOKEN_ALIAS,                   /**< @brief alias */
     WO_LSPV2_TOKEN_AS,                      /**< @brief as */
     WO_LSPV2_TOKEN_AT,                      /**< @brief @ */
-    WO_LSPV2_TOKEN_BASEOF,                  /**< @brief baseof */
     WO_LSPV2_TOKEN_BREAK,                   /**< @brief break */
     WO_LSPV2_TOKEN_CONTINUE,                /**< @brief continue */
     WO_LSPV2_TOKEN_DEFER,                   /**< @brief defer */
@@ -447,6 +446,7 @@ typedef enum _wo_lspv2_lexer_token
     WO_LSPV2_TOKEN_PRIVATE,                 /**< @brief private */
     WO_LSPV2_TOKEN_PROTECTED,               /**< @brief protected */
     WO_LSPV2_TOKEN_PUBLIC,                  /**< @brief public */
+    WO_LSPV2_TOKEN_RAW,                     /**< @brief raw */
     WO_LSPV2_TOKEN_RETURN,                  /**< @brief return */
     WO_LSPV2_TOKEN_STATIC,                  /**< @brief static */
     WO_LSPV2_TOKEN_STRUCT,                  /**< @brief struct */
