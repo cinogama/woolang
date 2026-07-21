@@ -847,7 +847,7 @@ namespace wo
                                 type_instance = type_symbol->m_type_instance;
                         }
 
-                        bool type_or_alias_determined =
+                        const bool type_or_alias_determined =
                             type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS
                             ? alias_instance->m_determined_type.has_value()
                             : type_instance->get_determined_type().has_value()
@@ -1002,6 +1002,13 @@ namespace wo
 
                 lang_TypeInstance* const determined_type =
                     node->m_typeform.m_baseof->m_LANG_determined_type.value();
+
+                if (!determined_type->get_determined_type().has_value())
+                {
+                    lex.record_lang_error(lexer::msglevel_t::error, node,
+                        WO_ERR_TYPE_DETERMINED_FAILED);
+                    return FAILED;
+                }
 
                 node->m_LANG_determined_type =
                     m_origin_types.create_or_find_origin_type_by_determined_type(

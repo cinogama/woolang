@@ -10,7 +10,7 @@
  */
 
 /** @brief Woolang version encoded as (major, minor, patch, tweak). */
-#define WO_VERSION WO_VERSION_WRAP(1, 15, 4, 1)
+#define WO_VERSION WO_VERSION_WRAP(1, 15, 4, 2)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
