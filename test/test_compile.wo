@@ -22,7 +22,7 @@ namespace test_compile
             {
                 for (let e : msg)
                     std::println("   *", e->to_string);
-
+                    
                 test_assure(false);
             }
             ok(_)?;
@@ -30,7 +30,7 @@ namespace test_compile
     }
     func assure_compile_fail(src: string)
     {
-        let result = compile_program(src);        
+        let result = compile_program(src);
         test_assure(result->is_ok == false);
     }
     
@@ -2508,7 +2508,7 @@ func main()
         assure_compile_success(@"
         do false && bad;
         "@);
-
+                
         assure_compile_success(@"
         func foo(_, _: real, _:real, _: (real)=>void)
         {
@@ -2544,7 +2544,7 @@ func main()
 
         foo((1.,1.,1.)..., func(v){do v;});
         "@);
-
+                
         // Unpack array into variadic function, not at first arg position
         // (regression: arg_index == 0 was incorrectly required, causing
         //  IR counter / varargs slot to not be generated for unpack)
@@ -2569,7 +2569,7 @@ func main()
         let arr = [1, 2, 3];
         foo(42, "hello", arr...);
         "@);
-        // Unpack array as first arg into variadic (should keep working)
+                // Unpack array as first arg into variadic (should keep working)
         assure_compile_success(@"
         func foo(...)
         {
@@ -2577,7 +2577,7 @@ func main()
         let arr = [1, 2, 3];
         foo(arr...);
         "@);
-
+            
         assure_compile_success(@"
         func foo<A, B, C>(_: A<B, C>)
         {
@@ -2603,12 +2603,12 @@ func main()
         using user_handle_t = handle;
         let a = 0 as handle as user_handle_t;
         "@);
-
+                
         // Do you forget to regenerate the grammar-cache?
         assure_compile_fail(@""@);
         assure_compile_fail(@"^"@);
         assure_compile_fail(@"$"@);
-
+        
         assure_compile_success(@"
         using Example = struct{}
         {
@@ -2664,7 +2664,7 @@ func main()
         let s = Example{};
         do s as nil;
         "@);
-
+                
         assure_compile_fail(@"
         func foo()
         {
@@ -2673,6 +2673,16 @@ func main()
                 i;
             }
         }
+        "@);
+            
+        assure_compile_fail(@"
+        using A = A;
+        do nil as raw A;
+        "@);
+
+        assure_compile_fail(@"
+        using A = A;
+        do nil: raw A;
         "@);
     }
     
@@ -2712,9 +2722,9 @@ func main()
             let end_time = std::clock();
         std::println("Compile 1000 src cost:", end_time - begin_tm);
     }
-
+    
     /* Lexer / tokenizer error paths that require assure_compile_fail.
-       Each case targets a specific error branch in wo_compiler_lexer.cpp. */
+    Each case targets a specific error branch in wo_compiler_lexer.cpp. */
     func test_compile_lexer_errors()
     {
         /* Numeric literal error paths. */
@@ -2724,61 +2734,61 @@ func main()
         assure_compile_fail(@"let a = 0xGG;"@);            // bad hex digit
         assure_compile_fail(@"let a = 1.5H;"@);            // H after real
         assure_compile_fail(@"let a = 0778;"@);            // 8 in octal
-
+        
         /* #line pragma errors — lexer.cpp:1461-1480. */
         assure_compile_fail(@"#line 123 1 1"@);            // first arg not string
         assure_compile_fail(@"#line ""f"" abc 1"@);        // row not int
         assure_compile_fail(@"#line ""f"" 1 abc"@);        // col not int
-
+        
         /* Unknown pragma — lexer.cpp:1491-1492. */
         assure_compile_fail(@"#bogusdirective"@);
-
+        
         /* Macro definition errors — lexer.cpp:1369-1371, 36-37, 118-125. */
         assure_compile_fail(@"#macro 123 { return """"; }"@);     // name not ident
         assure_compile_fail(@"#macro foo notabrace"@);            // missing brace
         assure_compile_fail(@"#macro bad { !!!invalid!!! }"@);    // body fails
-
+        
         /* Unterminated regular string — lexer.cpp:1280. */
         assure_compile_fail(@"let s = "unterminated
 "@);
-
+            
         /* Parser error recovery — parser.cpp:820-830, 836-837. */
         assure_compile_fail(@"func foo(a: int { }"@);     // truncated signature
         assure_compile_fail(@"namespace N { func f() {"@); // unclosed braces
-
+        
         /* Duplicate attributes — ast.cpp:265, 273, 283. */
         assure_compile_fail(@"static static let a = 1;"@);
         assure_compile_fail(@"public private let a = 1;"@);
         assure_compile_fail(@"public public let a = 1;"@);
-
+        
         /* Best-effort: export import grammar form — grammar.cpp:110. */
         assure_compile_success(@"export import woo::std;"@);
-
+        
         /* Private field — compiles fine, just exercises the parser path. */
         assure_compile_success(@"using S = struct{private f: int};
                              let s = S{f=1}; do s.f;"@);
-
+            
         /* Best-effort: trigger u8enstring via constant in type-mismatch error.
-           Covers wo_utf8.cpp:274-326 escaping branches. */
+        Covers wo_utf8.cpp:274-326 escaping branches. */
         assure_compile_fail(@"let a: int = ""with\\backslash"";"@);
         assure_compile_fail(@"let a: int = ""emoji🍉"";"@);
         assure_compile_fail(@"let a: int = ""tab	char"";"@);
     }
-
+    
     /* Type-rule and template-deduction REJECT paths. */
     func test_compile_type_errors()
     {
         /* Mixture REJECT paths in easy_mixture_types — type_rule.cpp.
-           int vs string are truly incompatible types. */
+        int vs string are truly incompatible types. */
         assure_compile_fail(@"let c = true; let x = c ? [1] | [""hello""];"@);
         assure_compile_fail(@"let c = true; let x = c ? {[0]=1} | {[0]=""hello""};"@);
         assure_compile_fail(@"let c = true; let x = c ? (\:int = 1;) | (\:int = ""hello"";);"@);
-
+        
         /* Template-instance mixture REJECT — type_rule.cpp:856-857. */
         assure_compile_fail(@"import woo::std;
                              let c = true;
                              let x = c ? option::value(1) | option::value(""hello"");"@);
-
+            
         /* Template deduction early-exits — pass_template.cpp. */
         assure_compile_fail(@"func f<T>(_: struct{a: T, b: T}){} do f(struct{a=1, c=2});"@);
         assure_compile_fail(@"func f<T>(_: (T, T)){} do f((1, 2, 3));"@);

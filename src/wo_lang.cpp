@@ -1499,6 +1499,8 @@ namespace wo
         m_ircontext.c().ret(m_ircontext.c().load_imm_int(0));
         m_ircontext.c().pop_function();
 
+        bool has_deferred_compile_error = false;
+
         for (;;)
         {
             auto functions_to_finalize =
@@ -1532,6 +1534,14 @@ namespace wo
                         != m_repl_context.value()->m_prior_function_bytecode.end())
                 {
                     eval_function->m_IR_function_MUST_BE_CLEAR_FOR_REPL.reset();
+                    continue;
+                }
+
+                if (eval_function->m_LANG_function_scope.has_value()
+                    && check_unused_local_variables_in_scope(
+                        lex, eval_function->m_LANG_function_scope.value()))
+                {
+                    has_deferred_compile_error = true;
                     continue;
                 }
 
@@ -1636,7 +1646,9 @@ namespace wo
             }
         }
 
-        return compile_result::PROCESS_OK;
+        return has_deferred_compile_error
+            ? compile_result::PROCESS_FAILED_BUT_PASS_1_OK
+            : compile_result::PROCESS_OK;
     }
 
     ////////////////////////

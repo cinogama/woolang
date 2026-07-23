@@ -1751,10 +1751,6 @@ namespace wo
             }
             case AstValueFunction::HOLD_FOR_BODY_EVAL:
             {
-                bool failed =
-                    !node->m_LANG_extern_information.has_value()
-                    && check_unused_local_variables_in_scope(lex, get_current_scope());
-
                 end_last_function();
                 if (node->m_LANG_determined_template_arguments.has_value())
                     end_last_scope();
@@ -1762,6 +1758,8 @@ namespace wo
                 node->m_LANG_function_body_end_with_return_flag_for_IR =
                     node->m_LANG_extern_information.has_value()
                     || check_node_type_and_get_end_state(node->m_body) == ast::AstScope::LANG_end_state::END_WITH_RETURN;
+
+                bool failed = false;
 
                 if (node->m_LANG_determined_return_type.has_value() == false)
                 {
