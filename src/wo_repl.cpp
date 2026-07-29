@@ -109,13 +109,19 @@ struct _wo_repl_tls_guard
     explicit _wo_repl_tls_guard(_wo_ReplSession& s) : S(s)
     {
         // --- String pool ---
-        // Create the pool on first use (session constructor).
+        // Allocate a fresh session-private pool on first use. Do NOT use
+        // begin_new_pool(): that helper is refcount-based and only bumps the
+        // count on whatever pool is currently installed in TLS instead of
+        // allocating a new one. When this session is created while another
+        // REPL eval cycle already has its pool installed (nested
+        // wo_repl_eval / nested session construction), begin_new_pool()
+        // would alias the outer session's pool, scrambling the TLS
+        // save/restore: the outer guard would later capture a zeroed TLS
+        // and permanently lose its pool. The REPL owns and frees this pool
+        // itself (see ~_wo_ReplSession), so bypass TLS refcounting here.
         if (!S.m_repl_pool.has_value())
-        {
-            wo::wstring_pool::begin_new_pool();
-            S.m_repl_pool.emplace(
-                wo::wstring_pool::exchange_this_thread_pool({ nullptr, 0 }).pool);
-        }
+            S.m_repl_pool.emplace(new wo::wstring_pool());
+
         // Install REPL pool into thread-local, saving caller's state.
         saved_pool =
             wo::wstring_pool::exchange_this_thread_pool({ S.m_repl_pool.value(), 1 });
