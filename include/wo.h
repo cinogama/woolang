@@ -10,7 +10,7 @@
  */
 
 /** @brief Woolang version encoded as (major, minor, patch, tweak). */
-#define WO_VERSION WO_VERSION_WRAP(1, 15, 4, 3)
+#define WO_VERSION WO_VERSION_WRAP(1, 15, 4, 4)
 
 #ifndef WO_MSVC_RC_INCLUDE
 
@@ -270,7 +270,8 @@ typedef enum _wo_repl_result
  * @return A new REPL session handle, or NULL on failure.
  */
 WO_API /* OPTIONAL */ wo_ReplSession* wo_repl_create(
-    /* OPTIONAL */ woort_REPLPrinter_ResultCallback callback);
+    /* OPTIONAL */ woort_REPLPrinter_ResultCallback callback,
+    /* OPTIONAL */ void* callback_user_param);
 
 /**
  * @brief Destroy a REPL session and release all resources.

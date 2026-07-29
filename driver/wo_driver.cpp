@@ -152,7 +152,7 @@ int _wo_driver_run_repl()
 
     std::cout << "\nType :help for available commands, :q to exit.\n\n";
 
-    wo_ReplSession* session = wo_repl_create(nullptr);
+    wo_ReplSession* session = wo_repl_create(nullptr, nullptr);
     if (session == nullptr)
     {
         std::cerr << "Failed to create REPL session.\n";
@@ -244,7 +244,7 @@ int _wo_driver_run_repl()
             // compiler/VM state. Command history is preserved.
             buffer.clear();
             wo_repl_destroy(session);
-            session = wo_repl_create(nullptr);
+            session = wo_repl_create(nullptr, nullptr);
             if (session == nullptr)
             {
                 std::cerr << "Failed to recreate REPL session.\n";

@@ -81,7 +81,7 @@ struct _wo_ReplSession
     wo::lexer::who_import_me_map_t m_who_import_me_map_tree;
     wo::lexer::who_import_me_map_t m_export_import_map;
 
-    _wo_ReplSession(woort_REPLPrinter_ResultCallback callback);
+    _wo_ReplSession(woort_REPLPrinter_ResultCallback callback, void* param);
     ~_wo_ReplSession();
 
     _wo_ReplSession(const _wo_ReplSession&) = delete;
@@ -150,7 +150,8 @@ struct _wo_repl_tls_guard
 //  Lifecycle
 // ===================================================================
 
-    _wo_ReplSession::_wo_ReplSession(woort_REPLPrinter_ResultCallback callback)
+    _wo_ReplSession::_wo_ReplSession(
+        woort_REPLPrinter_ResultCallback callback, void* param)
     : m_repl_pool(std::nullopt)
     , m_vm(woort_vm_create())
     , m_line_counter(0)
@@ -198,7 +199,7 @@ struct _wo_repl_tls_guard
         // callback flushes to stdout. Expose the printer to the IR generator
         // (REPLEchoIRGenerator) via REPLContext so the woostd_repl_print_*
         // native calls receive it as their first argument.
-        if (!woort_REPLPrinter_create(callback, &m_repl_printer))
+        if (!woort_REPLPrinter_create(callback, param, &m_repl_printer))
             m_repl_printer = nullptr;
 
         m_repl_context.m_repl_printer = m_repl_printer;
@@ -275,9 +276,11 @@ static void _wo_rollback_new_symbols(
 //  Public API
 // ===================================================================
 
-wo_ReplSession* wo_repl_create(woort_REPLPrinter_ResultCallback callback)
+wo_ReplSession* wo_repl_create(
+    /* OPTIONAL */ woort_REPLPrinter_ResultCallback callback,
+    /* OPTIONAL */ void* callback_user_param)
 {
-    auto* s = new (std::nothrow) _wo_ReplSession(callback);
+    auto* s = new (std::nothrow) _wo_ReplSession(callback, callback_user_param);
     if (s == nullptr 
         || s->m_vm == nullptr 
         || s->m_lang_context == nullptr
@@ -517,9 +520,12 @@ wo_repl_result wo_repl_eval(
 //  wo_repl_create() always fails; callers should handle a NULL session.
 // ===================================================================
 
-wo_ReplSession* wo_repl_create(woort_REPLPrinter_ResultCallback callback)
+wo_ReplSession* wo_repl_create(
+    /* OPTIONAL */ woort_REPLPrinter_ResultCallback callback,
+    /* OPTIONAL */ void* callback_user_param)
 {
     (void)callback;
+    (void)callback_user_param;
     return nullptr;
 }
 
