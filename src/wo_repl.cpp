@@ -548,7 +548,7 @@ wo_repl_result wo_repl_eval(
     (void)session;
     (void)src;
     (void)out_errors;
-    return WO_REPL_COMPILE_ERROR;
+    return WO_REPL_INCOMPLETE_INPUT;
 }
 
 #endif // WO_DISABLE_COMPILER

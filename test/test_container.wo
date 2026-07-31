@@ -201,6 +201,10 @@ namespace test_container
         do {[mut 0] = mut 1}mut->unmapping as array<(mut int, mut int)>;
         do {[mut 0] = mut ""}mut->keys as array<mut int>;
         do {[mut 0] = mut ""}mut->vals as array<mut string>;
+
+        let reala = [0.0, 1.0];
+        test_equal(reala[0], 0.0);
+        test_equal(reala[1], 1.0);
     }
 }
 
