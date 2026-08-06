@@ -10,7 +10,7 @@
 
 namespace wo
 {
-    constexpr size_t UTF8MAXLEN = MB_LEN_MAX;
+    constexpr size_t UTF8MAXLEN = 6;
     constexpr size_t UTF16MAXLEN = 2;
 
     bool u8strnchar(const char* u8str, size_t bytelen, size_t* out_charsz);

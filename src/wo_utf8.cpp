@@ -10,15 +10,17 @@ namespace wo
             // Count the lead char with __lzcnt.
 
             int8_t mask = static_cast<int8_t>(0b10000000);
-            for (size_t i = 1; i < UTF8MAXLEN; ++i)
+            for (size_t i = 1; i <= UTF8MAXLEN; ++i)
             {
                 // ARSH.
                 mask >>= 1;
 
-                if (static_cast<uint8_t>(mask) != (static_cast<uint8_t>(mask) & u8ch)
-                    || i >= bytelen)
-                    // Matched, Invalid (0b10xxxxxx) or ASCII/ASCII-Extended (0b0xxxxxxx) or length not engough.
+                if (static_cast<uint8_t>(mask) != (static_cast<uint8_t>(mask) & u8ch))
+                    // Lead byte has exactly i leading ones -> complete i-byte sequence.
                     return i;
+                else if (i >= bytelen)
+                    // Lead byte needs more bytes, but buffer exhausted -> incomplete.
+                    return 1;
                 else
                 {
                     if (static_cast<uint8_t>(0b10000000u)
@@ -120,18 +122,19 @@ namespace wo
             *out_c32 = ((u8ptr[0] & 0x07) << 18) | ((u8ptr[1] & 0x3F) << 12) |
                 ((u8ptr[2] & 0x3F) << 6) | (u8ptr[3] & 0x3F);
             break;
-            //case 5:
-            //    // Five-byte character
-            //    *out_c32 = ((u8ptr[0] & 0x03) << 24) | ((u8ptr[1] & 0x3F) << 18) |
-            //        ((u8ptr[2] & 0x3F) << 12) | ((u8ptr[3] & 0x3F) << 6) | (u8ptr[4] & 0x3F);
-            //    break;
-            //case 6:
-            //    // Six-byte character
-            //    codepoint = ((u8ptr[0] & 0x01) << 30) | ((u8ptr[1] & 0x3F) << 24) |
-            //        ((u8ptr[2] & 0x3F) << 18) | ((u8ptr[3] & 0x3F) << 12) |
-            //        ((u8ptr[4] & 0x3F) << 6) | (u8ptr[5] & 0x3F);
-            //    break;
+        case 5:
+            // Five-byte character
+            *out_c32 = ((u8ptr[0] & 0x03) << 24) | ((u8ptr[1] & 0x3F) << 18) |
+                ((u8ptr[2] & 0x3F) << 12) | ((u8ptr[3] & 0x3F) << 6) | (u8ptr[4] & 0x3F);
+            break;
+        case 6:
+            // Six-byte character
+            codepoint = ((u8ptr[0] & 0x01) << 30) | ((u8ptr[1] & 0x3F) << 24) |
+                ((u8ptr[2] & 0x3F) << 18) | ((u8ptr[3] & 0x3F) << 12) |
+                ((u8ptr[4] & 0x3F) << 6) | (u8ptr[5] & 0x3F);
+            break;
         default:
+            static_assert(UTF8MAXLEN <= 6);
             wo_error("Invalid UTF-8 character length.");
         }
 
@@ -287,9 +290,9 @@ namespace wo
                     if (u16buf[0] > static_cast<char16_t>(0x00FFu) || force_unicode)
                     {
                         const int r = snprintf(
-                            escape_serial, 
+                            escape_serial,
                             sizeof(escape_serial),
-                            "\\u%04X", 
+                            "\\u%04X",
                             static_cast<uint16_t>(u16buf[0]));
 
                         wo_assert(r == 6);
@@ -298,9 +301,9 @@ namespace wo
                     else
                     {
                         const int r = snprintf(
-                            escape_serial, 
+                            escape_serial,
                             sizeof(escape_serial),
-                            "\\x%02X", 
+                            "\\x%02X",
                             static_cast<uint8_t>(u16buf[0]));
 
                         wo_assert(r == 4);
