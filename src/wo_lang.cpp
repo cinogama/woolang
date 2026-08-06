@@ -2567,10 +2567,11 @@ namespace wo
         {
             wo_pstring_t pstring_constant = val.value_pstring();
 
-            return wo::u8enstring(
-                pstring_constant->data(),
-                pstring_constant->size(),
-                false);
+            char* _ens = woort_u8enstring(
+                pstring_constant->data(), pstring_constant->size(), 0);
+            std::string _res(_ens ? _ens : "");
+            woort_free(_ens);
+            return _res;
         }
         case ast::ConstantValue::Type::STRUCT:
         {

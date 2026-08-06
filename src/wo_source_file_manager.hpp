@@ -1,5 +1,4 @@
 #pragma once
-#include "wo_utf8.hpp"
 
 #include <string>
 #include <sstream>

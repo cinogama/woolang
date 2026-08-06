@@ -5,7 +5,6 @@
 
 #include "wo_assert.hpp"
 #include "wo_lang.hpp"
-#include "wo_utf8.hpp"
 #include "wo_lang_ast.hpp"
 #include "wo_global_setting.hpp"
 

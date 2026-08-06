@@ -42,8 +42,11 @@ namespace wo
         lex.consume_forward();
 
         auto source_path = *lex.m_source_path.value();
+        char* _path_ens = woort_u8enstring(source_path.data(), source_path.size(), 0);
+        std::string _path_str(_path_ens ? _path_ens : "");
+        woort_free(_path_ens);
         std::string line_mark = "#line "
-            + wo::u8enstring(source_path.data(), source_path.size(), false)
+            + _path_str
             + " "
             + std::to_string(lex._m_row_counter + 1)
             + " "
@@ -1211,7 +1214,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
                 else if (following_ch == '\'' && readed_char == '\'')
                 {
-                    switch (wo::u8strnlen(token_literal_result.data(), token_literal_result.size()))
+                    switch (woort_u8strnlen(token_literal_result.data(), token_literal_result.size()))
                     {
                     case 0:
                         return produce_lexer_error(
@@ -1294,7 +1297,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         case 'u':
                         {
                             // hex 1byte 
-                            char16_t hex_ascii[UTF16MAXLEN] = {};
+                            char16_t hex_ascii[WOORT_UTF16MAXLEN] = {};
                             for (int i = 0; i < 4; i++)
                             {
                                 if (lexer::lex_isxdigit(peek_char()))
@@ -1309,7 +1312,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                             }
 
                             size_t u16_count = 1;
-                            if (wo::u16hisurrogate(hex_ascii[0]))
+                            if (woort_u16hisurrogate(hex_ascii[0]))
                             {
                                 if (read_char() != '\\'
                                     || read_char() != 'u')
@@ -1331,10 +1334,10 @@ extern func macro_entry(lexer: std::lexer)=> string
                                 u16_count = 2;
                             }
 
-                            char u8buf[UTF8MAXLEN] = {};
+                            char u8buf[WOORT_UTF8MAXLEN] = {};
                             size_t u8len;
 
-                            if (u16_count != wo::u16exractu8(hex_ascii, u16_count, u8buf, &u8len))
+                            if (u16_count != woort_u16exractu8(hex_ascii, u16_count, u8buf, &u8len))
                                 goto str_escape_sequences_fail;
 
                             append_result_char_serial(u8buf, u8len);
@@ -1902,7 +1905,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     case 'u':
                     {
                         // hex 1byte 
-                        char16_t hex_ascii[UTF16MAXLEN] = {};
+                        char16_t hex_ascii[WOORT_UTF16MAXLEN] = {};
                         for (int i = 0; i < 4; i++)
                         {
                             if (lexer::lex_isxdigit(peek_char()))
@@ -1917,7 +1920,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         }
 
                         size_t u16_count = 1;
-                        if (wo::u16hisurrogate(hex_ascii[0]))
+                        if (woort_u16hisurrogate(hex_ascii[0]))
                         {
                             if (read_char() != '\\'
                                 || read_char() != 'u')
@@ -1939,10 +1942,10 @@ extern func macro_entry(lexer: std::lexer)=> string
                             u16_count = 2;
                         }
 
-                        char u8buf[UTF8MAXLEN] = {};
+                        char u8buf[WOORT_UTF8MAXLEN] = {};
                         size_t u8len;
 
-                        if (u16_count != wo::u16exractu8(hex_ascii, u16_count, u8buf, &u8len))
+                        if (u16_count != woort_u16exractu8(hex_ascii, u16_count, u8buf, &u8len))
                             goto str_escape_sequences_fail_in_format_begin;
 
                         append_result_char_serial(u8buf, u8len);

@@ -1107,7 +1107,10 @@ namespace wo
             AstValueLiteral* literal_instance = new AstValueLiteral();
 
             char32_t char_literal;
-            wo::u8combineu32(literal->m_token.identifier->data(), literal->m_token.identifier->size(), &char_literal);
+            (void)woort_u8combineu32(
+                literal->m_token.identifier->data(), 
+                literal->m_token.identifier->size(), 
+                &char_literal);
 
             literal_instance->decide_final_constant_value(
                 static_cast<int64_t>(char_literal));

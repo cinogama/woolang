@@ -2535,19 +2535,19 @@ namespace wo
                         auto index = static_cast<size_t>(node->m_index->m_evaled_const_value.value().value_integer());
 
                         size_t len;
-                        auto* p = wo::u8substr(string_instance->data(), string_instance->size(), index, &len);
+                        auto* p = woort_u8substr(string_instance->data(), string_instance->size(), index, &len);
 
                         if (len == 0)
                         {
                             lex.record_lang_error(lexer::msglevel_t::error, node->m_index,
                                 WO_ERR_STRING_INDEX_OUT_OF_RANGE,
                                 node->m_index->m_evaled_const_value.value().value_integer(),
-                                wo::u8strnlen(string_instance->data(), string_instance->size()));
+                                woort_u8strnlen(string_instance->data(), string_instance->size()));
                             return FAILED;
                         }
 
                         char32_t index_result;
-                        wo::u8combineu32(p, len, &index_result);
+                        (void)woort_u8combineu32(p, len, &index_result);
 
                         node->decide_final_constant_value(
                             static_cast<int64_t>(index_result));
