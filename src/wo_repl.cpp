@@ -193,7 +193,7 @@ struct _wo_repl_tls_guard
         // Pre-register builtin types at session creation so they are always
         // present before any wo_repl_eval snapshot/rollback.
         m_lang_context->pass_0_5_register_builtin_types();
-        m_lang_context->m_builtin_types_registered_for_REPL = true;
+        m_repl_context.m_builtin_types_registered = true;
 
         // Enable pvalue-indirect storage for mutable static variables so that
         // closures defined in prior evals (FAR CALL into a prior CodeEnv) can

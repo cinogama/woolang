@@ -420,9 +420,13 @@ namespace wo
             // declaration AST may live in a prior eval's tree, so the passir
             // pattern handler won't visit this instance. process() uses this
             // list to allocate IR storage for such instances before the main
-            // passir traversal.
-            m_newly_evaluated_template_value_instances.push_back(
-                template_eval_instance_value);
+            // passir traversal. Only tracked in REPL mode (the sole consumer
+            // of this list).
+            if (m_repl_context.has_value())
+            {
+                m_repl_context.value()->m_newly_evaluated_template_value_instances.push_back(
+                    template_eval_instance_value);
+            }
 
             template_eval_instance_value->m_value_instance->check_and_reset_const_if_func_captured();
             break;

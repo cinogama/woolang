@@ -13,6 +13,8 @@ namespace wo
         struct AstValueFunction;
     }
 
+    struct lang_TemplateAstEvalStateValue;
+
     struct REPLContext
     {
         // Maps script functions emitted in a prior eval to their bytecode
@@ -41,6 +43,25 @@ namespace wo
         // results are buffered here instead of written directly to stdout.
         // nullptr in non-REPL mode; set by _wo_ReplSession construction.
         woort_REPLPrinter* m_repl_printer;
+
+        // Latch: whether builtin types have been registered for this REPL
+        // session. A LangContext is normally one-shot (created and discarded
+        // per compile), so in non-REPL mode builtins register every time and
+        // this latch is irrelevant. The REPL session pre-registers builtins
+        // once at creation and latches this true so later evals skip
+        // re-registration.
+        bool m_builtin_types_registered;
+
+        // Template value instances that finished evaluation (pass1) during
+        // the current process() call. In REPL mode a template variable from
+        // a prior eval may be instantiated without its pattern-declaration
+        // AST being present in the current eval's tree, so the normal passir
+        // pattern handler never runs for those instances. The pre-passir
+        // sweep in process() consumes this list to allocate IR storage and
+        // generate initializer code before the passir traversal begins.
+        // Per-eval transient scratch: cleared at the start of process().
+        std::vector<lang_TemplateAstEvalStateValue*>
+            m_newly_evaluated_template_value_instances;
 
         REPLContext();
         ~REPLContext() = default;

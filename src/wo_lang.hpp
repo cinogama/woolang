@@ -871,24 +871,6 @@ namespace wo
         // indirect flag).
         std::optional<REPLContext*> m_repl_context;
 
-        // Latch: whether builtin types have been registered for this
-        // LangContext. LangContext is normally one-shot (created and
-        // discarded per compile), so this stays false and builtins register
-        // every time. Only REPL reuses a LangContext across compiles, in
-        // which case the session pre-registers and latches this true so
-        // later evals skip re-registration.
-        bool m_builtin_types_registered_for_REPL;
-
-        // Template value instances that finished evaluation (pass1) during
-        // the current process() call. In REPL mode a template variable from
-        // a prior eval may be instantiated without its pattern-declaration
-        // AST being present in the current eval's tree, so the normal passir
-        // pattern handler never runs for those instances. The pre-passir
-        // sweep in process() consumes this list to allocate IR storage and
-        // generate initializer code before the passir traversal begins.
-        std::vector<lang_TemplateAstEvalStateValue*>
-            m_newly_evaluated_template_value_instances;
-
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
         static ProcessAstJobs* m_passir_A_processers;

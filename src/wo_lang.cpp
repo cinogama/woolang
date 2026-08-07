@@ -1240,7 +1240,6 @@ namespace wo
 
     LangContext::LangContext()
         : m_root_namespace(std::make_unique<lang_Namespace>(WO_PSTR(EMPTY), std::nullopt)), m_created_symbol_edge(0)
-        , m_builtin_types_registered_for_REPL(false)
     {
         m_scope_stack.push(m_root_namespace->m_this_scope.get());
     }
@@ -1433,7 +1432,8 @@ namespace wo
 
     compile_result LangContext::process(lexer& lex, ast::AstBase* root)
     {
-        m_newly_evaluated_template_value_instances.clear();
+        if (m_repl_context.has_value())
+            m_repl_context.value()->m_newly_evaluated_template_value_instances.clear();
 
         for (auto& [_useless, macro_msg] : lex.get_defined_macros_for_lspv2())
         {
@@ -1442,10 +1442,11 @@ namespace wo
                 m_macros.push_back(std::make_unique<lang_Macro>(*macro_msg.value()));
         }
 
-        if (!m_builtin_types_registered_for_REPL)
+        if (!m_repl_context.has_value() || !m_repl_context.value()->m_builtin_types_registered)
         {
             pass_0_5_register_builtin_types();
-            m_builtin_types_registered_for_REPL = true;
+            if (m_repl_context.has_value())
+                m_repl_context.value()->m_builtin_types_registered = true;
         }
 
         if (!anylize_pass(lex, root, &LangContext::pass_0_process_scope_and_non_local_defination, false))
@@ -1515,7 +1516,7 @@ namespace wo
         // are not double-processed.
         if (m_repl_context.has_value())
         {
-            for (auto* template_instance : m_newly_evaluated_template_value_instances)
+            for (auto* template_instance : m_repl_context.value()->m_newly_evaluated_template_value_instances)
             {
                 if (!codegen_template_value_instance_if_needed(lex, template_instance))
                     return compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
