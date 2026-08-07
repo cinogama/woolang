@@ -989,8 +989,12 @@ namespace wo
                     }
                     else
                     {
-                        // 
-                        wo_assert(!template_value_instance->m_IR_storage.has_value());
+                        //
+                        // In REPL mode, the pre-passir sweep may have already
+                        // allocated IR storage for this instance. Skip it.
+                        if (template_value_instance->m_IR_storage.has_value())
+                            continue;
+
                         bool pvalue_boxing = false;
                         if (template_value_instance->m_symbol->m_is_global
                             || template_value_instance->m_symbol->is_declared_as_static())
@@ -5565,6 +5569,108 @@ namespace wo
         return WO_EXCEPT_ERROR(state, OKAY);
     }
 #undef WO_PASS_PROCESSER
+
+    bool LangContext::codegen_template_value_instance_if_needed(
+        lexer& lex, lang_TemplateAstEvalStateValue* template_instance)
+    {
+        wo_assert(template_instance->m_state == lang_TemplateAstEvalStateValue::state::EVALUATED);
+
+        lang_ValueInstance* template_value_instance = template_instance->m_value_instance.get();
+
+        // Already handled by the passir pattern handler (pattern AST was in
+        // the current eval's tree). Nothing to do.
+        if (template_value_instance->m_IR_storage.has_value())
+            return true;
+
+        // Skip instances whose function template arguments are still
+        // unfinished (mirrors the pattern handler logic).
+        if (template_instance->m_constant_template_argument_have_unfinished_function)
+        {
+            for (auto& argument : template_value_instance->m_instance_template_arguments.value())
+            {
+                if (!argument.m_constant.has_value())
+                    continue;
+
+                auto constant = argument.m_constant.value().value_try_function();
+                if (!constant.has_value())
+                    continue;
+
+                auto& captured_context = constant.value()->m_LANG_captured_context;
+                if (!captured_context.m_finished
+                    || !captured_context.m_captured_variables.empty())
+                    return true; // Skip bad instance.
+            }
+        }
+
+        if (!template_value_instance->IR_need_storage())
+        {
+            // No need storage — function value, just let the compiler see it.
+            auto function = template_value_instance->m_determined_constant_or_function
+                .value().value_try_function();
+
+            if (function.has_value())
+            {
+                m_ircontext.eval_and_ignore();
+                if (!pass_final_value(lex, function.value()))
+                    return false;
+            }
+            return true;
+        }
+
+        bool pvalue_boxing = false;
+        if (template_value_instance->m_symbol->m_is_global
+            || template_value_instance->m_symbol->is_declared_as_static())
+        {
+            const woort_IRStaticIndex static_storage =
+                m_ircontext.c().alloc_static();
+
+            const bool use_pvalue = m_repl_context.has_value()
+                && m_repl_context.value()->m_pvalue_indirect_for_mutable_statics
+                && template_value_instance->m_mutable;
+
+            template_value_instance->m_IR_storage.emplace(
+                lang_ValueInstance::Storage(static_storage, use_pvalue));
+
+            m_ircontext.c().record_static_var(
+                template_value_instance->m_symbol->m_name->c_str(), static_storage);
+
+            if (use_pvalue)
+            {
+                pvalue_boxing = true;
+                m_ircontext.begin_eval_readonly();
+            }
+            else
+                m_ircontext.eval_to_assign_static(static_storage, template_instance->m_ast);
+        }
+        else
+        {
+            woort_IRValue* const stack_storage = m_ircontext.c().new_value();
+
+            template_value_instance->m_IR_storage.emplace(
+                lang_ValueInstance::Storage(stack_storage));
+
+            m_ircontext.c().record_local_var(
+                template_value_instance->m_symbol->m_name->c_str(), stack_storage);
+
+            m_ircontext.eval_to_assign(stack_storage, template_instance->m_ast);
+        }
+
+        if (!pass_final_value(lex, static_cast<AstValueBase*>(template_instance->m_ast)))
+            return false;
+
+        if (pvalue_boxing)
+        {
+            const woort_IRValue* const init_val = m_ircontext.get_eval_result();
+            woort_IRValue* const box = m_ircontext.c().new_value();
+            m_ircontext.c().mkpvalue(box, init_val);
+            m_ircontext.c().store(
+                template_value_instance->m_IR_storage.value().m_static_index, box);
+        }
+        else
+            m_ircontext.pop_eval_result();
+
+        return true;
+    }
 
     bool LangContext::pass_final_value(lexer& lex, ast::AstValueBase* val)
     {

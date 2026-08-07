@@ -879,6 +879,16 @@ namespace wo
         // later evals skip re-registration.
         bool m_builtin_types_registered_for_REPL;
 
+        // Template value instances that finished evaluation (pass1) during
+        // the current process() call. In REPL mode a template variable from
+        // a prior eval may be instantiated without its pattern-declaration
+        // AST being present in the current eval's tree, so the normal passir
+        // pattern handler never runs for those instances. The pre-passir
+        // sweep in process() consumes this list to allocate IR storage and
+        // generate initializer code before the passir traversal begins.
+        std::vector<lang_TemplateAstEvalStateValue*>
+            m_newly_evaluated_template_value_instances;
+
         static ProcessAstJobs* m_pass0_processers;
         static ProcessAstJobs* m_pass1_processers;
         static ProcessAstJobs* m_passir_A_processers;
@@ -896,6 +906,15 @@ namespace wo
         pass_behavior pass_final_B_process_bytecode_generation(
             lexer& lex, const AstNodeWithState& node_state, PassProcessStackT& out_stack);
         bool pass_final_value(lexer& lex, ast::AstValueBase* val);
+
+        // Allocate IR storage and emit initializer IR for a single finished
+        // template value instance that was not handled by the passir pattern
+        // handler (because its pattern-declaration AST is absent from the
+        // current eval's tree — the REPL cross-eval case). Returns false on
+        // codegen failure. Skips instances that already have IR storage or
+        // are not eligible for codegen.
+        bool codegen_template_value_instance_if_needed(
+            lexer& lex, lang_TemplateAstEvalStateValue* template_instance);
 
         void walk_through_constant_to_record_function_ast(const ast::ConstantValue& const_value);
 

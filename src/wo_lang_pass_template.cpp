@@ -416,6 +416,14 @@ namespace wo
             template_instance_variable_symbol->m_template_value_instances->
                 m_finished_instance_list.push_back(template_eval_instance_value);
 
+            // Track for the pre-passir sweep: in REPL mode the pattern-
+            // declaration AST may live in a prior eval's tree, so the passir
+            // pattern handler won't visit this instance. process() uses this
+            // list to allocate IR storage for such instances before the main
+            // passir traversal.
+            m_newly_evaluated_template_value_instances.push_back(
+                template_eval_instance_value);
+
             template_eval_instance_value->m_value_instance->check_and_reset_const_if_func_captured();
             break;
         }
