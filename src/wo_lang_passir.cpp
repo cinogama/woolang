@@ -975,6 +975,20 @@ namespace wo
                     if (!template_value_instance->IR_need_storage())
                     {
                         // No need storage.
+                        //
+                        // NOTE: unlike the storage branch below, this function
+                        // branch has no dedup guard — m_IR_storage is never set
+                        // for functions, so the has_value() check can't apply.
+                        // In REPL mode the pre-passir sweep
+                        // (codegen_template_value_instance_if_needed) may have
+                        // already called pass_final_value for same-eval function
+                        // instances, making this a redundant second emission.
+                        // It is harmless: IR_need_storage() guarantees the
+                        // function is a constant with empty captures, and
+                        // eval_and_ignore() discards the result; the function
+                        // body itself is deduplicated via
+                        // m_processed_function_instance.
+
                         auto function = template_value_instance->m_determined_constant_or_function
                             .value().value_try_function();
 
