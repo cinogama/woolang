@@ -118,7 +118,7 @@
 #define WO_ERR_EXISTS_CASE_NAMED_IN_MATCH u8"匹配项重复: `%s` 已经存在于匹配语句中"
 #define WO_ERR_HAVE_NOT_VALUE_CASE_IN_MATCH u8"匹配类型 `%s` 时，匹配项 `%s` 必须包含值参数"
 #define WO_ERR_HAVE_VALUE_CASE_IN_MATCH u8"匹配类型 `%s` 时，匹配项 `%s` 不应包含值参数"
-#define WO_ERR_FAILED_REIFICATION_CAUSED_BY u8"泛型实例化失败: 无法使用参数 <%s> 实例化泛型类型 `%s`"
+#define WO_ERR_FAILED_REIFICATION_CAUSED_BY u8"泛型实例化失败: 无法使用参数 <%s> 实例化 `%s`"
 #define WO_ERR_UNABLE_CAPTURE_IN_RECURSIVE_FUNC u8"递归函数中不允许捕获外部变量"
 #define WO_ERR_STRING_INDEX_OUT_OF_RANGE u8"字符串索引 %lld 越界 (字符串长度为 %zu 个字符)"
 #define WO_ERR_SYMBOL_IS_PRIVATE u8"符号 `%s` 是私有的，只能在 `%s` 内访问"
