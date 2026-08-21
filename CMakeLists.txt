@@ -37,10 +37,6 @@ target_compile_features(woolang_options INTERFACE cxx_std_17)
 target_include_directories(woolang_options INTERFACE "include")
 
 if (WO_USE_WOORT_DIRECTLY)
-    add_subdirectory("3rd/woort")
-    target_include_directories(woolang_options 
-        AFTER INTERFACE "3rd/woort/include")
-else()
     message(STATUS "Fetching WooRT.")
     
     execute_process(
@@ -48,13 +44,22 @@ else()
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/3rd
         RESULT_VARIABLE WO_CLONE_WOORT_RESULT)
 
-    if (WO_CLONE_WOORT_RESULT EQUAL 0)
+    execute_process(
+        COMMAND git submodule update --init --recursive --force 
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/3rd/woort
+        RESULT_VARIABLE WO_CLONE_WOORT_SUBMODULE_RESULT)
+
+    if ((WO_CLONE_WOORT_RESULT EQUAL 0) OR (WO_CLONE_WOORT_SUBMODULE_RESULT EQUAL 0))
         message(STATUS "WooRT cloned successfully.")
     else()
         message(FATAL_ERROR 
             "Failed to clone WooRT, please check the error message above.")
     endif()
 
+    add_subdirectory("3rd/woort")
+    target_include_directories(woolang_options 
+        AFTER INTERFACE "3rd/woort/include")
+else()
     target_include_directories(woolang_options 
         AFTER INTERFACE "3rd/woodyn/include/woort")
 endif()
