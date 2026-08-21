@@ -27,11 +27,33 @@ wo_woort_dylib_unload_f_t wo_get_woort_dylib_unload(void)
 namespace wo::woodyn
 {
 #ifdef WOODYN
+    void* default_dylib_loader(const char* path)
+    {
+#   if WO_OS_DYLIB_ENABLED
+#   else
+        return nullptr;
+#   endif
+    }
+    void* default_function_loader(void* lib, const char* fname)
+    {
+#   if WO_OS_DYLIB_ENABLED
+#   else
+        return nullptr;
+#   endif
+    }
+    void default_dylib_unloader(void* lib)
+    {
+#   if WO_OS_DYLIB_ENABLED
+#   endif
+    }
+#endif
+
+#ifdef WOODYN
     static struct _woodyn_Context
     {
-        woort_Dylib*                            m_dylib;
+        void*                                   m_dylib;
         WOODYN_FUNC_TYPE_NAME(woort_shutdown)   m_shutdown;
-        wo_woort_dylib_unload_f_t               m_unloader;
+        wo_dylib_unloader_t                     m_unloader;
     } _s_dyn_ctx;
     /*static woort_Dylib* _s_holding_raw_dylib;
     wo_woort_dylib_unload_f_t _s_raw_dylib_free_func;*/
@@ -41,9 +63,9 @@ namespace wo::woodyn
         int argc,
         char** argv,
         std::optional<const char*> specify_woort_name,
-        wo_woort_dylib_load_f_t dylib_loader,
-        wo_woort_dylib_load_func_f_t function_loader,
-        wo_woort_dylib_unload_f_t dylib_unloader)
+        wo_dylib_loader_t dylib_loader,
+        wo_dylib_func_loader_t function_loader,
+        wo_dylib_unloader_t dylib_unloader)
     {
 #ifdef WOODYN
 #   if defined(_WIN32)
@@ -63,8 +85,7 @@ namespace wo::woodyn
         const char* woort_lib_name = specify_woort_name.value_or(
             "libwoort" WO_DYLIB_DEBUG_SUFFIX WO_DEFAULT_DYLIB_SUFFIX);
 
-        woort_Dylib* const dylib = 
-            dylib_loader("libwoort", woort_lib_name, nullptr, true);
+        void* const dylib = dylib_loader(woort_lib_name);
 
         if (dylib == nullptr)
         {
@@ -82,7 +103,7 @@ namespace wo::woodyn
         if (fact_woort_init == nullptr
             || fact_woort_shutdown == nullptr)
         {
-            dylib_unloader(dylib, WOORT_DYLIB_UNREF);
+            dylib_unloader(dylib);
 
             fprintf(stderr, "Incompatible woort module.");
             abort();
@@ -125,7 +146,7 @@ namespace wo::woodyn
 #ifdef WOODYN
         woodyn_woort_leave();
         _s_dyn_ctx.m_shutdown(do_after_shutdown, custom_data);
-        _s_dyn_ctx.m_unloader(_s_dyn_ctx.m_dylib, WOORT_DYLIB_UNREF);
+        _s_dyn_ctx.m_unloader(_s_dyn_ctx.m_dylib);
 
         _s_dyn_ctx.m_dylib = nullptr;
         _s_dyn_ctx.m_shutdown = nullptr;

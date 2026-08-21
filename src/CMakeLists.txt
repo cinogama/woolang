@@ -128,3 +128,7 @@ endif()
 
 set_target_properties(woolang PROPERTIES OUTPUT_NAME libwoo)
 set_target_properties(woolang PROPERTIES PREFIX "")
+
+if (WO_ENABLE_OS_DYLIB_LOADER)
+    target_compile_definitions(woolang PRIVATE WO_OS_DYLIB_ENABLED=1)
+endif()

@@ -120,12 +120,17 @@ typedef void (*wo_dylib_unloader_t)(void* lib);
  * @param argc  Argument count (as passed to main).
  * @param argv  Argument vector (as passed to main).
  */
-WO_API void wo_init(int argc, char** argv);
-#define wo_init(argc, argv)                                     \
-    do                                                          \
-    {                                                           \
-        wo_init(argc, argv);                                    \
-        setlocale(LC_CTYPE, wo_get_woort_env_locale_name()());  \
+WO_API void wo_init(
+    int argc, 
+    char** argv, 
+    /* Optional */ wo_dylib_loader_t lib_loader, 
+    /* Optional */ wo_dylib_func_loader_t func_loader,
+    /* Optional */ wo_dylib_unloader_t lib_unloader);
+#define wo_init(argc, argv, lib_loader, func_loader, lib_unloader)  \
+    do                                                              \
+    {                                                               \
+        wo_init(argc, argv, lib_loader, func_loader, lib_unloader); \
+        setlocale(LC_CTYPE, wo_get_woort_env_locale_name()());      \
     } while (0)
 
 /**

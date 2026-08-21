@@ -6,12 +6,15 @@ project ("Woolang")
 
 ####################################################################################################
 
-option(BUILD_SHARED_LIBS                "Build woo as shared lib" ON)
-option(WO_MAKE_OUTPUT_IN_SAME_PATH      "Build woo lib and driver and output in same path" OFF)
-option(WO_BUILD_FOR_COVERAGE_TEST       "Build woo for code coverage test" OFF)
-option(WO_BUILD_FOR_ASAN_TEST           "Build woo for code asan test" OFF)
-option(WO_DISABLE_COMPILER              "Only keep the runtime, which helps to reduce the file size" OFF)
+option(BUILD_SHARED_LIBS                "Build woo as shared lib." ON)
+
+option(WO_BUILD_FOR_COVERAGE_TEST       "Build woo for code coverage test." OFF)
+option(WO_BUILD_FOR_ASAN_TEST           "Build woo for code asan test." OFF)
+
+option(WO_DISABLE_COMPILER              "Only keep the runtime, which helps to reduce the file size." OFF)
 option(WO_USE_WOORT_DIRECTLY            "Use the woort library directly, without going through woodyn." OFF)
+option(WO_MAKE_OUTPUT_IN_SAME_PATH      "Build woo lib and driver and output in same path." OFF)
+option(WO_ENABLE_OS_DYLIB_LOADER        "ndicates whether to allow using the system¡¯s dynamic library loading interfaces." ON)
 
 ####################################################################################################
 

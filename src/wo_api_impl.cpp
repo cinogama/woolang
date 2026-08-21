@@ -47,11 +47,16 @@ void _wo_warning(
 
 #undef wo_init
 
-void wo_init(int argc, char** argv)
+void wo_init(
+    int argc,
+    char** argv,
+    /* Optional */ wo_dylib_loader_t lib_loader,
+    /* Optional */ wo_dylib_func_loader_t func_loader,
+    /* Optional */ wo_dylib_unloader_t lib_unloader)
 {
     // Start up WooRT (this also registers built-in native functions).
     wo::woodyn::bootup_woort_dynamically(
-        argc, argv, std::nullopt, nullptr, nullptr, nullptr);
+        argc, argv, std::nullopt, lib_loader, func_loader, lib_unloader);
 
     bool enable_std_package = true;
 
