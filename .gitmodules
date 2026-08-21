@@ -1,4 +1,0 @@
-[submodule "3rd/woort"]
-	path = 3rd/woort
-	url = https://git.cinogama.net/cinogamaproject/woort.git
-	branch = master
