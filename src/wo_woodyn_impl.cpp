@@ -117,7 +117,7 @@ namespace wo::woodyn
 #       elif defined(__HAIKU__)
         char buffer[B_PATH_NAME_BUFFER];
         if (find_path(B_APP_IMAGE_SYMBOL, B_FIND_PATH_IMAGE_PATH,
-                nullptr, buffer, sizeof(buffer)) == B_OK)
+            nullptr, buffer, sizeof(buffer)) == B_OK)
             exe_path.assign(buffer);
 #       endif
 
@@ -220,7 +220,7 @@ namespace wo::woodyn
 #ifdef WOODYN
     static struct _woodyn_Context
     {
-        void*                                   m_dylib;
+        void* m_dylib;
         WOODYN_FUNC_TYPE_NAME(woort_shutdown)   m_shutdown;
         wo_dylib_unloader_t                     m_unloader;
     } _s_dyn_ctx;
@@ -271,11 +271,13 @@ namespace wo::woodyn
         }
 
         auto const fact_woort_init =
-            static_cast<WOODYN_FUNC_TYPE_NAME(woort_init)>(
-                function_loader(dylib, "woort_init"));
+            reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_init)>(
+                reinterpret_cast<intptr_t>(
+                    function_loader(dylib, "woort_init")));
         auto const fact_woort_shutdown =
-            static_cast<WOODYN_FUNC_TYPE_NAME(woort_shutdown)>(
-                function_loader(dylib, "woort_shutdown"));
+            reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_shutdown)>(
+                reinterpret_cast<intptr_t>(
+                    function_loader(dylib, "woort_shutdown")));
 
         if (fact_woort_init == nullptr
             || fact_woort_shutdown == nullptr)
@@ -291,20 +293,23 @@ namespace wo::woodyn
 
         // Ok, libwoort_woodyn is ready.
         auto const fact_woort_dylib_load =
-            static_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_load)>(
-                function_loader(dylib, "woort_dylib_load"));
+            reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_load)>(
+                reinterpret_cast<intptr_t>(
+                    function_loader(dylib, "woort_dylib_load")));
 
         auto const fact_woort_dylib_load_func =
-            static_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_load_func)>(
-                function_loader(dylib, "woort_dylib_load_func"));
+            reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_load_func)>(
+                reinterpret_cast<intptr_t>(
+                    function_loader(dylib, "woort_dylib_load_func")));
 
         auto const fact_woort_dylib_unload =
-            static_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_unload)>(
-                function_loader(dylib, "woort_dylib_unload"));
+            reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_unload)>(
+                reinterpret_cast<intptr_t>(
+                    function_loader(dylib, "woort_dylib_unload")));
 
         woodyn_woort_entry(
-            fact_woort_dylib_load, 
-            fact_woort_dylib_load_func, 
+            fact_woort_dylib_load,
+            fact_woort_dylib_load_func,
             fact_woort_dylib_unload);
 
         // We can use woort-api now, init locale.
