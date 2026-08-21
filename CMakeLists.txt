@@ -41,7 +41,21 @@ if (WO_USE_WOORT_DIRECTLY)
     target_include_directories(woolang_options 
         AFTER INTERFACE "3rd/woort/include")
 else()
-   target_include_directories(woolang_options 
+    message(STATUS "Fetching WooRT.")
+    
+    execute_process(
+        COMMAND git clone --branch release --depth 1 https://git.cinogama.net/cinogamaproject/woort.git 
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/3rd
+        RESULT_VARIABLE WO_CLONE_WOORT_RESULT)
+
+    if (WO_CLONE_WOORT_RESULT EQUAL 0)
+        message(STATUS "WooRT cloned successfully.")
+    else()
+        message(FATAL_ERROR 
+            "Failed to clone WooRT, please check the error message above.")
+    endif()
+
+    target_include_directories(woolang_options 
         AFTER INTERFACE "3rd/woodyn/include/woort")
 endif()
 
