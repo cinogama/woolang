@@ -171,12 +171,9 @@ namespace wo::woodyn
         if (path == nullptr || *path == '\0')
             return nullptr;
 
-        // 1. Look for the same-named file in the current working directory.
-        std::string candidate = _s_working_dir() + path;
-        if (_s_file_exists(candidate.c_str()))
-            return _s_os_load_dylib(candidate.c_str());
+        std::string candidate;
 
-        // 2. Look for the same-named file next to the executable.
+        // 1. Look for the same-named file next to the executable.
         const std::string exe_dir = _s_executable_dir();
         if (!exe_dir.empty())
         {
@@ -184,6 +181,11 @@ namespace wo::woodyn
             if (_s_file_exists(candidate.c_str()))
                 return _s_os_load_dylib(candidate.c_str());
         }
+
+        // 2. Look for the same-named file in the current working directory.
+        candidate = _s_working_dir() + path;
+        if (_s_file_exists(candidate.c_str()))
+            return _s_os_load_dylib(candidate.c_str());
 
         // 3. Neither file exists: assume the given name is itself a complete
         //    path and let the OS loader resolve it in one direct attempt.
