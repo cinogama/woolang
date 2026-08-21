@@ -37,13 +37,20 @@ target_compile_features(woolang_options INTERFACE cxx_std_17)
 target_include_directories(woolang_options INTERFACE "include")
 
 if (WO_USE_WOORT_DIRECTLY)
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rd/woort")
-        message(STATUS "WooRT already exists, pulling the latest updates.")
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rd/woort/.git")
+        message(STATUS "WooRT already exists, syncing to the latest release branch.")
 
         execute_process(
-            COMMAND git pull
+            COMMAND git fetch origin +refs/heads/release:refs/remotes/origin/release
+            COMMAND git checkout -f -B release origin/release
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/3rd/woort
-            RESULT_VARIABLE WO_CLONE_WOORT_RESULT)
+            RESULTS_VARIABLE WO_WOORT_SYNC_RESULTS)
+
+        if ("${WO_WOORT_SYNC_RESULTS}" STREQUAL "0;0")
+            set(WO_CLONE_WOORT_RESULT 0)
+        else()
+            set(WO_CLONE_WOORT_RESULT 1)
+        endif()
     else()
         message(STATUS "Fetching WooRT.")
 
