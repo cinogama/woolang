@@ -3,6 +3,7 @@
 
 #include "wo.h"
 
+#include "wo_assert.hpp"
 #include "wo_woodyn_impl.hpp"
 
 #include <clocale>
@@ -55,6 +56,9 @@ wo_woort_dylib_unload_f_t wo_get_woort_dylib_unload(void)
 namespace wo::woodyn
 {
 #ifdef WOODYN
+    static wo_WooDyn_Functions s_woort_functions;
+    static void* s_loaded_os_dylib;
+
 #   if WO_OS_DYLIB_ENABLED
     // Does a regular file (or a symlink to one) exist at the given path?
     static bool _s_file_exists(const char* path)
@@ -217,26 +221,18 @@ namespace wo::woodyn
     }
 #endif
 
-#ifdef WOODYN
-    static struct _woodyn_Context
-    {
-        void* m_dylib;
-        WOODYN_FUNC_TYPE_NAME(woort_shutdown)   m_shutdown;
-        wo_dylib_unloader_t                     m_unloader;
-    } _s_dyn_ctx;
-    /*static woort_Dylib* _s_holding_raw_dylib;
-    wo_woort_dylib_unload_f_t _s_raw_dylib_free_func;*/
-#endif
-
     void bootup_woort_dynamically(
         int argc,
         char** argv,
-        std::optional<const char*> specify_woort_name,
-        /* Optional */ wo_dylib_loader_t dylib_loader,
-        /* Optional */ wo_dylib_func_loader_t function_loader,
-        /* Optional */ wo_dylib_unloader_t dylib_unloader)
+        std::optional<const wo_WooDyn_Functions*> funcs)
     {
+        wo_assert(nullptr == s_loaded_os_dylib);
+
 #ifdef WOODYN
+        if (funcs.has_value())
+            memcpy(&s_woort_functions, funcs.value(), sizeof(wo_WooDyn_Functions));
+        else
+        {
 #   if defined(_WIN32)
 #       define WO_DEFAULT_DYLIB_SUFFIX ".dll"
 #   elif defined(__APPLE__)
@@ -250,74 +246,61 @@ namespace wo::woodyn
 #   else
 #       define WO_DYLIB_DEBUG_SUFFIX "_debug"
 #   endif
+            const char* const library_name =
+                "libwoort" WO_DYLIB_DEBUG_SUFFIX WO_DEFAULT_DYLIB_SUFFIX;
 
-        // Fall back to the built-in OS loaders when no custom loader is given.
-        if (dylib_loader == nullptr)
-            dylib_loader = default_dylib_loader;
-        if (function_loader == nullptr)
-            function_loader = default_function_loader;
-        if (dylib_unloader == nullptr)
-            dylib_unloader = default_dylib_unloader;
+            s_loaded_os_dylib = default_dylib_loader(library_name);
 
-        const char* woort_lib_name = specify_woort_name.value_or(
-            "libwoort" WO_DYLIB_DEBUG_SUFFIX WO_DEFAULT_DYLIB_SUFFIX);
+            if (s_loaded_os_dylib == nullptr)
+            {
+                fprintf(stderr, "Failed to load woort: '%s'.\n", library_name);
+                abort();
+            }
 
-        void* const dylib = dylib_loader(woort_lib_name);
-
-        if (dylib == nullptr)
-        {
-            fprintf(stderr, "Failed to load woort: '%s'.\n", woort_lib_name);
-            abort();
+            s_woort_functions.m_init =
+                reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_init)>(
+                    reinterpret_cast<intptr_t>(
+                        default_function_loader(s_loaded_os_dylib, "woort_init")));
+            s_woort_functions.m_shutdown =
+                reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_shutdown)>(
+                    reinterpret_cast<intptr_t>(
+                        default_function_loader(s_loaded_os_dylib, "woort_shutdown")));
+            s_woort_functions.m_dylib_load =
+                reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_load)>(
+                    reinterpret_cast<intptr_t>(
+                        default_function_loader(s_loaded_os_dylib, "woort_dylib_load")));
+            s_woort_functions.m_dyfunc_load =
+                reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_load_func)>(
+                    reinterpret_cast<intptr_t>(
+                        default_function_loader(s_loaded_os_dylib, "woort_dylib_load_func")));
+            s_woort_functions.m_dylib_unload =
+                reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_unload)>(
+                    reinterpret_cast<intptr_t>(
+                        default_function_loader(s_loaded_os_dylib, "woort_dylib_unload")));
         }
 
-        auto const fact_woort_init =
-            reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_init)>(
-                reinterpret_cast<intptr_t>(
-                    function_loader(dylib, "woort_init")));
-        auto const fact_woort_shutdown =
-            reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_shutdown)>(
-                reinterpret_cast<intptr_t>(
-                    function_loader(dylib, "woort_shutdown")));
-
-        if (fact_woort_init == nullptr
-            || fact_woort_shutdown == nullptr)
+        // Verify s_woort_functions.
+        if (s_woort_functions.m_init == nullptr
+            || s_woort_functions.m_shutdown == nullptr
+            || s_woort_functions.m_dylib_load == nullptr
+            || s_woort_functions.m_dyfunc_load == nullptr
+            || s_woort_functions.m_dylib_unload == nullptr)
         {
-            dylib_unloader(dylib);
-
-            fprintf(stderr, "Incompatible woort module: '%s'.\n", woort_lib_name);
+            fprintf(stderr, "Incompatible woort module.\n");
             abort();
         }
 
         // Init woort.
-        fact_woort_init(argc, argv);
+        s_woort_functions.m_init(argc, argv);
 
         // Ok, libwoort_woodyn is ready.
-        auto const fact_woort_dylib_load =
-            reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_load)>(
-                reinterpret_cast<intptr_t>(
-                    function_loader(dylib, "woort_dylib_load")));
-
-        auto const fact_woort_dylib_load_func =
-            reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_load_func)>(
-                reinterpret_cast<intptr_t>(
-                    function_loader(dylib, "woort_dylib_load_func")));
-
-        auto const fact_woort_dylib_unload =
-            reinterpret_cast<WOODYN_FUNC_TYPE_NAME(woort_dylib_unload)>(
-                reinterpret_cast<intptr_t>(
-                    function_loader(dylib, "woort_dylib_unload")));
-
         woodyn_woort_entry(
-            fact_woort_dylib_load,
-            fact_woort_dylib_load_func,
-            fact_woort_dylib_unload);
+            s_woort_functions.m_dylib_load,
+            s_woort_functions.m_dyfunc_load,
+            s_woort_functions.m_dylib_unload);
 
         // We can use woort-api now, init locale.
         setlocale(LC_CTYPE, woort_env_locale_name());
-
-        _s_dyn_ctx.m_dylib = dylib;
-        _s_dyn_ctx.m_shutdown = fact_woort_shutdown;
-        _s_dyn_ctx.m_unloader = dylib_unloader;
 #else
         woort_init(argc, argv);
 #endif
@@ -327,12 +310,13 @@ namespace wo::woodyn
     {
 #ifdef WOODYN
         woodyn_woort_leave();
-        _s_dyn_ctx.m_shutdown(do_after_shutdown, custom_data);
-        _s_dyn_ctx.m_unloader(_s_dyn_ctx.m_dylib);
+        s_woort_functions.m_shutdown(do_after_shutdown, custom_data);
 
-        _s_dyn_ctx.m_dylib = nullptr;
-        _s_dyn_ctx.m_shutdown = nullptr;
-        _s_dyn_ctx.m_unloader = nullptr;
+        if (s_loaded_os_dylib != nullptr)
+        {
+            default_dylib_unloader(s_loaded_os_dylib);
+            s_loaded_os_dylib = nullptr;
+        }
 #else
         woort_shutdown(do_after_shutdown, custom_data);
 #endif

@@ -120,6 +120,24 @@ typedef void (*wo_dylib_unloader_t)(void* lib);
 #   define WO_INIT_WOODYN() ((void)(0))
 #endif
 
+typedef void (*wo_woort_init_func_t)(int, char**);
+typedef void (*wo_woort_shutdown_func_t)(void(*)(void*), void*);
+typedef const char* (*wo_woort_env_locale_name_f_t)(void);
+typedef woort_Dylib* (*wo_woort_dylib_load_f_t)(
+    const char*, const char*, const char*, bool);
+typedef void* (*wo_woort_dylib_load_func_f_t)(woort_Dylib*, const char*);
+typedef void (*wo_woort_dylib_unload_f_t)(woort_Dylib*, woort_DylibUnloadMethod);
+
+typedef struct wo_WooDyn_Functions
+{
+    wo_woort_init_func_t m_init;
+    wo_woort_shutdown_func_t m_shutdown;
+    wo_woort_dylib_load_f_t m_dylib_load;
+    wo_woort_dylib_load_func_f_t m_dyfunc_load;
+    wo_woort_dylib_unload_f_t m_dylib_unload;
+    
+}wo_WooDyn_Functions;
+
 /**
  * @brief Initialize the woolang runtime.
  *
@@ -129,19 +147,18 @@ typedef void (*wo_dylib_unloader_t)(void* lib);
  * @param argc  Argument count (as passed to main).
  * @param argv  Argument vector (as passed to main).
  */
+
 WO_API void wo_init(
     int argc, 
     char** argv, 
-    /* Optional */ const char* woort_lib_name,
-    /* Optional */ wo_dylib_loader_t lib_loader, 
-    /* Optional */ wo_dylib_func_loader_t func_loader,
-    /* Optional */ wo_dylib_unloader_t lib_unloader);
-#define wo_init(argc, argv, woort_lib_name, lib_loader, func_loader, lib_unloader)  \
-    do                                                                              \
-    {                                                                               \
-        wo_init(argc, argv, woort_lib_name, lib_loader, func_loader, lib_unloader); \
-        WO_INIT_WOODYN();                                                           \
-        setlocale(LC_CTYPE, wo_get_woort_env_locale_name()());                      \
+    const wo_WooDyn_Functions* funcs);
+
+#define wo_init(argc, argv, funcs)                              \
+    do                                                          \
+    {                                                           \
+        wo_init(argc, argv, funcs);                             \
+        WO_INIT_WOODYN();                                       \
+        setlocale(LC_CTYPE, wo_get_woort_env_locale_name()());  \
     } while (0)
 
 /**
@@ -352,15 +369,6 @@ WO_API uint64_t wo_crc64_file(woort_VFile* file);
 WO_API uint64_t wo_crc64_file_from_path(const char* filepath);
 
 /* ========== WooRT Proxy API ========== */
-
-typedef const char* (*wo_woort_env_locale_name_f_t)(void);
-typedef woort_Dylib* (*wo_woort_dylib_load_f_t)(
-    const char* libname,
-    const char* path,
-    /* OPTIONAL */ const char* script_path,
-    bool panic_when_fail);
-typedef void* (*wo_woort_dylib_load_func_f_t)(woort_Dylib* lib, const char* funcname);
-typedef void (*wo_woort_dylib_unload_f_t)(woort_Dylib* lib, woort_DylibUnloadMethod method);
 
 WO_API wo_woort_env_locale_name_f_t wo_get_woort_env_locale_name(void);
 WO_API wo_woort_dylib_load_f_t wo_get_woort_dylib_load(void);
