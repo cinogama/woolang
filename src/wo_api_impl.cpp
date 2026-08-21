@@ -9,6 +9,7 @@
 #include "wo_ir_compiler.hpp"
 #include "wo_builtin_lib_macro.hpp"
 #include "wo_path_util.hpp"
+#include "wo_woodyn_impl.hpp"
 
 [[noreturn]]
 void _wo_assert(
@@ -49,7 +50,8 @@ void _wo_warning(
 void wo_init(int argc, char** argv)
 {
     // Start up WooRT (this also registers built-in native functions).
-    woort_init(argc, argv);
+    wo::woodyn::bootup_woort_dynamically(
+        argc, argv, std::nullopt, nullptr, nullptr, nullptr);
 
     bool enable_std_package = true;
 
@@ -115,7 +117,7 @@ void wo_print_compiler_help(void)
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
     wo::builtin_macro_lib_shutdown();
-    woort_shutdown(do_after_shutdown, custom_data);
+    wo::woodyn::shutdown_woort_dynamically(do_after_shutdown, custom_data);
 
     wo::wstring_pool::shutdown_global_str_pool();
 

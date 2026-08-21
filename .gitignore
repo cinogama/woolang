@@ -360,3 +360,4 @@ _deps
 /build/
 /3rd/woort
 .msvc/
+.zcode/

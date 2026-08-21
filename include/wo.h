@@ -104,6 +104,10 @@ WO_API const char* wo_version(void);
  */
 WO_API uint64_t wo_version_int(void);
 
+typedef void* (*wo_dylib_loader_t)(const char* path);
+typedef void* (*wo_dylib_func_loader_t)(void* lib, const char* fname);
+typedef void (*wo_dylib_unloader_t)(void* lib);
+
 
 /* ========== Lifecycle API ========== */
 
