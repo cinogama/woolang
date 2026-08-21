@@ -92,6 +92,12 @@ if (NOT MSVC)
     target_link_options(woolang_library_options INTERFACE -pthread)
 endif()
 
+# wo_wodyn_impl.cpp must expand woort.h with WOODYN_IMPL defined before any
+# include; the forced-include PCH would otherwise preprocess woort.h first
+# (via wo_afx.hpp -> wo_assert.hpp -> wo.h) and #pragma once would swallow
+# the second include, leaving the _woodyn_* pointers undefined.
+set_source_files_properties(wo_wodyn_impl.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+
 target_precompile_headers(woolang PRIVATE wo_afx.hpp)
 
 target_include_directories(woolang
@@ -99,7 +105,7 @@ target_include_directories(woolang
 
 target_link_libraries(woolang 
     PRIVATE woolang_options
-    PRIVATE woolang_library_options})
+    PRIVATE woolang_library_options)
 
 if (WO_USE_WOORT_DIRECTLY)
     target_link_libraries(woolang 

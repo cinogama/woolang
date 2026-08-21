@@ -117,11 +117,11 @@ WO_API uint64_t wo_version_int(void);
  * @param argv  Argument vector (as passed to main).
  */
 WO_API void wo_init(int argc, char** argv);
-#define wo_init(argc, argv)                             \
-    do                                                  \
-    {                                                   \
-        wo_init(argc, argv);                            \
-        setlocale(LC_CTYPE, woort_env_locale_name());   \
+#define wo_init(argc, argv)                                     \
+    do                                                          \
+    {                                                           \
+        wo_init(argc, argv);                                    \
+        setlocale(LC_CTYPE, wo_get_woort_env_locale_name()());  \
     } while (0)
 
 /**
@@ -330,6 +330,23 @@ WO_API uint64_t wo_crc64_file(woort_VFile* file);
  * @return The CRC-64 checksum, or 0 on error.
  */
 WO_API uint64_t wo_crc64_file_from_path(const char* filepath);
+
+/* ========== WooRT Proxy API ========== */
+
+typedef const char* (*wo_woort_env_locale_name_f_t)(void);
+typedef woort_Dylib* (*wo_woort_dylib_load_f_t)(
+    const char* libname,
+    const char* path,
+    /* OPTIONAL */ const char* script_path,
+    bool panic_when_fail);
+typedef void* (*wo_woort_dylib_load_func_f_t)(woort_Dylib* lib, const char* funcname);
+typedef void (*wo_woort_dylib_unload_f_t)(woort_Dylib* lib, woort_DylibUnloadMethod method);
+
+WO_API wo_woort_env_locale_name_f_t wo_get_woort_env_locale_name(void);
+WO_API wo_woort_dylib_load_f_t wo_get_woort_dylib_load(void);
+WO_API wo_woort_dylib_load_func_f_t wo_get_woort_dylib_load_func(void);
+WO_API wo_woort_dylib_unload_f_t wo_get_woort_dylib_unload(void);
+
 
 #if defined(WO_IMPL)
 #define WO_NEED_ANSI_CONTROL 1

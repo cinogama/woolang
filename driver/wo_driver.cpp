@@ -1,3 +1,5 @@
+#define WOODYN_IMPL
+
 #include "wo.h"
 
 #include "wo_repl_editor.hpp"

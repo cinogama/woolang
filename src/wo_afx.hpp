@@ -1,6 +1,4 @@
-// wo_afx.hpp - Woolang预编译头文件
-// 包含项目中最常用且稳定的头文件
-
+// wo_afx.hpp
 #pragma once
 
 #include "wo_assert.hpp"
