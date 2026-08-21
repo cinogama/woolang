@@ -18,49 +18,49 @@
 #include "woort.h"
 
 #ifdef __cplusplus
-#include <cstdint>
-#include <cstddef>
-#include <clocale>
+#   include <cstdint>
+#   include <cstddef>
+#   include <clocale>
 /** @brief Begin a C-linkage block for C++ compatibility. */
-#define WO_FORCE_CAPI \
+#   define WO_FORCE_CAPI \
     extern "C"        \
     {
 /** @brief End a C-linkage block for C++ compatibility. */
-#define WO_FORCE_CAPI_END }
+#   define WO_FORCE_CAPI_END }
 /** @brief Cross-platform alignment specifier. */
-#define WO_DECLARE_ALIGNAS(VAL) alignas(VAL)
+#   define WO_DECLARE_ALIGNAS(VAL) alignas(VAL)
 #else
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <locale.h>
-#include <stdalign.h>
-#define WO_FORCE_CAPI     /* nothing */
-#define WO_FORCE_CAPI_END /* nothing */
-#define WO_DECLARE_ALIGNAS(VAL) _Alignas(VAL)
+#   include <stdint.h>
+#   include <stdbool.h>
+#   include <stddef.h>
+#   include <locale.h>
+#   include <stdalign.h>
+#   define WO_FORCE_CAPI     /* nothing */
+#   define WO_FORCE_CAPI_END /* nothing */
+#   define WO_DECLARE_ALIGNAS(VAL) _Alignas(VAL)
 #endif
 
 /** @brief DLL import symbol (Win32) or extern (other platforms). */
 #ifdef _WIN32
-#define WO_IMPORT __declspec(dllimport)
-#define WO_EXPORT __declspec(dllexport)
+#   define WO_IMPORT __declspec(dllimport)
+#   define WO_EXPORT __declspec(dllexport)
 #else
-#define WO_IMPORT extern
-#define WO_EXPORT extern
+#   define WO_IMPORT extern
+#   define WO_EXPORT extern
 #endif
 
 /** @brief Select import or export based on whether woolang is being built or consumed. */
 #ifdef WO_IMPL
-#define WO_IMPORT_OR_EXPORT WO_EXPORT
+#   define WO_IMPORT_OR_EXPORT WO_EXPORT
 #else
-#define WO_IMPORT_OR_EXPORT WO_IMPORT
+#   define WO_IMPORT_OR_EXPORT WO_IMPORT
 #endif
 
 /** @brief Public API visibility: empty for static lib, import/export for shared lib. */
 #ifdef WO_STATIC_LIB
-#define WO_API
+#   define WO_API
 #else
-#define WO_API WO_IMPORT_OR_EXPORT
+#   define WO_API WO_IMPORT_OR_EXPORT
 #endif
 
 WO_FORCE_CAPI
@@ -1070,17 +1070,17 @@ WO_FORCE_CAPI_END
  * and is used by the woolang implementation source files.
  */
 #ifdef _WIN32
-#ifdef __cplusplus
-#define WO_API extern "C" WO_EXPORT
+#   ifdef __cplusplus
+#   define WO_API extern "C" WO_EXPORT
 #else
-#define WO_API WO_EXPORT
+#d  efine WO_API WO_EXPORT
 #endif
 #else
-#ifdef __cplusplus
-#define WO_API extern "C"
-#else
-#define WO_API WO_EXPORT
-#endif
+#   ifdef __cplusplus
+#       define WO_API extern "C"
+#   else
+#       define WO_API WO_EXPORT
+#   endif
 #endif
 
 #endif /* End of WO_MSVC_RC_INCLUDE */
