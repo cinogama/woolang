@@ -108,8 +108,8 @@ target_link_libraries(woolang
     PRIVATE woolang_library_options)
 
 if (WO_USE_WOORT_DIRECTLY)
-    target_link_libraries(woolang 
-        AFTER PUBLIC woort)
+    target_link_libraries(woolang
+        PUBLIC woort)
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)

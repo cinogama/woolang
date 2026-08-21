@@ -37,12 +37,21 @@ target_compile_features(woolang_options INTERFACE cxx_std_17)
 target_include_directories(woolang_options INTERFACE "include")
 
 if (WO_USE_WOORT_DIRECTLY)
-    message(STATUS "Fetching WooRT.")
-    
-    execute_process(
-        COMMAND git clone --branch release --depth 1 https://git.cinogama.net/cinogamaproject/woort.git 
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/3rd
-        RESULT_VARIABLE WO_CLONE_WOORT_RESULT)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rd/woort")
+        message(STATUS "WooRT already exists, pulling the latest updates.")
+
+        execute_process(
+            COMMAND git pull
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/3rd/woort
+            RESULT_VARIABLE WO_CLONE_WOORT_RESULT)
+    else()
+        message(STATUS "Fetching WooRT.")
+
+        execute_process(
+            COMMAND git clone --branch release --depth 1 https://git.cinogama.net/cinogamaproject/woort.git 
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/3rd
+            RESULT_VARIABLE WO_CLONE_WOORT_RESULT)
+    endif()
 
     execute_process(
         COMMAND git submodule update --init --recursive --force 
@@ -50,10 +59,10 @@ if (WO_USE_WOORT_DIRECTLY)
         RESULT_VARIABLE WO_CLONE_WOORT_SUBMODULE_RESULT)
 
     if ((WO_CLONE_WOORT_RESULT EQUAL 0) OR (WO_CLONE_WOORT_SUBMODULE_RESULT EQUAL 0))
-        message(STATUS "WooRT cloned successfully.")
+        message(STATUS "WooRT is ready.")
     else()
         message(FATAL_ERROR 
-            "Failed to clone WooRT, please check the error message above.")
+            "Failed to fetch WooRT, please check the error message above.")
     endif()
 
     add_subdirectory("3rd/woort")
