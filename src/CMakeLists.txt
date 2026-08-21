@@ -95,15 +95,16 @@ endif()
 target_precompile_headers(woolang PRIVATE wo_afx.hpp)
 
 target_include_directories(woolang
-    PUBLIC "../3rd/woort/include"
-    PRIVATE "../3rd/woort/src"
     PRIVATE "${WOO_GEN_DIR}")
 
 target_link_libraries(woolang 
     PRIVATE woolang_options
-    PRIVATE woolang_library_options
-    PUBLIC woort
-    PRIVATE ${woo_system_libs})
+    PRIVATE woolang_library_options})
+
+if (WO_USE_WOORT_DIRECTLY)
+    target_link_libraries(woolang 
+        AFTER PUBLIC woort)
+endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set_target_properties(woolang PROPERTIES RELEASE_POSTFIX "")

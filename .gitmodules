@@ -1,0 +1,3 @@
+[submodule "3rd/woodyn"]
+	path = 3rd/woodyn
+	url = https://git.cinogama.net/cinogamaproject/woodyn.git

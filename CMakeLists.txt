@@ -11,6 +11,7 @@ option(WO_MAKE_OUTPUT_IN_SAME_PATH      "Build woo lib and driver and output in 
 option(WO_BUILD_FOR_COVERAGE_TEST       "Build woo for code coverage test" OFF)
 option(WO_BUILD_FOR_ASAN_TEST           "Build woo for code asan test" OFF)
 option(WO_DISABLE_COMPILER              "Only keep the runtime, which helps to reduce the file size" OFF)
+option(WO_USE_WOORT_DIRECTLY            "Use the woort library directly, without going through woodyn." OFF)
 
 ####################################################################################################
 
@@ -28,11 +29,18 @@ else()
 endif()
 set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 
-add_subdirectory("3rd/woort")
-
 add_library(woolang_options INTERFACE)
 target_compile_features(woolang_options INTERFACE cxx_std_17)
 target_include_directories(woolang_options INTERFACE "include")
+
+if (WO_USE_WOORT_DIRECTLY)
+    add_subdirectory("3rd/woort")
+    target_include_directories(woolang_options 
+        AFTER INTERFACE "3rd/woort/include")
+else()
+   target_include_directories(woolang_options 
+        AFTER INTERFACE "3rd/woodyn/include/woort")
+endif()
 
 if (MSVC)
     target_compile_options(woolang_options INTERFACE "/utf-8")

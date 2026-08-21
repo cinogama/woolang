@@ -358,6 +358,5 @@ _deps
 
 /out/
 /build/
-/build2/
-/build_ninja/
+/3rd/woort
 .msvc/
