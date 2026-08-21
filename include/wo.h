@@ -104,12 +104,21 @@ WO_API const char* wo_version(void);
  */
 WO_API uint64_t wo_version_int(void);
 
-typedef void* (*wo_dylib_loader_t)(const char* path);
+typedef void* (*wo_dylib_loader_t)(const char* libname);
 typedef void* (*wo_dylib_func_loader_t)(void* lib, const char* fname);
 typedef void (*wo_dylib_unloader_t)(void* lib);
 
-
 /* ========== Lifecycle API ========== */
+
+#ifdef WOODYN
+#   define WO_INIT_WOODYN()             \
+    woodyn_woort_entry(                 \
+        wo_get_woort_dylib_load(),      \
+        wo_get_woort_dylib_load_func(), \
+        wo_get_woort_dylib_unload())   
+#else
+#   define WO_INIT_WOODYN() ((void)(0))
+#endif
 
 /**
  * @brief Initialize the woolang runtime.
@@ -123,14 +132,16 @@ typedef void (*wo_dylib_unloader_t)(void* lib);
 WO_API void wo_init(
     int argc, 
     char** argv, 
+    /* Optional */ const char* woort_lib_name,
     /* Optional */ wo_dylib_loader_t lib_loader, 
     /* Optional */ wo_dylib_func_loader_t func_loader,
     /* Optional */ wo_dylib_unloader_t lib_unloader);
-#define wo_init(argc, argv, lib_loader, func_loader, lib_unloader)  \
-    do                                                              \
-    {                                                               \
-        wo_init(argc, argv, lib_loader, func_loader, lib_unloader); \
-        setlocale(LC_CTYPE, wo_get_woort_env_locale_name()());      \
+#define wo_init(argc, argv, woort_lib_name, lib_loader, func_loader, lib_unloader)  \
+    do                                                                              \
+    {                                                                               \
+        wo_init(argc, argv, woort_lib_name, lib_loader, func_loader, lib_unloader); \
+        WO_INIT_WOODYN();                                                           \
+        setlocale(LC_CTYPE, wo_get_woort_env_locale_name()());                      \
     } while (0)
 
 /**

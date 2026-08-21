@@ -304,7 +304,7 @@ int _wo_driver_run_repl()
 
 int main(int argc, char** argv)
 {
-    wo_init(argc, argv);
+    wo_init(argc, argv, nullptr, nullptr, nullptr, nullptr);
 
     wo_driver_options opts;
     if (!_wo_driver_parse_option(argc, argv, &opts))
