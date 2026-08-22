@@ -29,10 +29,7 @@ namespace std
         extern("woostd_debug_print")
             public func print(...)=> void;
 
-        public func println(...)=> void
-        {
-            print(......);
-            std::print("\n");
-        }
+        extern("woostd_debug_println")
+            public func println(...)=> void;
     }
 }

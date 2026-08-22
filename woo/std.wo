@@ -76,12 +76,8 @@ namespace std
     
     extern("woostd_print")
         public func print(...)=> void;
-        
-    public func println(...)=> void
-    {
-        print(......);
-        print("\n");
-    }
+    extern("woostd_println")
+        public func println(...)=> void;
     
     public func input<T>(validator: (T)=>bool)=> T
         where declval:<T>() is int
