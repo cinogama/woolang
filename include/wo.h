@@ -110,14 +110,17 @@ typedef void (*wo_dylib_unloader_t)(void* lib);
 
 /* ========== Lifecycle API ========== */
 
-#ifdef WOODYN
-#   define WO_INIT_WOODYN()             \
+#ifdef WOODYN_WOORT
+#   define _wo_init_woodyn()            \
     woodyn_woort_entry(                 \
         wo_get_woort_dylib_load(),      \
         wo_get_woort_dylib_load_func(), \
         wo_get_woort_dylib_unload())   
+#   define _wo_shutdown_woodyn()        \
+    woodyn_woort_leave()   
 #else
-#   define WO_INIT_WOODYN() ((void)(0))
+#   define _wo_init_woodyn() ((void)(0))
+#   define _wo_shutdown_woodyn() ((void)(0))
 #endif
 
 typedef void (*wo_woort_init_func_t)(int, char**);
@@ -142,22 +145,26 @@ typedef struct wo_WooDyn_Functions
  * @brief Initialize the woolang runtime.
  *
  * Must be called once before any other woolang API functions.
- * The macro form additionally calls setlocale(LC_CTYPE, wo_locale_name()).
+ * The macro form additionally enters the woodyn runtime (WOODYN builds) and
+ * calls setlocale(LC_CTYPE, wo_get_woort_env_locale_name()()).
  *
- * @param argc  Argument count (as passed to main).
- * @param argv  Argument vector (as passed to main).
+ * @param argc   Argument count (as passed to main).
+ * @param argv   Argument vector (as passed to main).
+ * @param funcs  Optional woort entry points to inject (WOODYN builds only).
+ *               When NULL, woolang loads the libwoort dynamic library itself
+ *               through the default OS dylib loader. Ignored when woolang is
+ *               directly linked against woort.
  */
-
 WO_API void wo_init(
-    int argc, 
-    char** argv, 
-    const wo_WooDyn_Functions* funcs);
+    int argc,
+    char** argv,
+    /* Optional */ const wo_WooDyn_Functions* funcs);
 
 #define wo_init(argc, argv, funcs)                              \
     do                                                          \
     {                                                           \
         wo_init(argc, argv, funcs);                             \
-        WO_INIT_WOODYN();                                       \
+        _wo_init_woodyn();                                      \
         setlocale(LC_CTYPE, wo_get_woort_env_locale_name()());  \
     } while (0)
 
@@ -168,6 +175,13 @@ WO_API void wo_init(
  * @param custom_data        User data passed to the callback.
  */
 WO_API void wo_finish(void (*do_after_shutdown)(void*), void* custom_data);
+
+#define wo_finish(do_after_shutdown, custom_data)   \
+    do                                              \
+    {                                               \
+        _wo_shutdown_woodyn();                      \
+        wo_finish(do_after_shutdown, custom_data);  \
+    } while (0)
 
 /* ========== Compiler Options Help API ========== */
 
@@ -370,9 +384,28 @@ WO_API uint64_t wo_crc64_file_from_path(const char* filepath);
 
 /* ========== WooRT Proxy API ========== */
 
+/**
+ * @brief Get the woort_env_locale_name() function of the bound woort runtime.
+ * @return Function returning the platform-appropriate locale name (for setlocale).
+ */
 WO_API wo_woort_env_locale_name_f_t wo_get_woort_env_locale_name(void);
+
+/**
+ * @brief Get the woort_dylib_load() function of the bound woort runtime.
+ * @return Function loading a dynamic library by name/path.
+ */
 WO_API wo_woort_dylib_load_f_t wo_get_woort_dylib_load(void);
+
+/**
+ * @brief Get the woort_dylib_load_func() function of the bound woort runtime.
+ * @return Function looking up a symbol in a loaded dynamic library.
+ */
 WO_API wo_woort_dylib_load_func_f_t wo_get_woort_dylib_load_func(void);
+
+/**
+ * @brief Get the woort_dylib_unload() function of the bound woort runtime.
+ * @return Function releasing a loaded dynamic library (refcount semantics).
+ */
 WO_API wo_woort_dylib_unload_f_t wo_get_woort_dylib_unload(void);
 
 

@@ -55,7 +55,7 @@ wo_woort_dylib_unload_f_t wo_get_woort_dylib_unload(void)
 
 namespace wo::woodyn
 {
-#ifdef WOODYN
+#ifdef WOODYN_WOORT
     static wo_WooDyn_Functions s_woort_functions;
     static void* s_loaded_os_dylib;
 
@@ -230,7 +230,7 @@ namespace wo::woodyn
     {
         wo_assert(nullptr == s_loaded_os_dylib);
 
-#ifdef WOODYN
+#ifdef WOODYN_WOORT
         if (funcs.has_value())
             memcpy(&s_woort_functions, funcs.value(), sizeof(wo_WooDyn_Functions));
         else
@@ -310,7 +310,7 @@ namespace wo::woodyn
 
     void shutdown_woort_dynamically(void(*do_after_shutdown)(void*), void* custom_data)
     {
-#ifdef WOODYN
+#ifdef WOODYN_WOORT
         woodyn_woort_leave();
         s_woort_functions.m_shutdown(do_after_shutdown, custom_data);
 
