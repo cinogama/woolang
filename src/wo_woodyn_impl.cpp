@@ -228,9 +228,9 @@ namespace wo::woodyn
         char** argv,
         std::optional<const wo_WooDyn_Functions*> funcs)
     {
+#ifdef WOODYN_WOORT
         wo_assert(nullptr == s_loaded_os_dylib);
 
-#ifdef WOODYN_WOORT
         if (funcs.has_value())
             memcpy(&s_woort_functions, funcs.value(), sizeof(wo_WooDyn_Functions));
         else
