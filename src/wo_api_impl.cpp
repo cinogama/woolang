@@ -46,7 +46,6 @@ void _wo_warning(
 }
 
 #undef wo_init
-
 void wo_init(
     int argc,
     char** argv,
@@ -118,7 +117,7 @@ void wo_print_compiler_help(void)
     std::cout << "        Ignore missing extern function symbols (replace with panic function). Default: 0.\n";
 }
 
-
+#undef wo_finish
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
     wo::builtin_macro_lib_shutdown();
