@@ -8,6 +8,7 @@
 
 #include <clocale>
 #include <string>
+#include <cstring>
 
 #if WO_OS_DYLIB_ENABLED
 #   if defined(_WIN32)
@@ -227,7 +228,7 @@ namespace wo::woodyn
     // sync with the WOODYN_WO_FUNCTION_LIST in the woort.h/wo.h proxy
     // headers shipped by woodyn.
     static const woort_ExternLibFunc s_libwoo_woodyn_funcs[] = {
-{"wo_commit_sha", (void*)&wo_commit_sha},
+        {"wo_commit_sha", (void*)&wo_commit_sha},
         {"wo_compile_date", (void*)&wo_compile_date},
         {"wo_compile_errors_free", (void*)&wo_compile_errors_free},
         {"wo_compile_errors_next", (void*)&wo_compile_errors_next},
