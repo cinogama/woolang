@@ -129,7 +129,7 @@ endif()
 set_target_properties(woolang PROPERTIES OUTPUT_NAME libwoo)
 set_target_properties(woolang PROPERTIES PREFIX "")
 
-if (WO_ENABLE_OS_DYLIB_LOADER)
+if (WO_USE_OS_DYLIB_LOADER)
     target_compile_definitions(woolang PRIVATE WO_OS_DYLIB_ENABLED=1)
     # dlopen()/dlclose() live in libdl on some platforms (e.g. older glibc).
     if(CMAKE_DL_LIBS)

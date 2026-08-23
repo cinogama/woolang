@@ -12,9 +12,11 @@ option(WO_BUILD_FOR_COVERAGE_TEST       "Build woo for code coverage test." OFF)
 option(WO_BUILD_FOR_ASAN_TEST           "Build woo for code asan test." OFF)
 
 option(WO_DISABLE_COMPILER              "Only keep the runtime, which helps to reduce the file size." OFF)
-option(WO_USE_WOORT_DIRECTLY            "Use the woort library directly, without going through woodyn." ON)
 option(WO_MAKE_OUTPUT_IN_SAME_PATH      "Build woo lib and driver and output in same path." OFF)
-option(WO_ENABLE_OS_DYLIB_LOADER        "Allow to use the system's dynamic library loading interfaces." ON)
+option(WO_USE_WOORT_DIRECTLY            "Use the woort library directly, without going through woodyn." ON)
+if (NOT WO_USE_WOORT_DIRECTLY)
+    option(WO_USE_OS_DYLIB_LOADER       "Allow to use the system's dynamic library loading interfaces." ON)
+endif()
 
 ####################################################################################################
 

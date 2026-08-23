@@ -10,7 +10,7 @@
 #include <string>
 #include <cstring>
 
-#if WO_OS_DYLIB_ENABLED
+#if defined(WOODYN_WOORT) && defined(WO_OS_DYLIB_ENABLED)
 #   if defined(_WIN32)
 #       ifndef WIN32_LEAN_AND_MEAN
 #           define WIN32_LEAN_AND_MEAN
