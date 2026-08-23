@@ -223,6 +223,101 @@ namespace wo::woodyn
     }
 #endif
 
+    // The complete set of wo_* entry points this library exports. Keep in
+    // sync with the WOODYN_WO_FUNCTION_LIST in the woort.h/wo.h proxy
+    // headers shipped by woodyn.
+    static const woort_ExternLibFunc s_libwoo_woodyn_funcs[] = {
+{"wo_commit_sha", (void*)&wo_commit_sha},
+        {"wo_compile_date", (void*)&wo_compile_date},
+        {"wo_compile_errors_free", (void*)&wo_compile_errors_free},
+        {"wo_compile_errors_next", (void*)&wo_compile_errors_next},
+        {"wo_crc64_file", (void*)&wo_crc64_file},
+        {"wo_crc64_file_from_path", (void*)&wo_crc64_file_from_path},
+        {"wo_crc64_str", (void*)&wo_crc64_str},
+        {"wo_crc64_u8", (void*)&wo_crc64_u8},
+        {"wo_finish", (void*)&wo_finish},
+        {"wo_get_compile_error", (void*)&wo_get_compile_error},
+        {"wo_get_woort_dylib_load", (void*)&wo_get_woort_dylib_load},
+        {"wo_get_woort_dylib_load_func", (void*)&wo_get_woort_dylib_load_func},
+        {"wo_get_woort_dylib_unload", (void*)&wo_get_woort_dylib_unload},
+        {"wo_get_woort_env_locale_name", (void*)&wo_get_woort_env_locale_name},
+        {"wo_init", (void*)&wo_init},
+        {"wo_load_binary", (void*)&wo_load_binary},
+        {"wo_load_file", (void*)&wo_load_file},
+        {"wo_load_source", (void*)&wo_load_source},
+        {"wo_lspv2_compile_err_iter", (void*)&wo_lspv2_compile_err_iter},
+        {"wo_lspv2_compile_err_next", (void*)&wo_lspv2_compile_err_next},
+        {"wo_lspv2_compile_to_meta", (void*)&wo_lspv2_compile_to_meta},
+        {"wo_lspv2_constant_get_info", (void*)&wo_lspv2_constant_get_info},
+        {"wo_lspv2_constant_info_free", (void*)&wo_lspv2_constant_info_free},
+        {"wo_lspv2_err_info_free", (void*)&wo_lspv2_err_info_free},
+        {"wo_lspv2_expr_collection_free", (void*)&wo_lspv2_expr_collection_free},
+        {"wo_lspv2_expr_collection_get_by_range", (void*)&wo_lspv2_expr_collection_get_by_range},
+        {"wo_lspv2_expr_collection_get_info", (void*)&wo_lspv2_expr_collection_get_info},
+        {"wo_lspv2_expr_collection_info_free", (void*)&wo_lspv2_expr_collection_info_free},
+        {"wo_lspv2_expr_collection_next", (void*)&wo_lspv2_expr_collection_next},
+        {"wo_lspv2_expr_get_info", (void*)&wo_lspv2_expr_get_info},
+        {"wo_lspv2_expr_info_free", (void*)&wo_lspv2_expr_info_free},
+        {"wo_lspv2_expr_next", (void*)&wo_lspv2_expr_next},
+        {"wo_lspv2_lexer_consume", (void*)&wo_lspv2_lexer_consume},
+        {"wo_lspv2_lexer_create", (void*)&wo_lspv2_lexer_create},
+        {"wo_lspv2_lexer_free", (void*)&wo_lspv2_lexer_free},
+        {"wo_lspv2_lexer_peek", (void*)&wo_lspv2_lexer_peek},
+        {"wo_lspv2_macro_get_info", (void*)&wo_lspv2_macro_get_info},
+        {"wo_lspv2_macro_info_free", (void*)&wo_lspv2_macro_info_free},
+        {"wo_lspv2_macro_next", (void*)&wo_lspv2_macro_next},
+        {"wo_lspv2_meta_expr_collection_iter", (void*)&wo_lspv2_meta_expr_collection_iter},
+        {"wo_lspv2_meta_free", (void*)&wo_lspv2_meta_free},
+        {"wo_lspv2_meta_get_global_scope", (void*)&wo_lspv2_meta_get_global_scope},
+        {"wo_lspv2_meta_get_semantic_token_iter", (void*)&wo_lspv2_meta_get_semantic_token_iter},
+        {"wo_lspv2_meta_macro_iter", (void*)&wo_lspv2_meta_macro_iter},
+        {"wo_lspv2_scope_get_info", (void*)&wo_lspv2_scope_get_info},
+        {"wo_lspv2_scope_info_free", (void*)&wo_lspv2_scope_info_free},
+        {"wo_lspv2_scope_sub_scope_iter", (void*)&wo_lspv2_scope_sub_scope_iter},
+        {"wo_lspv2_scope_sub_scope_next", (void*)&wo_lspv2_scope_sub_scope_next},
+        {"wo_lspv2_scope_symbol_iter", (void*)&wo_lspv2_scope_symbol_iter},
+        {"wo_lspv2_scope_symbol_next", (void*)&wo_lspv2_scope_symbol_next},
+        {"wo_lspv2_semantic_token_info_free", (void*)&wo_lspv2_semantic_token_info_free},
+        {"wo_lspv2_semantic_token_next", (void*)&wo_lspv2_semantic_token_next},
+        {"wo_lspv2_sub_version", (void*)&wo_lspv2_sub_version},
+        {"wo_lspv2_symbol_get_info", (void*)&wo_lspv2_symbol_get_info},
+        {"wo_lspv2_symbol_info_free", (void*)&wo_lspv2_symbol_info_free},
+        {"wo_lspv2_token_info_enstring", (void*)&wo_lspv2_token_info_enstring},
+        {"wo_lspv2_token_info_free", (void*)&wo_lspv2_token_info_free},
+        {"wo_lspv2_type_get_info", (void*)&wo_lspv2_type_get_info},
+        {"wo_lspv2_type_get_struct_info", (void*)&wo_lspv2_type_get_struct_info},
+        {"wo_lspv2_type_info_free", (void*)&wo_lspv2_type_info_free},
+        {"wo_lspv2_type_struct_info_free", (void*)&wo_lspv2_type_struct_info_free},
+        {"wo_print_compiler_help", (void*)&wo_print_compiler_help},
+        {"wo_repl_create", (void*)&wo_repl_create},
+        {"wo_repl_destroy", (void*)&wo_repl_destroy},
+        {"wo_repl_eval", (void*)&wo_repl_eval},
+        {"wo_version", (void*)&wo_version},
+        {"wo_version_int", (void*)&wo_version_int},
+        WOORT_EXTERN_LIB_FUNC_END
+    };
+
+    static woort_Dylib* s_libwoo_woodyn = nullptr;
+
+    static void register_libwoo_woodyn(void)
+    {
+        if (s_libwoo_woodyn == nullptr)
+        {
+            s_libwoo_woodyn = woort_dylib_fake(
+                "libwoo_woodyn", s_libwoo_woodyn_funcs, nullptr);
+            wo_assert(s_libwoo_woodyn != nullptr);
+        }
+    }
+
+    static void unregister_libwoo_woodyn(void)
+    {
+        if (s_libwoo_woodyn != nullptr)
+        {
+            woort_dylib_unload(s_libwoo_woodyn, WOORT_DYLIB_UNREF);
+            s_libwoo_woodyn = nullptr;
+        }
+    }
+
     void bootup_woort_dynamically(
         int argc,
         char** argv,
@@ -306,10 +401,23 @@ namespace wo::woodyn
 #else
         woort_init(argc, argv);
 #endif
+
+        // Publish this library under the reserved "libwoo_woodyn" name so
+        // that woort_dylib_load("libwoo_woodyn", ...) issued by woodyn
+        // consumers (the proxy variant of wo.h) resolves against the
+        // woolang already loaded in this process.
+        register_libwoo_woodyn();
     }
 
     void shutdown_woort_dynamically(void(*do_after_shutdown)(void*), void* custom_data)
     {
+        // Drop the "libwoo_woodyn" registration before woort tears down
+        // its dylib registry. WOORT_DYLIB_UNREF only decrements the
+        // reference count: extension libraries that hold a reference
+        // release it while woort unloads them next, so the fake dies
+        // with its last user.
+        unregister_libwoo_woodyn();
+
 #ifdef WOODYN_WOORT
         woodyn_woort_leave();
         s_woort_functions.m_shutdown(do_after_shutdown, custom_data);
