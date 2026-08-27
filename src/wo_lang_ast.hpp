@@ -1196,8 +1196,12 @@ namespace wo
             wo_pstring_t        m_name;
             std::optional<AstValueBase*>
                 m_value; // Will update in AstEnumDeclare pass and not NULLOPT.
+            std::optional<AstDeclareAttribue::accessc_attrib>
+                m_attribute; // Access modifier declared on this item, override the enum's.
 
-            AstEnumItem(wo_pstring_t name, std::optional<AstValueBase*> value);
+            AstEnumItem(
+                const std::optional<AstDeclareAttribue::accessc_attrib>& attribute,
+                wo_pstring_t name, std::optional<AstValueBase*> value);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstEnumDeclare : public AstBase
@@ -1227,8 +1231,12 @@ namespace wo
         {
             wo_pstring_t                    m_label;
             std::optional<AstTypeHolder*>   m_type;
+            std::optional<AstDeclareAttribue::accessc_attrib>
+                m_attribute; // Access modifier declared on this item, override the union's.
 
-            AstUnionItem(wo_pstring_t name, std::optional<AstTypeHolder*> type);
+            AstUnionItem(
+                const std::optional<AstDeclareAttribue::accessc_attrib>& attribute,
+                wo_pstring_t name, std::optional<AstTypeHolder*> type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstUnionDeclare : public AstBase

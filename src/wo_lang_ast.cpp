@@ -2368,17 +2368,20 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstEnumItem::AstEnumItem(wo_pstring_t name, std::optional<AstValueBase*> value)
+        AstEnumItem::AstEnumItem(
+            const std::optional<AstDeclareAttribue::accessc_attrib>& attribute,
+            wo_pstring_t name, std::optional<AstValueBase*> value)
             : AstBase(AST_ENUM_ITEM)
             , m_name(name)
             , m_value(value)
+            , m_attribute(attribute)
         {
         }
         AstBase* AstEnumItem::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             AstEnumItem* new_instance = exist_instance
                 ? static_cast<AstEnumItem*>(exist_instance.value())
-                : new AstEnumItem(m_name, m_value)
+                : new AstEnumItem(m_attribute, m_name, m_value)
                 ;
             if (new_instance->m_value)
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_value.value()));
@@ -2420,7 +2423,43 @@ namespace wo
                 enum_item_attrib_instance->source_location = attrib.value()->source_location;
             }
 
-            auto* enum_item_definations = new AstVariableDefines(enum_item_attrib);
+            // Items are grouped into consecutive runs sharing the same access
+            // modifier, each run becomes one AstVariableDefines carrying its
+            // declare attribute. Items without modifier inherit the enum's.
+            std::vector<AstVariableDefines*> enum_item_define_groups;
+            std::optional<std::optional<AstDeclareAttribue::accessc_attrib>>
+                current_group_modifier = std::nullopt;
+
+            auto ensure_enum_item_group =
+                [&enum_item_attrib, &enum_item_define_groups, &current_group_modifier, &attrib]
+                (const std::optional<AstDeclareAttribue::accessc_attrib>& item_modifier, AstEnumItem* item)
+                -> AstVariableDefines*
+                {
+                    if (current_group_modifier.has_value()
+                        && current_group_modifier.value() == item_modifier)
+                        return enum_item_define_groups.back();
+
+                    std::optional<AstDeclareAttribue*> group_attrib = std::nullopt;
+                    if (item_modifier)
+                    {
+                        AstDeclareAttribue* override_instance = attrib
+                            ? new AstDeclareAttribue(*attrib.value())
+                            : new AstDeclareAttribue();
+                        override_instance->m_access = item_modifier.value();
+                        override_instance->source_location = item->source_location;
+                        group_attrib = override_instance;
+                    }
+                    else
+                    {
+                        group_attrib = enum_item_attrib;
+                    }
+
+                    auto* new_group = new AstVariableDefines(group_attrib);
+                    new_group->source_location = item->source_location;
+                    enum_item_define_groups.push_back(new_group);
+                    current_group_modifier = item_modifier;
+                    return new_group;
+                };
 
             std::optional<wo_pstring_t> last_enum_item_name = std::nullopt;
             for (auto& item : enum_items)
@@ -2468,7 +2507,7 @@ namespace wo
                 auto* enum_item_value_cast = new AstValueTypeCast(enum_type, item->m_value.value(), false);
                 auto* enum_item_pattern = new AstPatternSingle(false, item->m_name, std::nullopt);
                 auto* enum_item_define_item = new AstVariableDefineItem(enum_item_pattern, enum_item_value_cast);
-                enum_item_definations->m_definitions.push_back(enum_item_define_item);
+                ensure_enum_item_group(item->m_attribute, item)->m_definitions.push_back(enum_item_define_item);
 
                 // Update source msg;
                 enum_type_identifier->source_location = item->source_location;
@@ -2480,7 +2519,22 @@ namespace wo
                 last_enum_item_name = item->m_name;
             }
 
-            auto* enum_namespace = new AstNamespace(enum_name_str, enum_item_definations);
+            AstBase* enum_body_content = enum_item_define_groups.front();
+            if (enum_item_define_groups.size() > 1)
+            {
+                auto* enum_defines_list = new AstList();
+                enum_defines_list->m_list.assign(
+                    enum_item_define_groups.begin(), enum_item_define_groups.end());
+                enum_defines_list->source_location = enum_base_type_identifier->source_location;
+                enum_body_content = enum_defines_list;
+            }
+            else
+            {
+                // Keep the same source location as before for the single group case.
+                enum_item_define_groups.front()->source_location = enum_base_type_identifier->source_location;
+            }
+
+            auto* enum_namespace = new AstNamespace(enum_name_str, enum_body_content);
 
             m_enum_type_declare = enum_type_declare;
             m_enum_body = enum_namespace;
@@ -2489,7 +2543,6 @@ namespace wo
             enum_base_type_identifier->source_location = enum_name->source_location;
             enum_base_type->source_location = enum_base_type_identifier->source_location;
             enum_type_declare->source_location = enum_base_type_identifier->source_location;
-            enum_item_definations->source_location = enum_base_type_identifier->source_location;
             enum_namespace->source_location = enum_base_type_identifier->source_location;
         }
         AstBase* AstEnumDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -2528,17 +2581,20 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstUnionItem::AstUnionItem(wo_pstring_t name, std::optional<AstTypeHolder*> type)
+        AstUnionItem::AstUnionItem(
+            const std::optional<AstDeclareAttribue::accessc_attrib>& attribute,
+            wo_pstring_t name, std::optional<AstTypeHolder*> type)
             : AstBase(AST_UNION_ITEM)
             , m_label(name)
             , m_type(type)
+            , m_attribute(attribute)
         {
         }
         AstBase* AstUnionItem::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
             AstUnionItem* new_instance = exist_instance
                 ? static_cast<AstUnionItem*>(exist_instance.value())
-                : new AstUnionItem(m_label, m_type)
+                : new AstUnionItem(m_attribute, m_label, m_type)
                 ;
             if (new_instance->m_type)
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_type.value()));
@@ -2570,7 +2626,44 @@ namespace wo
             , m_union_namespace(std::nullopt)
         {
             wo_assert(!union_items.empty());
-            auto* union_item_or_creator_declare = new AstVariableDefines(attrib);
+
+            // Items are grouped into consecutive runs sharing the same access
+            // modifier, each run becomes one AstVariableDefines carrying its
+            // declare attribute. Items without modifier inherit the union's.
+            std::vector<AstVariableDefines*> union_item_define_groups;
+            std::optional<std::optional<AstDeclareAttribue::accessc_attrib>>
+                current_group_modifier = std::nullopt;
+
+            auto ensure_union_item_group =
+                [&union_item_define_groups, &current_group_modifier, &attrib]
+                (const std::optional<AstDeclareAttribue::accessc_attrib>& item_modifier, AstUnionItem* item)
+                -> AstVariableDefines*
+                {
+                    if (current_group_modifier.has_value()
+                        && current_group_modifier.value() == item_modifier)
+                        return union_item_define_groups.back();
+
+                    std::optional<AstDeclareAttribue*> group_attrib = std::nullopt;
+                    if (item_modifier)
+                    {
+                        AstDeclareAttribue* override_instance = attrib
+                            ? new AstDeclareAttribue(*attrib.value())
+                            : new AstDeclareAttribue();
+                        override_instance->m_access = item_modifier.value();
+                        override_instance->source_location = item->source_location;
+                        group_attrib = override_instance;
+                    }
+                    else
+                    {
+                        group_attrib = attrib;
+                    }
+
+                    auto* new_group = new AstVariableDefines(group_attrib);
+                    new_group->source_location = item->source_location;
+                    union_item_define_groups.push_back(new_group);
+                    current_group_modifier = item_modifier;
+                    return new_group;
+                };
 
             AstTypeHolder::UnionType union_type_info;
             wo_pstring_t union_type_name_pstr =
@@ -2724,7 +2817,7 @@ namespace wo
                         false, item->m_label, used_template_parameters.empty() ? std::nullopt : std::optional(used_template_parameters));
                     auto* union_creator_decl_item = new AstVariableDefineItem(union_creator_pattern, union_creator_function);
 
-                    union_item_or_creator_declare->m_definitions.push_back(union_creator_decl_item);
+                    ensure_union_item_group(item->m_attribute, item)->m_definitions.push_back(union_creator_decl_item);
 
                     union_creator_value_identifier->source_location = item->source_location;
                     union_creator_value->source_location = item->source_location;
@@ -2743,7 +2836,7 @@ namespace wo
                     auto* union_item_maker = new AstValueMakeUnion(current_item_index, std::nullopt);
                     auto* union_item_type_cast = new AstValueTypeCast(union_type, union_item_maker, false);
                     auto* union_item_decl_item = new AstVariableDefineItem(union_item_pattern, union_item_type_cast);
-                    union_item_or_creator_declare->m_definitions.push_back(union_item_decl_item);
+                    ensure_union_item_group(item->m_attribute, item)->m_definitions.push_back(union_item_decl_item);
 
                     union_item_pattern->source_location = item->source_location;
                     union_item_maker->source_location = item->source_location;
@@ -2754,7 +2847,22 @@ namespace wo
                 ++current_item_index;
             }
 
-            auto* union_namespace = new AstNamespace(union_type_name_pstr, union_item_or_creator_declare);
+            AstBase* union_body_content = union_item_define_groups.front();
+            if (union_item_define_groups.size() > 1)
+            {
+                auto* union_defines_list = new AstList();
+                union_defines_list->m_list.assign(
+                    union_item_define_groups.begin(), union_item_define_groups.end());
+                union_defines_list->source_location = union_type_name->source_location;
+                union_body_content = union_defines_list;
+            }
+            else
+            {
+                // Keep the same source location as before for the single group case.
+                union_item_define_groups.front()->source_location = union_type_name->source_location;
+            }
+
+            auto* union_namespace = new AstNamespace(union_type_name_pstr, union_body_content);
             AstTypeHolder* using_declare_union_type = new AstTypeHolder(union_type_info);
             AstUsingTypeDeclare* using_type_declare = new AstUsingTypeDeclare(
                 attrib, union_type_name_pstr, template_parameters, using_declare_union_type);
@@ -2763,7 +2871,6 @@ namespace wo
             m_union_namespace = union_namespace;
 
             // Update source msg;
-            union_item_or_creator_declare->source_location = union_type_name->source_location;
             union_namespace->source_location = union_type_name->source_location;
             using_declare_union_type->source_location = union_type_name->source_location;
             using_type_declare->source_location = union_type_name->source_location;

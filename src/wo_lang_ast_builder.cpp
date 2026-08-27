@@ -24,6 +24,29 @@ namespace wo
             return std::nullopt;
         }
 
+        static auto _process_access_modifier(const ast::astnode_builder::inputs_t& input, size_t index)
+            -> std::optional<AstDeclareAttribue::accessc_attrib>
+        {
+            if (WO_IS_EMPTY(index))
+                return std::nullopt;
+
+            AstToken* describe =
+                static_cast<AstToken*>(WO_NEED_AST_TYPE(index, AstBase::AST_TOKEN));
+
+            switch (describe->m_token.type)
+            {
+            case lex_type::l_public:
+                return AstDeclareAttribue::accessc_attrib::PUBLIC;
+            case lex_type::l_private:
+                return AstDeclareAttribue::accessc_attrib::PRIVATE;
+            case lex_type::l_protected:
+                return AstDeclareAttribue::accessc_attrib::PROTECTED;
+            default:
+                wo_error("Unknown attribute.");
+                return std::nullopt;
+            }
+        }
+
         auto pass_mark_label::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             token label = WO_NEED_TOKEN(0);
@@ -133,15 +156,16 @@ namespace wo
         }
         auto pass_enum_item_create::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            token name = WO_NEED_TOKEN(0);
+            auto attrib = _process_access_modifier(input, 0);
+            token name = WO_NEED_TOKEN(1);
 
-            if (input.size() == 3)
+            if (input.size() == 4)
             {
                 // ITEM = $INTVAL
-                auto* initval = WO_NEED_AST_VALUE(2);
-                return new AstEnumItem(name.identifier, initval);
+                auto* initval = WO_NEED_AST_VALUE(3);
+                return new AstEnumItem(attrib, name.identifier, initval);
             }
-            return new AstEnumItem(name.identifier, std::nullopt);
+            return new AstEnumItem(attrib, name.identifier, std::nullopt);
         }
         auto pass_enum_finalize::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -1348,16 +1372,18 @@ namespace wo
         }
         auto pass_union_item::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            token union_item = WO_NEED_TOKEN(0);
+            auto attrib = _process_access_modifier(input, 0);
+            token union_item = WO_NEED_TOKEN(1);
 
-            return new AstUnionItem(union_item.identifier, std::nullopt);
+            return new AstUnionItem(attrib, union_item.identifier, std::nullopt);
         }
         auto pass_union_item_constructor::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
-            token union_item = WO_NEED_TOKEN(0);
-            AstTypeHolder* constructor_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(2, AstBase::AST_TYPE_HOLDER));
+            auto attrib = _process_access_modifier(input, 0);
+            token union_item = WO_NEED_TOKEN(1);
+            AstTypeHolder* constructor_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(3, AstBase::AST_TYPE_HOLDER));
 
-            return new AstUnionItem(union_item.identifier, constructor_type);
+            return new AstUnionItem(attrib, union_item.identifier, constructor_type);
         }
         auto pass_union_declare::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {

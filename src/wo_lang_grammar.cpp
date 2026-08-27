@@ -140,8 +140,8 @@ namespace wo
             P(ENUM_ITEMS, pass_direct<0>, (NT(ENUM_ITEM_LIST), NT(COMMA_MAY_EMPTY)));
             P(ENUM_ITEM_LIST, pass_create_list<0>, (NT(ENUM_ITEM)));
             P(ENUM_ITEM_LIST, pass_append_list<2, 0>, (NT(ENUM_ITEM_LIST), TE(l_comma), NT(ENUM_ITEM)));
-            P(ENUM_ITEM, pass_enum_item_create, (NT(IDENTIFIER)));
-            P(ENUM_ITEM, pass_enum_item_create, (NT(IDENTIFIER), TE(l_assign), NT(EXPRESSION)));
+            P(ENUM_ITEM, pass_enum_item_create, (NT(ACCESS_MODIFIER_MAY_EMPTY), NT(IDENTIFIER)));
+            P(ENUM_ITEM, pass_enum_item_create, (NT(ACCESS_MODIFIER_MAY_EMPTY), NT(IDENTIFIER), TE(l_assign), NT(EXPRESSION)));
             P(SENTENCE, pass_direct<0>, (NT(DECL_NAMESPACE)));
             P(DECL_NAMESPACE, pass_namespace, (TE(l_namespace), NT(SPACE_NAME_LIST), NT(SENTENCE_BLOCK)));
             P(SPACE_NAME_LIST, pass_create_list<0>, (NT(SPACE_NAME)));
@@ -628,9 +628,9 @@ namespace wo
             P(UNION_ITEMS, pass_direct<0>, (NT(UNION_ITEM_LIST), NT(COMMA_MAY_EMPTY)));
             P(UNION_ITEM_LIST, pass_create_list<0>, (NT(UNION_ITEM)));
             P(UNION_ITEM_LIST, pass_append_list<2, 0>, (NT(UNION_ITEM_LIST), TE(l_comma), NT(UNION_ITEM)));
-            P(UNION_ITEM, pass_union_item, (NT(IDENTIFIER)));
+            P(UNION_ITEM, pass_union_item, (NT(ACCESS_MODIFIER_MAY_EMPTY), NT(IDENTIFIER)));
             P(UNION_ITEM, pass_union_item_constructor, (
-                NT(IDENTIFIER), TE(l_left_brackets), NT(TYPE), TE(l_right_brackets)));
+                NT(ACCESS_MODIFIER_MAY_EMPTY), NT(IDENTIFIER), TE(l_left_brackets), NT(TYPE), TE(l_right_brackets)));
             P(SENTENCE, pass_direct<0>, (NT(MATCH_BLOCK)));
             P(MATCH_BLOCK, pass_match, (
                 TE(l_match),
