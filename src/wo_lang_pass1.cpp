@@ -31,6 +31,47 @@ namespace wo
         return op == AstValueUnaryOperator::NEGATIVE ? "-" : "!";
     }
 
+    // Build (declared parameter, given argument) pairs used to explain why
+    // template argument deduction failed for a function call.
+    static std::vector<LangContext::TemplateDeductionSite> _make_function_call_deduction_sites(
+        const std::vector<AstFunctionParameterDeclare*>& parameters,
+        const std::vector<AstValueBase*>& arguments)
+    {
+        std::vector<LangContext::TemplateDeductionSite> sites;
+
+        size_t parameter_index = 0;
+        auto it_parameter = parameters.begin();
+        const auto it_parameter_end = parameters.end();
+        auto it_argument = arguments.begin();
+        const auto it_argument_end = arguments.end();
+
+        for (; it_parameter != it_parameter_end && it_argument != it_argument_end;
+            ++it_parameter, ++it_argument, ++parameter_index)
+        {
+            AstFunctionParameterDeclare* parameter = *it_parameter;
+            AstValueBase* argument = *it_argument;
+
+            if (!parameter->m_type.has_value())
+                continue;
+
+            if (argument->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
+                // Parameter/argument pairing becomes non-index-aligned after
+                // an unpacked tuple argument.
+                break;
+
+            std::string parameter_name = u8"_";
+            if (parameter->m_pattern->node_type == AstBase::AST_PATTERN_SINGLE)
+                parameter_name = *static_cast<AstPatternSingle*>(parameter->m_pattern)->m_name;
+
+            sites.push_back(LangContext::TemplateDeductionSite{
+                WO_MSG_TEMPLATE_DEDUCT_PARAMETER_NAME(parameter_index, parameter_name),
+                parameter->m_type.value(),
+                argument });
+        }
+
+        return sites;
+    }
+
     bool LangContext::update_pattern_symbol_variable_type_pass1(
         lexer& lex,
         ast::AstPatternBase* pattern,
@@ -3887,6 +3928,13 @@ namespace wo
                             WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
                             pending_type_list.c_str());
 
+                        report_template_deduction_failure_details(
+                            lex,
+                            function,
+                            pending_template_params,
+                            _make_function_call_deduction_sites(
+                                function->m_parameters, node->m_arguments));
+
                         return FAILED;
                     }
 
@@ -3953,6 +4001,19 @@ namespace wo
                         lex.record_lang_error(lexer::msglevel_t::error, function_variable,
                             WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
                             pending_type_list.c_str());
+
+                        if (symbol->m_template_value_instances->m_origin_value_ast->node_type
+                            == AstBase::AST_VALUE_FUNCTION)
+                        {
+                            report_template_deduction_failure_details(
+                                lex,
+                                function_variable,
+                                pending_template_params,
+                                _make_function_call_deduction_sites(
+                                    static_cast<AstValueFunction*>(
+                                        symbol->m_template_value_instances->m_origin_value_ast)->m_parameters,
+                                    node->m_arguments));
+                        }
 
                         if (symbol->m_symbol_declare_ast.has_value())
                         {
@@ -4663,6 +4724,39 @@ namespace wo
                     lex.record_lang_error(lexer::msglevel_t::error, target_struct_typeholder,
                         WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED,
                         pending_type_list.c_str());
+
+                    if (symbol->m_template_type_instances->m_origin_value_ast->m_formal
+                        == AstTypeHolder::STRUCTURE)
+                    {
+                        AstTypeHolder* struct_def_type_holder = static_cast<AstTypeHolder*>(
+                            symbol->m_template_type_instances->m_origin_value_ast);
+
+                        std::vector<LangContext::TemplateDeductionSite> deduction_sites;
+                        for (AstStructFieldDefine* field_define :
+                            struct_def_type_holder->m_typeform.m_structure.m_fields)
+                        {
+                            AstValueBase* field_value = nullptr;
+                            for (AstStructFieldValuePair* field_instance : node->m_fields)
+                            {
+                                if (field_instance->m_name == field_define->m_name)
+                                {
+                                    field_value = field_instance->m_value;
+                                    break;
+                                }
+                            }
+
+                            deduction_sites.push_back(LangContext::TemplateDeductionSite{
+                                WO_MSG_TEMPLATE_DEDUCT_FIELD_NAME(*field_define->m_name),
+                                field_define->m_type,
+                                field_value });
+                        }
+
+                        report_template_deduction_failure_details(
+                            lex,
+                            target_struct_typeholder,
+                            pending_template_params,
+                            deduction_sites);
+                    }
 
                     if (symbol->m_symbol_declare_ast.has_value())
                     {

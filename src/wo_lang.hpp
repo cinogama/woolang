@@ -1261,6 +1261,62 @@ namespace wo
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_determined_template_arg_pair
         );
 
+        ////////////////////////////////////////////////////////////////
+        // Diagnose helpers for failed template argument deduction.
+        //
+        // When WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED is about to be
+        // raised, these helpers explain WHY a pending template parameter
+        // cannot be deduced: they re-walk the (declared parameter type,
+        // given argument type) pairs and report the deepest structural
+        // mismatch that blocks the deduction.
+        ////////////////////////////////////////////////////////////////
+
+        // Reconstruct a readable type name from a declared(AST) type, e.g.
+        // `()=> array<T>`, `(int, string)`, `struct{a: int}`.
+        std::string get_type_holder_display_name(const ast::AstTypeHolder* type_holder);
+
+        struct TemplateDeductionMismatchReason
+        {
+            // Where the mismatch happens, e.g. u8"返回类型" / u8"第 1 个参数".
+            std::string m_position;
+            // Display name of the declared(expect) type at that position.
+            std::string m_expected;
+            // Name of the actual(given) type at that position.
+            std::string m_actual;
+        };
+
+        // Compare a declared formal type with an actual type instance the
+        // same way template_arguments_deduction_extraction_with_type does,
+        // but instead of extracting template arguments it locates the first
+        // structural mismatch whose formal subtree still involves pending
+        // template parameters (only such mismatches block deduction; the
+        // others are reported by regular type checking). Read-only: it
+        // never records errors nor resolves symbols by itself.
+        std::optional<TemplateDeductionMismatchReason> explain_type_mismatch_blocking_template_deduction(
+            const ast::AstTypeHolder* accept_type_formal,
+            lang_TypeInstance* applying_type_instance,
+            const std::vector<ast::AstTemplateParam*>& pending_template_params,
+            const std::string& where_prefix);
+
+        // One (declared parameter, given argument) pair a pending template
+        // parameter could be deduced from. m_argument may be null when no
+        // corresponding argument was supplied.
+        struct TemplateDeductionSite
+        {
+            std::string m_site_label;        // e.g. u8"参数 0 (`item`)" / u8"字段 `data`"
+            const ast::AstTypeHolder* m_formal_type;
+            ast::AstValueBase* m_argument;
+        };
+
+        // Attach detailed infom-level reasons to the pending(un-deducible)
+        // template parameters of a failed deduction. Call it right before/
+        // after raising WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED.
+        void report_template_deduction_failure_details(
+            lexer& lex,
+            ast::AstBase* fallback_node,
+            const std::vector<ast::AstTemplateParam*>& pending_template_params,
+            const std::vector<TemplateDeductionSite>& deduction_sites);
+
         bool check_type_may_dependence_template_parameters(
             const ast::AstTypeHolder* accept_template_argument_formal,
             const std::vector<ast::AstTemplateParam*>& pending_template_params);

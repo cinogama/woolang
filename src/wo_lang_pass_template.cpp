@@ -1011,6 +1011,520 @@ namespace wo
                 out_determined_template_arg_pair);
         }
     }
+
+    static std::string _joined_deduction_position(
+        const std::string& where_prefix,
+        const std::string& leaf_at_root,
+        const std::string& leaf_in_nested)
+    {
+        return where_prefix.empty()
+            ? leaf_at_root
+            : where_prefix + leaf_in_nested;
+    }
+
+    std::string LangContext::get_type_holder_display_name(const ast::AstTypeHolder* type_holder)
+    {
+        if (type_holder == nullptr)
+            return u8"?";
+
+        std::string result;
+
+        if (type_holder->m_mutable_mark == ast::AstTypeHolder::mutable_mark::MARK_AS_MUTABLE)
+            result += u8"mut ";
+
+        switch (type_holder->m_formal)
+        {
+        case ast::AstTypeHolder::IDENTIFIER:
+        {
+            auto* identifier = type_holder->m_typeform.m_identifier;
+
+            for (wo_pstring_t scope_name : identifier->m_scope)
+            {
+                result += *scope_name;
+                result += "::";
+            }
+            result += *identifier->m_name;
+
+            if (identifier->m_template_arguments.has_value())
+            {
+                result += "<";
+                bool first_argument = true;
+                for (ast::AstTemplateArgument* argument : identifier->m_template_arguments.value())
+                {
+                    if (!first_argument)
+                        result += ", ";
+                    first_argument = false;
+
+                    if (argument->is_type())
+                        result += get_type_holder_display_name(argument->get_type());
+                    else if (argument->get_constant()->node_type == ast::AstBase::AST_VALUE_VARIABLE)
+                        result += *static_cast<ast::AstValueVariable*>(
+                            argument->get_constant())->m_identifier->m_name;
+                    else
+                        result += u8"...";
+                }
+                result += ">";
+            }
+            break;
+        }
+        case ast::AstTypeHolder::FUNCTION:
+        {
+            auto& function = type_holder->m_typeform.m_function;
+
+            result += "(";
+            bool first_parameter = true;
+            for (ast::AstTypeHolder* parameter : function.m_parameters)
+            {
+                if (!first_parameter)
+                    result += ", ";
+                first_parameter = false;
+
+                result += get_type_holder_display_name(parameter);
+            }
+            if (function.m_is_variadic)
+            {
+                if (!first_parameter)
+                    result += ", ";
+                result += "...";
+            }
+            result += ")=> ";
+            result += get_type_holder_display_name(function.m_return_type);
+            break;
+        }
+        case ast::AstTypeHolder::TUPLE:
+        {
+            auto& tuple = type_holder->m_typeform.m_tuple;
+
+            result += "(";
+            bool first_element = true;
+            for (ast::AstTypeHolder* element : tuple.m_fields)
+            {
+                if (!first_element)
+                    result += ", ";
+                first_element = false;
+
+                result += get_type_holder_display_name(element);
+            }
+            result += ")";
+            break;
+        }
+        case ast::AstTypeHolder::STRUCTURE:
+        {
+            auto& structure = type_holder->m_typeform.m_structure;
+
+            result += u8"struct{";
+            bool first_field = true;
+            for (ast::AstStructFieldDefine* field : structure.m_fields)
+            {
+                if (!first_field)
+                    result += ", ";
+                first_field = false;
+
+                result += *field->m_name;
+                result += ": ";
+                result += get_type_holder_display_name(field->m_type);
+            }
+            result += "}";
+            break;
+        }
+        case ast::AstTypeHolder::UNION:
+        {
+            auto& union_type = type_holder->m_typeform.m_union;
+
+            result += u8"union{";
+            bool first_field = true;
+            for (auto& field : union_type.m_fields)
+            {
+                if (!first_field)
+                    result += ", ";
+                first_field = false;
+
+                result += *field.m_label;
+                if (field.m_item.has_value())
+                {
+                    result += "(";
+                    result += get_type_holder_display_name(field.m_item.value());
+                    result += ")";
+                }
+            }
+            result += "}";
+            break;
+        }
+        case ast::AstTypeHolder::UNDERLYING:
+            result += u8"raw(";
+            result += get_type_holder_display_name(type_holder->m_typeform.m_baseof);
+            result += ")";
+            break;
+        case ast::AstTypeHolder::TYPEOF:
+            result += u8"typeof(...)";
+            break;
+        default:
+            result = u8"?";
+            break;
+        }
+
+        return result;
+    }
+
+    std::optional<LangContext::TemplateDeductionMismatchReason>
+    LangContext::explain_type_mismatch_blocking_template_deduction(
+        const ast::AstTypeHolder* accept_type_formal,
+        lang_TypeInstance* applying_type_instance,
+        const std::vector<ast::AstTemplateParam*>& pending_template_params,
+        const std::string& where_prefix)
+    {
+        if (accept_type_formal == nullptr || applying_type_instance == nullptr)
+            return std::nullopt;
+
+        // Positions that do not involve any pending template parameter
+        // cannot block deduction; their mismatches are reported by the
+        // regular type checking.
+        if (!check_type_may_dependence_template_parameters(
+            accept_type_formal, pending_template_params))
+            return std::nullopt;
+
+        auto make_reason = [&where_prefix, this, accept_type_formal, applying_type_instance]()
+        {
+            std::string position = where_prefix.empty()
+                ? std::string(WO_MSG_TEMPLATE_DEDUCT_POSITION_TYPE)
+                : where_prefix;
+
+            return TemplateDeductionMismatchReason
+            {
+                position,
+                get_type_holder_display_name(accept_type_formal),
+                get_type_name(applying_type_instance),
+            };
+        };
+
+        switch (accept_type_formal->m_formal)
+        {
+        case ast::AstTypeHolder::IDENTIFIER:
+        {
+            auto* identifier = accept_type_formal->m_typeform.m_identifier;
+
+            switch (identifier->m_formal)
+            {
+            case ast::AstIdentifier::identifier_formal::FROM_TYPE:
+                // Cannot be explained.
+                return std::nullopt;
+            case ast::AstIdentifier::identifier_formal::FROM_CURRENT:
+                if (identifier->m_scope.empty())
+                {
+                    auto fnd = std::find_if(
+                        pending_template_params.begin(),
+                        pending_template_params.end(),
+                        [identifier](ast::AstTemplateParam* p)
+                        {
+                            return p->m_param_name == identifier->m_name
+                                && !p->m_marked_type.has_value() /* Is not constant */;
+                        });
+
+                    if (fnd != pending_template_params.end())
+                    {
+                        // The deduction position. `mut T` cannot match an
+                        // immutable actual type, which also blocks deduction.
+                        if (accept_type_formal->m_mutable_mark == ast::AstTypeHolder::mutable_mark::MARK_AS_MUTABLE
+                            && !applying_type_instance->is_mutable())
+                            break;
+
+                        return std::nullopt;
+                    }
+                }
+                /* FALL THROUGH */
+                [[fallthrough]];
+            case ast::AstIdentifier::identifier_formal::FROM_GLOBAL:
+            {
+                // Reuse the symbol resolved during the deduction pass, do
+                // not resolve it again here (resolution may record errors).
+                if (!identifier->m_LANG_determined_symbol.has_value())
+                    return std::nullopt;
+
+                lang_Symbol* determined_type_symbol = identifier->m_LANG_determined_symbol.value();
+                switch (determined_type_symbol->m_symbol_kind)
+                {
+                case lang_Symbol::kind::TYPE:
+                    break;
+                case lang_Symbol::kind::ALIAS:
+                {
+                    if (determined_type_symbol->m_is_template)
+                        return std::nullopt;
+
+                    if (!determined_type_symbol->m_alias_instance->m_determined_type.has_value())
+                        return std::nullopt;
+
+                    determined_type_symbol = determined_type_symbol
+                        ->m_alias_instance->m_determined_type.value()->m_symbol;
+                    break;
+                }
+                default:
+                    // Not a type symbol, cannot explain.
+                    return std::nullopt;
+                }
+
+                if (determined_type_symbol != applying_type_instance->m_symbol)
+                    // Not match!
+                    return make_reason();
+
+                if (identifier->m_template_arguments.has_value()
+                    && !applying_type_instance->m_instance_template_arguments.has_value())
+                    // e.g. formal `array<T>` but a template-less instance.
+                    return make_reason();
+
+                break;
+            }
+            default:
+                return std::nullopt;
+            }
+
+            // Walk through template arguments, e.g. `array<T>` vs `array<bool>`.
+            if (identifier->m_template_arguments.has_value()
+                && applying_type_instance->m_instance_template_arguments.has_value())
+            {
+                auto& identifier_template_arguments =
+                    identifier->m_template_arguments.value();
+                auto& instance_template_arguments =
+                    applying_type_instance->m_instance_template_arguments.value();
+
+                for (size_t argument_index = 0;
+                    argument_index < identifier_template_arguments.size()
+                    && argument_index < instance_template_arguments.size();
+                    ++argument_index)
+                {
+                    const ast::AstTemplateArgument* formal_argument =
+                        identifier_template_arguments[argument_index];
+                    if (!formal_argument->is_type())
+                        continue;
+
+                    std::string nested_where = _joined_deduction_position(
+                        where_prefix,
+                        WO_MSG_TEMPLATE_DEDUCT_TEMPLATE_ARGUMENT_NO(argument_index + 1),
+                        WO_MSG_TEMPLATE_DEDUCT_TEMPLATE_ARGUMENT_NO_NESTED(argument_index + 1));
+
+                    if (auto reason = explain_type_mismatch_blocking_template_deduction(
+                        formal_argument->get_type(),
+                        instance_template_arguments[argument_index].m_type,
+                        pending_template_params,
+                        nested_where))
+                        return reason;
+                }
+            }
+
+            return std::nullopt;
+        }
+        case ast::AstTypeHolder::TYPEOF:
+        case ast::AstTypeHolder::UNDERLYING:
+            // Cannot be explained.
+            return std::nullopt;
+        case ast::AstTypeHolder::FUNCTION:
+        {
+            if (applying_type_instance->m_symbol != m_origin_types.m_function)
+                // Not a function type.
+                return make_reason();
+
+            auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
+            if (!instance_type_determined_base_may_null.has_value())
+                // Not determined yet.
+                return std::nullopt;
+
+            auto* instance_type_determined_base = instance_type_determined_base_may_null.value();
+            if (instance_type_determined_base->m_base_type != lang_TypeInstance::DeterminedType::FUNCTION)
+                // Not function.
+                return make_reason();
+
+            auto& function = accept_type_formal->m_typeform.m_function;
+            auto* instance_type_determined_base_fn =
+                instance_type_determined_base->m_external_type_description.m_function;
+
+            if (function.m_is_variadic != instance_type_determined_base_fn->m_is_variadic
+                || function.m_parameters.size() != instance_type_determined_base_fn->m_param_types.size())
+                // Function signature not match.
+                return make_reason();
+
+            for (size_t parameter_index = 0;
+                parameter_index < function.m_parameters.size();
+                ++parameter_index)
+            {
+                std::string nested_where = _joined_deduction_position(
+                    where_prefix,
+                    WO_MSG_TEMPLATE_DEDUCT_PARAMETER_NO(parameter_index + 1),
+                    WO_MSG_TEMPLATE_DEDUCT_PARAMETER_NO_NESTED(parameter_index + 1));
+
+                if (auto reason = explain_type_mismatch_blocking_template_deduction(
+                    function.m_parameters[parameter_index],
+                    instance_type_determined_base_fn->m_param_types[parameter_index],
+                    pending_template_params,
+                    nested_where))
+                    return reason;
+            }
+
+            return explain_type_mismatch_blocking_template_deduction(
+                function.m_return_type,
+                instance_type_determined_base_fn->m_return_type,
+                pending_template_params,
+                _joined_deduction_position(
+                    where_prefix,
+                    WO_MSG_TEMPLATE_DEDUCT_RETURN_TYPE,
+                    WO_MSG_TEMPLATE_DEDUCT_RETURN_TYPE_NESTED));
+        }
+        case ast::AstTypeHolder::STRUCTURE:
+        {
+            if (applying_type_instance->m_symbol != m_origin_types.m_struct)
+                // User define type.
+                return make_reason();
+
+            auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
+            if (!instance_type_determined_base_may_null.has_value())
+                return std::nullopt;
+
+            auto* instance_type_determined_base = instance_type_determined_base_may_null.value();
+            if (instance_type_determined_base->m_base_type != lang_TypeInstance::DeterminedType::STRUCT)
+                return make_reason();
+
+            auto& structure = accept_type_formal->m_typeform.m_structure;
+            auto* instance_type_determined_base_struct =
+                instance_type_determined_base->m_external_type_description.m_struct;
+
+            if (structure.m_fields.size() != instance_type_determined_base_struct->m_member_types.size())
+                // Field count not match.
+                return make_reason();
+
+            int64_t member_index = 0;
+            for (ast::AstStructFieldDefine* field : structure.m_fields)
+            {
+                auto fnd = instance_type_determined_base_struct->m_member_types.find(field->m_name);
+                if (fnd == instance_type_determined_base_struct->m_member_types.end()
+                    || member_index != fnd->second.m_offset)
+                    // Field layout not match.
+                    return make_reason();
+
+                std::string nested_where = _joined_deduction_position(
+                    where_prefix,
+                    WO_MSG_TEMPLATE_DEDUCT_FIELD_NAME(*field->m_name),
+                    WO_MSG_TEMPLATE_DEDUCT_FIELD_NAME_NESTED(*field->m_name));
+
+                if (auto reason = explain_type_mismatch_blocking_template_deduction(
+                    field->m_type,
+                    fnd->second.m_member_type,
+                    pending_template_params,
+                    nested_where))
+                    return reason;
+
+                ++member_index;
+            }
+
+            return std::nullopt;
+        }
+        case ast::AstTypeHolder::TUPLE:
+        {
+            if (applying_type_instance->m_symbol != m_origin_types.m_tuple)
+                // User define type.
+                return make_reason();
+
+            auto instance_type_determined_base_may_null = applying_type_instance->get_determined_type();
+            if (!instance_type_determined_base_may_null.has_value())
+                return std::nullopt;
+
+            auto* instance_type_determined_base = instance_type_determined_base_may_null.value();
+            if (instance_type_determined_base->m_base_type != lang_TypeInstance::DeterminedType::TUPLE)
+                return make_reason();
+
+            auto& tuple = accept_type_formal->m_typeform.m_tuple;
+            auto* instance_type_determined_base_tuple =
+                instance_type_determined_base->m_external_type_description.m_tuple;
+
+            if (tuple.m_fields.size() != instance_type_determined_base_tuple->m_element_types.size())
+                // Element count not match.
+                return make_reason();
+
+            for (size_t element_index = 0; element_index < tuple.m_fields.size(); ++element_index)
+            {
+                std::string nested_where = _joined_deduction_position(
+                    where_prefix,
+                    WO_MSG_TEMPLATE_DEDUCT_ELEMENT_NO(element_index + 1),
+                    WO_MSG_TEMPLATE_DEDUCT_ELEMENT_NO_NESTED(element_index + 1));
+
+                if (auto reason = explain_type_mismatch_blocking_template_deduction(
+                    tuple.m_fields[element_index],
+                    instance_type_determined_base_tuple->m_element_types[element_index],
+                    pending_template_params,
+                    nested_where))
+                    return reason;
+            }
+
+            return std::nullopt;
+        }
+        case ast::AstTypeHolder::UNION:
+        default:
+            return std::nullopt;
+        }
+    }
+
+    void LangContext::report_template_deduction_failure_details(
+        lexer& lex,
+        ast::AstBase* fallback_node,
+        const std::vector<ast::AstTemplateParam*>& pending_template_params,
+        const std::vector<TemplateDeductionSite>& deduction_sites)
+    {
+        for (ast::AstTemplateParam* pending_param : pending_template_params)
+        {
+            const std::vector<ast::AstTemplateParam*> only_this_pending{ pending_param };
+
+            const TemplateDeductionSite* matched_site = nullptr;
+            bool appear_in_any_site = false;
+            for (const TemplateDeductionSite& site : deduction_sites)
+            {
+                if (site.m_formal_type == nullptr
+                    || !check_type_may_dependence_template_parameters(
+                        site.m_formal_type, only_this_pending))
+                    continue;
+
+                appear_in_any_site = true;
+
+                if (matched_site == nullptr
+                    && site.m_argument != nullptr
+                    && site.m_argument->m_LANG_determined_type.has_value())
+                    // The first site whose argument type is known, use it to
+                    // explain the failure.
+                    matched_site = &site;
+            }
+
+            if (!appear_in_any_site)
+            {
+                lex.record_lang_error(lexer::msglevel_t::infom, fallback_node,
+                    WO_INFO_TEMPLATE_DEDUCT_NO_DEDUCTION_SITE,
+                    (*pending_param->m_param_name).c_str());
+                continue;
+            }
+
+            if (matched_site == nullptr)
+                // No argument with a determined type to compare against.
+                continue;
+
+            lang_TypeInstance* actual_type = matched_site->m_argument->m_LANG_determined_type.value();
+
+            lex.record_lang_error(lexer::msglevel_t::infom, matched_site->m_argument,
+                WO_INFO_TEMPLATE_DEDUCT_MISMATCH_BETWEEN_PARAM_AND_ARG,
+                matched_site->m_site_label.c_str(),
+                get_type_holder_display_name(matched_site->m_formal_type).c_str(),
+                get_type_name(actual_type));
+
+            if (auto reason = explain_type_mismatch_blocking_template_deduction(
+                matched_site->m_formal_type,
+                actual_type,
+                pending_template_params,
+                std::string()))
+            {
+                lex.record_lang_error(lexer::msglevel_t::infom, matched_site->m_argument,
+                    WO_INFO_TEMPLATE_DEDUCT_MISMATCH_AT_POSITION,
+                    reason->m_position.c_str(),
+                    reason->m_expected.c_str(),
+                    reason->m_actual.c_str(),
+                    (*pending_param->m_param_name).c_str());
+            }
+        }
+    }
+
     ast::AstValueBase* LangContext::get_marked_origin_value_node(ast::AstValueBase* node)
     {
         for (;;)

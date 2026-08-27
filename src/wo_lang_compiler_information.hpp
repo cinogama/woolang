@@ -144,6 +144,27 @@
 #define WO_ERR_FUNCTION_MAY_NO_RETURN_VALUE u8"函数存在未返回的分支"
 
 // PASS0_1 TYPE CHECK PARSE(INFO)
+#define WO_INFO_TEMPLATE_DEDUCT_MISMATCH_BETWEEN_PARAM_AND_ARG u8"%s 的声明类型为 `%s`,但传入实参的类型为 `%s`"
+#define WO_INFO_TEMPLATE_DEDUCT_MISMATCH_AT_POSITION u8"%s不匹配: 期望 `%s`,实际为 `%s`,无法由此推导泛型参数 <%s>"
+#define WO_INFO_TEMPLATE_DEDUCT_NO_DEDUCTION_SITE u8"泛型参数 <%s> 未出现在任何参数类型中,无法通过实参推导"
+
+// PASS0_1 TYPE CHECK PARSE(MSG) for template deduction diagnosis:
+//   human readable positions(& sites) inside a declared type where a
+//   deduction-blocking mismatch was located, e.g.
+//   WO_INFO_TEMPLATE_DEDUCT_MISMATCH_AT_POSITION's first argument.
+#define WO_MSG_TEMPLATE_DEDUCT_POSITION_TYPE u8"类型"
+#define WO_MSG_TEMPLATE_DEDUCT_RETURN_TYPE u8"返回类型"
+#define WO_MSG_TEMPLATE_DEDUCT_RETURN_TYPE_NESTED u8"的返回类型"
+#define WO_MSG_TEMPLATE_DEDUCT_PARAMETER_NO(no) u8"第 " + std::to_string(no) + u8" 个参数"
+#define WO_MSG_TEMPLATE_DEDUCT_PARAMETER_NO_NESTED(no) u8"的第 " + std::to_string(no) + u8" 个参数"
+#define WO_MSG_TEMPLATE_DEDUCT_TEMPLATE_ARGUMENT_NO(no) u8"第 " + std::to_string(no) + u8" 个泛型实参"
+#define WO_MSG_TEMPLATE_DEDUCT_TEMPLATE_ARGUMENT_NO_NESTED(no) u8"的第 " + std::to_string(no) + u8" 个泛型实参"
+#define WO_MSG_TEMPLATE_DEDUCT_ELEMENT_NO(no) u8"第 " + std::to_string(no) + u8" 个元素"
+#define WO_MSG_TEMPLATE_DEDUCT_ELEMENT_NO_NESTED(no) u8"的第 " + std::to_string(no) + u8" 个元素"
+#define WO_MSG_TEMPLATE_DEDUCT_FIELD_NAME(name) u8"字段 `" + name + u8"`"
+#define WO_MSG_TEMPLATE_DEDUCT_FIELD_NAME_NESTED(name) u8"的字段 `" + name + u8"`"
+#define WO_MSG_TEMPLATE_DEDUCT_PARAMETER_NAME(no, name) u8"参数 " + std::to_string(no) + u8" (`" + name + u8"`)"
+
 #define WO_INFO_MAYBE_NAMED_DEFINED_HERE u8"可能是此处定义的 `%s`"
 #define WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER u8"可能是编译器内置的 `%s`"
 #define WO_INFO_SYMBOL_NAMED_DEFINED_HERE u8"符号 `%s` 在此定义"
