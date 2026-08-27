@@ -1299,13 +1299,13 @@ namespace wo
             const std::string& where_prefix);
 
         // One (declared parameter, given argument) pair a pending template
-        // parameter could be deduced from. m_argument may be null when no
+        // parameter could be deduced from. m_argument is nullopt when no
         // corresponding argument was supplied.
         struct TemplateDeductionSite
         {
             std::string m_site_label;        // e.g. u8"参数 0 (`item`)" / u8"字段 `data`"
             const ast::AstTypeHolder* m_formal_type;
-            ast::AstValueBase* m_argument;
+            std::optional<ast::AstValueBase*> m_argument;
         };
 
         // Attach detailed infom-level reasons to the pending(un-deducible)

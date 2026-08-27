@@ -1024,9 +1024,6 @@ namespace wo
 
     std::string LangContext::get_type_holder_display_name(const ast::AstTypeHolder* type_holder)
     {
-        if (type_holder == nullptr)
-            return u8"?";
-
         std::string result;
 
         if (type_holder->m_mutable_mark == ast::AstTypeHolder::mutable_mark::MARK_AS_MUTABLE)
@@ -1173,9 +1170,6 @@ namespace wo
         const std::vector<ast::AstTemplateParam*>& pending_template_params,
         const std::string& where_prefix)
     {
-        if (accept_type_formal == nullptr || applying_type_instance == nullptr)
-            return std::nullopt;
-
         // Positions that do not involve any pending template parameter
         // cannot block deduction; their mismatches are reported by the
         // regular type checking.
@@ -1470,20 +1464,19 @@ namespace wo
         {
             const std::vector<ast::AstTemplateParam*> only_this_pending{ pending_param };
 
-            const TemplateDeductionSite* matched_site = nullptr;
+            std::optional<const TemplateDeductionSite*> matched_site;
             bool appear_in_any_site = false;
             for (const TemplateDeductionSite& site : deduction_sites)
             {
-                if (site.m_formal_type == nullptr
-                    || !check_type_may_dependence_template_parameters(
+                if (!check_type_may_dependence_template_parameters(
                         site.m_formal_type, only_this_pending))
                     continue;
 
                 appear_in_any_site = true;
 
-                if (matched_site == nullptr
-                    && site.m_argument != nullptr
-                    && site.m_argument->m_LANG_determined_type.has_value())
+                if (!matched_site.has_value()
+                    && site.m_argument.has_value()
+                    && site.m_argument.value()->m_LANG_determined_type.has_value())
                     // The first site whose argument type is known, use it to
                     // explain the failure.
                     matched_site = &site;
@@ -1497,25 +1490,27 @@ namespace wo
                 continue;
             }
 
-            if (matched_site == nullptr)
+            if (!matched_site.has_value())
                 // No argument with a determined type to compare against.
                 continue;
 
-            lang_TypeInstance* actual_type = matched_site->m_argument->m_LANG_determined_type.value();
+            const TemplateDeductionSite* site = matched_site.value();
+            ast::AstValueBase* argument = site->m_argument.value();
+            lang_TypeInstance* actual_type = argument->m_LANG_determined_type.value();
 
-            lex.record_lang_error(lexer::msglevel_t::infom, matched_site->m_argument,
+            lex.record_lang_error(lexer::msglevel_t::infom, argument,
                 WO_INFO_TEMPLATE_DEDUCT_MISMATCH_BETWEEN_PARAM_AND_ARG,
-                matched_site->m_site_label.c_str(),
-                get_type_holder_display_name(matched_site->m_formal_type).c_str(),
+                site->m_site_label.c_str(),
+                get_type_holder_display_name(site->m_formal_type).c_str(),
                 get_type_name(actual_type));
 
             if (auto reason = explain_type_mismatch_blocking_template_deduction(
-                matched_site->m_formal_type,
+                site->m_formal_type,
                 actual_type,
                 pending_template_params,
                 std::string()))
             {
-                lex.record_lang_error(lexer::msglevel_t::infom, matched_site->m_argument,
+                lex.record_lang_error(lexer::msglevel_t::infom, argument,
                     WO_INFO_TEMPLATE_DEDUCT_MISMATCH_AT_POSITION,
                     reason->m_position.c_str(),
                     reason->m_expected.c_str(),

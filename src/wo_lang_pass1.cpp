@@ -4735,7 +4735,7 @@ namespace wo
                         for (AstStructFieldDefine* field_define :
                             struct_def_type_holder->m_typeform.m_structure.m_fields)
                         {
-                            AstValueBase* field_value = nullptr;
+                            std::optional<AstValueBase*> field_value;
                             for (AstStructFieldValuePair* field_instance : node->m_fields)
                             {
                                 if (field_instance->m_name == field_define->m_name)
