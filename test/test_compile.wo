@@ -2946,9 +2946,107 @@ do A:<int>;
         assure_compile_fail(@"func f<T>(_: (T, T)){} do f((1, 2, 3));"@);
         assure_compile_fail(@"func f<P, R>(_: (P)=>R){} do f(\:int, _:int = 0;);"@);
     }
+
+    /* Per-item access modifiers on enum/union items.
+       Consecutive items sharing one modifier form one define group;
+       modifier-less items inherit the enum/union's own attribute.
+       protected symbols of the generated eponymous namespace are not
+       reachable from outside it, private only inside the same source. */
+    func test_compile_enum_union_item_access_modifier()
+    {
+        /* Parse + grouping runs: a modifier change splits the groups,
+           plain commas inside one run do not. */
+        assure_compile_success(@"
+            enum Test { A, private B, C, public D }
+            do Test::A; do Test::B; do Test::C; do Test::D;
+        "@);
+
+        /* Explicit values combine with modifiers. */
+        assure_compile_success(@"
+            enum Test { private A = 5, B }
+            do Test::A; do Test::B;
+        "@);
+
+        /* Modifier-less items still inherit the enum's attribute. */
+        assure_compile_fail(@"
+            namespace aaa
+            {
+                protected enum Test { A, public B }
+            }
+            do aaa::Test::A;
+        "@);
+
+        /* An item modifier overrides the enum's own attribute. */
+        assure_compile_success(@"
+            namespace aaa
+            {
+                protected enum Test { public A }
+            }
+            do aaa::Test::A;
+        "@);
+
+        /* Item-level protected is not reachable from outside the enum's
+           generated namespace. */
+        assure_compile_fail(@"
+            enum Test { protected A }
+            do Test::A;
+        "@);
+        assure_compile_fail(@"
+            enum Test { public A, private B, protected C }
+            do Test::C;
+        "@);
+
+        /* Enum declared inside a namespace. */
+        assure_compile_success(@"
+            namespace aaa
+            {
+                enum Test { private A, public B }
+            }
+            do aaa::Test::A; do aaa::Test::B;
+        "@);
+
+        /* Untyped union items accept modifiers. */
+        assure_compile_success(@"
+            union Test { A, private B, public C }
+            do Test::A; do Test::B; do Test::C;
+        "@);
+        assure_compile_fail(@"
+            union Test { protected A }
+            do Test::A;
+        "@);
+
+        /* Typed union items (creator functions) accept modifiers. */
+        assure_compile_success(@"
+            union Test { private A(int), public B(string) }
+            do Test::A(1);
+            do Test::B("x");
+            match (Test::A(3)) { A(n)?; _?; }
+        "@);
+        assure_compile_fail(@"
+            union Test { protected A(int) }
+            do Test::A(1);
+        "@);
+
+        /* Union creators inherit the union's own attribute. */
+        assure_compile_fail(@"
+            namespace aaa
+            {
+                protected union Test { A(int) }
+            }
+            do aaa::Test::A(1);
+        "@);
+        assure_compile_success(@"
+            namespace aaa
+            {
+                protected union Test { public A(int) }
+            }
+            do aaa::Test::A(1);
+        "@);
+    }
 }
 
 test_function("test_compile.main", test_compile::main);
 test_function("test_compile.recursive_template_instance", test_compile::test_compile_recursive_template_instance);
 test_function("test_compile.lexer_errors", test_compile::test_compile_lexer_errors);
 test_function("test_compile.type_errors", test_compile::test_compile_type_errors);
+test_function("test_compile.enum_union_item_access_modifier", test_compile::test_compile_enum_union_item_access_modifier);

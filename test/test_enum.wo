@@ -18,6 +18,33 @@ namespace test_enum
         SPECIAL_FIVE = 5,
         SIX,
     }
+    /* Per-item access modifiers: items without a modifier inherit the
+       enum's own attribute; consecutive items sharing one modifier form
+       one group. Auto-increment keeps chaining across the groups. */
+    enum EnumC
+    {
+        FIRST,              // No modifier.
+        private SECOND = 5, // Explicit value together with a modifier.
+        THIRD,              // Same modifier as SECOND, joins its group.
+        public FOURTH,      // Modifier change starts a new group.
+        FIFTH,              // Back to no modifier, another group.
+    }
+    /* Same for union items: plain makers and typed creators. */
+    union UnionC
+    {
+        PLAIN,
+        private TAGGED(int),
+        public TEXT(string),
+    }
+    func union_code(v: UnionC)
+    {
+        match(v)
+        {
+        PLAIN?         return -1;
+        TAGGED(n)?     return n;
+        TEXT(s)?       return s->len;
+        }
+    }
     func foo(a: EnumA, b: EnumB)
     {
         return a as int + b as int;
@@ -30,6 +57,18 @@ namespace test_enum
         test_equal(EnumA::FIVE as int, 5);
         test_equal(EnumB::SIX as int, 6);
         test_equal(foo(EnumA::ZERO, EnumB::ZERO), 0);
+
+        // Values keep auto-incrementing across modifier groups.
+        test_equal(EnumC::FIRST as int, 0);
+        test_equal(EnumC::SECOND as int, 5);
+        test_equal(EnumC::THIRD as int, 6);
+        test_equal(EnumC::FOURTH as int, 7);
+        test_equal(EnumC::FIFTH as int, 8);
+
+        // Private / public items stay reachable inside the same file.
+        test_equal(union_code(UnionC::PLAIN), -1);
+        test_equal(union_code(UnionC::TAGGED(42)), 42);
+        test_equal(union_code(UnionC::TEXT("hi")), 2);
     }
 }
 
