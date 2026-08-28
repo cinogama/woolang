@@ -90,9 +90,11 @@ namespace wo
             lex.append_message(error_message).m_layer += error_message.m_layer + 1;
         }
 
+#if 0
         if (has_skipped_reported_error)
             lex.record_lang_error(lexer::msglevel_t::infom, node,
                 diagnose::info_failure_reason_already_reported{});
+#endif
     }
 
     void LangContext::report_template_instance_dependency_chain(
