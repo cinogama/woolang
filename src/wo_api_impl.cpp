@@ -154,6 +154,11 @@ wo::compile_result _wo_compile_impl(
     std::optional<woort_CodeEnv*> compile_env_result = std::nullopt;
     std::unique_ptr<wo::lexer> compile_lexer;
 
+    // Hoisted out of the grammar-success block below: deferred diagnose
+    // payloads hold pointers to lang instances, so they must be rendered
+    // while this context is still alive (see the failed branch).
+    std::unique_ptr<wo::LangContext> lang_context;
+
     std::optional<woort_VFile*> source_file_instance;
     std::string real_file_path;
 
@@ -230,7 +235,8 @@ wo::compile_result _wo_compile_impl(
             // Failed to load binary, maybe broken or version missing.
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error,
-                woort_CodeEnv_restore_failed_desc(binary_loading_failed.value()));
+                wo::diagnose::err_raw_message{
+                    woort_CodeEnv_restore_failed_desc(binary_loading_failed.value())});
         }
         else
         {
@@ -250,8 +256,7 @@ wo::compile_result _wo_compile_impl(
                     compile_result =
                         wo::compile_result::PROCESS_FAILED_BUT_GRAMMAR_OK;
 
-                    std::unique_ptr<wo::LangContext> lang_context =
-                        std::make_unique<wo::LangContext>();
+                    lang_context = std::make_unique<wo::LangContext>();
 
                     compile_result = lang_context->process(*compile_lexer, result);
                     if (wo::compile_result::PROCESS_OK == compile_result)
@@ -264,7 +269,8 @@ wo::compile_result _wo_compile_impl(
                         {
                             compile_result = wo::compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
                             (void)compile_lexer->record_parser_error(
-                                wo::lexer::msglevel_t::error, WO_ERR_OUT_OF_MEMORY);
+                                wo::lexer::msglevel_t::error,
+                                wo::diagnose::err_out_of_memory{});
                         }
                     }
 
@@ -274,7 +280,8 @@ wo::compile_result _wo_compile_impl(
             }
 #else
             (void)compile_lexer->record_parser_error(
-                wo::lexer::msglevel_t::error, WO_ERR_COMPILER_DISABLED);
+                wo::lexer::msglevel_t::error,
+                wo::diagnose::err_compiler_disabled{});
 #endif
         }
     }
@@ -300,6 +307,11 @@ wo::compile_result _wo_compile_impl(
         // Failed
         wo_assert((bool)compile_lexer);
         wo_assert(compile_result != wo::compile_result::PROCESS_OK);
+
+        // The compile has definitively failed: generate all deferred message
+        // texts now, while lang_context (and the AST arena owned by the
+        // caller's thread-local allocator) is still alive.
+        compile_lexer->realize_pending_diagnose(lang_context.get());
 
         if (out_lexer_if_failed != nullptr)
             *out_lexer_if_failed = std::move(compile_lexer);

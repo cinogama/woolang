@@ -1264,7 +1264,7 @@ namespace wo
         ////////////////////////////////////////////////////////////////
         // Diagnose helpers for failed template argument deduction.
         //
-        // When WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED is about to be
+        // When err_not_all_template_argument_determined is about to be
         // raised, these helpers explain WHY a pending template parameter
         // cannot be deduced: they re-walk the (declared parameter type,
         // given argument type) pairs and report the deepest structural
@@ -1310,7 +1310,7 @@ namespace wo
 
         // Attach detailed infom-level reasons to the pending(un-deducible)
         // template parameters of a failed deduction. Call it right before/
-        // after raising WO_ERR_NOT_ALL_TEMPLATE_ARGUMENT_DETERMINED.
+        // after raising err_not_all_template_argument_determined.
         void report_template_deduction_failure_details(
             lexer& lex,
             ast::AstBase* fallback_node,
@@ -1374,3 +1374,5 @@ namespace wo
     };
 #endif
 }
+
+#include "wo_lang_diagnose.hpp"

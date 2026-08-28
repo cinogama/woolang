@@ -1011,8 +1011,7 @@ namespace wo
             if (!identifier->m_template_arguments)
             {
                 lex.record_lang_error(lexer::msglevel_t::error, type_holder,
-                    WO_ERR_EXPECTED_TEMPLATE_ARGUMENT,
-                    ctx->get_symbol_name(symbol));
+                    diagnose::err_expected_template_argument{symbol});
 
                 return std::nullopt;
             }
@@ -1024,9 +1023,7 @@ namespace wo
                 if (template_arguments.size() != 2)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, type_holder,
-                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                        (size_t)2,
-                        template_arguments.size());
+                        diagnose::err_unexpected_template_count{ (size_t)2, template_arguments.size() });
 
                     return std::nullopt;
                 }
@@ -1039,7 +1036,7 @@ namespace wo
                     lex.record_lang_error(
                         lexer::msglevel_t::error,
                         key_type_template,
-                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+                        diagnose::err_this_template_arg_should_be_type{});
 
                     return std::nullopt;
                 }
@@ -1048,7 +1045,7 @@ namespace wo
                     lex.record_lang_error(
                         lexer::msglevel_t::error,
                         key_type_template,
-                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+                        diagnose::err_this_template_arg_should_be_type{});
 
                     return std::nullopt;
                 }
@@ -1066,9 +1063,7 @@ namespace wo
                 if (template_arguments.size() != 1)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, type_holder,
-                        WO_ERR_UNEXPECTED_TEMPLATE_COUNT,
-                        (size_t)1,
-                        template_arguments.size());
+                        diagnose::err_unexpected_template_count{ (size_t)1, template_arguments.size() });
 
                     return std::nullopt;
                 }
@@ -1079,7 +1074,7 @@ namespace wo
                     lex.record_lang_error(
                         lexer::msglevel_t::error,
                         element_type_template,
-                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+                        diagnose::err_this_template_arg_should_be_type{});
 
                     return std::nullopt;
                 }
@@ -1093,8 +1088,7 @@ namespace wo
             else
             {
                 lex.record_lang_error(lexer::msglevel_t::error, type_holder,
-                    WO_ERR_CANNOT_USE_BUILTIN_TYPENAME_HERE,
-                    ctx->get_symbol_name(symbol));
+                    diagnose::err_cannot_use_builtin_typename_here{symbol});
 
                 return std::nullopt;
             }
@@ -1502,7 +1496,7 @@ namespace wo
         // mode each eval has its own AST, so a template variable defined
         // (or imported) in a prior eval has its pattern node missing here.
         // Without this sweep, the passir AstValueVariable handler would
-        // error with WO_ERR_VARIABLE_STORAGE_NOT_DETERMINED when it
+        // error with err_variable_storage_not_determined when it
         // references such an instance.
         //
         // The initializer IR is emitted at the top of the entry function,
@@ -1780,8 +1774,7 @@ namespace wo
 
                 lex.record_lang_error(lexer::msglevel_t::error,
                     symbol->m_symbol_declare_ast.value(),
-                    WO_ERR_UNUSED_VARIABLE,
-                    get_symbol_name(symbol.get()));
+                    diagnose::err_unused_variable{symbol.get()});
                 have_unused_local_variable = true;
             }
 
@@ -2020,22 +2013,18 @@ namespace wo
                 return std::nullopt;
 
             lex.record_lang_error(lexer::msglevel_t::error, ident,
-                WO_ERR_AMBIGUOUS_TARGET_NAMED,
-                ident->m_name->c_str(),
-                get_symbol_name(result));
+                diagnose::err_ambiguous_target_named{ident->m_name->c_str(), result});
 
             for (auto* symbol : found_symbol)
             {
                 if (symbol->m_symbol_declare_ast.has_value())
                     lex.record_lang_error(lexer::msglevel_t::infom,
                         symbol->m_symbol_declare_ast.value(),
-                        WO_INFO_MAYBE_NAMED_DEFINED_HERE,
-                        get_symbol_name(symbol));
+                        diagnose::info_maybe_named_defined_here{symbol});
                 else
                     lex.record_lang_error(lexer::msglevel_t::infom,
                         ident,
-                        WO_INFO_MAYBE_NAMED_DEFINED_IN_COMPILER,
-                        get_symbol_name(symbol));
+                        diagnose::info_maybe_named_defined_in_compiler{symbol});
             }
             *out_ambig.value() = true;
         }
@@ -2067,7 +2056,7 @@ namespace wo
                 auto determined_type = (*from_type)->m_LANG_determined_type;
                 if (!determined_type)
                 {
-                    lex.record_lang_error(lexer::msglevel_t::error, *from_type, WO_ERR_UNKNOWN_TYPE);
+                    lex.record_lang_error(lexer::msglevel_t::error, *from_type, diagnose::err_unknown_type{});
                     return std::nullopt;
                 }
                 type_instance = determined_type.value();
@@ -2239,7 +2228,7 @@ namespace wo
                         //  thus rejecting all instances of Nothing as generic arguments for 
                         //  reified variables;
                         lex.record_lang_error(lexer::msglevel_t::error, param,
-                            WO_ERR_THIS_TEMPLATE_ARG_SHOULD_NOT_BE_NOTHING);
+                            diagnose::err_this_template_arg_should_not_be_nothing{});
 
                         return false;
                     }
@@ -2255,7 +2244,7 @@ namespace wo
                     lex.record_lang_error(
                         lexer::msglevel_t::error,
                         param,
-                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_CONST);
+                        diagnose::err_this_template_arg_should_be_const{});
 
                     return false;
                 }
@@ -2267,7 +2256,7 @@ namespace wo
                     lex.record_lang_error(
                         lexer::msglevel_t::error,
                         param,
-                        WO_ERR_THIS_TEMPLATE_ARG_SHOULD_BE_TYPE);
+                        diagnose::err_this_template_arg_should_be_type{});
 
                     return false;
                 }
@@ -2281,8 +2270,7 @@ namespace wo
                 *args_iter))
             {
                 lex.record_lang_error(lexer::msglevel_t::error, param,
-                    WO_ERR_REDEFINED,
-                    param->m_param_name->c_str());
+                    diagnose::err_redefined{param->m_param_name->c_str()});
 
                 return false;
             }

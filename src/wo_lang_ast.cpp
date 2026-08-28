@@ -262,7 +262,7 @@ namespace wo
             case lex_type::l_static:
                 if (m_lifecycle)
                 {
-                    lex.record_lang_error(lexer::msglevel_t::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
+                    lex.record_lang_error(lexer::msglevel_t::error, attrib_token, diagnose::err_repeat_attribute{});
                     return false;
                 }
                 m_lifecycle = lifecycle_attrib::STATIC;
@@ -270,7 +270,7 @@ namespace wo
             case lex_type::l_extern:
                 if (m_external)
                 {
-                    lex.record_lang_error(lexer::msglevel_t::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
+                    lex.record_lang_error(lexer::msglevel_t::error, attrib_token, diagnose::err_repeat_attribute{});
                     return false;
                 }
                 m_external = external_attrib::EXTERNAL;
@@ -280,7 +280,7 @@ namespace wo
             case lex_type::l_protected:
                 if (m_access)
                 {
-                    lex.record_lang_error(lexer::msglevel_t::error, attrib_token, WO_ERR_REPEAT_ATTRIBUTE);
+                    lex.record_lang_error(lexer::msglevel_t::error, attrib_token, diagnose::err_repeat_attribute{});
                     return false;
                 }
                 switch (attrib_token->m_token.type)

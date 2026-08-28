@@ -9,7 +9,8 @@ static woort_api builtin_macro_lexer_error()
         static_cast<wo::lexer*>(woort_pointer(0));
 
     lexer_instance->produce_lexer_error(
-        wo::lexer::msglevel_t::error, "%s", woort_string(1));
+        wo::lexer::msglevel_t::error,
+        wo::diagnose::err_raw_message{woort_string(1)});
 
     return woort_ret_void();
 }

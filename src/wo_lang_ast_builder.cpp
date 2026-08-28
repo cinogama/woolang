@@ -90,7 +90,7 @@ namespace wo
                 const std::string candidate2 = path + "/" + filename + ".wo";
                 if (!wo::check_virtual_file_path(candidate2, std::optional(&lex), &src_full_path))
                     return token{ lex.record_lang_error(
-                        lexer::msglevel_t::error, import_scopes, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
+                        lexer::msglevel_t::error, import_scopes, diagnose::err_cannot_open_file{path.c_str()}) };
             }
 
             wo_pstring_t src_full_path_pstr = wstring_pool::get_pstr(src_full_path);
@@ -113,7 +113,7 @@ namespace wo
                 }
                 else
                     return token{ lex.record_lang_error(
-                        lexer::msglevel_t::error, import_scopes, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
+                        lexer::msglevel_t::error, import_scopes, diagnose::err_cannot_open_file{path.c_str()}) };
             }
 
             // Record import relationship.
@@ -133,7 +133,7 @@ namespace wo
 
                 auto* namespace_pstr = ns_token->m_token.identifier;
                 if (namespace_pstr == WO_PSTR(unsafe))
-                    lex.record_lang_error(lexer::msglevel_t::error, ns_token, WO_ERR_CANNOT_USING_UNSAFE);
+                    lex.record_lang_error(lexer::msglevel_t::error, ns_token, diagnose::err_cannot_using_unsafe{});
 
                 used_namespaces.push_back(namespace_pstr);
             }
@@ -152,7 +152,7 @@ namespace wo
         {
             return token{
                 lex.record_parser_error(
-                    lexer::msglevel_t::error, WO_ERR_UNEXPECTED_TOKEN, WO_NEED_TOKEN(0).identifier->c_str()) };
+                    lexer::msglevel_t::error, diagnose::err_unexpected_token{WO_NEED_TOKEN(0).identifier->c_str()}) };
         }
         auto pass_enum_item_create::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -304,7 +304,7 @@ namespace wo
             for (auto& param : paraments->m_list)
             {
                 if (is_variadic_function)
-                    lex.record_lang_error(lexer::msglevel_t::error, param, WO_ERR_ARG_DEFINE_AFTER_VARIADIC);
+                    lex.record_lang_error(lexer::msglevel_t::error, param, diagnose::err_arg_define_after_variadic{});
 
                 if (param->node_type == AstBase::AST_FUNCTION_PARAMETER_DECLARE)
                     in_params.push_back(static_cast<AstFunctionParameterDeclare*>(param));
@@ -844,7 +844,7 @@ namespace wo
             {
                 if (is_variadic_function)
                     return token{ lex.record_lang_error(
-                        lexer::msglevel_t::error, param, WO_ERR_ARG_DEFINE_AFTER_VARIADIC) };
+                        lexer::msglevel_t::error, param, diagnose::err_arg_define_after_variadic{}) };
 
                 if (param->node_type == AstBase::AST_TYPE_HOLDER)
                     paraments.push_back(static_cast<AstTypeHolder*>(param));
@@ -901,8 +901,7 @@ namespace wo
 
                 if (exist_field_name.insert(field_define->m_name).second == false)
                     return token{ lex.record_lang_error(lexer::msglevel_t::error, field,
-                        WO_ERR_REPEATED_FIELD_NAMED,
-                        field_define->m_name->c_str()) };
+                        diagnose::err_repeated_field_named{field_define->m_name->c_str()}) };
             }
 
             return new AstTypeHolder(AstTypeHolder::StructureType{ fields });
@@ -915,7 +914,7 @@ namespace wo
             for (auto& field : tuple_types->m_list)
             {
                 if (field->node_type != AstBase::AST_TYPE_HOLDER)
-                    return token{ lex.record_lang_error(lexer::msglevel_t::error, field, WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG) };
+                    return token{ lex.record_lang_error(lexer::msglevel_t::error, field, diagnose::err_failed_to_create_tuple_with_vaarg{}) };
 
                 fields.push_back(static_cast<AstTypeHolder*>(field));
             }
@@ -1594,8 +1593,7 @@ namespace wo
 
                 if (!exist_field_name.insert(field_pair->m_name).second)
                     return token{ lex.record_lang_error(lexer::msglevel_t::error, field,
-                        WO_ERR_REPEATED_FIELD_NAMED,
-                        field_pair->m_name->c_str()) };
+                        diagnose::err_repeated_field_named{field_pair->m_name->c_str()}) };
             }
 
             return new AstValueStruct(type, fields);
@@ -1632,7 +1630,7 @@ namespace wo
             AstValueBase* value = WO_NEED_AST_VALUE(2);
 
             if (key->m_making_vec || key->m_elements.size() != 1)
-                return token{ lex.record_lang_error(lexer::msglevel_t::error, key, WO_ERR_INVALID_KEY_EXPR) };
+                return token{ lex.record_lang_error(lexer::msglevel_t::error, key, diagnose::err_invalid_key_expr{}) };
 
             // NOTE: Abondon the key node.
 

@@ -2371,14 +2371,12 @@ namespace wo
         if (!value_instance->m_IR_storage.has_value())
         {
             lex.record_lang_error(lexer::msglevel_t::error, node,
-                WO_ERR_VARIABLE_STORAGE_NOT_DETERMINED,
-                get_value_name(value_instance));
+                diagnose::err_variable_storage_not_determined{value_instance});
 
             if (value_instance->m_symbol->m_symbol_declare_ast.has_value())
                 lex.record_lang_error(lexer::msglevel_t::infom,
                     value_instance->m_symbol->m_symbol_declare_ast.value(),
-                    WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                    get_value_name(value_instance));
+                    diagnose::info_symbol_named_defined_here{get_value_name(value_instance)});
 
             return FAILED;
         }
@@ -3384,7 +3382,7 @@ namespace wo
             if (node->m_LANG_unpack_method == AstFakeValueUnpack::SHOULD_NOT_UNPACK)
             {
                 lex.record_lang_error(lexer::msglevel_t::error, node,
-                    WO_ERR_CANNOT_UNPACK_HERE);
+                    diagnose::err_cannot_unpack_here{});
 
                 return FAILED;
             }
@@ -4780,14 +4778,12 @@ namespace wo
                 if (!assign_value_instance->m_IR_storage.has_value())
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node,
-                        WO_ERR_VARIABLE_STORAGE_NOT_DETERMINED,
-                        get_value_name(assign_value_instance));
+                        diagnose::err_variable_storage_not_determined{assign_value_instance});
 
                     if (assign_value_instance->m_symbol->m_symbol_declare_ast.has_value())
                         lex.record_lang_error(lexer::msglevel_t::infom,
                             assign_value_instance->m_symbol->m_symbol_declare_ast.value(),
-                            WO_INFO_SYMBOL_NAMED_DEFINED_HERE,
-                            get_value_name(assign_value_instance));
+                            diagnose::info_symbol_named_defined_here{get_value_name(assign_value_instance)});
 
                     return FAILED;
                 }
@@ -5709,8 +5705,7 @@ namespace wo
                 && type_instance->m_symbol != m_origin_types.m_nothing.m_symbol)
             {
                 lex.record_lang_error(lexer::msglevel_t::error, eval_value,
-                    WO_ERR_NON_VOID_TYPE_EXPR_AS_STMT,
-                    get_type_name(type_instance));
+                    diagnose::err_non_void_type_expr_as_stmt{type_instance});
 
                 return FAILED;
             }

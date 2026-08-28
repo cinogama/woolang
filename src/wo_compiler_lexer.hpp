@@ -5,6 +5,8 @@
 #include <string>
 #include <list>
 #include <queue>
+#include <memory>
+#include <type_traits>
 #include <unordered_map>
 
 #include <cwctype>
@@ -175,6 +177,12 @@ namespace wo
             std::string m_filename;
 
             std::string m_describe;
+
+            // Deferred diagnose payload; empty for legacy printf-style
+            // records (which fill m_describe eagerly). Filled by the typed
+            // record entries and rendered into m_describe exactly once, by
+            // realize_pending_diagnose, when a compile has failed.
+            std::shared_ptr<const diagnose::lang_diagnose_t> m_pending;
 
             // Auto assigned in `record_message`
             size_t      m_layer;
@@ -380,27 +388,23 @@ namespace wo
         [[nodiscard]]
         compiler_message_t& append_message(const compiler_message_t& moved_message);
 
-        template<typename ... FmtArgTs>
-        void record_format(
+        // Render every pending (deferred) diagnose into m_describe, exactly
+        // once, at the end of a failed compile - while the AST/lang
+        // instances the payloads point to are still alive. Successful
+        // compiles never call this, so they never generate message texts.
+        void realize_pending_diagnose(LangContext* lang);
+
+    public:
+        template<typename DiagnoseT>
+        void record_diagnose(
             msglevel_t level,
             size_t range_begin_row,
             size_t range_begin_col,
             size_t range_end_row,
             size_t range_end_col,
             const std::string& source,
-            const char* format,
-            FmtArgTs&& ... format_args)
+            DiagnoseT&& diagnose)
         {
-            bool failed_flag = false;
-            int count = snprintf(nullptr, 0, format, format_args...);
-
-            if (count < 0)
-                failed_flag = true;
-
-            std::vector<char> describe(failed_flag ? 0 : count + 1);
-            if (snprintf(describe.data(), describe.size(), format, format_args...) < 0)
-                failed_flag = true;
-
             (void)record_message(
                 compiler_message_t
                 {
@@ -408,66 +412,74 @@ namespace wo
                     { range_begin_row, range_begin_col },
                     { range_end_row, range_end_col },
                     source,
-                    failed_flag ? format : describe.data(),
+                    std::string(),
+                    std::shared_ptr<const diagnose::lang_diagnose_t>(
+                        std::make_shared<
+                            diagnose::diagnose_model_t<std::decay_t<DiagnoseT>>>(
+                            std::forward<DiagnoseT>(diagnose)))
                 });
         }
 
-        template<typename ... FmtArgTs>
+    public:
+        template<typename DiagnoseT,
+            typename = std::enable_if_t<
+                diagnose::is_diagnose_t<
+                    std::decay_t<DiagnoseT>>::value>>
         void produce_lexer_error(
             msglevel_t level,
-            const char* format,
-            FmtArgTs&& ... format_args)
+            DiagnoseT&& diagnose)
         {
             if (m_source_path.has_value())
-                record_format(
+                record_diagnose(
                     level,
                     _m_row_counter,
                     _m_col_counter,
                     _m_row_counter,
                     _m_col_counter,
                     *m_source_path.value(),
-                    format,
-                    format_args...);
+                    std::forward<DiagnoseT>(diagnose));
 
             produce_token(lex_type::l_error, "");
         }
 
-        template<typename ... FmtArgTs>
+        template<typename DiagnoseT,
+            typename = std::enable_if_t<
+                diagnose::is_diagnose_t<
+                    std::decay_t<DiagnoseT>>::value>>
         [[nodiscard]]
         lex_type record_parser_error(
             msglevel_t level,
-            const char* format,
-            FmtArgTs&& ... format_args)
+            DiagnoseT&& diagnose)
         {
-            record_format(
+            record_diagnose(
                 level,
                 _m_this_token_begin_row,
                 _m_this_token_begin_col,
                 _m_row_counter,
                 _m_col_counter,
                 *m_source_path.value(),
-                format,
-                format_args...);
+                std::forward<DiagnoseT>(diagnose));
 
             return lex_type::l_error;
         }
 
-        template<typename AstT, typename ... FmtArgTs>
+        template<typename AstT, typename DiagnoseT,
+            typename = std::enable_if_t<
+                diagnose::is_diagnose_t<
+                    std::decay_t<DiagnoseT>>::value>>
         lex_type record_lang_error(
             msglevel_t level,
             AstT* ast_node,
-            const char* format,
-            FmtArgTs&& ... format_args)
+            DiagnoseT&& diagnose)
         {
-            record_format(
+            record_diagnose(
                 level,
                 ast_node->source_location.begin_at.row,
                 ast_node->source_location.begin_at.column,
                 ast_node->source_location.end_at.row,
                 ast_node->source_location.end_at.column,
                 *ast_node->source_location.source_file,
-                format,
-                format_args...);
+                std::forward<DiagnoseT>(diagnose));
 
             return lex_type::l_error;
         }

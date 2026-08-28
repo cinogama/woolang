@@ -808,15 +808,15 @@ namespace wo
                     {
                         if (peeked_token_instance->m_lex_type == lex_type::l_macro)
                         {
-                            tkr.record_format(
+                            tkr.record_diagnose(
                                 lexer::msglevel_t::error,
                                 peeked_token_instance->m_token_begin[0],
                                 peeked_token_instance->m_token_begin[1],
                                 peeked_token_instance->m_token_end[0],
                                 peeked_token_instance->m_token_end[1],
                                 *tkr.get_source_path(),
-                                WO_ERR_UNKNOWN_MACRO_NAMED,
-                                peeked_token_instance->m_token_text->c_str());
+                                diagnose::err_unknown_macro_named{
+                                peeked_token_instance->m_token_text->c_str()});
                         }
                         else
                         {
@@ -829,12 +829,12 @@ namespace wo
                                 }
                                 else
                                     (void)tkr.record_parser_error(
-                                        lexer::msglevel_t::error, WO_ERR_UNEXPECTED_EOF);
+                                        lexer::msglevel_t::error, diagnose::err_unexpected_eof{});
                             }
                             else
                                 (void)tkr.record_parser_error(
-                                    lexer::msglevel_t::error, WO_ERR_UNEXPECTED_TOKEN,
-                                    peeked_token_instance->m_token_text->c_str());
+                                    lexer::msglevel_t::error, diagnose::err_unexpected_token{
+                                    peeked_token_instance->m_token_text->c_str()});
                         }
 
                         try_recover_count = 0;
@@ -941,15 +941,15 @@ namespace wo
                     {
                     case lex_type::l_macro:
                     {
-                        tkr.record_format(
+                        tkr.record_diagnose(
                             lexer::msglevel_t::error,
                             peeked_token_instance->m_token_begin[0],
                             peeked_token_instance->m_token_begin[1],
                             peeked_token_instance->m_token_end[0],
                             peeked_token_instance->m_token_end[1],
                             *tkr.get_source_path(),
-                            WO_ERR_UNKNOWN_MACRO_NAMED,
-                            peeked_token_instance->m_token_text->c_str());
+                            diagnose::err_unknown_macro_named{
+                            peeked_token_instance->m_token_text->c_str()});
                         break;
                     }
                     case lex_type::l_error:
@@ -1046,7 +1046,7 @@ namespace wo
                     else
                         (void)tkr.record_parser_error(
                             lexer::msglevel_t::error,
-                            WO_ERR_SOURCE_CANNOT_BE_EMPTY);
+                            diagnose::err_source_cannot_be_empty{});
 
                     return nullptr;
                 }
@@ -1058,7 +1058,7 @@ namespace wo
 
         } while (true);
 
-        (void)tkr.record_parser_error(lexer::msglevel_t::error, WO_ERR_UNEXPECTED_EOF);
+        (void)tkr.record_parser_error(lexer::msglevel_t::error, diagnose::err_unexpected_eof{});
 
         return nullptr;
     }
