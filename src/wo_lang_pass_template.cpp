@@ -73,9 +73,26 @@ namespace wo
         lex.record_lang_error(lexer::msglevel_t::error, node,
             diagnose::err_failed_reification_caused_by{failed_template_arg_list.c_str(), inst->m_symbol});
 
+        // The same failed instance may be hit from several concretization
+        // sites. Replay its stashed reason only for messages that are not
+        // already part of the final report (the root frame); for the rest a
+        // single brief note is enough.
+        bool has_skipped_reported_error = false;
         for (const auto& error_message : inst->m_failed_error_for_this_instance.value())
+        {
+            if (lex.root_frame_already_has_message(error_message))
+            {
+                if (error_message.m_level == lexer::msglevel_t::error)
+                    has_skipped_reported_error = true;
+                continue;
+            }
             // TODO: Describe the error support.
             lex.append_message(error_message).m_layer += error_message.m_layer + 1;
+        }
+
+        if (has_skipped_reported_error)
+            lex.record_lang_error(lexer::msglevel_t::infom, node,
+                diagnose::info_failure_reason_already_reported{});
     }
 
     void LangContext::report_template_instance_dependency_chain(

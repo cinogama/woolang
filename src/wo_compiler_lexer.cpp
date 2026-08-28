@@ -932,6 +932,27 @@ extern func macro_entry(lexer: std::lexer)=> string
                 }
     }
 
+    bool lexer::root_frame_already_has_message(const compiler_message_t& message) const
+    {
+        const compiler_message_list_t& root_frame
+            = m_shared_context->m_error_frame.front();
+
+        for (const auto& existed : root_frame)
+        {
+            if (existed.m_level == message.m_level
+                && existed.m_range_begin[0] == message.m_range_begin[0]
+                && existed.m_range_begin[1] == message.m_range_begin[1]
+                && existed.m_range_end[0] == message.m_range_end[0]
+                && existed.m_range_end[1] == message.m_range_end[1]
+                && existed.m_filename == message.m_filename
+                && ((existed.m_pending != nullptr && message.m_pending != nullptr)
+                    ? existed.m_pending->same_as(*message.m_pending)
+                    : existed.m_describe == message.m_describe))
+                return true;
+        }
+        return false;
+    }
+
     void lexer::produce_token(lex_type type, std::string&& moved_token_text)
     {
         wo_pstring_t interned_text = wstring_pool::get_pstr(moved_token_text);

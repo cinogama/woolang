@@ -1036,6 +1036,18 @@ namespace wo::diagnose
         }
         bool operator==(const err_pattern_index_should_be_mutable_type&) const { return true; }
     };
+
+    // Emitted instead of re-replaying a failed template instance's stashed
+    // reason when the same diagnose has already made it into the final
+    // report once (see LangContext::_collect_failed_template_instance).
+    struct info_failure_reason_already_reported final
+    {
+        std::string render(LangContext* lang) const
+        {
+            return u8"该实例的失败原因已在之前的错误报告中说明";
+        }
+        bool operator==(const info_failure_reason_already_reported&) const { return true; }
+    };
 }
 
 // Message-fragment macros (WO_MSG_*) used when rendering diagnostics; these

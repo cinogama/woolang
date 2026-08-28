@@ -383,6 +383,11 @@ namespace wo
         compiler_message_list_t& get_current_error_frame();
         compiler_message_list_t& get_root_error_frame();
 
+        // True when an identical message (same level/location/payload) is
+        // already held by the ROOT error frame - root-frame content is never
+        // suppressed, so this means "already part of the final report".
+        bool root_frame_already_has_message(const compiler_message_t& message) const;
+
         [[nodiscard]]
         compiler_message_t& record_message(compiler_message_t&& moved_message);
         [[nodiscard]]
