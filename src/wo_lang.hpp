@@ -1334,6 +1334,10 @@ namespace wo
         void using_namespace_declare_for_current_scope(ast::AstUsingNamespace* using_namespace);
         void append_using_namespace_for_current_scope(const std::unordered_set<lang_Namespace*>& using_namespaces, wo_pstring_t source);
         void _collect_failed_template_instance(lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst);
+        std::string _format_template_argument_list(lang_TemplateAstEvalStateBase* inst);
+        std::string _format_template_instance_name(lang_TemplateAstEvalStateBase* inst);
+        void report_template_instance_dependency_chain(
+            lexer& lex, PassProcessStackT& out_stack, lang_TemplateAstEvalStateBase* recursing_inst);
 
         lang_ValueInstance* check_and_update_captured_varibale_in_current_scope(
             ast::AstValueVariable* ref_from_variable,

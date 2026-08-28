@@ -4,8 +4,7 @@ namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
 
-    void LangContext::_collect_failed_template_instance(
-        lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst)
+    std::string LangContext::_format_template_argument_list(lang_TemplateAstEvalStateBase* inst)
     {
         std::vector<ast::AstTemplateParam*>* template_params = nullptr;
         switch (inst->m_symbol->m_symbol_kind)
@@ -52,6 +51,25 @@ namespace wo
                 failed_template_arg_list += get_type_name(it_template_arg->m_type);
         }
 
+        return failed_template_arg_list;
+    }
+
+    std::string LangContext::_format_template_instance_name(lang_TemplateAstEvalStateBase* inst)
+    {
+        std::string instance_name = get_symbol_name(inst->m_symbol);
+        std::string argument_list = _format_template_argument_list(inst);
+
+        if (!argument_list.empty())
+            instance_name += "<" + argument_list + ">";
+
+        return instance_name;
+    }
+
+    void LangContext::_collect_failed_template_instance(
+        lexer& lex, ast::AstBase* node, lang_TemplateAstEvalStateBase* inst)
+    {
+        std::string failed_template_arg_list = _format_template_argument_list(inst);
+
         lex.record_lang_error(lexer::msglevel_t::error, node,
             WO_ERR_FAILED_REIFICATION_CAUSED_BY,
             failed_template_arg_list.c_str(),
@@ -60,6 +78,71 @@ namespace wo
         for (const auto& error_message : inst->m_failed_error_for_this_instance.value())
             // TODO: Describe the error support.
             lex.append_message(error_message).m_layer += error_message.m_layer + 1;
+    }
+
+    void LangContext::report_template_instance_dependency_chain(
+        lexer& lex, PassProcessStackT& out_stack, lang_TemplateAstEvalStateBase* recursing_inst)
+    {
+        constexpr size_t MAX_DEPENDENCY_CHAIN_MESSAGES = 16;
+
+        // Copy the live traversal stack and walk it bottom-up, i.e. in
+        // dependency order, reporting the frames that explain how evaluation
+        // reached the already-in-flight instance again.
+        std::vector<ast::AstBase*> frames_bottom_up;
+        {
+            auto stack_copy = out_stack;
+            frames_bottom_up.reserve(stack_copy.size());
+            for (; !stack_copy.empty(); stack_copy.pop())
+                frames_bottom_up.push_back(stack_copy.top().m_ast_node);
+        }
+
+        size_t reported = 0;
+        for (auto it = frames_bottom_up.rbegin();
+            it != frames_bottom_up.rend() && reported < MAX_DEPENDENCY_CHAIN_MESSAGES;
+            ++it)
+        {
+            auto* frame = *it;
+
+            switch (frame->node_type)
+            {
+            case ast::AstBase::AST_TEMPLATE_CONSTANT_TYPE_CHECK_IN_PASS1:
+            {
+                auto* checker = static_cast<ast::AstTemplateConstantTypeCheckInPass1*>(frame);
+                if (checker->m_template_instance == recursing_inst->m_ast)
+                    lex.record_lang_error(lexer::msglevel_t::infom, checker->m_template_instance,
+                        WO_INFO_DEPENDENCY_CHAIN_TEMPLATE_INSTANCE,
+                        _format_template_instance_name(recursing_inst).c_str());
+                else
+                    lex.record_lang_error(lexer::msglevel_t::infom, frame,
+                        WO_INFO_DEPENDENCY_CHAIN_OTHER_TEMPLATE_INSTANCE);
+                ++reported;
+                break;
+            }
+            case ast::AstBase::AST_VALUE_FUNCTION:
+            {
+                auto* function = static_cast<ast::AstValueFunction*>(frame);
+                if (function->m_LANG_value_instance_to_update.has_value()
+                    && function->m_LANG_value_instance_to_update.value()->m_symbol)
+                    lex.record_lang_error(lexer::msglevel_t::infom, frame,
+                        WO_INFO_DEPENDENCY_CHAIN_FUNCTION,
+                        get_value_name(function->m_LANG_value_instance_to_update.value()));
+                else
+                    lex.record_lang_error(lexer::msglevel_t::infom, frame,
+                        WO_INFO_DEPENDENCY_CHAIN_ANONYMOUS_FUNCTION);
+                ++reported;
+                break;
+            }
+            case ast::AstBase::AST_WHERE_CONSTRAINTS:
+            {
+                lex.record_lang_error(lexer::msglevel_t::infom, frame,
+                    WO_INFO_DEPENDENCY_CHAIN_WHERE_CONSTRAINTS);
+                ++reported;
+                break;
+            }
+            default:
+                break;
+            }
+        }
     }
 
     bool check_template_argument_count_and_type(
@@ -335,7 +418,9 @@ namespace wo
             // NOTE: Donot modify eval state here.
             //  Some case like `is pending` may meet this error but it's not a real error.
             lex.record_lang_error(lexer::msglevel_t::error, node,
-                WO_ERR_RECURSIVE_TEMPLATE_INSTANCE);
+                WO_ERR_RECURSIVE_TEMPLATE_INSTANCE,
+                _format_template_instance_name(result).c_str());
+            report_template_instance_dependency_chain(lex, out_stack, result);
             return std::nullopt;
         }
         case lang_TemplateAstEvalStateValue::state::UNPROCESSED:

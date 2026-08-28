@@ -2723,6 +2723,65 @@ func main()
         std::println("Compile 1000 src cost:", end_time - begin_tm);
     }
     
+    /* Recursive template instance dependencies: a generic let whose
+    evaluation pulls in a function whose `where` clause references the
+    same instance again. Must stay a compile failure (and exercise the
+    dependency-chain diagnostics), while the source-order variant without
+    the early `do` must keep compiling. */
+    func test_compile_recursive_template_instance()
+    {
+        // The instance is referenced before the struct: evaluating it needs
+        // typeof<Bar>::foo, which needs create, whose where needs the
+        // instance again -> recursive template instance error.
+        assure_compile_fail(@"
+let HaveFoo<T> = typeof<T>::foo is ()=> void;
+
+do HaveFoo:<Bar>;
+
+using Bar = struct{}
+{
+    func create()=> Bar
+        where HaveFoo:<Bar>;
+    {
+        return Bar{};
+    }
+
+    func foo()
+    {
+        do create();
+    }
+}
+        "@);
+
+        // Same declarations, but nothing forces HaveFoo:<Bar> before the
+        // struct: create's signature (and where) is checked in source order.
+        assure_compile_success(@"
+let HaveFoo<T> = typeof<T>::foo is ()=> void;
+
+using Bar = struct{}
+{
+    func create()=> Bar
+        where HaveFoo:<Bar>;
+    {
+        return Bar{};
+    }
+
+    func foo()
+    {
+        do create();
+    }
+}
+
+do HaveFoo:<Bar>;
+        "@);
+
+        // Direct self reference in a generic let definition.
+        assure_compile_fail(@"
+let A<T> = A:<T>;
+do A:<int>;
+        "@);
+    }
+
     /* Lexer / tokenizer error paths that require assure_compile_fail.
     Each case targets a specific error branch in wo_compiler_lexer.cpp. */
     func test_compile_lexer_errors()
@@ -2797,5 +2856,6 @@ func main()
 }
 
 test_function("test_compile.main", test_compile::main);
+test_function("test_compile.recursive_template_instance", test_compile::test_compile_recursive_template_instance);
 test_function("test_compile.lexer_errors", test_compile::test_compile_lexer_errors);
 test_function("test_compile.type_errors", test_compile::test_compile_type_errors);

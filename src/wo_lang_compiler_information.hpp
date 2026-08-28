@@ -70,7 +70,7 @@
 #define WO_ERR_VALUE_TYPE_DETERMINED_FAILED u8"无法确定表达式类型"
 #define WO_ERR_TYPE_DETERMINED_FAILED u8"无法确定类型"
 #define WO_ERR_TYPE_NAMED_DETERMINED_FAILED u8"类型 `%s` 尚未完全确定, 无法进行类型检查"
-#define WO_ERR_RECURSIVE_TEMPLATE_INSTANCE u8"类型推断循环依赖：泛型实例递归地依赖自身"
+#define WO_ERR_RECURSIVE_TEMPLATE_INSTANCE u8"类型推断循环依赖：泛型实例 `%s` 递归地依赖自身"
 #define WO_ERR_RECURSIVE_EVAL_PASS1 u8"递归依赖：表达式依赖自身"
 #define WO_ERR_CONSTRAINT_SHOULD_BE_CONST u8"约束条件必须是常量表达式"
 #define WO_ERR_CONSTRAINT_SHOULD_BE_BOOL u8"约束条件表达式必须是布尔类型"
@@ -173,6 +173,16 @@
 #define WO_INFO_CAPTURED_VARIABLE_USED_HERE u8"引用了外部变量 `%s`"
 #define WO_INFO_TRYING_REFILL_TEMPLATE_ARGUMENT u8"正在为类型 `%s`(通过别名 `%s` 引用) 重新指定泛型参数"
 #define WO_INFO_OLD_FUNCTION_RETURN_TYPE_IS u8"函数先前返回类型被推断为 `%s`"
+
+// PASS0_1 recursive template instance diagnosis:
+//   notes emitted when a template instance recursively depends on itself,
+//   walking the evaluation chain from the outer instantiation back to the
+//   recursive reference.
+#define WO_INFO_DEPENDENCY_CHAIN_TEMPLATE_INSTANCE u8"依赖链：此处开始求值泛型实例 `%s` 的定义"
+#define WO_INFO_DEPENDENCY_CHAIN_OTHER_TEMPLATE_INSTANCE u8"依赖链：此处求值了另一个泛型实例"
+#define WO_INFO_DEPENDENCY_CHAIN_FUNCTION u8"依赖链：此处检查函数 `%s` 的定义"
+#define WO_INFO_DEPENDENCY_CHAIN_ANONYMOUS_FUNCTION u8"依赖链：此处检查一个函数定义"
+#define WO_INFO_DEPENDENCY_CHAIN_WHERE_CONSTRAINTS u8"依赖链：此处求值函数的 where 约束"
 
 // PASSIR BYTECODE GENERATOR
 #define WO_ERR_NON_VOID_TYPE_EXPR_AS_STMT u8"非 void 类型的表达式(当前为 `%s`)不能单独作为语句，可能导致结果被忽略"
