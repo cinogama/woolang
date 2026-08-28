@@ -526,8 +526,16 @@ namespace wo
             {
                 auto* func = function_instance.value();
 
-                wo_assert(func->m_LANG_captured_context.m_finished);
-                if (!func->m_LANG_captured_context.m_captured_variables.empty())
+                // A typing-advance may have deferred this definition's body
+                // (signature-first advance): the captured context is not
+                // finished yet. Deferred definitions are global functions,
+                // which can never capture variables, so the reset check is
+                // simply re-run by the deferred-check drain once the body
+                // completes (see drain_deferred_checks).
+                wo_assert(func->m_LANG_captured_context.m_finished
+                    || func->m_LANG_deferred_after_signature);
+                if (func->m_LANG_captured_context.m_finished
+                    && !func->m_LANG_captured_context.m_captured_variables.empty())
                 {
                     // Has captured variable, cannot be constant.
                     // See `lang_ValueInstance::try_determine_function_may_constant`, we can reset
@@ -1233,7 +1241,8 @@ namespace wo
     //////////////////////////////////////
 
     LangContext::LangContext()
-        : m_root_namespace(std::make_unique<lang_Namespace>(WO_PSTR(EMPTY), std::nullopt)), m_created_symbol_edge(0)
+        : m_root_namespace(std::make_unique<lang_Namespace>(WO_PSTR(EMPTY), std::nullopt)),
+          m_created_symbol_edge(0), m_typing_advance_depth(0)
     {
         m_scope_stack.push(m_root_namespace->m_this_scope.get());
     }
@@ -1424,6 +1433,52 @@ namespace wo
             m_origin_types.create_dictionary_type(m_origin_types.m_dynamic.m_type_instance, m_origin_types.m_dynamic.m_type_instance);
     }
 
+    bool LangContext::drain_deferred_checks(lexer& lex)
+    {
+        wo_assert(m_typing_advance_depth == 0);
+
+        while (!m_deferred_checks.empty())
+        {
+            auto deferred_check = std::move(m_deferred_checks.front());
+            m_deferred_checks.erase(m_deferred_checks.begin());
+
+            // A parked function node is re-driven through the dispatcher's
+            // deferred-resume branch, which re-enters the function scope
+            // itself (the resumed state machine pops it at completion). Any
+            // other parked node (where-constraints) is driven here with the
+            // function scope entered, so constraints still see parameters.
+            const bool is_function_resume =
+                deferred_check.m_node->node_type == ast::AstBase::AST_VALUE_FUNCTION;
+
+            if (!is_function_resume)
+                entry_spcify_scope(deferred_check.m_function_scope);
+            bool pass1_ok = anylize_pass(
+                lex, deferred_check.m_node,
+                &LangContext::pass_1_process_basic_type_marking_and_constant_eval, false);
+            if (!is_function_resume)
+                end_last_scope();
+
+            if (pass1_ok
+                && deferred_check.m_function_scope->m_function_instance.has_value())
+            {
+                // The definition is complete now: re-run the function-
+                // constant capture check that had to be skipped while the
+                // body was deferred.
+                auto* func = deferred_check.m_function_scope->m_function_instance.value();
+                if (func->m_LANG_value_instance_to_update.has_value())
+                    func->m_LANG_value_instance_to_update.value()
+                        ->check_and_reset_const_if_func_captured();
+            }
+
+            if (!pass1_ok)
+            {
+                m_deferred_checks.clear();
+                return false;
+            }
+        }
+        return true;
+    }
+
     compile_result LangContext::process(lexer& lex, ast::AstBase* root)
     {
         if (m_repl_context.has_value())
@@ -1447,6 +1502,14 @@ namespace wo
             return compile_result::PROCESS_FAILED;
 
         if (!anylize_pass(lex, root, &LangContext::pass_1_process_basic_type_marking_and_constant_eval, false))
+        {
+            m_deferred_checks.clear();
+            return compile_result::PROCESS_FAILED;
+        }
+
+        // Re-drive where-constraints / definition remainders that were parked
+        // by typing-advances: all template instances are in a final state now.
+        if (!drain_deferred_checks(lex))
             return compile_result::PROCESS_FAILED;
 
         // Final process, generate bytecode.

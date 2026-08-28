@@ -1097,6 +1097,11 @@ namespace wo
     {
         if (node->m_LANG_trying_advancing_type_judgement)
         {
+            // The typing-advance of the declaration node has finished
+            // (successfully or not).
+            wo_assert(m_typing_advance_depth > 0);
+            --m_typing_advance_depth;
+
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
 
             auto current_error_frame = std::move(lex.get_current_error_frame());
@@ -1235,6 +1240,10 @@ namespace wo
                         // Type not determined, we need to determine it?
                         // NOTE: Immediately advance the processing of declaration nodes.
                         entry_spcify_scope(var_symbol->m_belongs_to_scope);
+                        // Mark an active typing-advance: while set, function
+                        // definitions being advanced must not synchronously
+                        // evaluate where-constraints (see AstValueFunction).
+                        ++m_typing_advance_depth;
                         WO_CONTINUE_PROCESS(define_ast);
                         return HOLD;
                     }
@@ -1743,10 +1752,49 @@ namespace wo
                 {
                     auto* return_type_instance = node->m_marked_return_type.value()->m_LANG_determined_type.value();
                     decided_function_return_type(return_type_instance);
+
+                    // SIGNATURE-FIRST TYPING ADVANCE: a typing-advance only
+                    // needs this function's signature, which is complete now.
+                    // Leave where-constraints and body UNPROCESSED and park
+                    // the remainder to be re-driven after the pass1
+                    // traversal (see drain_deferred_checks), so that
+                    // evaluating them can never re-enter an in-flight
+                    // template instance through this definition.
+                    if (m_typing_advance_depth > 0
+                        && node->m_LANG_value_instance_to_update.has_value()
+                        && node->m_LANG_value_instance_to_update.value()->m_symbol->m_is_global)
+                    {
+                        end_last_function();
+                        if (node->m_LANG_determined_template_arguments.has_value())
+                            end_last_scope();
+
+                        node->m_LANG_deferred_after_signature = true;
+                        m_deferred_checks.push_back(
+                            { node, node->m_LANG_function_scope.value() });
+                        return OKAY;
+                    }
                 }
 
                 if (node->m_where_constraints.has_value())
                 {
+                    // While a typing-advance is active, never evaluate
+                    // where-constraints synchronously: the return type still
+                    // has to be inferred from the body below, and a
+                    // constraint referencing an in-flight template instance
+                    // would close a spurious cycle. Park the constraints
+                    // (left UNPROCESSED) to be re-driven after the pass1
+                    // traversal, and go check the body directly.
+                    if (m_typing_advance_depth > 0
+                        && node->m_LANG_value_instance_to_update.has_value()
+                        && node->m_LANG_value_instance_to_update.value()->m_symbol->m_is_global)
+                    {
+                        m_deferred_checks.push_back(
+                            { node->m_where_constraints.value(), node->m_LANG_function_scope.value() });
+                        node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_BODY_EVAL;
+                        WO_CONTINUE_PROCESS(node->m_body);
+                        return HOLD;
+                    }
+
                     node->m_LANG_hold_state = AstValueFunction::HOLD_FOR_EVAL_WHERE_CONSTRAINTS;
                     WO_CONTINUE_PROCESS(node->m_where_constraints.value());
                     return HOLD;
@@ -6720,6 +6768,30 @@ namespace wo
                 {
                     // CONTINUE PROCESSING.
                 }
+            }
+            else if (
+                node_state.m_ast_node->finished_state == pass_behavior::OKAY
+                && node_state.m_ast_node->node_type == ast::AstBase::AST_VALUE_FUNCTION
+                && static_cast<ast::AstValueFunction*>(node_state.m_ast_node)
+                    ->m_LANG_deferred_after_signature)
+            {
+                // Resume a definition that a typing-advance stopped after its
+                // signature: continue its state machine from where it parked
+                // (where-constraints, then body).
+                auto* function = static_cast<ast::AstValueFunction*>(node_state.m_ast_node);
+                function->m_LANG_deferred_after_signature = false;
+
+                // Re-enter the saved function scope: the resumed state
+                // machine pops it (end_last_function) on completion/failure.
+                entry_spcify_scope(function->m_LANG_function_scope.value());
+
+                AstNodeWithState resumed_state(pass_behavior::HOLD, node_state.m_ast_node);
+                auto result = m_pass1_processers->process_node(this, lex, resumed_state, out_stack);
+                node_state.m_ast_node->finished_state = result;
+
+                wo_assert(result != pass_behavior::UNPROCESSED);
+
+                return result;
             }
             else
                 return (LangContext::pass_behavior)node_state.m_ast_node->finished_state;

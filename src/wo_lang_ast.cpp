@@ -1767,6 +1767,7 @@ namespace wo
             , m_LANG_in_template_reification_context(false)
             , m_LANG_determined_template_arguments(std::nullopt)
             , m_LANG_function_body_end_with_return_flag_for_IR(false)
+            , m_LANG_deferred_after_signature(false)
             , m_LANG_function_scope(std::nullopt)
             , m_LANG_extern_information(std::nullopt)
             , m_IR_function_MUST_BE_CLEAR_FOR_REPL(std::nullopt)

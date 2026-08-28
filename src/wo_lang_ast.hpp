@@ -818,6 +818,13 @@ namespace wo
             //      return, IR generation does not need to generate additional ret instruction.
             bool m_LANG_function_body_end_with_return_flag_for_IR;
 
+            // Set when a typing-advance stopped this definition right after
+            // its signature (marked return type) was determined: where-
+            // constraints and body were left UNPROCESSED and parked into
+            // LangContext::m_deferred_checks, to be re-driven after the
+            // pass1 traversal. See pass1 AstValueFunction / dispatcher.
+            bool m_LANG_deferred_after_signature;
+
             LANG_capture_context m_LANG_captured_context;
             std::optional<lang_Scope*> m_LANG_function_scope;
 

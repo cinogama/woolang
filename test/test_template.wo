@@ -450,4 +450,37 @@ namespace real
     let someval = "T is real";
 }
 
+/* Typing-advance must break the spurious where/constraint cycle:
+   early_check forces HaveFooT:<BarT> before BarT's members are checked;
+   create's where-constraint is deferred (signature-first advance) and
+   still evaluates to true; the functions run normally afterwards. */
+namespace deferred_where
+{
+    let HaveFooT<T> = typeof<T>::foo is ()=> void;
+
+    let early_check = HaveFooT:<BarT>;
+
+    using BarT = struct{}
+    {
+        func create()=> BarT
+            where HaveFooT:<BarT>;
+        {
+            return BarT{};
+        }
+
+        func foo()
+        {
+            do create();
+        }
+    }
+
+    func run()
+    {
+        test_assure(early_check);
+        test_assure(HaveFooT:<BarT>);
+        do BarT::foo();
+    }
+}
+
 test_function("test_template.main", test_template::main);
+test_function("test_template.typing_advance_deferred_where", deferred_where::run);

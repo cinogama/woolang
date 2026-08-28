@@ -739,6 +739,14 @@ namespace wo
                 ast::AstBase::node_type_t nodetype);
         };
 
+        // Node parked by a typing-advance, to be re-driven after the pass1
+        // traversal (see m_deferred_checks).
+        struct DeferredCheck
+        {
+            ast::AstBase* m_node;         // Node to re-drive (function or where-constraints).
+            lang_Scope* m_function_scope; // Function scope to re-enter first.
+        };
+
         struct OriginTypeHolder
         {
             struct OriginTypeChain
@@ -853,6 +861,17 @@ namespace wo
         // Used for make sure template instance will never see the symbol declared after them.
         size_t                          m_created_symbol_edge;
 
+        // Where-constraints / definition remainders parked by a typing-advance:
+        // a constraint may reference a template instance whose evaluation needs
+        // this very function's type, closing a spurious cycle, so an advance
+        // never evaluates where-constraints synchronously (see AstValueVariable
+        // pass1). Re-driven by drain_deferred_checks after the pass1 traversal,
+        // when every template instance is in a final state.
+        std::vector<DeferredCheck>      m_deferred_checks;
+
+        // Depth of active typing-advances (see AstValueVariable pass1).
+        size_t                          m_typing_advance_depth;
+
         // Used for print symbol & type names.
         std::unordered_map<lang_Symbol*, std::string>
             m_symbol_name_cache;
@@ -901,6 +920,8 @@ namespace wo
         void walk_through_constant_to_record_function_ast(const ast::ConstantValue& const_value);
 
         void pass_0_5_register_builtin_types();
+
+        bool drain_deferred_checks(lexer& lex);
 
         compile_result process(lexer& lex, ast::AstBase* root);
 

@@ -2725,15 +2725,19 @@ func main()
     
     /* Recursive template instance dependencies: a generic let whose
     evaluation pulls in a function whose `where` clause references the
-    same instance again. Must stay a compile failure (and exercise the
-    dependency-chain diagnostics), while the source-order variant without
-    the early `do` must keep compiling. */
+    same instance again. The typing-advance breaks the spurious cycle
+    (signature-first advance for marked return types, deferred where-
+    constraints otherwise), so these must compile; deferred constraints
+    are still enforced, and genuine value-level self reference stays a
+    compile failure. */
     func test_compile_recursive_template_instance()
     {
         // The instance is referenced before the struct: evaluating it needs
-        // typeof<Bar>::foo, which needs create, whose where needs the
-        // instance again -> recursive template instance error.
-        assure_compile_fail(@"
+        // typeof<Bar>::foo, which needs create. The advance of create
+        // (marked return type) must stop at its signature and defer its
+        // where-constraints, breaking the cycle; the deferred constraint
+        // evaluates to true after the pass1 traversal.
+        assure_compile_success(@"
 let HaveFoo<T> = typeof<T>::foo is ()=> void;
 
 do HaveFoo:<Bar>;
@@ -2741,6 +2745,51 @@ do HaveFoo:<Bar>;
 using Bar = struct{}
 {
     func create()=> Bar
+        where HaveFoo:<Bar>;
+    {
+        return Bar{};
+    }
+
+    func foo()
+    {
+        do create();
+    }
+}
+        "@);
+
+        // Same cycle, but foo also has a marked return type: the advance
+        // of foo stops at its signature as well.
+        assure_compile_success(@"
+let HaveFoo<T> = typeof<T>::foo is ()=> void;
+
+do HaveFoo:<Bar>;
+
+using Bar = struct{}
+{
+    func create()=> Bar
+        where HaveFoo:<Bar>;
+    {
+        return Bar{};
+    }
+
+    func foo()=> void
+    {
+        do create();
+    }
+}
+        "@);
+
+        // Same cycle, but create's return type must be inferred from its
+        // body: the advance still checks the body (needed for the type),
+        // only the where-constraints are deferred.
+        assure_compile_success(@"
+let HaveFoo<T> = typeof<T>::foo is ()=> void;
+
+do HaveFoo:<Bar>;
+
+using Bar = struct{}
+{
+    func create()
         where HaveFoo:<Bar>;
     {
         return Bar{};
@@ -2773,6 +2822,50 @@ using Bar = struct{}
 }
 
 do HaveFoo:<Bar>;
+        "@);
+
+        // Deferred where-constraints are still enforced: this judgement
+        // evaluates to false, the deferred check must fail the constraint.
+        assure_compile_fail(@"
+let HaveFoo<T> = typeof<T>::foo is ()=> int;
+
+do HaveFoo:<Bar>;
+
+using Bar = struct{}
+{
+    func create()=> Bar
+        where HaveFoo:<Bar>;
+    {
+        return Bar{};
+    }
+
+    func foo()
+    {
+        do create();
+    }
+}
+        "@);
+
+        // Deferred where-constraints are still enforced: a constraint that
+        // is statically false must fail even when its check is deferred.
+        assure_compile_fail(@"
+let HaveFoo<T> = typeof<T>::foo is ()=> void;
+
+do HaveFoo:<Bar>;
+
+using Bar = struct{}
+{
+    func create()=> Bar
+        where HaveFoo:<Bar> && false;
+    {
+        return Bar{};
+    }
+
+    func foo()
+    {
+        do create();
+    }
+}
         "@);
 
         // Direct self reference in a generic let definition.
