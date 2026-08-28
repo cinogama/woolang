@@ -5,6 +5,28 @@ namespace wo
 #ifndef WO_DISABLE_COMPILER
     using namespace ast;
 
+    // Advanced judgement teardown force-reports captured messages into the
+    // root frame (see the NOTE in AstValueVariable/AstTypeHolder handlers).
+    // With nested advances every teardown level re-reports what inner levels
+    // already reported, so skip copies that the root frame already holds.
+    static bool root_frame_already_has_message(
+        const lexer::compiler_message_list_t& root_frame,
+        const lexer::compiler_message_t& message)
+    {
+        for (const auto& existed : root_frame)
+        {
+            if (existed.m_level == message.m_level
+                && existed.m_range_begin[0] == message.m_range_begin[0]
+                && existed.m_range_begin[1] == message.m_range_begin[1]
+                && existed.m_range_end[0] == message.m_range_end[0]
+                && existed.m_range_end[1] == message.m_range_end[1]
+                && existed.m_filename == message.m_filename
+                && existed.m_describe == message.m_describe)
+                return true;
+        }
+        return false;
+    }
+
     static const char* binary_operator_symbol(AstValueBinaryOperator::operator_type op)
     {
         switch (op)
@@ -757,12 +779,13 @@ namespace wo
 
             for (auto& errinform : current_error_frame)
             {
-                // NOTE: Advanced judgement failed, only non-template will be here. 
+                // NOTE: Advanced judgement failed, only non-template will be here.
                 // make sure report it into error list.
                 lex.append_message(errinform).m_layer = errinform.m_layer - 1;
 
                 auto& root_error_frame = lex.get_root_error_frame();
-                if (&last_error_frame != &root_error_frame)
+                if (&last_error_frame != &root_error_frame
+                    && !root_frame_already_has_message(root_error_frame, errinform))
                 {
                     auto& supper_error = root_error_frame.emplace_back(errinform);
                     supper_error.m_layer -= current_error_frame_depth;
@@ -1131,12 +1154,13 @@ namespace wo
 
             for (auto& errinform : current_error_frame)
             {
-                // NOTE: Advanced judgement failed, only non-template will be here. 
+                // NOTE: Advanced judgement failed, only non-template will be here.
                 // make sure report it into error list.
                 lex.append_message(errinform).m_layer = errinform.m_layer - 1;
 
                 auto& root_error_frame = lex.get_root_error_frame();
-                if (&last_error_frame != &root_error_frame)
+                if (&last_error_frame != &root_error_frame
+                    && !root_frame_already_has_message(root_error_frame, errinform))
                 {
                     auto& supper_error = root_error_frame.emplace_back(errinform);
                     supper_error.m_layer -= current_error_frame_depth;
