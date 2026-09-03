@@ -179,22 +179,38 @@ namespace wo
             }
         }
 
-        for (const auto& [func, cidx] : m_function_imm_pool)
-        {
-            if (func->m_LANG_extern_information.has_value())
-            {
-                auto& extern_info = func->m_LANG_extern_information.value();
+        using set_const_func_or_clos_func_t = bool (*)(
+            woort_CodeEnv* code_env,
+            woort_IRConstantIndex cidx,
+            woort_NativeFunction val,
+            /* OPTIONAL */ const char* lib_name,
+            /* OPTIONAL */ const char* func_name);
 
+        auto set_constant_func_or_closure = [cenv](
+            ast::AstExternInformation* extern_info,
+            woort_IRConstantIndex cidx,
+            set_const_func_or_clos_func_t f)
+            {
                 const char* library_name = extern_info->m_extern_from_library.has_value()
                     ? extern_info->m_extern_from_library.value()->m_evaled_const_value.value().value_pstring()->c_str()
                     : "woolang";
 
-                if (!woort_CodeEnv_set_const_extern_function(
+                return f(
                     cenv,
                     cidx,
                     extern_info->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value(),
                     library_name,
-                    extern_info->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str()))
+                    extern_info->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str());
+            };
+
+        for (const auto& [func, cidx] : m_function_imm_pool)
+        {
+            if (func->m_LANG_extern_information.has_value())
+            {
+                if (set_constant_func_or_closure(
+                    func->m_LANG_extern_information.value(),
+                    cidx,
+                    woort_CodeEnv_set_const_extern_function))
                 {
                     goto label_failed_to_regiser_constant_or_lib;
                 }
@@ -214,23 +230,14 @@ namespace wo
             }
         }
 
-
         for (const auto& [func, cidx] : m_closure_imm_pool)
         {
             if (func->m_LANG_extern_information.has_value())
             {
-                auto& extern_info = func->m_LANG_extern_information.value();
-
-                const char* library_name = extern_info->m_extern_from_library.has_value()
-                    ? extern_info->m_extern_from_library.value()->m_evaled_const_value.value().value_pstring()->c_str()
-                    : "woolang";
-
-                if (!woort_CodeEnv_set_const_extern_closure(
-                    cenv,
+                if (set_constant_func_or_closure(
+                    func->m_LANG_extern_information.value(),
                     cidx,
-                    extern_info->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value(),
-                    library_name,
-                    extern_info->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str()))
+                    woort_CodeEnv_set_const_extern_closure))
                 {
                     goto label_failed_to_regiser_constant_or_lib;
                 }
@@ -291,7 +298,6 @@ namespace wo
 
         abondon();
         return cenv;
-
 
     label_failed_to_regiser_constant_or_lib:
         woort_CodeEnv_unlock(cenv);
