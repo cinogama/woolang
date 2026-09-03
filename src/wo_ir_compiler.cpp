@@ -207,7 +207,7 @@ namespace wo
         {
             if (func->m_LANG_extern_information.has_value())
             {
-                if (set_constant_func_or_closure(
+                if (!set_constant_func_or_closure(
                     func->m_LANG_extern_information.value(),
                     cidx,
                     woort_CodeEnv_set_const_extern_function))
@@ -234,7 +234,7 @@ namespace wo
         {
             if (func->m_LANG_extern_information.has_value())
             {
-                if (set_constant_func_or_closure(
+                if (!set_constant_func_or_closure(
                     func->m_LANG_extern_information.value(),
                     cidx,
                     woort_CodeEnv_set_const_extern_closure))
