@@ -183,11 +183,21 @@ namespace wo
         {
             if (func->m_LANG_extern_information.has_value())
             {
-                woort_CodeEnv_set_const_extern_function(
+                auto& extern_info = func->m_LANG_extern_information.value();
+
+                const char* library_name = extern_info->m_extern_from_library.has_value()
+                    ? extern_info->m_extern_from_library.value()->m_evaled_const_value.value().value_pstring()->c_str()
+                    : "woolang";
+
+                if (!woort_CodeEnv_set_const_extern_function(
                     cenv,
                     cidx,
-                    func->m_LANG_extern_information.value()
-                        ->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value());
+                    extern_info->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value(),
+                    library_name,
+                    extern_info->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str()))
+                {
+                    goto label_failed_to_regiser_constant_or_lib;
+                }
             }
             else if (repl_ctx.has_value())
             {
@@ -204,15 +214,26 @@ namespace wo
             }
         }
 
+
         for (const auto& [func, cidx] : m_closure_imm_pool)
         {
             if (func->m_LANG_extern_information.has_value())
             {
-                woort_CodeEnv_set_const_extern_closure(
+                auto& extern_info = func->m_LANG_extern_information.value();
+
+                const char* library_name = extern_info->m_extern_from_library.has_value()
+                    ? extern_info->m_extern_from_library.value()->m_evaled_const_value.value().value_pstring()->c_str()
+                    : "woolang";
+
+                if (!woort_CodeEnv_set_const_extern_closure(
                     cenv,
                     cidx,
-                    func->m_LANG_extern_information.value()
-                        ->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value());
+                    extern_info->m_IR_externed_function_MUST_BE_CLEAR_FOR_REPL.value(),
+                    library_name,
+                    extern_info->m_extern_symbol->m_evaled_const_value.value().value_pstring()->c_str()))
+                {
+                    goto label_failed_to_regiser_constant_or_lib;
+                }
             }
             else if (repl_ctx.has_value())
             {
@@ -227,13 +248,19 @@ namespace wo
             }
         }
 
-
         // Apply direct extern function constants.
         for (const auto& [func_ptr, cidx] : m_direct_extern_function_imm_pool)
         {
-            woort_CodeEnv_set_const_extern_function(cenv, cidx, func_ptr);
+            /*
+            * Only REPL will use `m_direct_extern_function_imm_pool`.
+            * It's OK to ignore lib&func name for `woort_CodeEnv_set_const_extern_function`.
+            */
+            if (!woort_CodeEnv_set_const_extern_function(
+                cenv, cidx, func_ptr, nullptr, nullptr))
+            {
+                goto label_failed_to_regiser_constant_or_lib;
+            }
         }
-
 
         // NOTE: Make sure tuple constant set at last, and use `m_ordered_tuple_imm_list` 
         //      instead of walking `m_tuple_imm_pool` to keep order.
@@ -250,32 +277,28 @@ namespace wo
         for (const auto& [sym_name, sym_cidx] : m_extern_symbols)
         {
             if (!woort_CodeEnv_register_extern_constant(cenv, sym_name.c_str(), sym_cidx))
-            {
-                woort_CodeEnv_unlock(cenv);
-                woort_CodeEnv_drop(cenv);
-
-                abondon();
-                return std::nullopt;
-            }
+                goto label_failed_to_regiser_constant_or_lib;
         }
 
         // Bind loaded extern libraries to CodeEnv lifecycle
         for (woort_Dylib* lib : m_loaded_extern_libs)
         {
             if (!woort_CodeEnv_add_extern_lib(cenv, lib))
-            {
-                woort_CodeEnv_unlock(cenv);
-                woort_CodeEnv_drop(cenv);
-
-                abondon();
-                return std::nullopt;
-            }
+                goto label_failed_to_regiser_constant_or_lib;
         }
 
         woort_CodeEnv_unlock(cenv);
 
         abondon();
         return cenv;
+
+
+    label_failed_to_regiser_constant_or_lib:
+        woort_CodeEnv_unlock(cenv);
+        woort_CodeEnv_drop(cenv);
+
+        abondon();
+        return std::nullopt;
     }
 
     const woort_Bytecode* IRCompiler::get_function(woort_CodeEnv* cenv, woort_IRFunction* irfunc)
