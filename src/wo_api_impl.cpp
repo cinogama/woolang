@@ -392,7 +392,7 @@ wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors)
         return nullptr;
 
     auto& msg = msg_list[errors->m_current_index++];
-    errors->m_current_info.m_file_name = msg.m_filename.c_str();
+    errors->m_current_info.m_file_name = msg.filename().c_str();
     errors->m_current_info.m_message = msg.describe().c_str();
     errors->m_current_info.m_begin_row = msg.m_range_begin[0];
     errors->m_current_info.m_begin_col = msg.m_range_begin[1];
@@ -624,17 +624,17 @@ static std::string _wo_dump_lexer_context_error(wo::lexer* lex, wo_inform_style_
 
         last_depth = err_info.m_layer;
 
-        if (src_file_path != err_info.m_filename)
+        if (src_file_path != err_info.filename())
         {
             if (style == WO_COLORFUL)
                 _vm_compile_errors +=
                 ANSI_HIR "In file: '" ANSI_RST
-                + (src_file_path = err_info.m_filename)
+                + (src_file_path = err_info.filename())
                 + ANSI_HIR "'" ANSI_RST "\n";
             else
                 _vm_compile_errors +=
                 "In file: '"
-                + (src_file_path = err_info.m_filename)
+                + (src_file_path = err_info.filename())
                 + "'\n";
         }
 

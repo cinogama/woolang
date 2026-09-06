@@ -190,7 +190,7 @@ wo_lspv2_error_info* wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter)
             error.m_layer,
             _wo_strdup(error.describe().c_str()),
             wo_lspv2_location{
-                _wo_strdup(error.m_filename.c_str()),
+                _wo_strdup(error.filename().c_str()),
                 { error.m_range_begin[0], error.m_range_begin[1] },
                 { error.m_range_end[0], error.m_range_end[1] },
             },

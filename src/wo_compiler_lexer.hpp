@@ -171,20 +171,35 @@ namespace wo
 
         struct compiler_message_t
         {
-            using pending_diagnose_t =
-                std::shared_ptr<const diagnose::lang_diagnose_t>;
+            // Rendered, owning form: filled in by realize_pending_diagnose,
+            // exactly once, at the end of a failed compile - while the string
+            // pool backing the deferred form's wo_pstring_t is still alive.
+            struct describe_t
+            {
+                std::string m_path;
+                std::string m_desc;
+            };
+
+            // Deferred form: the payload renders the text later; the
+            // filename stays a pooled pstring, valid only until
+            // realize_pending_diagnose copies it into describe_t::m_path
+            // (or the compile succeeds and the message is dropped).
+            struct pending_diagnose_t
+            {
+                wo_pstring_t m_filename;
+                std::shared_ptr<const diagnose::lang_diagnose_t> m_payload;
+            };
 
             msglevel_t  m_level;
 
             size_t      m_range_begin[2];
             size_t      m_range_end[2];
-            std::string m_filename;
 
-            // Either the final describe text, or the deferred diagnose
+            // Either the rendered path+text, or the deferred diagnose
             // payload, which realize_pending_diagnose renders (exactly
             // once, when a compile has failed) by switching this over to
-            // the rendered text.
-            std::variant<std::string, pending_diagnose_t> m_describe;
+            // the rendered form.
+            std::variant<describe_t, pending_diagnose_t> m_describe;
 
             // Auto assigned in `record_message`
             size_t      m_layer;
@@ -193,17 +208,24 @@ namespace wo
             // still pending.
             const std::string& describe() const
             {
-                if (const auto* text = std::get_if<std::string>(&m_describe))
-                    return *text;
+                if (const auto* done = std::get_if<describe_t>(&m_describe))
+                    return done->m_desc;
                 static const std::string empty;
                 return empty;
+            }
+
+            const std::string& filename() const
+            {
+                if (const auto* done = std::get_if<describe_t>(&m_describe))
+                    return done->m_path;
+                return *std::get<pending_diagnose_t>(m_describe).m_filename;
             }
 
             // Non-null while this record still defers its rendering.
             const diagnose::lang_diagnose_t* pending_diagnose() const
             {
                 const auto* payload = std::get_if<pending_diagnose_t>(&m_describe);
-                return payload && *payload ? payload->get() : nullptr;
+                return payload && payload->m_payload ? payload->m_payload.get() : nullptr;
             }
 
             std::string to_string(bool need_ansi_describe);
@@ -426,7 +448,7 @@ namespace wo
             size_t range_begin_col,
             size_t range_end_row,
             size_t range_end_col,
-            const std::string& source,
+            wo_pstring_t source,
             DiagnoseT&& diagnose)
         {
             (void)record_message(
@@ -435,11 +457,12 @@ namespace wo
                     level,
                     { range_begin_row, range_begin_col },
                     { range_end_row, range_end_col },
-                    source,
-                    std::shared_ptr<const diagnose::lang_diagnose_t>(
-                        std::make_shared<
-                            diagnose::diagnose_model_t<std::decay_t<DiagnoseT>>>(
-                            std::forward<DiagnoseT>(diagnose)))
+                    compiler_message_t::pending_diagnose_t{
+                        source,
+                        std::shared_ptr<const diagnose::lang_diagnose_t>(
+                            std::make_shared<
+                                diagnose::diagnose_model_t<std::decay_t<DiagnoseT>>>(
+                                std::forward<DiagnoseT>(diagnose)))}
                 });
         }
 
@@ -459,7 +482,7 @@ namespace wo
                     _m_col_counter,
                     _m_row_counter,
                     _m_col_counter,
-                    *m_source_path.value(),
+                    m_source_path.value(),
                     std::forward<DiagnoseT>(diagnose));
 
             produce_token(lex_type::l_error, "");
@@ -480,7 +503,7 @@ namespace wo
                 _m_this_token_begin_col,
                 _m_row_counter,
                 _m_col_counter,
-                *m_source_path.value(),
+                m_source_path.value(),
                 std::forward<DiagnoseT>(diagnose));
 
             return lex_type::l_error;
@@ -501,7 +524,7 @@ namespace wo
                 ast_node->source_location.begin_at.column,
                 ast_node->source_location.end_at.row,
                 ast_node->source_location.end_at.column,
-                *ast_node->source_location.source_file,
+                ast_node->source_location.source_file,
                 std::forward<DiagnoseT>(diagnose));
 
             return lex_type::l_error;

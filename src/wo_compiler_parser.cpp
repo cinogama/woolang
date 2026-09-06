@@ -814,7 +814,7 @@ namespace wo
                                 peeked_token_instance->m_token_begin[1],
                                 peeked_token_instance->m_token_end[0],
                                 peeked_token_instance->m_token_end[1],
-                                *tkr.get_source_path(),
+                                tkr.get_source_path(),
                                 diagnose::err_unknown_macro_named{
                                 peeked_token_instance->m_token_text->c_str()});
                         }
@@ -947,7 +947,7 @@ namespace wo
                             peeked_token_instance->m_token_begin[1],
                             peeked_token_instance->m_token_end[0],
                             peeked_token_instance->m_token_end[1],
-                            *tkr.get_source_path(),
+                            tkr.get_source_path(),
                             diagnose::err_unknown_macro_named{
                             peeked_token_instance->m_token_text->c_str()});
                         break;

@@ -930,9 +930,13 @@ extern func macro_entry(lexer: std::lexer)=> string
                 if (auto* pending = std::get_if<compiler_message_t::pending_diagnose_t>(&message.m_describe);
                     pending != nullptr)
                 {
-                    wo_assert(pending != nullptr);
-                    // Assigning the rendered text drops the shared payload.
-                    message.m_describe = (*pending)->render(lang);
+                    wo_assert(pending->m_payload != nullptr
+                        && pending->m_filename != nullptr);
+
+                    message.m_describe = compiler_message_t::describe_t{
+                        *pending->m_filename,
+                        pending->m_payload->render(lang) 
+                    };
                 }
             }
         }
@@ -950,7 +954,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 && existed.m_range_begin[1] == message.m_range_begin[1]
                 && existed.m_range_end[0] == message.m_range_end[0]
                 && existed.m_range_end[1] == message.m_range_end[1]
-                && existed.m_filename == message.m_filename
+                && existed.filename() == message.filename()
                 && ((existed.pending_diagnose() != nullptr && message.pending_diagnose() != nullptr)
                     ? existed.pending_diagnose()->same_as(*message.pending_diagnose())
                     : existed.describe() == message.describe()))
@@ -1524,12 +1528,13 @@ extern func macro_entry(lexer: std::lexer)=> string
                                     msglevel_t::infom,
                                     { defined_macro_instance->begin_row, defined_macro_instance->begin_col },
                                     { defined_macro_instance->end_row, defined_macro_instance->end_col },
-                                    *defined_macro_instance->filename,
-                                    std::make_shared<
-                                        const diagnose::diagnose_model_t<
-                                            diagnose::info_symbol_named_defined_here>>(
-                                        diagnose::info_symbol_named_defined_here{
-                                            defined_macro_instance->macro_name }),
+                                    compiler_message_t::pending_diagnose_t{
+                                        defined_macro_instance->filename,
+                                        std::make_shared<
+                                            const diagnose::diagnose_model_t<
+                                                diagnose::info_symbol_named_defined_here>>(
+                                            diagnose::info_symbol_named_defined_here{
+                                                defined_macro_instance->macro_name })},
                                 });
                         }
                         // else:
