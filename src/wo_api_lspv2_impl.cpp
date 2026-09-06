@@ -188,7 +188,7 @@ wo_lspv2_error_info* wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter)
             error.m_level == wo::lexer::msglevel_t::error ? (
                 WO_LSP_ERROR) : WO_LSP_INFORMATION,
             error.m_layer,
-            _wo_strdup(error.m_describe.c_str()),
+            _wo_strdup(error.describe().c_str()),
             wo_lspv2_location{
                 _wo_strdup(error.m_filename.c_str()),
                 { error.m_range_begin[0], error.m_range_begin[1] },

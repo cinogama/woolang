@@ -33,7 +33,7 @@ namespace wo
         size_t scope_count = 1;
         if (lex.peek(true)->m_lex_type != lex_type::l_left_curly_braces)
         {
-            lex.produce_lexer_error(lexer::msglevel_t::error, diagnose::err_here_should_have{u8"{"});
+            lex.produce_lexer_error(lexer::msglevel_t::error, diagnose::err_here_should_have{ u8"{" });
             return;
         }
 
@@ -151,7 +151,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         lexer::msglevel_t::error,
                         diagnose::err_failed_to_run_macro_controlor{
                         macro_name.c_str(),
-                        woort_vm_get_runtime_error(shared_vm)});
+                        woort_vm_get_runtime_error(shared_vm) });
                 }
                 (void)woort_vm_swap(last_vm);
 
@@ -357,7 +357,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 : (ANSI_HIC "infom" ANSI_RST)
                 )
             + (" (" + std::to_string(m_range_end[0] + 1) + "," + std::to_string(m_range_end[1]))
-            + (") " + m_describe);
+            + (") " + describe());
         else
             return (
                 m_level == msglevel_t::error
@@ -365,7 +365,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 : ("infom")
                 )
             + (" (" + std::to_string(m_range_end[0] + 1) + "," + std::to_string(m_range_end[1]))
-            + (") " + m_describe);
+            + (") " + describe());
     }
 
     ///////////////////////////////////////////////////
@@ -802,7 +802,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             (void)record_parser_error(
                 lexer::msglevel_t::error,
                 diagnose::err_cannot_open_file{
-                source_path.value()->c_str()});
+                source_path.value()->c_str() });
         }
     }
     void lexer::drop_macro_vm_and_code_env()
@@ -924,12 +924,18 @@ extern func macro_entry(lexer: std::lexer)=> string
     void lexer::realize_pending_diagnose(LangContext* lang)
     {
         for (auto& frame : m_shared_context->m_error_frame)
+        {
             for (auto& message : frame)
-                if (message.m_pending != nullptr)
+            {
+                if (auto* pending = std::get_if<compiler_message_t::pending_diagnose_t>(&message.m_describe);
+                    pending != nullptr)
                 {
-                    message.m_describe = message.m_pending->render(lang);
-                    message.m_pending.reset();
+                    wo_assert(pending != nullptr);
+                    // Assigning the rendered text drops the shared payload.
+                    message.m_describe = (*pending)->render(lang);
                 }
+            }
+        }
     }
 
     bool lexer::root_frame_already_has_message(const compiler_message_t& message) const
@@ -945,9 +951,9 @@ extern func macro_entry(lexer: std::lexer)=> string
                 && existed.m_range_end[0] == message.m_range_end[0]
                 && existed.m_range_end[1] == message.m_range_end[1]
                 && existed.m_filename == message.m_filename
-                && ((existed.m_pending != nullptr && message.m_pending != nullptr)
-                    ? existed.m_pending->same_as(*message.m_pending)
-                    : existed.m_describe == message.m_describe))
+                && ((existed.pending_diagnose() != nullptr && message.pending_diagnose() != nullptr)
+                    ? existed.pending_diagnose()->same_as(*message.pending_diagnose())
+                    : existed.describe() == message.describe()))
                 return true;
         }
         return false;
@@ -1377,7 +1383,9 @@ extern func macro_entry(lexer: std::lexer)=> string
                         }
                         default:
                         str_escape_sequences_fail:
-                            return produce_lexer_error(msglevel_t::error, diagnose::err_unknown_escseq_begin_with_ch{escape_ch});
+                            return produce_lexer_error(
+                                msglevel_t::error, 
+                                diagnose::err_unknown_escseq_begin_with_ch{ escape_ch });
                         }
                     }
                     else
@@ -1385,10 +1393,12 @@ extern func macro_entry(lexer: std::lexer)=> string
                 }
                 else if (readed_char == '\'')
                     return produce_lexer_error(
-                        msglevel_t::error, diagnose::err_unexpected_eol_in_char{});
+                        msglevel_t::error, 
+                        diagnose::err_unexpected_eol_in_char{});
                 else
                     return produce_lexer_error(
-                        msglevel_t::error, diagnose::err_unexpected_eol_in_string{});
+                        msglevel_t::error, 
+                        diagnose::err_unexpected_eol_in_string{});
             }
 
             wo_error("Cannot be here.");
@@ -1507,7 +1517,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                             produce_lexer_error(
                                 msglevel_t::error,
                                 diagnose::err_unknown_repeat_macro_define{
-                                defined_macro_instance->macro_name.c_str()});
+                                defined_macro_instance->macro_name.c_str() });
 
                             (void)record_message(
                                 compiler_message_t{
@@ -1515,7 +1525,6 @@ extern func macro_entry(lexer: std::lexer)=> string
                                     { defined_macro_instance->begin_row, defined_macro_instance->begin_col },
                                     { defined_macro_instance->end_row, defined_macro_instance->end_col },
                                     *defined_macro_instance->filename,
-                                    std::string(),
                                     std::make_shared<
                                         const diagnose::diagnose_model_t<
                                             diagnose::info_symbol_named_defined_here>>(
@@ -1537,7 +1546,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     consume_forward();
 
                     if (peek(true)->m_lex_type != lex_type::l_left_curly_braces)
-                        produce_lexer_error(lexer::msglevel_t::error, diagnose::err_here_should_have{u8"{"});
+                        produce_lexer_error(lexer::msglevel_t::error, diagnose::err_here_should_have{ u8"{" });
                     else
                     {
                         consume_forward();
@@ -1601,7 +1610,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             else
             {
                 return produce_lexer_error(
-                    msglevel_t::error, diagnose::err_unknown_pragma_command{pragma_name.c_str()});
+                    msglevel_t::error, diagnose::err_unknown_pragma_command{ pragma_name.c_str() });
             }
             return;
         }
@@ -1702,19 +1711,19 @@ extern func macro_entry(lexer: std::lexer)=> string
                         {
                             append_result_char(read_char());
                             if (is_real)
-                                return produce_lexer_error(msglevel_t::error, diagnose::err_unexpected_ch_after_ch{following_chs});
+                                return produce_lexer_error(msglevel_t::error, diagnose::err_unexpected_ch_after_ch{ following_chs });
                             is_real = true;
                         }
                         else if (following_chs == 'H' || following_chs == 'h')
                         {
                             if (is_real)
-                                return produce_lexer_error(msglevel_t::error, diagnose::err_unexpected_ch_after_ch{following_chs});
+                                return produce_lexer_error(msglevel_t::error, diagnose::err_unexpected_ch_after_ch{ following_chs });
                             (void)read_char();
                             is_handle = true;
                             break;
                         }
                         else if (lexer::lex_isalnum(following_chs))
-                            return produce_lexer_error(msglevel_t::error, diagnose::err_illegal_literal{following_chs});
+                            return produce_lexer_error(msglevel_t::error, diagnose::err_illegal_literal{ following_chs });
                         else
                             break;                  // end read
                     }
@@ -1723,7 +1732,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (lexer::lex_isxdigit(following_chs) || following_chs == 'X' || following_chs == 'x')
                             append_result_char(read_char());
                         else if (following_chs == '.')
-                            return produce_lexer_error(msglevel_t::error, diagnose::err_unexpected_ch_after_ch{following_chs});
+                            return produce_lexer_error(msglevel_t::error, diagnose::err_unexpected_ch_after_ch{ following_chs });
                         else if (following_chs == 'H' || following_chs == 'h')
                         {
                             (void)read_char();
@@ -1731,7 +1740,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                             break;
                         }
                         else if (lexer::lex_isalnum(following_chs))
-                            return produce_lexer_error(msglevel_t::error, diagnose::err_illegal_literal{following_chs});
+                            return produce_lexer_error(msglevel_t::error, diagnose::err_illegal_literal{ following_chs });
                         else
                             break;                  // end read
                     }
@@ -1740,7 +1749,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (lexer::lex_isodigit(following_chs))
                             append_result_char(read_char());
                         else if (following_chs == '.')
-                            return produce_lexer_error(msglevel_t::error, diagnose::err_unexpected_ch_after_ch{following_chs});
+                            return produce_lexer_error(msglevel_t::error, diagnose::err_unexpected_ch_after_ch{ following_chs });
                         else if (following_chs == 'H' || following_chs == 'h')
                         {
                             (void)read_char();
@@ -1748,7 +1757,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                             break;
                         }
                         else if (lexer::lex_isalnum(following_chs))
-                            return produce_lexer_error(msglevel_t::error, diagnose::err_illegal_literal{following_chs});
+                            return produce_lexer_error(msglevel_t::error, diagnose::err_illegal_literal{ following_chs });
                         else
                             break;                  // end read
                     }
@@ -1757,14 +1766,14 @@ extern func macro_entry(lexer: std::lexer)=> string
                         if (following_chs == '1' || following_chs == '0' || following_chs == 'B' || following_chs == 'b')
                             append_result_char(read_char());
                         else if (following_chs == '.')
-                            return produce_lexer_error(msglevel_t::error, diagnose::err_unexpected_ch_after_ch{following_chs});
+                            return produce_lexer_error(msglevel_t::error, diagnose::err_unexpected_ch_after_ch{ following_chs });
                         else if (following_chs == 'H' || following_chs == 'b')
                         {
                             (void)read_char();
                             is_handle = true;
                         }
                         else if (lexer::lex_isalnum(following_chs))
-                            return produce_lexer_error(msglevel_t::error, diagnose::err_illegal_literal{following_chs});
+                            return produce_lexer_error(msglevel_t::error, diagnose::err_illegal_literal{ following_chs });
                         else
                             break;                  // end read
                     }
@@ -1830,7 +1839,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 } while (true);
 
                 if (operator_type == lex_type::l_error)
-                    return produce_lexer_error(msglevel_t::error, diagnose::err_unknown_operator_str{token_literal_result.c_str()});
+                    return produce_lexer_error(msglevel_t::error, diagnose::err_unknown_operator_str{ token_literal_result.c_str() });
 
                 return produce_token(operator_type, std::move(token_literal_result));
             }
@@ -1987,7 +1996,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     default:
                     str_escape_sequences_fail_in_format_begin:
                         return produce_lexer_error(
-                            msglevel_t::error, diagnose::err_unknown_escseq_begin_with_ch{escape_ch});
+                            msglevel_t::error, diagnose::err_unknown_escseq_begin_with_ch{ escape_ch });
                     }
                 }
                 else
@@ -2031,7 +2040,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             produce_lexer_error(msglevel_t::error,
                 diagnose::err_failed_to_run_macro_controlor{
                 macro_instance->macro_name.c_str(),
-                WO_MSG_STACK_OVERFLOW});
+                WO_MSG_STACK_OVERFLOW });
 
             m_shared_context->drop_macro_vm_and_code_env();
 
@@ -2058,7 +2067,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             produce_lexer_error(msglevel_t::error,
                 diagnose::err_failed_to_run_macro_controlor{
                 macro_instance->macro_name.c_str(),
-                woort_vm_get_runtime_error(shared_vm)});
+                woort_vm_get_runtime_error(shared_vm) });
 
             (void)woort_vm_swap(last);
 
@@ -2135,7 +2144,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 tmp_lex.end_trying_block();
 
                 produce_lexer_error(msglevel_t::error, diagnose::err_invalid_token_macro_controlor{
-                    macro_instance->macro_name.c_str()});
+                    macro_instance->macro_name.c_str() });
 
                 for (auto& error_message : lexer_error_frame)
                 {

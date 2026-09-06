@@ -6,6 +6,7 @@
 #include <list>
 #include <queue>
 #include <memory>
+#include <variant>
 #include <type_traits>
 #include <unordered_map>
 
@@ -170,22 +171,40 @@ namespace wo
 
         struct compiler_message_t
         {
+            using pending_diagnose_t =
+                std::shared_ptr<const diagnose::lang_diagnose_t>;
+
             msglevel_t  m_level;
 
             size_t      m_range_begin[2];
             size_t      m_range_end[2];
             std::string m_filename;
 
-            std::string m_describe;
-
-            // Deferred diagnose payload; empty for legacy printf-style
-            // records (which fill m_describe eagerly). Filled by the typed
-            // record entries and rendered into m_describe exactly once, by
-            // realize_pending_diagnose, when a compile has failed.
-            std::shared_ptr<const diagnose::lang_diagnose_t> m_pending;
+            // Either the final describe text, or the deferred diagnose
+            // payload, which realize_pending_diagnose renders (exactly
+            // once, when a compile has failed) by switching this over to
+            // the rendered text.
+            std::variant<std::string, pending_diagnose_t> m_describe;
 
             // Auto assigned in `record_message`
             size_t      m_layer;
+
+            // Rendered describe text; empty while a deferred payload is
+            // still pending.
+            const std::string& describe() const
+            {
+                if (const auto* text = std::get_if<std::string>(&m_describe))
+                    return *text;
+                static const std::string empty;
+                return empty;
+            }
+
+            // Non-null while this record still defers its rendering.
+            const diagnose::lang_diagnose_t* pending_diagnose() const
+            {
+                const auto* payload = std::get_if<pending_diagnose_t>(&m_describe);
+                return payload && *payload ? payload->get() : nullptr;
+            }
 
             std::string to_string(bool need_ansi_describe);
         };
@@ -417,7 +436,6 @@ namespace wo
                     { range_begin_row, range_begin_col },
                     { range_end_row, range_end_col },
                     source,
-                    std::string(),
                     std::shared_ptr<const diagnose::lang_diagnose_t>(
                         std::make_shared<
                             diagnose::diagnose_model_t<std::decay_t<DiagnoseT>>>(

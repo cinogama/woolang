@@ -393,7 +393,7 @@ wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors)
 
     auto& msg = msg_list[errors->m_current_index++];
     errors->m_current_info.m_file_name = msg.m_filename.c_str();
-    errors->m_current_info.m_message = msg.m_describe.c_str();
+    errors->m_current_info.m_message = msg.describe().c_str();
     errors->m_current_info.m_begin_row = msg.m_range_begin[0];
     errors->m_current_info.m_begin_col = msg.m_range_begin[1];
     errors->m_current_info.m_end_row = msg.m_range_end[0];
@@ -513,7 +513,7 @@ static std::string _dump_src_info(
                     append_result += "_";
 
                     if (depth != 0)
-                        append_result += ": " + errmsg.m_describe;
+                        append_result += ": " + errmsg.describe();
                 }
                 else
                 {
