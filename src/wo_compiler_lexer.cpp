@@ -345,7 +345,18 @@ extern func macro_entry(lexer: std::lexer)=> string
             static_cast<uint8_t>(
                 m_cache_buffer[m_readed_size]));
     }
+    const std::string& lexer::compiler_message_t::unwrap_describe() const
+    {
+        // Must be `describe_t`.
+        return std::get<describe_t>(m_describe).m_desc;
+    }
 
+    const std::string& lexer::compiler_message_t::filename() const
+    {
+        if (const auto* done = std::get_if<describe_t>(&m_describe))
+            return done->m_path;
+        return *std::get<pending_diagnose_t>(m_describe).m_filename;
+    }
     std::string lexer::compiler_message_t::to_string(bool need_ansi_describe)
     {
         using namespace std;
@@ -357,7 +368,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 : (ANSI_HIC "infom" ANSI_RST)
                 )
             + (" (" + std::to_string(m_range_end[0] + 1) + "," + std::to_string(m_range_end[1]))
-            + (") " + describe());
+            + (") " + unwrap_describe());
         else
             return (
                 m_level == msglevel_t::error
@@ -365,9 +376,28 @@ extern func macro_entry(lexer: std::lexer)=> string
                 : ("infom")
                 )
             + (" (" + std::to_string(m_range_end[0] + 1) + "," + std::to_string(m_range_end[1]))
-            + (") " + describe());
+            + (") " + unwrap_describe());
     }
-
+    bool lexer::compiler_message_t::compare_is_same(const compiler_message_t& another) const
+    {
+        if (m_level == another.m_level
+            && m_range_begin[0] == another.m_range_begin[0]
+            && m_range_begin[1] == another.m_range_begin[1]
+            && m_range_end[0] == another.m_range_end[0]
+            && m_range_end[1] == another.m_range_end[1]
+            && filename() == another.filename())
+        {
+            /* OPTIONAL */ const auto* payload = std::get_if<pending_diagnose_t>(&m_describe);
+            /* OPTIONAL */ const auto* another_payload = std::get_if<pending_diagnose_t>(&another.m_describe);
+            if (payload != nullptr && another_payload != nullptr)
+            {
+                return payload->m_payload->same_as(*another_payload->m_payload);
+            }
+            else if (payload == nullptr && another_payload == nullptr)
+                return unwrap_describe() == another.unwrap_describe();
+        }
+        return false;
+    }
     ///////////////////////////////////////////////////
 
     const char* lexer::lex_is_operate_type(lex_type tt)
@@ -949,15 +979,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
         for (const auto& existed : root_frame)
         {
-            if (existed.m_level == message.m_level
-                && existed.m_range_begin[0] == message.m_range_begin[0]
-                && existed.m_range_begin[1] == message.m_range_begin[1]
-                && existed.m_range_end[0] == message.m_range_end[0]
-                && existed.m_range_end[1] == message.m_range_end[1]
-                && existed.filename() == message.filename()
-                && ((existed.pending_diagnose() != nullptr && message.pending_diagnose() != nullptr)
-                    ? existed.pending_diagnose()->same_as(*message.pending_diagnose())
-                    : existed.describe() == message.describe()))
+            if (existed.compare_is_same(message))
                 return true;
         }
         return false;

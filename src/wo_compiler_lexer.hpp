@@ -6,6 +6,7 @@
 #include <list>
 #include <queue>
 #include <memory>
+#include <optional>
 #include <variant>
 #include <type_traits>
 #include <unordered_map>
@@ -204,31 +205,11 @@ namespace wo
             // Auto assigned in `record_message`
             size_t      m_layer;
 
-            // Rendered describe text; empty while a deferred payload is
-            // still pending.
-            const std::string& describe() const
-            {
-                if (const auto* done = std::get_if<describe_t>(&m_describe))
-                    return done->m_desc;
-                static const std::string empty;
-                return empty;
-            }
-
-            const std::string& filename() const
-            {
-                if (const auto* done = std::get_if<describe_t>(&m_describe))
-                    return done->m_path;
-                return *std::get<pending_diagnose_t>(m_describe).m_filename;
-            }
-
-            // Non-null while this record still defers its rendering.
-            const diagnose::lang_diagnose_t* pending_diagnose() const
-            {
-                const auto* payload = std::get_if<pending_diagnose_t>(&m_describe);
-                return payload && payload->m_payload ? payload->m_payload.get() : nullptr;
-            }
-
+            // NOTE: Get describe message after rend, must be rended.
+            const std::string& unwrap_describe() const;
+            const std::string& filename() const;
             std::string to_string(bool need_ansi_describe);
+            bool compare_is_same(const compiler_message_t& another) const;
         };
         using compiler_message_list_t =
             std::vector<compiler_message_t>;

@@ -53,8 +53,8 @@ void wo_init(
 {
     // Start up WooRT (this also registers built-in native functions).
     wo::woodyn::bootup_woort_dynamically(
-        argc, 
-        argv, 
+        argc,
+        argv,
         funcs == nullptr ? std::nullopt : std::make_optional(funcs));
 
     bool enable_std_package = true;
@@ -157,7 +157,7 @@ wo::compile_result _wo_compile_impl(
     // Hoisted out of the grammar-success block below: deferred diagnose
     // payloads hold pointers to lang instances, so they must be rendered
     // while this context is still alive (see the failed branch).
-    std::unique_ptr<wo::LangContext> lang_context;
+    std::optional<std::unique_ptr<wo::LangContext>> lang_context;
 
     std::optional<woort_VFile*> source_file_instance;
     std::string real_file_path;
@@ -236,7 +236,7 @@ wo::compile_result _wo_compile_impl(
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error,
                 wo::diagnose::err_raw_message{
-                    woort_CodeEnv_restore_failed_desc(binary_loading_failed.value())});
+                    woort_CodeEnv_restore_failed_desc(binary_loading_failed.value()) });
         }
         else
         {
@@ -256,14 +256,14 @@ wo::compile_result _wo_compile_impl(
                     compile_result =
                         wo::compile_result::PROCESS_FAILED_BUT_GRAMMAR_OK;
 
-                    lang_context = std::make_unique<wo::LangContext>();
+                    std::unique_ptr<wo::LangContext> langctx = std::make_unique<wo::LangContext>();
 
-                    compile_result = lang_context->process(*compile_lexer, result);
+                    compile_result = langctx->process(*compile_lexer, result);
                     if (wo::compile_result::PROCESS_OK == compile_result)
                     {
                         // Finish!, finalize the compiler.
                         compile_env_result =
-                            lang_context->m_ircontext.finalize(lang_context->m_repl_context);
+                            langctx->m_ircontext.finalize(langctx->m_repl_context);
 
                         if (!compile_env_result.has_value())
                         {
@@ -274,8 +274,7 @@ wo::compile_result _wo_compile_impl(
                         }
                     }
 
-                    if (out_langcontext_if_pass_grammar != nullptr)
-                        *out_langcontext_if_pass_grammar = std::move(lang_context);
+                    lang_context = std::move(langctx);
                 }
             }
 #else
@@ -311,11 +310,23 @@ wo::compile_result _wo_compile_impl(
         // The compile has definitively failed: generate all deferred message
         // texts now, while lang_context (and the AST arena owned by the
         // caller's thread-local allocator) is still alive.
-        compile_lexer->realize_pending_diagnose(lang_context.get());
+        //
+        // NOTE: if `lang_context` is empty here, that's fine -- when it is empty, 
+        //      no error diagnostic messages requiring a lang instance should
+        //      be generated, so simply passing nullptr is sufficient.
+        //
+        // NOTE: VERY UGLY! need to re-impl.
+        //
+        compile_lexer->realize_pending_diagnose(
+            lang_context.has_value() ? lang_context.value().get() : nullptr);
 
         if (out_lexer_if_failed != nullptr)
             *out_lexer_if_failed = std::move(compile_lexer);
     }
+
+    if (out_langcontext_if_pass_grammar != nullptr)
+        *out_langcontext_if_pass_grammar = std::move(lang_context);
+
     return compile_result;
 }
 
@@ -393,7 +404,7 @@ wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors)
 
     auto& msg = msg_list[errors->m_current_index++];
     errors->m_current_info.m_file_name = msg.filename().c_str();
-    errors->m_current_info.m_message = msg.describe().c_str();
+    errors->m_current_info.m_message = msg.unwrap_describe().c_str();
     errors->m_current_info.m_begin_row = msg.m_range_begin[0];
     errors->m_current_info.m_begin_col = msg.m_range_begin[1];
     errors->m_current_info.m_end_row = msg.m_range_end[0];
@@ -513,7 +524,7 @@ static std::string _dump_src_info(
                     append_result += "_";
 
                     if (depth != 0)
-                        append_result += ": " + errmsg.describe();
+                        append_result += ": " + errmsg.unwrap_describe();
                 }
                 else
                 {
@@ -717,7 +728,7 @@ const char* wo_get_compile_error(
 
     if (out_errors != nullptr && failed_lexer.has_value())
         *out_errors = _wo_make_compile_errors(std::move(failed_lexer));
-    
+
     return nullptr;
 }
 
