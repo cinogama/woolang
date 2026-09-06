@@ -14,7 +14,7 @@
 #include <cwctype>
 #include <cwchar>
 
-#include "wo_lang_compiler_information.hpp"
+#include "wo_lang_diagnose.hpp"
 #include "wo_source_file_manager.hpp"
 #include "wo_const_string_pool.hpp"
 
