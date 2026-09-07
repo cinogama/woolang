@@ -1,12 +1,8 @@
 #include "wo_afx.hpp"
 
-// Phase 1 of the diagnose header (payloads without lang-instance fields)
-// was already pulled in at the top of the include chain by
-// wo_compiler_lexer.hpp. Define the marker so this final include also
-// processes phase 2 - the lang-typed payloads whose render() needs the
-// now-complete LangContext above.
-#define WO_LANG_DIAGNOSE_LANG_STAGE
-#include "wo_lang_diagnose.hpp"
+// Lang-typed diagnose payloads (wo::diagnose::lang2): their render() needs
+// the now-complete LangContext pulled in by wo_afx.hpp above.
+#include "wo_lang_diagnose_lang.hpp"
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
