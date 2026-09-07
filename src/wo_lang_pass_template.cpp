@@ -1,5 +1,13 @@
 #include "wo_afx.hpp"
 
+// Phase 1 of the diagnose header (payloads without lang-instance fields)
+// was already pulled in at the top of the include chain by
+// wo_compiler_lexer.hpp. Define the marker so this final include also
+// processes phase 2 - the lang-typed payloads whose render() needs the
+// now-complete LangContext above.
+#define WO_LANG_DIAGNOSE_LANG_STAGE
+#include "wo_lang_diagnose.hpp"
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -71,7 +79,7 @@ namespace wo
         std::string failed_template_arg_list = _format_template_argument_list(inst);
 
         lex.record_lang_error(lexer::msglevel_t::error, node,
-            diagnose::err_failed_reification_caused_by{failed_template_arg_list.c_str(), inst->m_symbol});
+            diagnose::lang2::err_failed_reification_caused_by{failed_template_arg_list.c_str(), inst->m_symbol});
 
         // The same failed instance may be hit from several concretization
         // sites. Replay its stashed reason only for messages that are not
@@ -93,7 +101,7 @@ namespace wo
 #if 0
         if (has_skipped_reported_error)
             lex.record_lang_error(lexer::msglevel_t::infom, node,
-                diagnose::info_failure_reason_already_reported{});
+                diagnose::lang1::info_failure_reason_already_reported{});
 #endif
     }
 
@@ -127,10 +135,10 @@ namespace wo
                 auto* checker = static_cast<ast::AstTemplateConstantTypeCheckInPass1*>(frame);
                 if (checker->m_template_instance == recursing_inst->m_ast)
                     lex.record_lang_error(lexer::msglevel_t::infom, checker->m_template_instance,
-                        diagnose::info_dependency_chain_template_instance{_format_template_instance_name(recursing_inst)});
+                        diagnose::lang1::info_dependency_chain_template_instance{_format_template_instance_name(recursing_inst)});
                 else
                     lex.record_lang_error(lexer::msglevel_t::infom, frame,
-                        diagnose::info_dependency_chain_other_template_instance{});
+                        diagnose::lang1::info_dependency_chain_other_template_instance{});
                 ++reported;
                 break;
             }
@@ -140,17 +148,17 @@ namespace wo
                 if (function->m_LANG_value_instance_to_update.has_value()
                     && function->m_LANG_value_instance_to_update.value()->m_symbol)
                     lex.record_lang_error(lexer::msglevel_t::infom, frame,
-                        diagnose::info_dependency_chain_function{function->m_LANG_value_instance_to_update.value()});
+                        diagnose::lang2::info_dependency_chain_function{function->m_LANG_value_instance_to_update.value()});
                 else
                     lex.record_lang_error(lexer::msglevel_t::infom, frame,
-                        diagnose::info_dependency_chain_anonymous_function{});
+                        diagnose::lang1::info_dependency_chain_anonymous_function{});
                 ++reported;
                 break;
             }
             case ast::AstBase::AST_WHERE_CONSTRAINTS:
             {
                 lex.record_lang_error(lexer::msglevel_t::infom, frame,
-                    diagnose::info_dependency_chain_where_constraints{});
+                    diagnose::lang1::info_dependency_chain_where_constraints{});
                 ++reported;
                 break;
             }
@@ -177,7 +185,7 @@ namespace wo
         else
         {
             lex.record_lang_error(lexer::msglevel_t::error, node,
-                diagnose::err_unexpected_template_count{template_params.size(), template_arguments.size()});
+                diagnose::lang1::err_unexpected_template_count{template_params.size(), template_arguments.size()});
         }
         return false;
     }
@@ -234,19 +242,19 @@ namespace wo
                 {
                     if (!params->m_marked_type.has_value())
                         lex.record_lang_error(lexer::msglevel_t::error, params,
-                            diagnose::err_this_template_arg_should_be_type{});
+                            diagnose::lang1::err_this_template_arg_should_be_type{});
                     else if (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
                         && argument.m_type->m_symbol == ctx->m_origin_types.m_nothing.m_symbol)
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, params,
-                            diagnose::err_this_template_arg_should_be_type{});
+                            diagnose::lang1::err_this_template_arg_should_be_type{});
                     }
                 }
                 else
                 {
                     if (params->m_marked_type.has_value())
                         lex.record_lang_error(lexer::msglevel_t::error, params,
-                            diagnose::err_this_template_arg_should_be_const{});
+                            diagnose::lang1::err_this_template_arg_should_be_const{});
                 }
 
                 (void)ctx->fast_create_one_template_type_alias_and_constant_in_current_scope(
@@ -295,7 +303,7 @@ namespace wo
                 }
 
                 lex.record_lang_error(lexer::msglevel_t::error, node,
-                    diagnose::err_not_all_template_argument_determined{pending_type_list.c_str()});
+                    diagnose::lang2::err_not_all_template_argument_determined{pending_type_list.c_str()});
             }
 
 
@@ -430,7 +438,7 @@ namespace wo
             // NOTE: Donot modify eval state here.
             //  Some case like `is pending` may meet this error but it's not a real error.
             lex.record_lang_error(lexer::msglevel_t::error, node,
-                diagnose::err_recursive_template_instance{_format_template_instance_name(result)});
+                diagnose::lang1::err_recursive_template_instance{_format_template_instance_name(result)});
             report_template_instance_dependency_chain(lex, out_stack, result);
             return std::nullopt;
         }
@@ -722,7 +730,7 @@ namespace wo
                             {
                                 // immut T <X= mut Tinstance: Bad
                                 lex.record_lang_error(lexer::msglevel_t::error, accept_type_formal,
-                                    diagnose::err_unacceptable_mutable{applying_type_instance});
+                                    diagnose::lang2::err_unacceptable_mutable{applying_type_instance});
 
                                 return false;
                             }
@@ -748,7 +756,7 @@ namespace wo
                     if (!find_symbol_in_current_scope(lex, identifier, &ambiguous))
                     {
                         lex.record_lang_error(lexer::msglevel_t::error, accept_type_formal,
-                            diagnose::err_unfound_type_named{identifier->m_name->c_str()});
+                            diagnose::lang1::err_unfound_type_named{identifier->m_name->c_str()});
 
                         // Not found or ambiguous.
                         return false;
@@ -1579,7 +1587,7 @@ namespace wo
             if (!appear_in_any_site)
             {
                 lex.record_lang_error(lexer::msglevel_t::infom, fallback_node,
-                    diagnose::info_template_deduct_no_deduction_site{(*pending_param->m_param_name).c_str()});
+                    diagnose::lang1::info_template_deduct_no_deduction_site{(*pending_param->m_param_name).c_str()});
                 continue;
             }
 
@@ -1592,7 +1600,7 @@ namespace wo
             lang_TypeInstance* actual_type = argument->m_LANG_determined_type.value();
 
             lex.record_lang_error(lexer::msglevel_t::infom, argument,
-                diagnose::info_template_deduct_mismatch_between_param_and_arg{site->m_site_label.c_str(), get_type_holder_display_name(site->m_formal_type).c_str(), actual_type});
+                diagnose::lang2::info_template_deduct_mismatch_between_param_and_arg{site->m_site_label.c_str(), get_type_holder_display_name(site->m_formal_type).c_str(), actual_type});
 
             if (auto reason = explain_type_mismatch_blocking_template_deduction(
                 site->m_formal_type,
@@ -1601,7 +1609,7 @@ namespace wo
                 std::string()))
             {
                 lex.record_lang_error(lexer::msglevel_t::infom, argument,
-                    diagnose::info_template_deduct_mismatch_at_position{reason->m_position.c_str(), reason->m_expected.c_str(), reason->m_actual.c_str(), (*pending_param->m_param_name).c_str()});
+                    diagnose::lang1::info_template_deduct_mismatch_at_position{reason->m_position.c_str(), reason->m_expected.c_str(), reason->m_actual.c_str(), (*pending_param->m_param_name).c_str()});
             }
         }
     }

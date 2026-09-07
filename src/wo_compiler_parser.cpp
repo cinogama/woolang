@@ -815,7 +815,7 @@ namespace wo
                                 peeked_token_instance->m_token_end[0],
                                 peeked_token_instance->m_token_end[1],
                                 tkr.get_source_path(),
-                                diagnose::err_unknown_macro_named{
+                                diagnose::parser::err_unknown_macro_named{
                                 peeked_token_instance->m_token_text->c_str()});
                         }
                         else
@@ -829,11 +829,11 @@ namespace wo
                                 }
                                 else
                                     (void)tkr.record_parser_error(
-                                        lexer::msglevel_t::error, diagnose::err_unexpected_eof{});
+                                        lexer::msglevel_t::error, diagnose::lexer::err_unexpected_eof{});
                             }
                             else
                                 (void)tkr.record_parser_error(
-                                    lexer::msglevel_t::error, diagnose::err_unexpected_token{
+                                    lexer::msglevel_t::error, diagnose::lexer::err_unexpected_token{
                                     peeked_token_instance->m_token_text->c_str()});
                         }
 
@@ -948,7 +948,7 @@ namespace wo
                             peeked_token_instance->m_token_end[0],
                             peeked_token_instance->m_token_end[1],
                             tkr.get_source_path(),
-                            diagnose::err_unknown_macro_named{
+                            diagnose::parser::err_unknown_macro_named{
                             peeked_token_instance->m_token_text->c_str()});
                         break;
                     }
@@ -1046,7 +1046,7 @@ namespace wo
                     else
                         (void)tkr.record_parser_error(
                             lexer::msglevel_t::error,
-                            diagnose::err_source_cannot_be_empty{});
+                            diagnose::lexer::err_source_cannot_be_empty{});
 
                     return nullptr;
                 }
@@ -1058,7 +1058,7 @@ namespace wo
 
         } while (true);
 
-        (void)tkr.record_parser_error(lexer::msglevel_t::error, diagnose::err_unexpected_eof{});
+        (void)tkr.record_parser_error(lexer::msglevel_t::error, diagnose::lexer::err_unexpected_eof{});
 
         return nullptr;
     }

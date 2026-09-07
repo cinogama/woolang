@@ -76,12 +76,12 @@ namespace wo
                 else
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, single_pattern,
-                        diagnose::err_redefined{single_pattern->m_name->c_str()});
+                        diagnose::parser::err_redefined{single_pattern->m_name->c_str()});
 
                     if (defined_symbol->m_symbol_declare_ast.has_value())
                         lex.record_lang_error(lexer::msglevel_t::infom,
                             defined_symbol->m_symbol_declare_ast.value(),
-                            diagnose::info_symbol_named_defined_here{get_symbol_name(defined_symbol)});
+                            diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(defined_symbol)});
 
                     return false;
                 }
@@ -162,7 +162,7 @@ namespace wo
         {
             if (!m_repl_context.has_value())
             {
-                lex.record_lang_error(lexer::msglevel_t::error, node, diagnose::err_repl_only{});
+                lex.record_lang_error(lexer::msglevel_t::error, node, diagnose::lang1::err_repl_only{});
                 return FAILED;
             }
 
@@ -210,7 +210,7 @@ namespace wo
 
             if (!begin_new_namespace(node->m_name))
             {
-                lex.record_lang_error(lexer::msglevel_t::error, node, diagnose::err_cannot_start_namespace{});
+                lex.record_lang_error(lexer::msglevel_t::error, node, diagnose::parser::err_cannot_start_namespace{});
                 return FAILED;
             }
             node->m_LANG_determined_namespace = get_current_namespace();
@@ -290,11 +290,11 @@ namespace wo
         }
         else
         {
-            lex.record_lang_error(lexer::msglevel_t::error, node, diagnose::err_redefined{node->m_typename->c_str()});
+            lex.record_lang_error(lexer::msglevel_t::error, node, diagnose::parser::err_redefined{node->m_typename->c_str()});
             if (defined_symbol->m_symbol_declare_ast.has_value())
                 lex.record_lang_error(lexer::msglevel_t::infom,
                     defined_symbol->m_symbol_declare_ast.value(),
-                    diagnose::info_symbol_named_defined_here{get_symbol_name(defined_symbol)});
+                    diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(defined_symbol)});
 
             return FAILED;
         }
@@ -339,11 +339,11 @@ namespace wo
         }
         else
         {
-            lex.record_lang_error(lexer::msglevel_t::error, node, diagnose::err_redefined{node->m_typename->c_str()});
+            lex.record_lang_error(lexer::msglevel_t::error, node, diagnose::parser::err_redefined{node->m_typename->c_str()});
             if (defined_symbol->m_symbol_declare_ast.has_value())
                 lex.record_lang_error(lexer::msglevel_t::infom,
                     defined_symbol->m_symbol_declare_ast.value(),
-                    diagnose::info_symbol_named_defined_here{get_symbol_name(defined_symbol)});
+                    diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(defined_symbol)});
 
             return FAILED;
         }

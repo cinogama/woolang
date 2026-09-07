@@ -270,7 +270,7 @@ wo::compile_result _wo_compile_impl(
                             compile_result = wo::compile_result::PROCESS_FAILED_BUT_PASS_1_OK;
                             (void)compile_lexer->record_parser_error(
                                 wo::lexer::msglevel_t::error,
-                                wo::diagnose::err_out_of_memory{});
+                                wo::diagnose::lang1::err_out_of_memory{});
                         }
                     }
 
@@ -280,7 +280,7 @@ wo::compile_result _wo_compile_impl(
 #else
             (void)compile_lexer->record_parser_error(
                 wo::lexer::msglevel_t::error,
-                wo::diagnose::err_compiler_disabled{});
+                wo::diagnose::parser::err_compiler_disabled{});
 #endif
         }
     }

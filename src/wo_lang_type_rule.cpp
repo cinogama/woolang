@@ -1,5 +1,12 @@
 #include "wo_afx.hpp"
 
+// Phase 1 of the diagnose header (payloads without lang-instance fields)
+// was already pulled in at the top of the include chain by
+// wo_compiler_lexer.hpp. Define the marker so this final include also
+// processes phase 2 - the lang-typed payloads whose render() needs the
+// now-complete LangContext above.
+#define WO_LANG_DIAGNOSE_LANG_STAGE
+#include "wo_lang_diagnose.hpp"
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -47,13 +54,13 @@ namespace wo
                 {
                     base_type_not_determined = true;
                     lex.record_lang_error(lexer::msglevel_t::error, node,
-                        diagnose::err_type_named_determined_failed{accepter});
+                        diagnose::lang2::err_type_named_determined_failed{accepter});
                 }
                 if (!determined_provider_may_null)
                 {
                     base_type_not_determined = true;
                     lex.record_lang_error(lexer::msglevel_t::error, node,
-                        diagnose::err_type_named_determined_failed{provider});
+                        diagnose::lang2::err_type_named_determined_failed{provider});
                 }
                 if (base_type_not_determined)
                     return lang_TypeInstance::TypeCheckResult::REJECT;
@@ -375,13 +382,13 @@ namespace wo
                 if (!determined_srctype_may_null)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node,
-                        diagnose::err_type_named_determined_failed{srctype});
+                        diagnose::lang2::err_type_named_determined_failed{srctype});
                     return lang_TypeInstance::TypeCheckResult::REJECT;
                 }
                 if (!determined_aimtype_may_null)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node,
-                        diagnose::err_type_named_determined_failed{aimtype});
+                        diagnose::lang2::err_type_named_determined_failed{aimtype});
                     return lang_TypeInstance::TypeCheckResult::REJECT;
                 }
 

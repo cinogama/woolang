@@ -1,5 +1,13 @@
 #include "wo_afx.hpp"
 
+// Phase 1 of the diagnose header (payloads without lang-instance fields)
+// was already pulled in at the top of the include chain by
+// wo_compiler_lexer.hpp. Define the marker so this final include also
+// processes phase 2 - the lang-typed payloads whose render() needs the
+// now-complete LangContext above.
+#define WO_LANG_DIAGNOSE_LANG_STAGE
+#include "wo_lang_diagnose.hpp"
+
 namespace wo
 {
 #ifndef WO_DISABLE_COMPILER
@@ -2371,12 +2379,12 @@ namespace wo
         if (!value_instance->m_IR_storage.has_value())
         {
             lex.record_lang_error(lexer::msglevel_t::error, node,
-                diagnose::err_variable_storage_not_determined{value_instance});
+                diagnose::lang2::err_variable_storage_not_determined{value_instance});
 
             if (value_instance->m_symbol->m_symbol_declare_ast.has_value())
                 lex.record_lang_error(lexer::msglevel_t::infom,
                     value_instance->m_symbol->m_symbol_declare_ast.value(),
-                    diagnose::info_symbol_named_defined_here{get_value_name(value_instance)});
+                    diagnose::lang1::info_symbol_named_defined_here{get_value_name(value_instance)});
 
             return FAILED;
         }
@@ -3382,7 +3390,7 @@ namespace wo
             if (node->m_LANG_unpack_method == AstFakeValueUnpack::SHOULD_NOT_UNPACK)
             {
                 lex.record_lang_error(lexer::msglevel_t::error, node,
-                    diagnose::err_cannot_unpack_here{});
+                    diagnose::lang1::err_cannot_unpack_here{});
 
                 return FAILED;
             }
@@ -4778,12 +4786,12 @@ namespace wo
                 if (!assign_value_instance->m_IR_storage.has_value())
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, node,
-                        diagnose::err_variable_storage_not_determined{assign_value_instance});
+                        diagnose::lang2::err_variable_storage_not_determined{assign_value_instance});
 
                     if (assign_value_instance->m_symbol->m_symbol_declare_ast.has_value())
                         lex.record_lang_error(lexer::msglevel_t::infom,
                             assign_value_instance->m_symbol->m_symbol_declare_ast.value(),
-                            diagnose::info_symbol_named_defined_here{get_value_name(assign_value_instance)});
+                            diagnose::lang1::info_symbol_named_defined_here{get_value_name(assign_value_instance)});
 
                     return FAILED;
                 }
@@ -5705,7 +5713,7 @@ namespace wo
                 && type_instance->m_symbol != m_origin_types.m_nothing.m_symbol)
             {
                 lex.record_lang_error(lexer::msglevel_t::error, eval_value,
-                    diagnose::err_non_void_type_expr_as_stmt{type_instance});
+                    diagnose::lang2::err_non_void_type_expr_as_stmt{type_instance});
 
                 return FAILED;
             }

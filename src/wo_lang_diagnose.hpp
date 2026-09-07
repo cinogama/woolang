@@ -17,6 +17,14 @@
 //   includes this header again at its very end - after LangContext is
 //   complete - with WO_LANG_DIAGNOSE_LANG_STAGE defined.
 //
+// Payloads are grouped into stage sub-namespaces mirroring the compiler
+// pipeline: wo::diagnose::lexer (PASS LEXER), wo::diagnose::parser
+// (PASS AST BUILDER), wo::diagnose::lang1 (lang-stage payloads carrying
+// no lang-instance fields) and wo::diagnose::lang2 (typed lang-stage
+// payloads, phase 2). The shared infrastructure (lang_diagnose_t /
+// diagnose_model_t / format / is_diagnose_t / err_raw_message) stays in
+// wo::diagnose itself.
+//
 // NOTE: there is no `#pragma once` in this file on purpose: it must be
 // textually re-processed so the second include can add phase 2 on top of
 // the already-included phase 1.
@@ -152,7 +160,7 @@ namespace wo
 }
 
 // PASS LEXER
-namespace wo::diagnose
+namespace wo::diagnose::lexer
 {
     struct err_unexpected_ch_after_ch final
     {
@@ -378,7 +386,7 @@ namespace wo::diagnose
 }
 
 // PASS AST BUILDER
-namespace wo::diagnose
+namespace wo::diagnose::parser
 {
     struct err_cannot_open_file final
     {
@@ -495,7 +503,7 @@ namespace wo::diagnose
 // LANG-STAGE DIAGNOSES WITHOUT LANG-INSTANCE FIELDS
 // (Diagnoses whose fields reference wo_lang.hpp types live in the
 // WO_LANG_DIAGNOSE_LANG_STAGE section at the end of this file.)
-namespace wo::diagnose
+namespace wo::diagnose::lang1
 {
     struct err_repl_only final
     {
@@ -1096,7 +1104,7 @@ namespace wo::diagnose
 
 #endif // WO_LANG_DIAGNOSE_HPP
 
-// PHASE 2: LANG-STAGE TYPED DIAGNOSES
+// PHASE 2: LANG-STAGE TYPED DIAGNOSES (wo::diagnose::lang2)
 //
 // Diagnoses whose payloads hold pointers to lang instances (type / value /
 // symbol), all alive until the end of the compilation: their display names
@@ -1113,7 +1121,7 @@ namespace wo::diagnose
 
 namespace wo
 {
-    namespace diagnose
+    namespace diagnose::lang2
     {
         struct err_expected_template_argument final
         {
