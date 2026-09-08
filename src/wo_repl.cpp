@@ -413,7 +413,10 @@ wo_repl_result wo_repl_eval(
         || lc->process(*lex, ast_root) != wo::compile_result::PROCESS_OK)
     {
         if (out_errors)
+        {
+            lex->realize_pending_diagnose(lc);
             *out_errors = _wo_make_compile_errors(std::move(lex));
+        }
         else
             lex.reset();
 
