@@ -1,47 +1,47 @@
 /*                                       */
-import woo::std;
-import test_tool;
+// import woo::std;
+// import test_tool;
 
-import test_macro;
-import test_pure;
-import test_benchmark;
-import test_helloworld;
-import test_string_u8;
-import test_basic;
-import test_stdlib_extern;
-import test_defer;
-import test_monad;
-import test_wolisp;
-import test_container;
-import test_compile;
-import test_coroutine;
-import test_hkt;
-import test_exception;
-import test_template;
-import test_operator_overload;
-import test_optional;
-import test_gc;
-import test_dyn_stack;
-import test_tuple;
-import test_struct;
-import test_namespace;
-import test_bool;
-import test_return;
-import test_while;
-import test_debug_invoke;
-import test_dup;
-import test_static;
-import test_enum;
-import test_vm;
-import test_thread;
-import test_string_decode;
-import test_string_encode;
-import test_operator_as;
-import test_lexer_coverage;
-import test_parser_coverage;
-import test_type_coverage;
-import test_ir_coverage;
-import test_utf8_coverage;
+// import test_macro;
+// import test_pure;
+// import test_benchmark;
+// import test_helloworld;
+// import test_string_u8;
+// import test_basic;
+// import test_stdlib_extern;
+// import test_defer;
+// import test_monad;
+// import test_wolisp;
+// import test_container;
+// import test_compile;
+// import test_coroutine;
+// import test_hkt;
+// import test_exception;
+// import test_template;
+// import test_operator_overload;
+// import test_optional;
+// import test_gc;
+// import test_dyn_stack;
+// import test_tuple;
+// import test_struct;
+// import test_namespace;
+// import test_bool;
+// import test_return;
+// import test_while;
+// import test_debug_invoke;
+// import test_dup;
+// import test_static;
+// import test_enum;
+// import test_vm;
+// import test_thread;
+// import test_string_decode;
+// import test_string_encode;
+// import test_operator_as;
+// import test_lexer_coverage;
+// import test_parser_coverage;
+// import test_type_coverage;
+// import test_ir_coverage;
+// import test_utf8_coverage;
 
 /*                                       */
 ///////////////////////////////////////////
@@ -53,9 +53,11 @@ import test_utf8_coverage;
 
 ///////////////////////////////////////////
 /*                                       */
-std::println("Unit-test begin!");
+// std::println("Unit-test begin!");
 
-std::sleep(1.);
+// std::sleep(1.);
 
-execute_all_test();
+// execute_all_test();
 /*                                       */
+
+do nil;

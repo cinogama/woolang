@@ -1,5 +1,3 @@
-import woo::std;
-
 namespace std
 {
     public enum token_type
@@ -119,7 +117,7 @@ namespace std
         lex_type_COUNT,
     }
     
-    public using lexer = handle
+    public using lexer = handle;
     {
         extern("woolang/compiler", "macro_lexer_error")
             public func error(lex: lexer, msg: string)=> void;
@@ -130,93 +128,10 @@ namespace std
         extern("woolang/compiler", "macro_lexer_next")
             public func next_token(lex: lexer)=> (token_type, string);
             
-        private func wrap_token(type: token_type, str: string)
-        {
-            if (type == token_type::l_literal_string)
-                return str->enstring;
-            else if (type == token_type::l_literal_raw_string)
-                return "@\"" + str + "\"@";
-            else if (type == token_type::l_format_string_begin)
-            {
-                let enstr = str->enstring;
-                return "F"
-                    + enstr->sub_len(0, enstr->len - 1)
-                    ->replace("{", "\\{")
-                    ->replace("}", "\\}")
-                    + "{";
-            }
-            else if (type == token_type::l_format_string)
-            {
-                let enstr = str->enstring;
-                return "}"
-                    + enstr->sub_len(1, enstr->len - 2)
-                    ->replace("{", "\\{")
-                    ->replace("}", "\\}")
-                    + "{";
-            }
-            else if (type == token_type::l_format_string_end)
-            {
-                let enstr = str->enstring;
-                return "}"
-                    + enstr->sub_len(1, enstr->len - 1)
-                    ->replace("{", "\\{")
-                    ->replace("}", "\\}") ;
-            }
-            else if (type == token_type::l_literal_char)
-            {
-                let enstr = str->enstring;
-                return F"'{enstr->sub_len(1, enstr->len - 2)}'";
-            }
-            else if (type == token_type::l_macro)
-                return str + "!";
-                
-            return str;
-        }
-        
-        public func peek(lex: lexer)
-        {
-            return wrap_token(lex->peek_token...);
-        }
-        public func next(lex: lexer)
-        {
-            return wrap_token(lex->next_token...);
-        }
-        
         extern("woolang/compiler", "macro_lexer_current_path")
             public func path(lex: lexer) => string;
             
         extern("woolang/compiler", "macro_lexer_current_location")
             public func location(lex: lexer) => (int, int);
-            
-        public func try_token(self: lexer, token: token_type)=> option<string>
-        {
-            let (tok, _) = self->peek_token;
-            if (token == tok)
-                return option::value(self->next_token.1);
-            return option::none;
-        }
-        public func expect_token(self: lexer, token: token_type)=> option<string>
-        {
-            let (tok, res) = self->next_token();
-            if (tok == token)
-                return option::value(res);
-            self->error("Unexpected token here.");
-            return option::none;
-        }
-        public func try(self: lexer, str: string)=> option<string>
-        {
-            let res = self->peek();
-            if (res == str)
-                return option::value(self->next());
-            return option::none;
-        }
-        public func expect(self: lexer, str: string)=> option<string>
-        {
-            let res = self->next();
-            if (res == str)
-                return option::value(res);
-            self->error("Unexpected token here.");
-            return option::none;
-        }
     }
 }
