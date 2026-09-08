@@ -78,7 +78,7 @@ namespace std
         public func print(...)=> void;
     extern("woostd_println")
         public func println(...)=> void;
-    
+        
     public func input<T>(validator: (T)=>bool)=> T
         where declval:<T>() is int
         || declval:<T>() is real
@@ -1061,6 +1061,15 @@ namespace map
                 dynamic::type_traits::irbx,
             )}>)
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
+    extern(
+        dynamic::type_traits::extern_symbol_variant:<
+        {"woostd_map_insert"},
+        (KT, VT),
+        {(
+                dynamic::type_traits::irbx,
+                dynamic::type_traits::irbx,
+            )}>)
+        public func insert<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> bool;
     extern("woostd_map_len")
         public func len<KT, VT>(self: map<KT, VT>)=> int;
     extern("woostd_make_dup")
