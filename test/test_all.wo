@@ -1,5 +1,8 @@
 /*                                       */
 import pkg::std;
+import pkg::fsys;
+import pkg::worst::macro;
+
 import test_tool;
 
 import test_macro;
@@ -45,19 +48,26 @@ import test_utf8_coverage;
 
 /*                                       */
 ///////////////////////////////////////////
-/*    TODO-LIST
- *
- */
-///////////////////////////////////////////
-
-
-///////////////////////////////////////////
-/*                                       */
-std::println("Unit-test begin!");
-
-std::sleep(1.);
-
-execute_all_test();
 /*                                       */
 
-do nil;
+func test()
+{
+    using fsys;
+
+    let current_work_path = workpath();
+
+    // To make test_compile happy, we need to set workpath
+    // to make sure pkg::std can be imported.
+    do fsys::setworkpath(parent(normalize(__FILE__!)));
+    defer do setworkpath(current_work_path);
+
+    std::println("Unit-test begin!");
+
+    std::sleep(1.);
+
+    execute_all_test();
+}
+
+/*                                       */
+
+test();

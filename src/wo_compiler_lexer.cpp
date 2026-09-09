@@ -45,14 +45,15 @@ namespace wo
         char* _path_ens = woort_u8enstring(source_path.data(), source_path.size(), 0);
         std::string _path_str(_path_ens ? _path_ens : "");
         woort_free(_path_ens);
-        std::string line_mark = "#line "
+        const std::string line_mark = "#line "
             + _path_str
             + " "
             + std::to_string(lex._m_row_counter + 1)
             + " "
             + std::to_string(lex._m_col_counter - 1);
 
-        std::string macro_anylzing_src = line_mark + R"(
+        std::string macro_anylzing_src = 
+            line_mark + R"(
 import woo::macro;
 extern func macro_entry(lexer: std::lexer)=> string
 {
