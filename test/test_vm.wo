@@ -1,4 +1,4 @@
-import woo::std;
+import pkg::std;
 import test_tool;
 
 import pkg::dumpling;
@@ -18,7 +18,7 @@ namespace test_vm
     {
         let vmm = load_and_create_vmm(
             @"
-            import woo::std; 
+            import pkg::std; 
             let mut s2 = "Helloworld2"; 
             func super_depth_foo(f: ()=> string, s: string, n: int)=> void
             {
@@ -59,7 +59,7 @@ namespace test_vm
         
         do load_and_create_vmm(
             @"
-            import woo::std;
+            import pkg::std;
             func main()
             {
                 std::println("Hey! This inform come from another vm!~");
@@ -75,7 +75,7 @@ namespace test_vm
             i += 1;
             do load_and_create_vmm(
                 @"
-                import woo::std;
+                import pkg::std;
                 func test_template< T >(n:T)
                 {
                     return n;

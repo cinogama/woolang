@@ -1,5 +1,5 @@
 // wolisp.wo
-import woo::std;
+import pkg::std;
 import test_tool;
 
 namespace wolisp

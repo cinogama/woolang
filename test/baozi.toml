@@ -21,6 +21,6 @@ path = "pkg"
 path = "pkg"
 
 [dependence.std]
-path = "woo"
+path = "pkg"
 
 [test_dependence]

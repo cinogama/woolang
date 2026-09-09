@@ -1,4 +1,4 @@
-import woo::std;
+import pkg::std;
 import test_tool;
 
 import pkg::thread;

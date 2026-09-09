@@ -358,6 +358,7 @@ _deps
 
 /out/
 /build/
+/build-x64-dyn/
 /3rd/woort
 .msvc/
 .zcode/

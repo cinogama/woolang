@@ -1,5 +1,5 @@
-import woo::std;
-import woo::std::debug;
+import pkg::std;
+import pkg::std::debug;
 
 import pkg::iterator;
 

@@ -1,5 +1,5 @@
 /*                                       */
-import woo::std;
+import pkg::std;
 import test_tool;
 
 import test_macro;
