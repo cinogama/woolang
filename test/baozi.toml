@@ -1,0 +1,26 @@
+name = "test"
+
+[woolang]
+[dependence]
+[dependence.buffer]
+path = "pkg"
+
+[dependence.dumpling]
+path = "pkg"
+
+[dependence.iterator]
+path = "pkg"
+
+[dependence.math]
+path = "pkg"
+
+[dependence.thread]
+path = "pkg"
+
+[dependence.worst]
+path = "pkg"
+
+[dependence.std]
+path = "woo"
+
+[test_dependence]
