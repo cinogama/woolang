@@ -117,7 +117,7 @@ namespace std
         lex_type_COUNT,
     }
     
-    public using lexer = handle;
+    public using lexer = handle
     {
         extern("woolang/compiler", "macro_lexer_error")
             public func error(lex: lexer, msg: string)=> void;

@@ -53,7 +53,6 @@ namespace wo
             + std::to_string(lex._m_col_counter - 1);
 
         std::string macro_anylzing_src = line_mark + R"(
-import woo::std;
 import woo::macro;
 extern func macro_entry(lexer: std::lexer)=> string
 {

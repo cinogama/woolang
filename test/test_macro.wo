@@ -14,6 +14,8 @@ import test_tool;
 
 #macro test_macro_value_it_self
 {
+    import woo::std::macro;
+
     if (lexer->next != "(")
         lexer->error("Unexpected token, expected '('.");
 
@@ -46,6 +48,9 @@ typeid
 
 #macro test_bad_token_reader
 {
+    import woo::std;
+    import woo::std::macro;
+    
     return lexer->next->enstring;
 }
 
