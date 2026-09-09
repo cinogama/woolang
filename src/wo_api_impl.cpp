@@ -57,17 +57,13 @@ void wo_init(
         argv,
         funcs == nullptr ? std::nullopt : std::make_optional(funcs));
 
-    bool enable_std_package = true;
-
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
     {
         std::string current_arg = argv[command_idx];
         if (current_arg.size() >= 9 && current_arg.substr(0, 9) == "--woolang")
         {
             current_arg = current_arg.substr(2);
-            if ("woolang-enable-std" == current_arg)
-                enable_std_package = atoi(argv[++command_idx]);
-            else if ("woolang-enable-runtime-checking-integer-division" == current_arg)
+            if ("woolang-enable-runtime-checking-integer-division" == current_arg)
                 wo::config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = (bool)atoi(argv[++command_idx]);
             else if ("woolang-update-grammar" == current_arg)
                 wo::config::ENABLE_CHECK_GRAMMAR_AND_UPDATE = (bool)atoi(argv[++command_idx]);
@@ -78,18 +74,15 @@ void wo_init(
         }
     }
 
+    // Register internal scripts.
+    for (size_t i = 0; i < woo_embedded_file_count; ++i)
+        wo_assure(woort_vfs_create(
+            woo_embedded_files[i].path,
+            woo_embedded_files[i].data,
+            strlen(woo_embedded_files[i].data),
+            false));
+
     wo::wstring_pool::init_global_str_pool();
-
-    if (enable_std_package)
-    {
-        for (size_t i = 0; i < woo_embedded_file_count; ++i)
-            wo_assure(woort_vfs_create(
-                woo_embedded_files[i].path,
-                woo_embedded_files[i].data,
-                strlen(woo_embedded_files[i].data),
-                false));
-    }
-
     wo::lexer::init_char_lookup_table();
 
 #ifndef WO_DISABLE_COMPILER
@@ -107,8 +100,6 @@ void wo_init(
 void wo_print_compiler_help(void)
 {
     std::cout << "Woolang Compiler Options (prefix: --woolang-):\n";
-    std::cout << "    --woolang-enable-std <0|1>\n";
-    std::cout << "        Enable the embedded woolang standard library package. Default: 1.\n";
     std::cout << "    --woolang-enable-runtime-checking-integer-division <0|1>\n";
     std::cout << "        Generate extra code to check for division by zero and overflow. Default: 1.\n";
     std::cout << "    --woolang-update-grammar <0|1>\n";
