@@ -35,11 +35,11 @@ namespace wo
 
             switch (describe->m_token.type)
             {
-            case lex_type::l_public:
+            case lex_type::l_pub:
                 return AstDeclareAttribue::accessc_attrib::PUBLIC;
-            case lex_type::l_private:
+            case lex_type::l_local:
                 return AstDeclareAttribue::accessc_attrib::PRIVATE;
-            case lex_type::l_protected:
+            case lex_type::l_internal:
                 return AstDeclareAttribue::accessc_attrib::PROTECTED;
             default:
                 wo_error("Unknown attribute.");
@@ -217,7 +217,7 @@ namespace wo
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             token new_type_name = WO_NEED_TOKEN(2);
             std::optional<AstList*> template_params = std::nullopt;
-            AstTypeHolder* base_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(5, AstBase::AST_TYPE_HOLDER));
+            AstTypeHolder* base_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(6, AstBase::AST_TYPE_HOLDER));
 
             wo_pstring_t type_name = new_type_name.identifier;
 
@@ -872,11 +872,11 @@ namespace wo
 
                 switch (describe->m_token.type)
                 {
-                case lex_type::l_public:
+                case lex_type::l_pub:
                     attrib = AstDeclareAttribue::accessc_attrib::PUBLIC; break;
-                case lex_type::l_private:
+                case lex_type::l_local:
                     attrib = AstDeclareAttribue::accessc_attrib::PRIVATE; break;
-                case lex_type::l_protected:
+                case lex_type::l_internal:
                     attrib = AstDeclareAttribue::accessc_attrib::PROTECTED; break;
                 default:
                     wo_error("Unknown attribute.");

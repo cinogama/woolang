@@ -275,9 +275,9 @@ namespace wo
                 }
                 m_external = external_attrib::EXTERNAL;
                 break;
-            case lex_type::l_public:
-            case lex_type::l_private:
-            case lex_type::l_protected:
+            case lex_type::l_pub:
+            case lex_type::l_internal:
+            case lex_type::l_local:
                 if (m_access)
                 {
                     lex.record_lang_error(lexer::msglevel_t::error, attrib_token, diagnose::parser::err_repeat_attribute{});
@@ -285,11 +285,11 @@ namespace wo
                 }
                 switch (attrib_token->m_token.type)
                 {
-                case lex_type::l_public:
+                case lex_type::l_pub:
                     m_access = accessc_attrib::PUBLIC; break;
-                case lex_type::l_private:
+                case lex_type::l_local:
                     m_access = accessc_attrib::PRIVATE; break;
-                case lex_type::l_protected:
+                case lex_type::l_internal:
                     m_access = accessc_attrib::PROTECTED; break;
                 default:
                     abort(); //WTF?

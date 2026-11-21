@@ -116,6 +116,7 @@ namespace wo
                 NT(IDENTIFIER),
                 NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
                 TE(l_assign),
+                NT(ACCESS_MODIFIER_MAY_EMPTY),
                 NT(TYPE)));
             P(SENTENCE, pass_using_typename_space, (NT(DECLARE_NEW_TYPE), NT(SENTENCE_BLOCK_MAY_SEMICOLON)));
             P(SENTENCE_BLOCK_MAY_SEMICOLON, pass_empty, (TE(l_semicolon)));
@@ -174,9 +175,9 @@ namespace wo
             P(DECL_ATTRIBUTE_ITEM, pass_direct<0>, (NT(ACCESS_MODIFIER)));
             P(LIFECYCLE_MODIFER, pass_token, (TE(l_static)));
             P(EXTERNAL_MODIFER, pass_token, (TE(l_extern)));
-            P(ACCESS_MODIFIER, pass_token, (TE(l_public)));
-            P(ACCESS_MODIFIER, pass_token, (TE(l_private)));
-            P(ACCESS_MODIFIER, pass_token, (TE(l_protected)));
+            P(ACCESS_MODIFIER, pass_token, (TE(l_pub)));
+            P(ACCESS_MODIFIER, pass_token, (TE(l_internal)));
+            P(ACCESS_MODIFIER, pass_token, (TE(l_local)));
             P(SENTENCE, pass_empty, (TE(l_semicolon)));
             P(WHERE_CONSTRAINT_WITH_SEMICOLON, pass_direct<0>, (NT(WHERE_CONSTRAINT), TE(l_semicolon)));
             P(WHERE_CONSTRAINT_WITH_SEMICOLON, pass_empty, (TE(l_empty)));
