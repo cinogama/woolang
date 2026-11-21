@@ -299,29 +299,48 @@ void wo_lspv2_scope_info_free(wo_lspv2_scope_info* info)
 struct _wo_lspv2_symbol_iter
 {
     using symbol_iter_t = decltype(wo::lang_Scope::m_defined_symbols)::const_iterator;
+    using local_symbol_iter_t = decltype(wo::lang_Scope::m_local_defined_symbols)::const_iterator;
+
     symbol_iter_t m_current;
     symbol_iter_t m_end;
+
+    local_symbol_iter_t m_local_current;
+    local_symbol_iter_t m_local_end;
+    size_t m_local_index;
 };
 
 wo_lspv2_symbol_iter* wo_lspv2_scope_symbol_iter(wo_lspv2_scope* scope)
 {
     wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope));
-    return new wo_lspv2_symbol_iter{
+    return new _wo_lspv2_symbol_iter{
         lang_scope->m_defined_symbols.cbegin(),
         lang_scope->m_defined_symbols.cend(),
+        lang_scope->m_local_defined_symbols.cbegin(),
+        lang_scope->m_local_defined_symbols.cend(),
+        0,
     };
 }
 wo_lspv2_symbol* wo_lspv2_scope_symbol_next(wo_lspv2_symbol_iter* iter)
 {
-    if (iter->m_current == iter->m_end)
-    {
-        delete iter;
-        return nullptr;
-    }
-    else
-    {
+    if (iter->m_current != iter->m_end)
         return reinterpret_cast<wo_lspv2_symbol*>(
             (iter->m_current++)->second.get());
+
+    for (;;)
+    {
+        if (iter->m_local_current == iter->m_local_end)
+        {
+            delete iter;
+            return nullptr;
+        }
+
+        auto& local_symbols = iter->m_local_current->second;
+        if (iter->m_local_index < local_symbols.size())
+            return reinterpret_cast<wo_lspv2_symbol*>(
+                local_symbols[iter->m_local_index++].get());
+
+        ++iter->m_local_current;
+        iter->m_local_index = 0;
     }
 }
 wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)

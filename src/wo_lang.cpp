@@ -651,6 +651,7 @@ namespace wo
 
     lang_Scope::lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs)
         : m_defined_symbols{}
+        , m_local_defined_symbols{}
         , m_sub_scopes{}
         , m_declare_used_namespaces{}
         , m_parent_scope(parent_scope)
@@ -669,6 +670,29 @@ namespace wo
     bool lang_Scope::is_namespace_scope() const
     {
         return m_belongs_to_namespace->m_this_scope.get() == this;
+    }
+    lang_Symbol* lang_Scope::find_defined_symbol(
+        wo_pstring_t name, wo_pstring_t source_group) const
+    {
+        auto local_fnd = m_local_defined_symbols.find(name);
+        if (local_fnd != m_local_defined_symbols.end())
+        {
+            for (auto& local_symbol : local_fnd->second)
+            {
+                const auto& declared_location =
+                    local_symbol->m_symbol_declare_location;
+
+                if (declared_location.has_value()
+                    && declared_location.value().source_group == source_group)
+                    return local_symbol.get();
+            }
+        }
+
+        auto fnd = m_defined_symbols.find(name);
+        if (fnd != m_defined_symbols.end())
+            return fnd->second.get();
+
+        return nullptr;
     }
 
     //////////////////////////////////////
@@ -1985,19 +2009,23 @@ namespace wo
             }
         }
 
+        const wo_pstring_t source_group = ident->source_location.source_group;
+
         if (ident->m_scope.empty())
         {
             // Can see all the symbol defined in current scope;
             size_t visibility_edge_limit = m_created_symbol_edge;
             do
             {
-                auto fnd = current_scope->m_defined_symbols.find(ident->m_name);
-                if (fnd != current_scope->m_defined_symbols.end())
+                lang_Symbol* symbol =
+                    current_scope->find_defined_symbol(ident->m_name, source_group);
+
+                if (symbol != nullptr)
                 {
-                    if ((fnd->second->m_symbol_edge <= visibility_edge_limit || fnd->second->m_is_global)
-                        && ident->m_find_type_only != (fnd->second->m_symbol_kind == lang_Symbol::kind::VARIABLE))
+                    if ((symbol->m_symbol_edge <= visibility_edge_limit || symbol->m_is_global)
+                        && ident->m_find_type_only != (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE))
                     {
-                        found_symbol.insert(fnd->second.get());
+                        found_symbol.insert(symbol);
                         break;
                     }
                 }
@@ -2030,11 +2058,13 @@ namespace wo
                 }
 
                 // Ok, found the namespace.
-                if (auto fnd = symbol_namespace->m_this_scope->m_defined_symbols.find(ident->m_name);
-                    fnd != symbol_namespace->m_this_scope->m_defined_symbols.end()
-                    && ident->m_find_type_only != (fnd->second->m_symbol_kind == lang_Symbol::kind::VARIABLE))
+                lang_Symbol* symbol = symbol_namespace->m_this_scope->find_defined_symbol(
+                    ident->m_name, source_group);
+
+                if (symbol != nullptr
+                    && ident->m_find_type_only != (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE))
                 {
-                    found_symbol.insert(fnd->second.get());
+                    found_symbol.insert(symbol);
                     break; // Break for continue outside loop
                 }
 
@@ -2063,10 +2093,12 @@ namespace wo
             if (scope_located)
             {
                 // Ok, found the namespace.
-                if (auto fnd = searching_namesapace->m_this_scope->m_defined_symbols.find(ident->m_name);
-                    fnd != searching_namesapace->m_this_scope->m_defined_symbols.end()
-                    && ident->m_find_type_only != (fnd->second->m_symbol_kind == lang_Symbol::kind::VARIABLE))
-                    found_symbol.insert(fnd->second.get());
+                lang_Symbol* symbol = searching_namesapace->m_this_scope->find_defined_symbol(
+                    ident->m_name, source_group);
+
+                if (symbol != nullptr
+                    && ident->m_find_type_only != (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE))
+                    found_symbol.insert(symbol);
             }
         }
 
@@ -2165,16 +2197,14 @@ namespace wo
                 return std::nullopt;
         }
 
-        auto fnd = search_begin_namespace->m_this_scope->m_defined_symbols.find(ident->m_name);
-        if (fnd != search_begin_namespace->m_this_scope->m_defined_symbols.end())
-        {
-            lang_Symbol* symbol = fnd->second.get();
+        lang_Symbol* symbol = search_begin_namespace->m_this_scope->find_defined_symbol(
+            ident->m_name, ident->source_location.source_group);
 
-            if (ident->m_find_type_only != (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE))
-            {
-                ident->m_LANG_determined_symbol = symbol;
-                return symbol;
-            }
+        if (symbol != nullptr
+            && ident->m_find_type_only != (symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE))
+        {
+            ident->m_LANG_determined_symbol = symbol;
+            return symbol;
         }
         return std::nullopt;
     }

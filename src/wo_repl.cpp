@@ -266,15 +266,33 @@ _wo_ReplSession::~_wo_ReplSession()
 
 static void _wo_rollback_new_symbols(
     wo::lang_Scope* root_scope,
-    const std::unordered_set<wo_pstring_t>& known_names)
+    const std::unordered_set<const wo::lang_Symbol*>& known_symbols)
 {
     auto& syms = root_scope->m_defined_symbols;
     for (auto it = syms.begin(); it != syms.end(); )
     {
-        if (known_names.find(it->first) == known_names.end())
+        if (known_symbols.find(it->second.get()) == known_symbols.end())
             it = syms.erase(it);
         else
             ++it;
+    }
+
+    auto& local_syms = root_scope->m_local_defined_symbols;
+    for (auto outer = local_syms.begin(); outer != local_syms.end(); )
+    {
+        auto& per_group_symbols = outer->second;
+        for (auto inner = per_group_symbols.begin(); inner != per_group_symbols.end(); )
+        {
+            if (known_symbols.find(inner->get()) == known_symbols.end())
+                inner = per_group_symbols.erase(inner);
+            else
+                ++inner;
+        }
+
+        if (per_group_symbols.empty())
+            outer = local_syms.erase(outer);
+        else
+            ++outer;
     }
 }
 
@@ -342,10 +360,13 @@ wo_repl_result wo_repl_eval(
     lc->m_scope_stack.top() = root_ns->m_this_scope.get();
     auto* root_scope = root_ns->m_this_scope.get();
 
-    // --- 4. Snapshot root scope symbol names (for rollback) ---
-    std::unordered_set<wo_pstring_t> known_names;
-    for (const auto& [name, _] : root_scope->m_defined_symbols)
-        known_names.insert(name);
+    // --- 4. Snapshot root scope symbols (for rollback) ---
+    std::unordered_set<const wo::lang_Symbol*> known_symbols;
+    root_scope->for_each_defined_symbol(
+        [&known_symbols](const wo::lang_Symbol& symbol)
+        {
+            known_symbols.insert(&symbol);
+        });
 
     // --- 5. Create lexer from source string ---
     // Per-eval VFS path (unique per line) so error rendering can show the
@@ -420,7 +441,7 @@ wo_repl_result wo_repl_eval(
         else
             lex.reset();
 
-        _wo_rollback_new_symbols(root_scope, known_names);
+        _wo_rollback_new_symbols(root_scope, known_symbols);
         return WO_REPL_COMPILE_ERROR;
     }
 
@@ -438,7 +459,7 @@ wo_repl_result wo_repl_eval(
     auto cenv_opt = lc->m_ircontext.finalize(lc->m_repl_context);
     if (!cenv_opt.has_value())
     {
-        _wo_rollback_new_symbols(root_scope, known_names);
+        _wo_rollback_new_symbols(root_scope, known_symbols);
         return WO_REPL_OUT_OF_MEMORY;
     }
     woort_CodeEnv* const cenv = cenv_opt.value();
