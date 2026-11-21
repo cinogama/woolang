@@ -1,0 +1,20 @@
+name = "test_v1.16"
+
+[woolang]
+[dependence]
+[dependence.std]
+path = "pkg"
+
+[dependence.dumpling]
+path = "pkg"
+
+[dependence.fsys]
+path = "pkg"
+
+[dependence.buffer]
+path = "pkg"
+
+[test_dependence]
+[test_dependence.test]
+path = "pkg"
+

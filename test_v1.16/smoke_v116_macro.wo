@@ -1,0 +1,71 @@
+import pkg::std;
+import woo::macro;
+import smoke_v116_tool;
+
+/* Macro-subsystem smoke test for dev_1.16.
+
+   The `#macro` pipeline compiles `woo/macro.wo` from the embedded
+   standard macros and hands the raw lexer token type to it as an
+   integer. `std::token_type` in woo/macro.wo must therefore mirror
+   `wo::lex_type` exactly. This file guards both the macro-expansion
+   path and that numeric contract.
+
+   Imported by test.wo. Running this file directly still processes the
+   macro invocations at compile time (the token checks fire), but only
+   test.wo runs the runtime assertions.
+*/
+
+// The token types received here are the compiler's lex_type values.
+#macro smoke_v116_macro_keyword_tokens
+{
+    if (lexer->next_token[0] != std::token_type::l_internal)
+        lexer->error("expected keyword token type l_internal");
+
+    if (lexer->next_token[0] != std::token_type::l_local)
+        lexer->error("expected keyword token type l_local");
+
+    if (lexer->next_token[0] != std::token_type::l_pub)
+        lexer->error("expected keyword token type l_pub");
+
+    if (lexer->next_token[0] != std::token_type::l_type)
+        lexer->error("expected keyword token type l_type");
+
+    // Keywords that already existed must stay aligned as well.
+    if (lexer->next_token[0] != std::token_type::l_import)
+        lexer->error("expected keyword token type l_import");
+
+    if (lexer->next_token[0] != std::token_type::l_let)
+        lexer->error("expected keyword token type l_let");
+
+    if (lexer->next_token[0] != std::token_type::l_is)
+        lexer->error("expected keyword token type l_is");
+}
+
+#macro smoke_v116_macro_value
+{
+    return "42";
+}
+
+smoke_v116_macro_keyword_tokens! internal local pub type import let is
+
+namespace smoke_v116_macro
+{
+    pub func main()
+    {
+        // Numeric contract: token_type == lex_type ordinal.
+        test_equal(std::token_type::l_import as int, 75);
+        test_equal(std::token_type::l_internal as int, 76);
+        test_equal(std::token_type::l_is as int, 77);
+        test_equal(std::token_type::l_local as int, 80);
+        test_equal(std::token_type::l_pub as int, 86);
+        test_equal(std::token_type::l_raw as int, 87);
+        test_equal(std::token_type::l_type as int, 92);
+        test_equal(std::token_type::l_unknown_token as int, 103);
+        test_equal(std::token_type::lex_type_COUNT as int, 104);
+
+        // Simple macro expansion still works.
+        test_equal(smoke_v116_macro_value!, 42);
+    }
+}
+
+test_function("smoke_v116_macro.main", smoke_v116_macro::main);

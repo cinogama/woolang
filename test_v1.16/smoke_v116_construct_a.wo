@@ -1,0 +1,153 @@
+import pkg::std;
+import smoke_v116_tool;
+
+/* Declaration-side tests for the 1.16 type/construct modifier split:
+
+       [name access] type Name = [construct access] Base
+
+   The modifier before `type`/`enum`/`union` controls name visibility
+   (and the default item access of enum/union members), the modifier
+   after `=` / after `enum` / after `union` controls where the type
+   may be constructed (`as` cast target or struct literal).
+
+   No construct modifier means: constructible only in the declaring
+   file. `internal` means: constructible only inside the type's own
+   namespace (the namespace carrying the type's name). */
+
+namespace smoke_v116_construct
+{
+    // Name pub, construct permission default = only this file.
+    pub type LocalConstructInt = int;
+    pub type LocalConstructStruct = struct{
+        pub value: int,
+    };
+    pub enum LocalConstructEnum
+    {
+        First,
+        Second,
+    }
+
+    // Name pub and construct permission pub: usable anywhere.
+    pub type OpenInt = pub int;
+    pub type OpenStruct = pub struct{
+        pub value: int,
+    };
+    pub enum pub OpenEnum
+    {
+        Alpha,
+        Beta,
+    }
+    pub union pub OpenUnion
+    {
+        Empty,
+        Num(int),
+    }
+    pub type OpenBox<T> = pub struct{
+        pub value: T,
+    };
+
+    // Generic type declaration + namespace block + pub construct.
+    pub type Wrapper<T> = pub struct{
+        pub value: T,
+    }
+    {
+        pub func get<T>(self: Wrapper<T>)=> T
+        {
+            return self.value;
+        }
+        pub func map<T, R>(self: Wrapper<T>, f: (T)=> R)=> Wrapper<R>
+        {
+            return Wrapper:<R>{ value = f(self.value) };
+        }
+    }
+
+    // Construct permission limited to the type's own namespace.
+    pub type NamespacedInt = internal int
+    {
+        pub func make(v: int)=> NamespacedInt
+        {
+            return v as NamespacedInt;
+        }
+        pub func get(self: NamespacedInt)=> int
+        {
+            return self as int;
+        }
+    }
+
+    // Per-item access modifiers: items without a modifier inherit the
+    // enum/union attribute (pub here).
+    pub enum ItemModifierEnum
+    {
+        Inherited,
+        local LocalItem,
+        pub PublicItem,
+        internal InternalItem,
+    }
+    pub union ItemModifierUnion
+    {
+        Inherited,
+        local LocalItem,
+        pub PublicItem,
+        pub Numbered(int),
+        internal InternalItem(int),
+    }
+
+    // Values of construct-restricted types can still cross files.
+    pub func make_local_struct(v: int)=> LocalConstructStruct
+    {
+        return LocalConstructStruct{ value = v };
+    }
+    pub func read_value(s: LocalConstructStruct)=> int
+    {
+        return s.value;
+    }
+
+    pub func double_it(v: int)=> int
+    {
+        return v * 2;
+    }
+
+    pub func self_check()
+    {
+        // Declaring file can always construct its own types.
+        let a = 1 as LocalConstructInt;
+        test_equal(a as int, 1);
+
+        let b = LocalConstructStruct{ value = 2 };
+        test_equal(b.value, 2);
+
+        let c = 1 as LocalConstructEnum;
+        test_equal(c as int, 1);
+
+        test_equal(LocalConstructEnum::Second as int, 1);
+
+        let d = (3 as OpenInt) as int;
+        test_equal(d, 3);
+        test_equal(OpenStruct{ value = 4 }.value, 4);
+        test_equal((5 as OpenEnum) as int, 5);
+        test_equal(OpenUnion::Num(6) is OpenUnion, true);
+        test_equal(OpenBox:<int>{ value = 7 }.value, 7);
+
+        // Type declaration namespace block, template parameters and
+        // construct permission working together.
+        test_equal(Wrapper:<int>{ value = 8 }->get(), 8);
+        test_equal(Wrapper:<int>{ value = 8 }->map(double_it)->get(), 16);
+
+        // `internal` construct works inside the type's namespace only;
+        // use the constructor function to stay there.
+        test_equal(NamespacedInt::make(8)->get(), 8);
+
+        // Item modifiers stay usable inside the declaring file. An
+        // `internal` item lives in the enum's own generated namespace,
+        // so it is not reachable even here.
+        test_equal(ItemModifierEnum::Inherited as int, 0);
+        test_equal(ItemModifierEnum::LocalItem as int, 1);
+        test_equal(ItemModifierEnum::PublicItem as int, 2);
+        test_equal(ItemModifierUnion::Inherited is ItemModifierUnion, true);
+        test_equal(ItemModifierUnion::LocalItem is ItemModifierUnion, true);
+        test_equal(ItemModifierUnion::PublicItem is ItemModifierUnion, true);
+        test_equal(ItemModifierUnion::Numbered(5) is ItemModifierUnion, true);
+    }
+}
+
+test_function("smoke_v116_construct.declare", smoke_v116_construct::self_check);

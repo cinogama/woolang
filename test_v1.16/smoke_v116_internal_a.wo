@@ -1,0 +1,25 @@
+import pkg::std;
+import smoke_v116_tool;
+
+/* `internal` access (dev_1.16): visible inside the declaring
+   namespace and its sub-namespaces, but not outside. This file
+   declares the symbols; smoke_v116_internal_b.wo uses them. */
+
+namespace smoke_v116_internal
+{
+    internal func helper()=> int
+    {
+        return 40;
+    }
+
+    internal let base = 2;
+
+    // `internal` name + `pub` construct: name is only reachable inside
+    // this namespace, but construction is not restricted.
+    internal type InnerInt = pub int;
+
+    internal func make_inner(v: int)=> InnerInt
+    {
+        return v as InnerInt;
+    }
+}

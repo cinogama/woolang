@@ -1,0 +1,15 @@
+import pkg::std;
+
+import smoke_v116_tool;
+
+import smoke_v116_basic;
+import smoke_v116_macro;
+import smoke_v116_local_a;
+import smoke_v116_local_b;
+import smoke_v116_internal_a;
+import smoke_v116_internal_b;
+import smoke_v116_construct_a;
+import smoke_v116_construct_b;
+import smoke_v116_negative;
+
+test_execute_all();

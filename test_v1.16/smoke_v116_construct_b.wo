@@ -1,0 +1,75 @@
+import pkg::std;
+import smoke_v116_tool;
+import smoke_v116_construct_a;
+
+/* Consumer-side tests for the 1.16 construct modifiers. Types whose
+   construct permission is `pub` may be constructed here; types with
+   the default (declaring-file only) permission may still be named and
+   passed around, just not constructed directly. */
+
+namespace smoke_v116_construct_consumer
+{
+    pub func main()
+    {
+        // pub construct: cast and struct literal are allowed.
+        test_equal((10 as smoke_v116_construct::OpenInt) as int, 10);
+
+        let open_struct = smoke_v116_construct::OpenStruct{ value = 11 };
+        test_equal(open_struct.value, 11);
+
+        test_equal((1 as smoke_v116_construct::OpenEnum) as int, 1);
+        test_equal(smoke_v116_construct::OpenEnum::Beta as int, 1);
+
+        // Enum items inherit the enum name attribute (pub), so they are
+        // reachable here even though `LocalConstructEnum` cannot be
+        // constructed in this file.
+        test_equal(smoke_v116_construct::LocalConstructEnum::First as int, 0);
+        test_equal(smoke_v116_construct::LocalConstructEnum::Second as int, 1);
+
+        // Union creators are reachable as well.
+        let n = smoke_v116_construct::OpenUnion::Num(12);
+        match (n)
+        {
+            Num(value)?
+                test_equal(value, 12);
+            Empty?;
+        }
+        let e = smoke_v116_construct::OpenUnion::Empty;
+        match (e)
+        {
+            Num(_)?
+                test_assure(false);
+            Empty?;
+        }
+
+        // Generic type declaration with pub construct.
+        test_equal(smoke_v116_construct::OpenBox:<int>{ value = 13 }.value, 13);
+        test_equal(smoke_v116_construct::OpenBox:<string>{ value = "boxed" }.value, "boxed");
+
+        // Generic type + namespace block: construction and methods work
+        // from another file.
+        let wrapper = smoke_v116_construct::Wrapper:<int>{ value = 21 };
+        test_equal(wrapper->get(), 21);
+        test_equal(wrapper->map(smoke_v116_construct::double_it)->get(), 42);
+
+        // Construct-restricted type values still travel across files.
+        let local_value = smoke_v116_construct::make_local_struct(14);
+        test_equal(smoke_v116_construct::read_value(local_value), 14);
+        test_equal(local_value.value, 14);
+
+        // internal construct: usable through the type's own namespace.
+        let namespaced = smoke_v116_construct::NamespacedInt::make(15);
+        test_equal(namespaced->get(), 15);
+
+        // Per-item access: inherited pub items and explicit pub items.
+        test_equal(smoke_v116_construct::ItemModifierEnum::Inherited as int, 0);
+        test_equal(smoke_v116_construct::ItemModifierEnum::PublicItem as int, 2);
+        test_equal(
+            smoke_v116_construct::ItemModifierUnion::Numbered(6)
+                is smoke_v116_construct::ItemModifierUnion,
+            true);
+        test_equal(smoke_v116_construct::ItemModifierUnion::Inherited is smoke_v116_construct::ItemModifierUnion, true);
+    }
+}
+
+test_function("smoke_v116_construct.consume", smoke_v116_construct_consumer::main);

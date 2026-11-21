@@ -1,0 +1,60 @@
+import pkg::std;
+import smoke_v116_tool;
+import smoke_v116_internal_a;
+
+/* `internal` access (dev_1.16), consumer side. The symbols are
+   declared in smoke_v116_internal_a.wo. */
+
+namespace smoke_v116_internal
+{
+    pub func compute()=> int
+    {
+        return helper() + base;
+    }
+
+    pub func compute_inner(v: int)=> int
+    {
+        return make_inner(v) as int;
+    }
+
+    // internal symbol declared in this file is reachable from the
+    // sibling file's namespace as well (same namespace).
+    internal func sibling()=> int
+    {
+        return 1;
+    }
+
+    pub func main_internal()
+    {
+        test_equal(compute(), 42);
+        test_equal(compute_inner(99), 99);
+        test_equal(sibling(), 1);
+
+        // `internal` name + `pub` construct: construction is allowed
+        // from another file as long as the name is reachable.
+        test_equal((3 as InnerInt) as int, 3);
+    }
+}
+
+namespace smoke_v116_internal::deeper
+{
+    pub func compute_deep()=> int
+    {
+        // Internal symbols of the parent namespace are reachable from
+        // a sub-namespace.
+        return helper() + base;
+    }
+}
+
+namespace smoke_v116_internal_consumer
+{
+    pub func main()
+    {
+        test_equal(smoke_v116_internal::compute(), 42);
+        test_equal(smoke_v116_internal::compute_inner(7), 7);
+        test_equal(smoke_v116_internal::deeper::compute_deep(), 42);
+    }
+}
+
+test_function("smoke_v116_internal.a", smoke_v116_internal::main_internal);
+test_function("smoke_v116_internal.b", smoke_v116_internal_consumer::main);

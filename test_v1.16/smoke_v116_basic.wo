@@ -1,0 +1,175 @@
+import pkg::std;
+import smoke_v116_tool;
+
+/* Basic-language smoke test: after the 1.16 grammar/LR1 table was
+   regenerated (`type` keyword, pub/internal/local, access modifier
+   slots in enum/union declarations), make sure the rest of the
+   language still compiles and runs. */
+
+namespace smoke_v116_basic
+{
+    type Point = struct{
+        pub x: int,
+        pub y: int,
+    }
+    {
+        pub func sum(self: Point)=> int
+        {
+            return self.x + self.y;
+        }
+        pub func scale(self: Point, k: int)=> Point
+        {
+            return Point{
+                x = self.x * k,
+                y = self.y * k,
+            };
+        }
+    }
+
+    pub func make_point(x: int, y: int)=> Point
+    {
+        return Point{ x = x, y = y };
+    }
+
+    alias int_pair = (int, int);
+    let base_pair = (10, 20);
+
+    enum Shape
+    {
+        circle,
+        square,
+        triangle = 7,
+        rectangle,
+    }
+
+    union MaybeNumber
+    {
+        nothing,
+        number(int),
+        text(string),
+    }
+
+    // Per-item access modifiers split items into definition groups, but
+    // the auto-increment value keeps chaining across the groups.
+    pub enum Counted
+    {
+        zero,
+        local five = 5,
+        six,
+        pub seven,
+        eight,
+    }
+
+    func classify(v: MaybeNumber)
+    {
+        match (v)
+        {
+            nothing?
+                return -1;
+            number(n)?
+                return n;
+            text(s)?
+                return s->len;
+        }
+    }
+
+    // `type Name = Base` replaces the old `using Name = Base` form.
+    type IntBox = int
+    {
+        pub func get(self: IntBox)=> int
+        {
+            return self as int;
+        }
+    }
+
+    pub func to_box(v: int)=> IntBox
+    {
+        return v as IntBox;
+    }
+
+    pub func identity<T>(v: T)=> T
+    {
+        return v;
+    }
+
+    pub func sum2<T>(a: T, b: T)=> T
+        where std::type_traits::is_based_on:<int, T>;
+    {
+        return a + b;
+    }
+
+    pub func generic_pair_first<A, B>(a: A, _: B)=> A
+    {
+        return a;
+    }
+
+    // Type declarations also work in a function scope; local symbols
+    // are always constructible.
+    pub func local_type_in_function()=> int
+    {
+        type LocalPair = struct{
+            pub a: int,
+            pub b: int,
+        };
+        let p = LocalPair{ a = 2, b = 3 };
+        return p.a + p.b;
+    }
+
+    pub func main()
+    {
+        let p = make_point(3, 4);
+        test_equal(p->sum(), 7);
+        test_equal(p.x + p.y, 7);
+
+        let scaled = p->scale(2);
+        test_equal(scaled->sum(), 14);
+
+        test_equal(classify(MaybeNumber::nothing), -1);
+        test_equal(classify(MaybeNumber::number(9)), 9);
+        test_equal(classify(MaybeNumber::text("abcd")), 4);
+
+        test_equal(Shape::circle as int, 0);
+        test_equal(Shape::square as int, 1);
+        test_equal(Shape::triangle as int, 7);
+        test_equal(Shape::rectangle as int, 8);
+
+        test_equal(Counted::zero as int, 0);
+        test_equal(Counted::five as int, 5);
+        test_equal(Counted::six as int, 6);
+        test_equal(Counted::seven as int, 7);
+        test_equal(Counted::eight as int, 8);
+
+        test_equal(to_box(42)->get(), 42);
+
+        test_equal(identity(5), 5);
+        test_equal(identity("ok"), "ok");
+        test_equal(identity(true), true);
+        test_equal(sum2(2, 3), 5);
+        test_equal(generic_pair_first(1, "ignored"), 1);
+        test_equal(local_type_in_function(), 5);
+
+        let (x, y) = base_pair;
+        test_equal(x, 10);
+        test_equal(y, 20);
+
+        let mut total = 0;
+        for (let mut i = 0; i < 4; i += 1)
+            total += i;
+        test_equal(total, 6);
+
+        test_equal(match_wrapper(3), 30);
+    }
+
+    func match_wrapper(v: int)
+    {
+        match (option::value(v))
+        {
+            value(n)?
+                return n * 10;
+            none?
+                return -1;
+        }
+    }
+}
+
+test_function("smoke_v116_basic.main", smoke_v116_basic::main);

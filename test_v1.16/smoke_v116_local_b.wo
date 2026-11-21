@@ -1,0 +1,59 @@
+import pkg::std;
+import smoke_v116_tool;
+
+/* Local-symbol localization (dev_1.16), second file. See
+   smoke_v116_local_a.wo for the explanation. Every name below also
+   exists in that file, in the same scopes. */
+
+let file_local_value = "B";
+func file_local_helper()
+{
+    return file_local_value;
+}
+
+local let explicit_local_value = 20;
+local func explicit_local_helper()
+{
+    return explicit_local_value;
+}
+
+type file_local_pair = struct{
+    pub v: int,
+}
+{
+    func to_int(self: file_local_pair)=> int
+    {
+        return self.v;
+    }
+}
+
+pub func make_file_local_pair_b()=> int
+{
+    return file_local_pair{ v = 200 }->to_int();
+}
+
+namespace smoke_v116_local
+{
+    let tag = "B";
+    func helper()
+    {
+        return tag + ":default";
+    }
+    local func helper_explicit()
+    {
+        return tag + ":explicit";
+    }
+
+    // A different public function name is required: pub symbols are
+    // shared by the whole program.
+    pub func main_local_b()
+    {
+        test_equal(helper(), "B:default");
+        test_equal(helper_explicit(), "B:explicit");
+        test_equal(file_local_helper(), "B");
+        test_equal(explicit_local_helper(), 20);
+        test_equal(make_file_local_pair_b(), 200);
+    }
+}
+
+test_function("smoke_v116_localization.b", smoke_v116_local::main_local_b);

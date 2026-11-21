@@ -1,0 +1,89 @@
+import pkg::std;
+
+/* Minimal test harness for the 1.16 smoke suite.
+   Ported from test/test_tool but written in 1.16 syntax:
+   `using` type definitions became `type`, and access modifiers are
+   now pub / internal / local. */
+
+type test_func_pair = struct{
+    name: string,
+    function: ()=> void,
+};
+
+let test_function_set = []mut as vec<test_func_pair>;
+let mut test_success_count = 0, mut test_failed_count = 0;
+let test_failed_cases = []mut as vec<string>;
+let test_panic_on_failure = true;
+
+pub func test_function(func_name: string, test_func: ()=> void)
+{
+    test_function_set->add(test_func_pair{
+            name = func_name,
+            function = test_func,
+        });
+}
+
+pub func test_execute_all()
+{
+    let mut i = 0;
+    let mut failed_case_count = 0;
+
+    while (i < test_function_set->len())
+    {
+        test_success_count = 0;
+        test_failed_count = 0;
+        std::println("===================== Testing:",
+            test_function_set[i].name, "=====================");
+
+        test_function_set[i].function();
+
+        std::println("Passed:", test_success_count);
+        if (test_failed_count != 0)
+        {
+            std::println("Failed:", test_failed_count);
+            test_failed_cases->add(test_function_set[i].name);
+            failed_case_count += 1;
+        }
+
+        i += 1;
+    }
+
+    std::println("===================== Summary =====================");
+    std::println("Test cases:", test_function_set->len(),
+        " failed cases:", failed_case_count);
+
+    if (failed_case_count != 0 && test_panic_on_failure)
+    {
+        let mut failed_names = "";
+        for (let failed_name : test_failed_cases)
+        {
+            if (failed_names != "")
+                failed_names += ", ";
+            failed_names += failed_name;
+        }
+
+        std::panic(F"Smoke test failed in: {failed_names}");
+    }
+}
+
+pub func test_equal<T>(a: T, b: T)
+{
+    if (std::is_same(a, b))
+        test_success_count += 1;
+    else
+    {
+        test_failed_count += 1;
+        std::println("Test fail:", a, " != ", b, ", but it should be equal.");
+    }
+}
+
+pub func test_assure(a: bool)
+{
+    if (a)
+        test_success_count += 1;
+    else
+    {
+        test_failed_count += 1;
+        std::println("Test fail:", a, " is not true.");
+    }
+}

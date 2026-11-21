@@ -1,0 +1,63 @@
+import pkg::std;
+import smoke_v116_tool;
+
+/* Local-symbol localization (dev_1.16): inside a namespace scope, a
+   `local` symbol (or a symbol without access modifier, which defaults
+   to local) belongs to its declaring source file. Two files may
+   declare the same name in the same namespace; each file only sees
+   its own.
+
+   This file and smoke_v116_local_b.wo intentionally declare the very
+   same names at both the root namespace and smoke_v116_local. On
+   master this was a redefinition error. */
+
+let file_local_value = "A";
+func file_local_helper()
+{
+    return file_local_value;
+}
+
+local let explicit_local_value = 10;
+local func explicit_local_helper()
+{
+    return explicit_local_value;
+}
+
+type file_local_pair = struct{
+    pub v: int,
+}
+{
+    func to_int(self: file_local_pair)=> int
+    {
+        return self.v;
+    }
+}
+
+pub func make_file_local_pair_a()=> int
+{
+    return file_local_pair{ v = 100 }->to_int();
+}
+
+namespace smoke_v116_local
+{
+    let tag = "A";
+    func helper()
+    {
+        return tag + ":default";
+    }
+    local func helper_explicit()
+    {
+        return tag + ":explicit";
+    }
+
+    pub func main_local_a()
+    {
+        test_equal(helper(), "A:default");
+        test_equal(helper_explicit(), "A:explicit");
+        test_equal(file_local_helper(), "A");
+        test_equal(explicit_local_helper(), 10);
+        test_equal(make_file_local_pair_a(), 100);
+    }
+}
+
+test_function("smoke_v116_localization.a", smoke_v116_local::main_local_a);

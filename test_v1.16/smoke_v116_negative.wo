@@ -1,0 +1,440 @@
+import pkg::std;
+import pkg::dumpling;
+import pkg::buffer;
+import smoke_v116_tool;
+
+/* Negative/regression tests for the 1.16 changes, compiled on the fly
+   through dumpling so that expected compile failures can be asserted:
+
+     - `type` replaces `using` for type definitions, and the old
+       public/private/protected modifiers are gone;
+     - name visibility (pub/internal/local) is separated from
+       construct permission (modifier after `=` / enum / union);
+     - local symbols are per source file, while non-local symbols still
+       conflict with every local of the same name;
+     - internal-construct types are constructible only inside the
+       type's own namespace;
+     - enum/union item access modifiers.
+
+   Cross-file cases use a virtual file registered with dumpling. */
+
+namespace smoke_v116_negative
+{
+    let decl_vpath = "smoke_v116_neg/decl.wo";
+
+    func compile(source: string)=> bool
+    {
+        let r = dumpling::Program::create(
+            "smoke_v116_neg_tmp.wo", source as buffer, false);
+
+        match (r)
+        {
+            ok(_)?
+                return true;
+            err(_)?
+                return false;
+        }
+    }
+
+    func compile_cross(source: string)=> bool
+    {
+        return compile(F"import smoke_v116_neg::decl;\n{source}");
+    }
+
+    func expect_ok(name: string, source: string)
+    {
+        if (!compile(source))
+        {
+            std::println("Expected compile success but failed:", name);
+            test_assure(false);
+        }
+        else
+            test_assure(true);
+    }
+
+    func expect_fail(name: string, source: string)
+    {
+        if (compile(source))
+        {
+            std::println("Expected compile failure but succeeded:", name);
+            test_assure(false);
+        }
+        else
+            test_assure(true);
+    }
+
+    func expect_cross_ok(name: string, source: string)
+    {
+        if (!compile_cross(source))
+        {
+            std::println("Expected cross-file compile success but failed:", name);
+            test_assure(false);
+        }
+        else
+            test_assure(true);
+    }
+
+    func expect_cross_fail(name: string, source: string)
+    {
+        if (compile_cross(source))
+        {
+            std::println("Expected cross-file compile failure but succeeded:", name);
+            test_assure(false);
+        }
+        else
+            test_assure(true);
+    }
+
+    func register_decl_files()
+    {
+        do dumpling::VFile::register(
+            decl_vpath,
+            @"namespace decl
+              {
+                  pub type ClosedInt = int;
+                  pub type OpenInt = pub int;
+
+                  pub type ClosedStruct = struct{ pub v: int };
+                  pub type OpenStruct = pub struct{ pub v: int };
+
+                  pub enum ClosedEnum { A, B }
+                  pub enum pub OpenEnum { A, B }
+                  pub enum DefaultItems { A, B }
+                  pub enum local LocalItems { A, B }
+                  pub enum pub PubItems { A, B }
+                  pub enum MixedItems
+                  {
+                      local A,
+                      pub B,
+                  }
+
+                  pub union pub OpenUnion { Plain, Num(int) }
+
+                  pub type InternalInt = internal int
+                  {
+                      pub func make(v: int)=> InternalInt
+                      {
+                          return v as InternalInt;
+                      }
+                  }
+
+                  // Local name: not reachable from other files at all.
+                  type LocalName = pub int;
+
+                  // Internal name, default (declaring-file) construct.
+                  internal type InternalClosed = int;
+                  pub func use_internal_closed()=> int
+                  {
+                      let v = 1 as InternalClosed;
+                      return v as int;
+                  }
+
+                  local func hidden()=> int { return 1; }
+                  local let hidden_value = 3;
+                  internal func nsinternal()=> int { return 2; }
+
+                  pub func use_hidden()=> int
+                  {
+                      return hidden() + hidden_value;
+                  }
+              }"@ as buffer,
+            false);
+    }
+
+    func register_conflict_files()
+    {
+        // A non-local symbol in one file conflicts with a local symbol
+        // of the same name declared by another file in the same scope.
+        do dumpling::VFile::register(
+            "smoke_v116_neg/clash_pub.wo",
+            @"namespace clash_a { pub let shared = 1; }"@ as buffer,
+            false);
+
+        do dumpling::VFile::register(
+            "smoke_v116_neg/clash_local.wo",
+            @"namespace clash_b { let shared = 1; }"@ as buffer,
+            false);
+
+        // Two files may declare the very same local names.
+        do dumpling::VFile::register(
+            "smoke_v116_neg/loc1.wo",
+            @"namespace loc_ok
+              {
+                  let per_file = 1;
+                  func local_fn()=> int { return per_file; }
+              }"@ as buffer,
+            false);
+
+        do dumpling::VFile::register(
+            "smoke_v116_neg/loc2.wo",
+            @"namespace loc_ok
+              {
+                  let per_file = 2;
+                  func local_fn()=> int { return per_file; }
+              }"@ as buffer,
+            false);
+
+        // Two non-local symbols with the same name still conflict.
+        do dumpling::VFile::register(
+            "smoke_v116_neg/pub1.wo",
+            @"pub let same_pub = 1;"@ as buffer,
+            false);
+
+        do dumpling::VFile::register(
+            "smoke_v116_neg/pub2.wo",
+            @"pub let same_pub = 2;"@ as buffer,
+            false);
+    }
+
+    func test_syntax()
+    {
+        // Old type declaration syntax is no longer accepted.
+        expect_fail("old using type define", "using Foo = int;");
+
+        // New type declaration syntax.
+        expect_ok("new type define", "type Foo = int;");
+        expect_ok("pub type define", "pub type Foo = pub int;");
+        expect_fail("type define without assign", "type Foo int;");
+
+        // Old access modifiers became ordinary identifiers.
+        expect_fail("old public modifier", "public func foo(){}");
+        expect_fail("old private modifier", "private func foo(){}");
+        expect_fail("old protected modifier", "protected func foo(){}");
+
+        // New access modifiers.
+        expect_ok("pub modifier", "pub func foo(){}");
+        expect_ok("internal modifier", "internal func foo(){}");
+        expect_ok("local modifier", "local func foo(){}");
+
+        // `using` still imports namespaces.
+        expect_ok("using namespace",
+            "namespace nn { pub let v = 1; } using nn; func f(){ do v; }");
+    }
+
+    func test_redefinition()
+    {
+        // Same file: local symbols cannot be repeated, and a non-local
+        // symbol owns its name for every file.
+        expect_fail("dup let", "namespace n { let a = 1; let a = 2; }");
+        expect_fail("dup local let", "namespace n { local let a = 1; local let a = 2; }");
+        expect_fail("local then pub", "namespace n { let a = 1; pub let a = 2; }");
+        expect_fail("pub then local", "namespace n { pub let a = 1; let a = 2; }");
+        expect_fail("dup type", "namespace n { type T = int; type T = int; }");
+        expect_fail("dup local func", "namespace n { local func f(){} local func f(){} }");
+        expect_fail("pub func then local func", "namespace n { pub func f(){} func f(){} }");
+
+        // Different scopes may of course reuse names.
+        expect_ok("same name other namespace",
+            "namespace n { let x = 1; } namespace m { let x = 2; }");
+        expect_ok("same name child namespace",
+            "namespace n { let x = 1; } namespace n::c { let x = 2; }");
+        expect_ok("local shadows outer pub",
+            "pub let x = 1; namespace n { let x = 2; }");
+        expect_ok("function local shadows pub",
+            "pub let x = 1; func f(){ let x = 2; do x; }");
+    }
+
+    func test_construct_permission()
+    {
+        // Casting and struct literals use the construct modifier; the
+        // default permission is limited to the declaring file.
+        expect_ok("default construct in same file",
+            "type T = struct{ pub v: int }; func f(){ let x = T{ v = 1 }; do x; }");
+        expect_ok("explicit local construct in same file",
+            "type T = local struct{ pub v: int }; func f(){ let x = T{ v = 1 }; do x; }");
+        expect_ok("pub construct in same file",
+            "type T = pub int; func f(){ let x = 1 as T; do x; }");
+
+        // `internal` requires the type's own namespace; it is not
+        // constructible in the parent namespace, not even in the
+        // declaring file.
+        expect_fail("internal construct without namespace",
+            "pub type T = internal int; func f(){ let x = 1 as T; do x; }");
+        expect_fail("internal construct in parent namespace",
+            "namespace a { pub type T = internal int { pub func make(v: int)=> T { return v as T; } } func f(){ let x = 1 as T; do x; } }");
+        expect_ok("internal construct in own namespace",
+            "pub type T = internal int { pub func make(v: int)=> T { return v as T; } } func f(){ let x = T::make(1); do x; }");
+
+        // Name visibility remains independent.
+        expect_ok("internal name same namespace",
+            "namespace a { internal type T = pub int; } namespace a { func f(){ let x = 1 as T; do x; } }");
+        expect_ok("internal name child namespace",
+            "namespace a { internal type T = pub int; } namespace a::b { func f(){ let x = 1 as T; do x; } }");
+        expect_fail("internal name outside namespace",
+            "namespace a { internal type T = pub int; } func f(){ let x = 1 as a::T; do x; }");
+    }
+
+    func test_item_modifiers()
+    {
+        expect_ok("local enum item in same file",
+            "pub enum E { local A } func f(){ do E::A as int; }");
+        expect_ok("pub enum item in same file",
+            "pub enum E { pub A } func f(){ do E::A as int; }");
+        expect_fail("internal enum item outside enum namespace",
+            "pub enum E { internal A } func f(){ do E::A as int; }");
+        expect_ok("union items in same file",
+            "pub union U { local A, pub B } func f(){ do U::A; do U::B; }");
+        expect_fail("internal union item outside union namespace",
+            "pub union U { internal C } func f(){ do U::C; }");
+
+        // Enum construct modifier is independent from item access.
+        // The declaring file can always cast, whatever the modifier.
+        expect_ok("default construct enum cast in same file",
+            "pub enum E { A } func f(){ let x = 1 as E; do x; }");
+        expect_ok("local construct enum cast in same file",
+            "pub enum local E { A } func f(){ let x = 1 as E; do x; }");
+        expect_ok("open enum cast in same file",
+            "pub enum pub E { A } func f(){ let x = 1 as E; do x; }");
+        expect_ok("internal enum items still reachable",
+            "pub enum internal E { A } func f(){ do E::A as int; }");
+    }
+
+    func test_cross_file_construct()
+    {
+        expect_cross_fail("closed int cast",
+            "func f(){ let v = 1 as decl::ClosedInt; do v; }");
+        expect_cross_ok("open int cast",
+            "func f(){ let v = 1 as decl::OpenInt; do v; }");
+        expect_cross_fail("closed struct literal",
+            "func f(){ let v = decl::ClosedStruct{ v = 1 }; do v; }");
+        expect_cross_ok("open struct literal",
+            "func f(){ let v = decl::OpenStruct{ v = 1 }; do v; }");
+        expect_cross_fail("closed enum cast",
+            "func f(){ let v = 1 as decl::ClosedEnum; do v; }");
+        expect_cross_ok("open enum cast",
+            "func f(){ let v = 1 as decl::OpenEnum; do v; }");
+        expect_cross_fail("internal type direct cast",
+            "func f(){ let v = 1 as decl::InternalInt; do v; }");
+        expect_cross_ok("internal type via own namespace",
+            "func f(){ let v = decl::InternalInt::make(1); do v; }");
+
+        // Name visibility and construct permission are independent:
+        // internal name + default construct, used inside the namespace
+        // from another file.
+        expect_cross_fail("internal name with closed construct",
+            @"namespace decl
+              {
+                  func f(){ let v = 1 as InternalClosed; do v; }
+              }"@);
+        expect_cross_ok("internal name with closed construct via wrapper",
+            "func f(){ do decl::use_internal_closed(); }");
+
+        // A local type name is not reachable from another file.
+        expect_cross_fail("local type name cross file",
+            "func f(){ let v = 1 as decl::LocalName; do v; }");
+    }
+
+    func test_cross_file_access()
+    {
+        // Enum items inherit the enum's name attribute (the modifier
+        // before `enum`), not the construct modifier.
+        expect_cross_ok("items inherit pub",
+            "func f(){ do decl::DefaultItems::A as int; }");
+        expect_cross_ok("explicit pub items",
+            "func f(){ do decl::PubItems::B as int; }");
+        expect_cross_fail("local items stay in declaring file",
+            "func f(){ do decl::MixedItems::A as int; }");
+        expect_cross_ok("pub items next to local items",
+            "func f(){ do decl::MixedItems::B as int; }");
+        expect_cross_ok("closed enum items are still reachable",
+            "func f(){ do decl::ClosedEnum::A as int; }");
+        expect_cross_fail("local construct enum cast",
+            "func f(){ let v = 1 as decl::LocalItems; do v; }");
+        expect_cross_ok("union creator",
+            "func f(){ let v = decl::OpenUnion::Num(1); do v; }");
+
+        // local symbols are not visible from another file, even when
+        // that file imports the declaring one.
+        expect_cross_fail("local func cross file",
+            "func f(){ do decl::hidden(); }");
+        expect_cross_fail("local value cross file",
+            "func f(){ let v = decl::hidden_value; do v; }");
+        expect_cross_ok("local through pub wrapper",
+            "func f(){ do decl::use_hidden(); }");
+
+        // internal names are only reachable inside their namespace, so
+        // the root namespace cannot see them either.
+        expect_cross_fail("internal func outside namespace",
+            "func f(){ do decl::nsinternal(); }");
+    }
+
+    func test_cross_file_conflicts()
+    {
+        // Non-local vs local with the same name: always a conflict,
+        // regardless of which file declares which.
+        expect_fail("pub in imported file vs local here", @"
+            import smoke_v116_neg::clash_pub;
+            namespace clash_a { let shared = 2; }
+        "@);
+        expect_fail("local in imported file vs pub here", @"
+            import smoke_v116_neg::clash_local;
+            namespace clash_b { pub let shared = 2; }
+        "@);
+
+        // The same local names in two different files coexist.
+        expect_ok("same local names in two files", @"
+            import smoke_v116_neg::loc1;
+            import smoke_v116_neg::loc2;
+        "@);
+
+        // Two pub symbols with the same name still conflict.
+        expect_fail("same pub name in two files", @"
+            import smoke_v116_neg::pub1;
+            import smoke_v116_neg::pub2;
+        "@);
+    }
+
+    func test_repl_rollback()
+    {
+        // Evaluates through dumpling's REPL; a compile error must roll
+        // back every symbol defined by the failed evaluation, while
+        // symbols of earlier evaluations must survive.
+        let repl = dumpling::Repl::create();
+
+        test_assure(repl_eval_ok(repl, "let repl_value = 7;"));
+        test_assure(repl_eval_ok(repl, "return repl_value;"));
+        test_assure(!repl_eval_ok(repl, "let broken = ;"));
+        test_assure(repl_eval_ok(repl, "return repl_value;"));
+
+        // A partially successful evaluation must be rolled back as a
+        // whole: `rolled` was defined before the syntax error.
+        test_assure(!repl_eval_ok(repl, "let rolled = 1; let bad = ;"));
+        test_assure(!repl_eval_ok(repl, "return rolled;"));
+
+        do repl->close();
+    }
+
+    func repl_eval_ok(repl: dumpling::Repl, source: string)=> bool
+    {
+        match (repl->eval(source))
+        {
+            Ok(_)?
+                return true;
+            CompileError(_)?
+                return false;
+            Incomplete?
+                return false;
+            RuntimeError?
+                return false;
+            OutOfMemory?
+                return false;
+        }
+    }
+
+    pub func main()
+    {
+        register_decl_files();
+        register_conflict_files();
+
+        test_syntax();
+        test_redefinition();
+        test_construct_permission();
+        test_item_modifiers();
+        test_cross_file_construct();
+        test_cross_file_access();
+        test_cross_file_conflicts();
+        test_repl_rollback();
+    }
+}
+
+test_function("smoke_v116_negative.main", smoke_v116_negative::main);
