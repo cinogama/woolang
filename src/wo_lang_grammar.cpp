@@ -134,6 +134,7 @@ namespace wo
             P(DECL_ENUM, pass_enum_finalize, (
                 NT(DECL_ATTRIBUTE),
                 TE(l_enum),
+                NT(ACCESS_MODIFIER_MAY_EMPTY),
                 NT(AST_TOKEN_IDENTIFER),
                 TE(l_left_curly_braces),
                 NT(ENUM_ITEMS),
@@ -621,6 +622,7 @@ namespace wo
             P(DECL_UNION, pass_union_declare, (
                 NT(DECL_ATTRIBUTE),
                 TE(l_union),
+                NT(ACCESS_MODIFIER_MAY_EMPTY),
                 NT(AST_TOKEN_IDENTIFER),
                 NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
                 TE(l_left_curly_braces),

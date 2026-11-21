@@ -170,8 +170,10 @@ namespace wo
         auto pass_enum_finalize::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
-            AstToken* enum_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
-            AstList* enum_items = static_cast<AstList*>(WO_NEED_AST_TYPE(4, AstBase::AST_LIST));
+            std::optional<AstDeclareAttribue::accessc_attrib> construct_attribute =
+                _process_access_modifier(input, 2);
+            AstToken* enum_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(3, AstBase::AST_TOKEN));
+            AstList* enum_items = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
 
             if (!WO_IS_EMPTY(0))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
@@ -183,7 +185,7 @@ namespace wo
                 items.push_back(static_cast<AstEnumItem*>(item));
             }
 
-            return new AstEnumDeclare(attrib, enum_name, items);
+            return new AstEnumDeclare(attrib, construct_attribute, enum_name, items);
         }
         auto pass_namespace::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
@@ -1389,14 +1391,16 @@ namespace wo
         auto pass_union_declare::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
-            AstToken* union_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(2, AstBase::AST_TOKEN));
+            std::optional<AstDeclareAttribue::accessc_attrib> construct_attribute =
+                _process_access_modifier(input, 2);
+            AstToken* union_name = static_cast<AstToken*>(WO_NEED_AST_TYPE(3, AstBase::AST_TOKEN));
             std::optional<AstList*> union_template_params = std::nullopt;
-            AstList* union_items = static_cast<AstList*>(WO_NEED_AST_TYPE(5, AstBase::AST_LIST));
+            AstList* union_items = static_cast<AstList*>(WO_NEED_AST_TYPE(6, AstBase::AST_LIST));
 
             if (!WO_IS_EMPTY(0))
                 attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
-            if (!WO_IS_EMPTY(3))
-                union_template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
+            if (!WO_IS_EMPTY(4))
+                union_template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(4, AstBase::AST_LIST));
 
             std::vector<AstUnionItem*> items;
             for (auto& item : union_items->m_list)
@@ -1408,7 +1412,7 @@ namespace wo
             std::optional<std::vector<AstTemplateParam*>> template_params =
                 _process_template_params(union_template_params);
 
-            return new AstUnionDeclare(attrib, union_name, template_params, items);
+            return new AstUnionDeclare(attrib, construct_attribute, union_name, template_params, items);
         }
         auto pass_union_pattern_identifier_or_takeplace::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {

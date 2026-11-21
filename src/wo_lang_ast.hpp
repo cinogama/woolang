@@ -1169,8 +1169,9 @@ namespace wo
             AstTypeHolder* m_type;
             std::optional<AstDeclareAttribue*>
                 m_attribute;
-            // Modifier after '=', controls whether this type can be constructed
-            // (as a cast target or by struct literal) outside the declaring file.
+            // Modifier after '=', or after `enum` / `union`, controls whether
+            // this type can be constructed (as a cast target or by struct
+            // literal) outside the declaring file.
             std::optional<AstDeclareAttribue::accessc_attrib>
                 m_construct_attribute;
             std::optional<lang_Symbol*>
@@ -1240,6 +1241,7 @@ namespace wo
         public:
             AstEnumDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
+                const std::optional<AstDeclareAttribue::accessc_attrib>& construct_attribute,
                 AstToken* enum_name,
                 const std::vector<AstEnumItem*>& enum_items);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -1269,6 +1271,7 @@ namespace wo
         public:
             AstUnionDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
+                const std::optional<AstDeclareAttribue::accessc_attrib>& construct_attribute,
                 AstToken* union_type_name,
                 const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
                 const std::vector<AstUnionItem*>& union_items);
