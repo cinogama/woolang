@@ -514,17 +514,17 @@ typedef enum _wo_lspv2_lexer_token
     WO_LSPV2_TOKEN_IF,                      /**< @brief if */
     WO_LSPV2_TOKEN_IMMUT,                   /**< @brief immut */
     WO_LSPV2_TOKEN_IMPORT,                  /**< @brief import */
+    WO_LSPV2_TOKEN_INTERNAL,                /**< @brief internal */
     WO_LSPV2_TOKEN_IS,                      /**< @brief is */
     WO_LSPV2_TOKEN_LAMBDA,                  /**< @brief lambda */
     WO_LSPV2_TOKEN_LET,                     /**< @brief let */
+    WO_LSPV2_TOKEN_LOCAL,                   /**< @brief local */
     WO_LSPV2_TOKEN_MATCH,                   /**< @brief match */
     WO_LSPV2_TOKEN_MUT,                     /**< @brief mut */
     WO_LSPV2_TOKEN_NAMESPACE,               /**< @brief namespace */
     WO_LSPV2_TOKEN_NIL,                     /**< @brief nil */
     WO_LSPV2_TOKEN_OPERATOR,                /**< @brief operator */
-    WO_LSPV2_TOKEN_PRIVATE,                 /**< @brief private */
-    WO_LSPV2_TOKEN_PROTECTED,               /**< @brief protected */
-    WO_LSPV2_TOKEN_PUBLIC,                  /**< @brief public */
+    WO_LSPV2_TOKEN_PUB,                     /**< @brief pub */
     WO_LSPV2_TOKEN_RAW,                     /**< @brief raw */
     WO_LSPV2_TOKEN_RETURN,                  /**< @brief return */
     WO_LSPV2_TOKEN_STATIC,                  /**< @brief static */
