@@ -271,28 +271,29 @@ static void _wo_rollback_new_symbols(
     auto& syms = root_scope->m_defined_symbols;
     for (auto it = syms.begin(); it != syms.end(); )
     {
-        if (known_symbols.find(it->second.get()) == known_symbols.end())
+        wo::lang_DefinedSymbols& defined_symbols = it->second;
+
+        if (defined_symbols.m_unique_symbol.has_value()
+            && known_symbols.find(defined_symbols.m_unique_symbol.value().get())
+                == known_symbols.end())
+        {
+            defined_symbols.m_unique_symbol.reset();
+        }
+
+        auto& local_symbols = defined_symbols.m_local_symbols;
+        for (auto local_it = local_symbols.begin(); local_it != local_symbols.end(); )
+        {
+            if (known_symbols.find(local_it->get()) == known_symbols.end())
+                local_it = local_symbols.erase(local_it);
+            else
+                ++local_it;
+        }
+
+        if (!defined_symbols.m_unique_symbol.has_value()
+            && defined_symbols.m_local_symbols.empty())
             it = syms.erase(it);
         else
             ++it;
-    }
-
-    auto& local_syms = root_scope->m_local_defined_symbols;
-    for (auto outer = local_syms.begin(); outer != local_syms.end(); )
-    {
-        auto& per_group_symbols = outer->second;
-        for (auto inner = per_group_symbols.begin(); inner != per_group_symbols.end(); )
-        {
-            if (known_symbols.find(inner->get()) == known_symbols.end())
-                inner = per_group_symbols.erase(inner);
-            else
-                ++inner;
-        }
-
-        if (per_group_symbols.empty())
-            outer = local_syms.erase(outer);
-        else
-            ++outer;
     }
 }
 

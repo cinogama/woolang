@@ -435,22 +435,30 @@ namespace wo
         bool is_declared_as_static() const;
     };
 
-    struct lang_Scope
+    // All the symbols declared under one name in a scope.
+    struct lang_DefinedSymbols
     {
-        // Symbols visible from every source group in this scope. There is at
-        // most one symbol for a name here.
-        std::unordered_map<wo_pstring_t, std::unique_ptr<lang_Symbol>>
-            m_defined_symbols;
+        // The symbol visible to every source group. Mutually exclusive with
+        // `m_local_symbols` being non-empty (a name is either non-local or
+        // local per file, never both).
+        std::optional<std::unique_ptr<lang_Symbol>>
+            m_unique_symbol;
 
         // Symbols whose name visibility is local to their declaring source
-        // group (`local`, or no access modifier which defaults to local),
-        // declared directly in this scope. Keyed by name, one entry per
-        // declaring source group, so same-named local symbols from different
-        // files coexist. A local symbol is only visible to identifiers of its
-        // own source group; it still conflicts with any same-named symbol in
-        // `m_defined_symbols`.
-        std::unordered_map<wo_pstring_t, std::vector<std::unique_ptr<lang_Symbol>>>
-            m_local_defined_symbols;
+        // group (`local`, or no access modifier which defaults to local), one
+        // entry per declaring source group, so same-named local symbols from
+        // different files coexist. Each is only visible to identifiers of its
+        // own source group.
+        std::vector<std::unique_ptr<lang_Symbol>>
+            m_local_symbols;
+    };
+
+    struct lang_Scope
+    {
+        // Symbol table of this scope: name -> all symbols declared with that
+        // name. Names are resolved with `find_defined_symbol`.
+        std::unordered_map<wo_pstring_t, lang_DefinedSymbols>
+            m_defined_symbols;
 
         std::vector<std::unique_ptr<lang_Scope>>
             m_sub_scopes;
@@ -494,14 +502,18 @@ namespace wo
         // Visit every symbol defined directly in this scope, regardless of
         // its visibility. Order is unspecified.
         template <typename Fn>
-        void for_each_defined_symbol(Fn&& fn) const
+        void for_each_defined_symbol(Fn&& fn)
         {
             for (auto& symbol_entry : m_defined_symbols)
-                fn(*symbol_entry.second);
+            {
+                lang_DefinedSymbols& defined_symbols = symbol_entry.second;
 
-            for (auto& local_symbol_entry : m_local_defined_symbols)
-                for (auto& local_symbol : local_symbol_entry.second)
+                if (defined_symbols.m_unique_symbol.has_value())
+                    fn(*defined_symbols.m_unique_symbol.value());
+
+                for (auto& local_symbol : defined_symbols.m_local_symbols)
                     fn(*local_symbol);
+            }
         }
     };
     struct lang_Namespace
@@ -1169,15 +1181,19 @@ namespace wo
             wo_assert(!src_location.has_value()
                 || src_location.value().source_file != nullptr);
 
+            auto defined_symbols_fnd = current_scope->m_defined_symbols.find(name);
+
             if (is_local_symbol)
             {
                 const wo_pstring_t& source_group =
                     src_location.value().source_group;
 
-                auto local_fnd = current_scope->m_local_defined_symbols.find(name);
-                if (local_fnd != current_scope->m_local_defined_symbols.end())
+                if (defined_symbols_fnd != current_scope->m_defined_symbols.end())
                 {
-                    for (auto& local_symbol : local_fnd->second)
+                    lang_DefinedSymbols& defined_symbols =
+                        defined_symbols_fnd->second;
+
+                    for (auto& local_symbol : defined_symbols.m_local_symbols)
                     {
                         const auto& declared_location =
                             local_symbol->m_symbol_declare_location;
@@ -1190,14 +1206,14 @@ namespace wo
                             return false;
                         }
                     }
-                }
 
-                auto fnd = current_scope->m_defined_symbols.find(name);
-                if (fnd != current_scope->m_defined_symbols.end())
-                {
-                    // A non-local symbol owns this name.
-                    *out_defined_or_exist_symbol = fnd->second.get();
-                    return false;
+                    if (defined_symbols.m_unique_symbol.has_value())
+                    {
+                        // A non-local symbol owns this name.
+                        *out_defined_or_exist_symbol =
+                            defined_symbols.m_unique_symbol.value().get();
+                        return false;
+                    }
                 }
 
                 auto new_symbol = std::make_unique<lang_Symbol>(
@@ -1205,37 +1221,41 @@ namespace wo
                 new_symbol->m_symbol_edge = ++m_created_symbol_edge;
 
                 *out_defined_or_exist_symbol = new_symbol.get();
-                current_scope->m_local_defined_symbols[name].push_back(
+                current_scope->m_defined_symbols[name].m_local_symbols.push_back(
                     std::move(new_symbol));
                 return true;
             }
 
-            auto& symbol_table = current_scope->m_defined_symbols;
-
-            auto fnd = symbol_table.find(name);
-            if (fnd != symbol_table.end())
+            if (defined_symbols_fnd != current_scope->m_defined_symbols.end())
             {
-                // Already defined.
-                *out_defined_or_exist_symbol = fnd->second.get();
-                return false;
-            }
+                lang_DefinedSymbols& defined_symbols =
+                    defined_symbols_fnd->second;
 
-            // A non-local name is visible to every source group, so it must not
-            // collide with any local symbol of this scope either.
-            auto local_fnd = current_scope->m_local_defined_symbols.find(name);
-            if (local_fnd != current_scope->m_local_defined_symbols.end()
-                && !local_fnd->second.empty())
-            {
-                *out_defined_or_exist_symbol = local_fnd->second.front().get();
-                return false;
+                if (defined_symbols.m_unique_symbol.has_value())
+                {
+                    // Already defined.
+                    *out_defined_or_exist_symbol =
+                        defined_symbols.m_unique_symbol.value().get();
+                    return false;
+                }
+
+                // A non-local name is visible to every source group, so it must
+                // not collide with any local symbol of this scope either.
+                if (!defined_symbols.m_local_symbols.empty())
+                {
+                    *out_defined_or_exist_symbol =
+                        defined_symbols.m_local_symbols.front().get();
+                    return false;
+                }
             }
 
             auto new_symbol = std::make_unique<lang_Symbol>(
                 name, attr, symbol_declare_ast, src_location, std::forward<ArgTs>(args)...);
             new_symbol->m_symbol_edge = ++m_created_symbol_edge;
 
-            *out_defined_or_exist_symbol = symbol_table.insert(
-                std::make_pair(name, std::move(new_symbol))).first->second.get();
+            *out_defined_or_exist_symbol = new_symbol.get();
+            current_scope->m_defined_symbols[name].m_unique_symbol =
+                std::move(new_symbol);
             return true;
         }
 

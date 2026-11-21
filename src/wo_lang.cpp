@@ -651,7 +651,6 @@ namespace wo
 
     lang_Scope::lang_Scope(const std::optional<lang_Scope*>& parent_scope, lang_Namespace* belongs)
         : m_defined_symbols{}
-        , m_local_defined_symbols{}
         , m_sub_scopes{}
         , m_declare_used_namespaces{}
         , m_parent_scope(parent_scope)
@@ -674,23 +673,24 @@ namespace wo
     lang_Symbol* lang_Scope::find_defined_symbol(
         wo_pstring_t name, wo_pstring_t source_group) const
     {
-        auto local_fnd = m_local_defined_symbols.find(name);
-        if (local_fnd != m_local_defined_symbols.end())
-        {
-            for (auto& local_symbol : local_fnd->second)
-            {
-                const auto& declared_location =
-                    local_symbol->m_symbol_declare_location;
+        auto fnd = m_defined_symbols.find(name);
+        if (fnd == m_defined_symbols.end())
+            return nullptr;
 
-                if (declared_location.has_value()
-                    && declared_location.value().source_group == source_group)
-                    return local_symbol.get();
-            }
+        const lang_DefinedSymbols& defined_symbols = fnd->second;
+
+        for (auto& local_symbol : defined_symbols.m_local_symbols)
+        {
+            const auto& declared_location =
+                local_symbol->m_symbol_declare_location;
+
+            if (declared_location.has_value()
+                && declared_location.value().source_group == source_group)
+                return local_symbol.get();
         }
 
-        auto fnd = m_defined_symbols.find(name);
-        if (fnd != m_defined_symbols.end())
-            return fnd->second.get();
+        if (defined_symbols.m_unique_symbol.has_value())
+            return defined_symbols.m_unique_symbol.value().get();
 
         return nullptr;
     }
@@ -1847,27 +1847,28 @@ namespace wo
             lang_Scope* const this_scope = scanning_scopes.top();
             scanning_scopes.pop();
 
-            for (auto& [name, symbol] : this_scope->m_defined_symbols)
-            {
-                if (symbol->m_symbol_kind != lang_Symbol::kind::VARIABLE)
-                    continue;
-                if (symbol->m_is_template)
-                    continue;
-                if (symbol->m_is_global)
-                    continue;
-                if (symbol->m_has_been_used)
-                    continue;
-                if (symbol->m_declare_attribute.has_value()
-                    && symbol->m_declare_attribute.value()->m_external.has_value())
-                    continue;
-                if (!symbol->m_symbol_declare_ast.has_value())
-                    continue;
+            this_scope->for_each_defined_symbol(
+                [&](lang_Symbol& symbol)
+                {
+                    if (symbol.m_symbol_kind != lang_Symbol::kind::VARIABLE)
+                        return;
+                    if (symbol.m_is_template)
+                        return;
+                    if (symbol.m_is_global)
+                        return;
+                    if (symbol.m_has_been_used)
+                        return;
+                    if (symbol.m_declare_attribute.has_value()
+                        && symbol.m_declare_attribute.value()->m_external.has_value())
+                        return;
+                    if (!symbol.m_symbol_declare_ast.has_value())
+                        return;
 
-                lex.record_lang_error(lexer::msglevel_t::error,
-                    symbol->m_symbol_declare_ast.value(),
-                    diagnose::lang2::err_unused_variable{symbol.get()});
-                have_unused_local_variable = true;
-            }
+                    lex.record_lang_error(lexer::msglevel_t::error,
+                        symbol.m_symbol_declare_ast.value(),
+                        diagnose::lang2::err_unused_variable{&symbol});
+                    have_unused_local_variable = true;
+                });
 
             for (auto& sub_scope : this_scope->m_sub_scopes)
             {
