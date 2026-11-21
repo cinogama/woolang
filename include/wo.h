@@ -530,6 +530,7 @@ typedef enum _wo_lspv2_lexer_token
     WO_LSPV2_TOKEN_STATIC,                  /**< @brief static */
     WO_LSPV2_TOKEN_STRUCT,                  /**< @brief struct */
     WO_LSPV2_TOKEN_TRUE,                    /**< @brief true */
+    WO_LSPV2_TOKEN_TYPE,                    /**< @brief type */
     WO_LSPV2_TOKEN_TYPEID,                  /**< @brief typeid */
     WO_LSPV2_TOKEN_TYPEOF,                  /**< @brief typeof */
     WO_LSPV2_TOKEN_UNION,                   /**< @brief union */

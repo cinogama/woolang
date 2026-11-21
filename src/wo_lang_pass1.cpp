@@ -316,21 +316,21 @@ namespace wo
             return true;
 
         // Construction permission is declared by the modifier after '=' in a
-        // `using` type declaration; it is independent from the name visibility
-        // (the modifier before `using`). Default: only the declaring file.
+        // `type` declaration; it is independent from the name visibility
+        // (the modifier before `type`). Default: only the declaring file.
         AstDeclareAttribue::accessc_attrib attrib =
             AstDeclareAttribue::accessc_attrib::PRIVATE;
 
         if (symbol_instance->m_symbol_declare_ast.has_value())
         {
             ast::AstBase* declare_ast = symbol_instance->m_symbol_declare_ast.value();
-            if (declare_ast->node_type == ast::AstBase::AST_USING_TYPE_DECLARE)
+            if (declare_ast->node_type == ast::AstBase::AST_TYPE_DECLARE)
             {
-                auto* using_type_declare =
-                    static_cast<ast::AstUsingTypeDeclare*>(declare_ast);
+                auto* type_declare =
+                    static_cast<ast::AstTypeDeclare*>(declare_ast);
 
-                if (using_type_declare->m_construct_attribute.has_value())
-                    attrib = using_type_declare->m_construct_attribute.value();
+                if (type_declare->m_construct_attribute.has_value())
+                    attrib = type_declare->m_construct_attribute.value();
             }
         }
 
@@ -541,7 +541,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstContinue, AstBase::AST_CONTINUE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstReturn, AstBase::AST_RETURN, pass1);
         WO_LANG_REGISTER_PROCESSER(AstLabeled, AstBase::AST_LABELED, pass1);
-        WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, pass1);
+        WO_LANG_REGISTER_PROCESSER(AstTypeDeclare, AstBase::AST_TYPE_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass1);
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass1);
@@ -1564,7 +1564,7 @@ namespace wo
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
-    WO_PASS_PROCESSER(AstUsingTypeDeclare)
+    WO_PASS_PROCESSER(AstTypeDeclare)
     {
         if (state == UNPROCESSED)
         {

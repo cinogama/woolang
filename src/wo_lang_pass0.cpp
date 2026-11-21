@@ -137,7 +137,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, pass0);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, pass0);
         WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, pass0);
-        WO_LANG_REGISTER_PROCESSER(AstUsingTypeDeclare, AstBase::AST_USING_TYPE_DECLARE, pass0);
+        WO_LANG_REGISTER_PROCESSER(AstTypeDeclare, AstBase::AST_TYPE_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, pass0);
@@ -300,7 +300,7 @@ namespace wo
         }
         return OKAY;
     }
-    WO_PASS_PROCESSER(AstUsingTypeDeclare)
+    WO_PASS_PROCESSER(AstTypeDeclare)
     {
         wo_assert(state == UNPROCESSED);
         wo_assert(!node->m_LANG_declared_symbol);

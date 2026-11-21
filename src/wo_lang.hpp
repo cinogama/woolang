@@ -1023,7 +1023,7 @@ namespace wo
     WO_AST_MACRO(AstContinue);\
     WO_AST_MACRO(AstReturn);\
     WO_AST_MACRO(AstLabeled);\
-    WO_AST_MACRO(AstUsingTypeDeclare);\
+    WO_AST_MACRO(AstTypeDeclare);\
     WO_AST_MACRO(AstAliasTypeDeclare);\
     WO_AST_MACRO(AstEnumItem);\
     WO_AST_MACRO(AstEnumDeclare);\
@@ -1049,7 +1049,7 @@ namespace wo
         WO_PASS_PROCESSER(AstVariableDefines, pass0);
         WO_PASS_PROCESSER(AstVariableDefineItem, pass0);
         WO_PASS_PROCESSER(AstAliasTypeDeclare, pass0);
-        WO_PASS_PROCESSER(AstUsingTypeDeclare, pass0);
+        WO_PASS_PROCESSER(AstTypeDeclare, pass0);
         WO_PASS_PROCESSER(AstEnumDeclare, pass0);
         WO_PASS_PROCESSER(AstUnionDeclare, pass0);
         WO_PASS_PROCESSER(AstUsingNamespace, pass0);

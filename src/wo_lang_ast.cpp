@@ -2293,8 +2293,8 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
-        AstUsingTypeDeclare::AstUsingTypeDeclare(const AstUsingTypeDeclare& item)
-            : AstBase(AST_USING_TYPE_DECLARE)
+        AstTypeDeclare::AstTypeDeclare(const AstTypeDeclare& item)
+            : AstBase(AST_TYPE_DECLARE)
             , m_typename(item.m_typename)
             , m_template_parameters(item.m_template_parameters)
             , m_type(item.m_type)
@@ -2304,13 +2304,13 @@ namespace wo
             , m_LANG_type_namespace_entried(false)
         {
         }
-        AstUsingTypeDeclare::AstUsingTypeDeclare(
+        AstTypeDeclare::AstTypeDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
             const std::optional<AstDeclareAttribue::accessc_attrib>& construct_attribute,
             wo_pstring_t typename_,
             const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
             AstTypeHolder* type)
-            : AstBase(AST_USING_TYPE_DECLARE)
+            : AstBase(AST_TYPE_DECLARE)
             , m_typename(typename_)
             , m_template_parameters(template_parameters)
             , m_type(type)
@@ -2320,11 +2320,11 @@ namespace wo
             , m_LANG_type_namespace_entried(false)
         {
         }
-        AstBase* AstUsingTypeDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        AstBase* AstTypeDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {
-            AstUsingTypeDeclare* new_instance = exist_instance
-                ? static_cast<AstUsingTypeDeclare*>(exist_instance.value())
-                : new AstUsingTypeDeclare(*this)
+            AstTypeDeclare* new_instance = exist_instance
+                ? static_cast<AstTypeDeclare*>(exist_instance.value())
+                : new AstTypeDeclare(*this)
                 ;
 
             out_continues.push_back(AstBase::make_holder(&new_instance->m_type));
@@ -2425,7 +2425,7 @@ namespace wo
             if (attrib && attrib.value()->m_access.has_value())
                 enum_construct_attribute = attrib.value()->m_access.value();
 
-            auto* enum_type_declare = new AstUsingTypeDeclare(
+            auto* enum_type_declare = new AstTypeDeclare(
                 attrib, enum_construct_attribute, enum_name_str, std::nullopt, enum_base_type);
 
             std::optional<AstDeclareAttribue*> enum_item_attrib = std::nullopt;
@@ -2877,7 +2877,7 @@ namespace wo
             }
 
             auto* union_namespace = new AstNamespace(union_type_name_pstr, union_body_content);
-            AstTypeHolder* using_declare_union_type = new AstTypeHolder(union_type_info);
+            AstTypeHolder* union_type_holder = new AstTypeHolder(union_type_info);
 
             // Union values are made by generated values in the union namespace,
             // but the type itself still has to be constructible (as a cast target)
@@ -2888,16 +2888,16 @@ namespace wo
             if (attrib && attrib.value()->m_access.has_value())
                 union_construct_attribute = attrib.value()->m_access.value();
 
-            AstUsingTypeDeclare* using_type_declare = new AstUsingTypeDeclare(
-                attrib, union_construct_attribute, union_type_name_pstr, template_parameters, using_declare_union_type);
+            AstTypeDeclare* union_type_declare = new AstTypeDeclare(
+                attrib, union_construct_attribute, union_type_name_pstr, template_parameters, union_type_holder);
 
-            m_union_type_declare = using_type_declare;
+            m_union_type_declare = union_type_declare;
             m_union_namespace = union_namespace;
 
             // Update source msg;
             union_namespace->source_location = union_type_name->source_location;
-            using_declare_union_type->source_location = union_type_name->source_location;
-            using_type_declare->source_location = union_type_name->source_location;
+            union_type_holder->source_location = union_type_name->source_location;
+            union_type_declare->source_location = union_type_name->source_location;
         }
         AstBase* AstUnionDeclare::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
         {

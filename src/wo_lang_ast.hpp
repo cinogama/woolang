@@ -1156,7 +1156,12 @@ namespace wo
             AstLabeled(wo_pstring_t label, AstBase* body);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
-        struct AstUsingTypeDeclare : public AstBase
+        // Declares a new nominal type based on another type:
+        //     type Name = Base;
+        // The new type has the same representation as Base but is distinct
+        // from it. enum/union declarations also build this node for their
+        // underlying named type.
+        struct AstTypeDeclare : public AstBase
         {
             wo_pstring_t            m_typename;
             std::optional<std::vector<AstTemplateParam*>>
@@ -1172,9 +1177,9 @@ namespace wo
                 m_LANG_declared_symbol;
             bool m_LANG_type_namespace_entried;
         private:
-            AstUsingTypeDeclare(const AstUsingTypeDeclare&);
+            AstTypeDeclare(const AstTypeDeclare&);
         public:
-            AstUsingTypeDeclare(
+            AstTypeDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
                 const std::optional<AstDeclareAttribue::accessc_attrib>& construct_attribute,
                 wo_pstring_t typename_,
@@ -1225,7 +1230,7 @@ namespace wo
                 HOLD_FOR_ENUM_ITEMS_DECL,
             };
 
-            AstUsingTypeDeclare* m_enum_type_declare;
+            AstTypeDeclare* m_enum_type_declare;
             AstNamespace* m_enum_body;
 
             LANG_hold_state m_LANG_hold_state;
@@ -1256,7 +1261,7 @@ namespace wo
             //wo_pstring_t            m_union_type_name;
             //std::optional<std::vector<wo_pstring_t>>
             //                        m_template_parameters;
-            AstUsingTypeDeclare* m_union_type_declare;
+            AstTypeDeclare* m_union_type_declare;
             std::optional<AstNamespace*> m_union_namespace;
 
         private:

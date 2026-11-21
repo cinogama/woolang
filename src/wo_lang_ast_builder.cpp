@@ -212,7 +212,7 @@ namespace wo
 
             return content;
         }
-        auto pass_using_type_as::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
+        auto pass_type_declare::build(lexer&, const ast::astnode_builder::inputs_t& input)->grammar::produce
         {
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             token new_type_name = WO_NEED_TOKEN(2);
@@ -231,12 +231,12 @@ namespace wo
             std::optional<std::vector<AstTemplateParam*>> in_type_template_params =
                 _process_template_params(template_params);
 
-            return new AstUsingTypeDeclare(attrib, construct_attribute, type_name, in_type_template_params, base_type);
+            return new AstTypeDeclare(attrib, construct_attribute, type_name, in_type_template_params, base_type);
         }
-        auto pass_using_typename_space::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
+        auto pass_type_declare_namespace::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {
-            AstUsingTypeDeclare* using_type_declare =
-                static_cast<AstUsingTypeDeclare*>(WO_NEED_AST_TYPE(0, AstBase::AST_USING_TYPE_DECLARE));
+            AstTypeDeclare* type_declare =
+                static_cast<AstTypeDeclare*>(WO_NEED_AST_TYPE(0, AstBase::AST_TYPE_DECLARE));
             std::optional<AstBase*> in_block_sentence = std::nullopt;
 
             if (!WO_IS_EMPTY(1))
@@ -252,14 +252,14 @@ namespace wo
             if (in_block_sentence)
             {
                 AstNamespace* typed_namespace =
-                    new AstNamespace(using_type_declare->m_typename, in_block_sentence.value());
+                    new AstNamespace(type_declare->m_typename, in_block_sentence.value());
                 in_type_namespace = typed_namespace;
 
                 typed_namespace->source_location = in_block_sentence.value()->source_location;
             }
 
             AstList* result_list = new AstList;
-            result_list->m_list.push_back(using_type_declare);
+            result_list->m_list.push_back(type_declare);
             if (in_type_namespace)
                 result_list->m_list.push_back(in_type_namespace.value());
 
@@ -1805,8 +1805,8 @@ namespace wo
             WO_AST_BUILDER(pass_enum_item_create);
             WO_AST_BUILDER(pass_enum_finalize);
             WO_AST_BUILDER(pass_namespace);
-            WO_AST_BUILDER(pass_using_type_as);
-            WO_AST_BUILDER(pass_using_typename_space);
+            WO_AST_BUILDER(pass_type_declare);
+            WO_AST_BUILDER(pass_type_declare_namespace);
             WO_AST_BUILDER(pass_alias_type_as);
             WO_AST_BUILDER(pass_build_where_constraint);
             WO_AST_BUILDER(pass_func_def_named);

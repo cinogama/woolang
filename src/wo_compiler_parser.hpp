@@ -76,7 +76,7 @@ namespace wo
                 AST_DECLARE_ATTRIBUTE,
                 AST_STRUCT_FIELD_DEFINE,
 
-                AST_USING_TYPE_DECLARE,
+                AST_TYPE_DECLARE,
                 AST_ALIAS_TYPE_DECLARE,
 
                 AST_WHERE_CONSTRAINTS,

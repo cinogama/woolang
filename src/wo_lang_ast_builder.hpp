@@ -158,8 +158,8 @@ struct NAME : public astnode_builder                    \
         WO_AST_BUILDER(pass_enum_item_create);
         WO_AST_BUILDER(pass_enum_finalize);
         WO_AST_BUILDER(pass_namespace);
-        WO_AST_BUILDER(pass_using_type_as);
-        WO_AST_BUILDER(pass_using_typename_space);
+        WO_AST_BUILDER(pass_type_declare);
+        WO_AST_BUILDER(pass_type_declare_namespace);
         WO_AST_BUILDER(pass_alias_type_as);
         WO_AST_BUILDER(pass_build_where_constraint);
         WO_AST_BUILDER(pass_func_def_named);

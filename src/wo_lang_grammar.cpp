@@ -110,15 +110,15 @@ namespace wo
             P(IMPORT_SENTENCE, pass_import_files, (TE(l_export), TE(l_import), NT(SCOPED_LIST_NORMAL)));
             P(SENTENCE, pass_using_namespace, (
                 NT(DECL_ATTRIBUTE), TE(l_using), NT(SCOPED_LIST_NORMAL), TE(l_semicolon)));
-            P(DECLARE_NEW_TYPE, pass_using_type_as, (
+            P(DECL_TYPE, pass_type_declare, (
                 NT(DECL_ATTRIBUTE),
-                TE(l_using),
+                TE(l_type),
                 NT(IDENTIFIER),
                 NT(DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY),
                 TE(l_assign),
                 NT(ACCESS_MODIFIER_MAY_EMPTY),
                 NT(TYPE)));
-            P(SENTENCE, pass_using_typename_space, (NT(DECLARE_NEW_TYPE), NT(SENTENCE_BLOCK_MAY_SEMICOLON)));
+            P(SENTENCE, pass_type_declare_namespace, (NT(DECL_TYPE), NT(SENTENCE_BLOCK_MAY_SEMICOLON)));
             P(SENTENCE_BLOCK_MAY_SEMICOLON, pass_empty, (TE(l_semicolon)));
             P(SENTENCE_BLOCK_MAY_SEMICOLON, pass_direct<0>, (NT(SENTENCE_BLOCK)));
             P(SENTENCE, pass_alias_type_as, (

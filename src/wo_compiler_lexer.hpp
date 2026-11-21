@@ -129,6 +129,7 @@ namespace wo
         l_static,
         l_struct,
         l_true,
+        l_type,
         l_typeid,
         l_typeof,
         l_union,

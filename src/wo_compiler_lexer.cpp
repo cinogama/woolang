@@ -252,6 +252,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         {"static", {lex_type::l_static}},
         {"struct", {lex_type::l_struct}},
         {"true", {lex_type::l_true}},
+        {"type", {lex_type::l_type}},
         {"typeid", {lex_type::l_typeid}},
         {"typeof", {lex_type::l_typeof}},
         {"raw", {lex_type::l_raw}},
