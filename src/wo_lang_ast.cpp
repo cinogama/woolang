@@ -2420,7 +2420,7 @@ namespace wo
             // Enum items are constructed by generated values, but the type itself
             // still has to be constructible (as a cast target) where it is named.
             // There is no separate construction modifier in enum declarations, so
-            // the access modifier keeps governing construction as before.
+            // the access modifier is reused as the construction modifier.
             std::optional<AstDeclareAttribue::accessc_attrib> enum_construct_attribute = std::nullopt;
             if (attrib && attrib.value()->m_access.has_value())
                 enum_construct_attribute = attrib.value()->m_access.value();
@@ -2882,8 +2882,8 @@ namespace wo
             // Union values are made by generated values in the union namespace,
             // but the type itself still has to be constructible (as a cast target)
             // where it is named. There is no separate construction modifier in
-            // union declarations, so the access modifier keeps governing
-            // construction as before.
+            // union declarations, so the access modifier is reused as the
+            // construction modifier.
             std::optional<AstDeclareAttribue::accessc_attrib> union_construct_attribute = std::nullopt;
             if (attrib && attrib.value()->m_access.has_value())
                 union_construct_attribute = attrib.value()->m_access.value();

@@ -318,6 +318,8 @@ namespace wo
         // Construction permission is declared by the modifier after '=' in a
         // `type` declaration; it is independent from the name visibility
         // (the modifier before `type`). Default: only the declaring file.
+        // `internal` means the type can only be constructed or cast inside
+        // the type's own namespace (the namespace named after the type).
         AstDeclareAttribue::accessc_attrib attrib =
             AstDeclareAttribue::accessc_attrib::PRIVATE;
 
@@ -345,22 +347,35 @@ namespace wo
             return true;
         case AstDeclareAttribue::accessc_attrib::PROTECTED:
         {
-            auto* symbol_defined_in_name_space =
-                symbol_instance->m_belongs_to_scope->m_belongs_to_namespace;
+            lang_Namespace* type_namespace = nullptr;
 
-            for (auto* namespace_ = get_current_namespace();;
-                namespace_ = namespace_->m_parent_namespace.value())
+            auto* declare_scope = symbol_instance->m_belongs_to_scope;
+            if (declare_scope->is_namespace_scope())
             {
-                if (namespace_ == symbol_defined_in_name_space)
-                    return true;
+                auto* parent_namespace = declare_scope->m_belongs_to_namespace;
+                auto fnd = parent_namespace->m_sub_namespaces.find(
+                    symbol_instance->m_name);
 
-                if (!namespace_->m_parent_namespace.has_value())
-                    break;
+                if (fnd != parent_namespace->m_sub_namespaces.end())
+                    type_namespace = fnd->second.get();
+            }
+
+            if (type_namespace != nullptr)
+            {
+                for (auto* namespace_ = get_current_namespace();;
+                    namespace_ = namespace_->m_parent_namespace.value())
+                {
+                    if (namespace_ == type_namespace)
+                        return true;
+
+                    if (!namespace_->m_parent_namespace.has_value())
+                        break;
+                }
             }
 
             lex.record_lang_error(lexer::msglevel_t::error, node,
                 diagnose::lang2::err_type_is_not_constructible_in_namespace{
-                    symbol_instance, _get_scope_name(symbol_defined_in_name_space->m_this_scope.get()).c_str()});
+                    symbol_instance, (_get_symbol_name(symbol_instance) + "::").c_str()});
 
             break;
         }
