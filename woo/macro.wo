@@ -1,6 +1,6 @@
 namespace std
 {
-    public enum token_type
+    pub enum token_type
     {
         // Operators
         l_eof = -1,
@@ -63,7 +63,7 @@ namespace std
         l_left_curly_braces,    // {
         l_right_curly_braces,   // }
         l_question,             // ?
-        
+
         // Keywords
         l_alias,
         l_as,
@@ -82,17 +82,17 @@ namespace std
         l_if,
         l_immut,
         l_import,
+        l_internal,
         l_is,
         l_lambda,
         l_let,
+        l_local,
         l_match,
         l_mut,
         l_namespace,
         l_nil,
         l_operator,
-        l_private,
-        l_protected,
-        l_public,
+        l_pub,
         l_raw,
         l_return,
         l_static,
@@ -105,34 +105,34 @@ namespace std
         l_using,
         l_where,
         l_while,
-        
+
         // Comments
         l_line_comment,
         l_block_comment,
         L_shebang_comment,
-        
+
         // Others
         l_macro,
         l_unknown_token,
-        
+
         lex_type_COUNT,
     }
-    
-    public using lexer = handle
+
+    pub type lexer = handle
     {
         extern("woolang/compiler", "macro_lexer_error")
-            public func error(lex: lexer, msg: string)=> void;
-            
+            pub func error(lex: lexer, msg: string)=> void;
+
         extern("woolang/compiler", "macro_lexer_peek")
-            public func peek_token(lex: lexer)=> (token_type, string);
-            
+            pub func peek_token(lex: lexer)=> (token_type, string);
+
         extern("woolang/compiler", "macro_lexer_next")
-            public func next_token(lex: lexer)=> (token_type, string);
-            
+            pub func next_token(lex: lexer)=> (token_type, string);
+
         extern("woolang/compiler", "macro_lexer_current_path")
-            public func path(lex: lexer) => string;
-            
+            pub func path(lex: lexer) => string;
+
         extern("woolang/compiler", "macro_lexer_current_location")
-            public func location(lex: lexer) => (int, int);
+            pub func location(lex: lexer) => (int, int);
     }
 }
