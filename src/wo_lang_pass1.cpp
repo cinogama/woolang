@@ -300,6 +300,93 @@ namespace wo
         return false;
     }
 
+    bool LangContext::check_type_is_constructible_in_current_scope(
+        lexer& lex,
+        AstBase* node,
+        lang_Symbol* symbol_instance,
+        wo_pstring_t path,
+        bool need_import_check)
+    {
+        if (!symbol_instance->m_is_global)
+            // Local symbol is always constructible.
+            return true;
+
+        if (!symbol_instance->m_symbol_declare_location.has_value())
+            // Builtin & compiler generated symbol is always constructible.
+            return true;
+
+        // Construction permission is declared by the modifier after '=' in a
+        // `using` type declaration; it is independent from the name visibility
+        // (the modifier before `using`). Default: only the declaring file.
+        AstDeclareAttribue::accessc_attrib attrib =
+            AstDeclareAttribue::accessc_attrib::PRIVATE;
+
+        if (symbol_instance->m_symbol_declare_ast.has_value())
+        {
+            ast::AstBase* declare_ast = symbol_instance->m_symbol_declare_ast.value();
+            if (declare_ast->node_type == ast::AstBase::AST_USING_TYPE_DECLARE)
+            {
+                auto* using_type_declare =
+                    static_cast<ast::AstUsingTypeDeclare*>(declare_ast);
+
+                if (using_type_declare->m_construct_attribute.has_value())
+                    attrib = using_type_declare->m_construct_attribute.value();
+            }
+        }
+
+        auto& location = symbol_instance->m_symbol_declare_location.value();
+
+        if (need_import_check && !check_symbol_is_imported(lex, node, symbol_instance, path))
+            return false;
+
+        switch (attrib)
+        {
+        case AstDeclareAttribue::accessc_attrib::PUBLIC:
+            return true;
+        case AstDeclareAttribue::accessc_attrib::PROTECTED:
+        {
+            auto* symbol_defined_in_name_space =
+                symbol_instance->m_belongs_to_scope->m_belongs_to_namespace;
+
+            for (auto* namespace_ = get_current_namespace();;
+                namespace_ = namespace_->m_parent_namespace.value())
+            {
+                if (namespace_ == symbol_defined_in_name_space)
+                    return true;
+
+                if (!namespace_->m_parent_namespace.has_value())
+                    break;
+            }
+
+            lex.record_lang_error(lexer::msglevel_t::error, node,
+                diagnose::lang2::err_type_is_not_constructible_in_namespace{
+                    symbol_instance, _get_scope_name(symbol_defined_in_name_space->m_this_scope.get()).c_str()});
+
+            break;
+        }
+        case AstDeclareAttribue::accessc_attrib::PRIVATE:
+        {
+            if (location.source_group == path)
+                return true;
+
+            lex.record_lang_error(lexer::msglevel_t::error, node,
+                diagnose::lang2::err_type_is_not_constructible{symbol_instance, location.source_file->c_str()});
+
+            break;
+        }
+        default:
+            wo_error("unknown access attribute");
+            break;
+        }
+
+        if (symbol_instance->m_symbol_declare_ast.has_value())
+        {
+            lex.record_lang_error(lexer::msglevel_t::infom, symbol_instance->m_symbol_declare_ast.value(),
+                diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(symbol_instance)});
+        }
+        return false;
+    }
+
     bool LangContext::check_struct_field_is_reachable_in_current_scope(
         lexer& lex,
         ast::AstBase* node,
@@ -957,15 +1044,20 @@ namespace wo
                                 return HOLD;
                             }
                         }
-                        else if (!node->duplicated_node)
+                        else
                         {
                             wo_assert(type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
-                            if (!check_symbol_is_imported(
+
+                            // Check symbol can be reach.
+                            if (!check_symbol_is_reachable_in_current_scope(
                                 lex,
                                 node,
                                 type_symbol,
-                                node->source_location.source_group))
+                                node->source_location.source_group,
+                                !node->duplicated_node /* TMP: Skip import check in template function. */))
+                            {
                                 return FAILED;
+                            }
                         }
                     }
                     else
@@ -976,11 +1068,26 @@ namespace wo
                         finish_eval_template_ast(lex, eval_state);
 
                         if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
+                        {
                             alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
                                 eval_state)->m_alias_instance.get();
+                        }
                         else
+                        {
                             type_instance = static_cast<lang_TemplateAstEvalStateType*>(
                                 eval_state)->m_type_instance.get();
+
+                            // Check symbol can be reach.
+                            if (!check_symbol_is_reachable_in_current_scope(
+                                lex,
+                                node,
+                                type_symbol,
+                                node->source_location.source_group,
+                                !node->duplicated_node /* TMP: Skip import check in template function. */))
+                            {
+                                return FAILED;
+                            }
+                        }
                     }
 
                     if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
@@ -2755,8 +2862,8 @@ namespace wo
                 auto* target_type = node->m_cast_type->m_LANG_determined_type.value();
                 auto* casting_value_type = node->m_cast_value->m_LANG_determined_type.value();
 
-                // Check symbol can be reach.
-                if (!check_symbol_is_reachable_in_current_scope(
+                // Check type can be construct.
+                if (!check_type_is_constructible_in_current_scope(
                     lex,
                     node,
                     target_type->m_symbol,
@@ -4813,8 +4920,8 @@ namespace wo
                         return FAILED;
                     }
 
-                    // Check symbol can be reach.
-                    if (!check_symbol_is_reachable_in_current_scope(
+                    // Check type can be construct.
+                    if (!check_type_is_constructible_in_current_scope(
                         lex,
                         node,
                         struct_type_instance->m_symbol,

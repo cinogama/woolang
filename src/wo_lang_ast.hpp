@@ -1164,6 +1164,10 @@ namespace wo
             AstTypeHolder* m_type;
             std::optional<AstDeclareAttribue*>
                 m_attribute;
+            // Modifier after '=', controls whether this type can be constructed
+            // (as a cast target or by struct literal) outside the declaring file.
+            std::optional<AstDeclareAttribue::accessc_attrib>
+                m_construct_attribute;
             std::optional<lang_Symbol*>
                 m_LANG_declared_symbol;
             bool m_LANG_type_namespace_entried;
@@ -1172,6 +1176,7 @@ namespace wo
         public:
             AstUsingTypeDeclare(
                 const std::optional<AstDeclareAttribue*>& attrib,
+                const std::optional<AstDeclareAttribue::accessc_attrib>& construct_attribute,
                 wo_pstring_t typename_,
                 const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
                 AstTypeHolder* type);

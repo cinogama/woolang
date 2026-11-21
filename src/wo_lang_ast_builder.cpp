@@ -217,6 +217,8 @@ namespace wo
             std::optional<AstDeclareAttribue*> attrib = std::nullopt;
             token new_type_name = WO_NEED_TOKEN(2);
             std::optional<AstList*> template_params = std::nullopt;
+            std::optional<AstDeclareAttribue::accessc_attrib> construct_attribute =
+                _process_access_modifier(input, 5);
             AstTypeHolder* base_type = static_cast<AstTypeHolder*>(WO_NEED_AST_TYPE(6, AstBase::AST_TYPE_HOLDER));
 
             wo_pstring_t type_name = new_type_name.identifier;
@@ -229,7 +231,7 @@ namespace wo
             std::optional<std::vector<AstTemplateParam*>> in_type_template_params =
                 _process_template_params(template_params);
 
-            return new AstUsingTypeDeclare(attrib, type_name, in_type_template_params, base_type);
+            return new AstUsingTypeDeclare(attrib, construct_attribute, type_name, in_type_template_params, base_type);
         }
         auto pass_using_typename_space::build(lexer&, const ast::astnode_builder::inputs_t& input)-> grammar::produce
         {

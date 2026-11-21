@@ -557,6 +557,36 @@ namespace wo
             }
         };
 
+        struct err_type_is_not_constructible final
+        {
+            lang_Symbol* m_symbol;
+            std::string m_where;
+            std::string render(LangContext* lang) const
+            {
+                return format(u8"类型 `%s` 只能在 `%s` 内构造",
+                    lang->get_symbol_name(m_symbol), m_where.c_str());
+            }
+            bool operator==(const err_type_is_not_constructible& a) const
+            {
+                return m_symbol == a.m_symbol && m_where == a.m_where;
+            }
+        };
+
+        struct err_type_is_not_constructible_in_namespace final
+        {
+            lang_Symbol* m_symbol;
+            std::string m_where;
+            std::string render(LangContext* lang) const
+            {
+                return format(u8"类型 `%s` 只能在命名空间 `%s` 内构造",
+                    lang->get_symbol_name(m_symbol), m_where.c_str());
+            }
+            bool operator==(const err_type_is_not_constructible_in_namespace& a) const
+            {
+                return m_symbol == a.m_symbol && m_where == a.m_where;
+            }
+        };
+
         struct err_source_must_be_imported final
         {
             lang_Symbol* m_symbol;

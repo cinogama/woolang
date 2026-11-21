@@ -2299,12 +2299,14 @@ namespace wo
             , m_template_parameters(item.m_template_parameters)
             , m_type(item.m_type)
             , m_attribute(item.m_attribute)
+            , m_construct_attribute(item.m_construct_attribute)
             , m_LANG_declared_symbol(std::nullopt)
             , m_LANG_type_namespace_entried(false)
         {
         }
         AstUsingTypeDeclare::AstUsingTypeDeclare(
             const std::optional<AstDeclareAttribue*>& attrib,
+            const std::optional<AstDeclareAttribue::accessc_attrib>& construct_attribute,
             wo_pstring_t typename_,
             const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
             AstTypeHolder* type)
@@ -2313,6 +2315,7 @@ namespace wo
             , m_template_parameters(template_parameters)
             , m_type(type)
             , m_attribute(attrib)
+            , m_construct_attribute(construct_attribute)
             , m_LANG_declared_symbol(std::nullopt)
             , m_LANG_type_namespace_entried(false)
         {
@@ -2413,7 +2416,17 @@ namespace wo
 
             auto* enum_base_type_identifier = new AstIdentifier(WO_PSTR(int), std::nullopt, {}, true);
             auto* enum_base_type = new AstTypeHolder(enum_base_type_identifier);
-            auto* enum_type_declare = new AstUsingTypeDeclare(attrib, enum_name_str, std::nullopt, enum_base_type);
+
+            // Enum items are constructed by generated values, but the type itself
+            // still has to be constructible (as a cast target) where it is named.
+            // There is no separate construction modifier in enum declarations, so
+            // the access modifier keeps governing construction as before.
+            std::optional<AstDeclareAttribue::accessc_attrib> enum_construct_attribute = std::nullopt;
+            if (attrib && attrib.value()->m_access.has_value())
+                enum_construct_attribute = attrib.value()->m_access.value();
+
+            auto* enum_type_declare = new AstUsingTypeDeclare(
+                attrib, enum_construct_attribute, enum_name_str, std::nullopt, enum_base_type);
 
             std::optional<AstDeclareAttribue*> enum_item_attrib = std::nullopt;
             if (attrib)
@@ -2865,8 +2878,18 @@ namespace wo
 
             auto* union_namespace = new AstNamespace(union_type_name_pstr, union_body_content);
             AstTypeHolder* using_declare_union_type = new AstTypeHolder(union_type_info);
+
+            // Union values are made by generated values in the union namespace,
+            // but the type itself still has to be constructible (as a cast target)
+            // where it is named. There is no separate construction modifier in
+            // union declarations, so the access modifier keeps governing
+            // construction as before.
+            std::optional<AstDeclareAttribue::accessc_attrib> union_construct_attribute = std::nullopt;
+            if (attrib && attrib.value()->m_access.has_value())
+                union_construct_attribute = attrib.value()->m_access.value();
+
             AstUsingTypeDeclare* using_type_declare = new AstUsingTypeDeclare(
-                attrib, union_type_name_pstr, template_parameters, using_declare_union_type);
+                attrib, union_construct_attribute, union_type_name_pstr, template_parameters, using_declare_union_type);
 
             m_union_type_declare = using_type_declare;
             m_union_namespace = union_namespace;

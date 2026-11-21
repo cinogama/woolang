@@ -1376,6 +1376,13 @@ namespace wo
             wo_pstring_t path,
             bool need_import_check);
 
+        bool check_type_is_constructible_in_current_scope(
+            lexer& lex,
+            ast::AstBase* node,
+            lang_Symbol* symbol_instance,
+            wo_pstring_t path,
+            bool need_import_check);
+
         bool check_struct_field_is_reachable_in_current_scope(
             lexer& lex,
             ast::AstBase* node,
