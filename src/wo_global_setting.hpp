@@ -8,8 +8,6 @@ namespace wo
 {
     namespace config
     {
-        inline bool ENABLE_CHECK_GRAMMAR_AND_UPDATE = false;
-
         /*
         * ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = false
         * --------------------------------------------------------------------

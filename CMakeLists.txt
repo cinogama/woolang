@@ -115,3 +115,17 @@ endif ()
 
 add_subdirectory ("src")
 add_subdirectory ("driver")
+
+if (NOT WO_DISABLE_COMPILER AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rd/byacc/CMakeLists.txt")
+    # byacc is only needed to regenerate src/woolang.tab.cpp from src/woolang.y.
+    # The generated files are committed, so the normal build never runs it.
+    add_subdirectory("3rd/byacc" "${CMAKE_CURRENT_BINARY_DIR}/byacc" EXCLUDE_FROM_ALL)
+
+    add_custom_target(regenerate_parser
+        COMMAND $<TARGET_FILE:byacc> -l -d -v -b woolang
+            -o "${CMAKE_CURRENT_SOURCE_DIR}/src/woolang.tab.cpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/woolang.y"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        DEPENDS byacc
+        COMMENT "Regenerating src/woolang.tab.cpp with byacc")
+endif()

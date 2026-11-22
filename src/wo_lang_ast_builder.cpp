@@ -1,7 +1,7 @@
 #include "wo_afx.hpp"
 
 #include "wo_lang_ast_builder.hpp"
-#include "wo_lang_grammar_loader.hpp"
+#include "wo_lang_parser.hpp"
 
 namespace wo
 {
@@ -105,7 +105,7 @@ namespace wo
                         std::move(srcfile_stream.value()),
                         std::nullopt);
 
-                    auto* imported_ast = wo::get_grammar_instance()->gen(new_lex, nullptr);
+                    auto* imported_ast = wo::parser::parse_program(new_lex, nullptr);
                     if (imported_ast != nullptr)
                         lex.import_ast_tree((ast_basic*)imported_ast);
                     else

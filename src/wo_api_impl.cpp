@@ -4,7 +4,7 @@
 #include "wo_source_file_manager.hpp"
 #include "wo_compiler_parser.hpp"
 #include "wo_stdlib_embedded.inc"
-#include "wo_lang_grammar_loader.hpp"
+#include "wo_lang_parser.hpp"
 #include "wo_crc_64.hpp"
 #include "wo_ir_compiler.hpp"
 #include "wo_builtin_lib_macro.hpp"
@@ -65,8 +65,6 @@ void wo_init(
             current_arg = current_arg.substr(2);
             if ("woolang-enable-runtime-checking-integer-division" == current_arg)
                 wo::config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION = (bool)atoi(argv[++command_idx]);
-            else if ("woolang-update-grammar" == current_arg)
-                wo::config::ENABLE_CHECK_GRAMMAR_AND_UPDATE = (bool)atoi(argv[++command_idx]);
             else if ("woolang-ignore-not-found-extern-func" == current_arg)
                 wo::config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = (bool)atoi(argv[++command_idx]);
             else
@@ -102,8 +100,6 @@ void wo_print_compiler_help(void)
     std::cout << "Woolang Compiler Options (prefix: --woolang-):\n";
     std::cout << "    --woolang-enable-runtime-checking-integer-division <0|1>\n";
     std::cout << "        Generate extra code to check for division by zero and overflow. Default: 1.\n";
-    std::cout << "    --woolang-update-grammar <0|1>\n";
-    std::cout << "        Enable grammar check and auto-update. Default: 0.\n";
     std::cout << "    --woolang-ignore-not-found-extern-func <0|1>\n";
     std::cout << "        Ignore missing extern function symbols (replace with panic function). Default: 0.\n";
 }
@@ -236,7 +232,7 @@ wo::compile_result _wo_compile_impl(
             if (!compile_lexer->has_error())
             {
                 // 2. Lexer will create ast_tree;
-                auto* result = wo::get_grammar_instance()->gen(*compile_lexer, nullptr);
+                auto* result = wo::parser::parse_program(*compile_lexer, nullptr);
 
                 // NOTE: Drop macro vm if useless.
                 if (!append_macro_define_to_this_lexer.has_value())

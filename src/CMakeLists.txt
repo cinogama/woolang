@@ -67,6 +67,13 @@ file(WRITE "${WOO_GEN_HEADER}" "${EMBED_CONTENT}")
 file(GLOB_RECURSE woo_src_cpp *.cpp)
 file(GLOB_RECURSE woo_src_hpp *.hpp)
 
+if (WO_DISABLE_COMPILER)
+    # The byacc-generated parser is not guarded internally; keep it out of
+    # runtime-only builds instead.
+    list(FILTER woo_src_cpp EXCLUDE REGEX "(^|/)woolang\\.tab\\.cpp$")
+    list(FILTER woo_src_cpp EXCLUDE REGEX "(^|/)wo_lang_parser\\.cpp$")
+endif()
+
 if (MSVC)
     list(APPEND woo_src_cpp resources.rc)
 endif()

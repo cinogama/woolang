@@ -1,6 +1,6 @@
 #include "wo_afx.hpp"
 
-#include "wo_lang_grammar_loader.hpp"
+#include "wo_lang_parser.hpp"
 #include "wo_source_file_manager.hpp"
 
 #include <cstring>
@@ -415,7 +415,7 @@ wo_repl_result wo_repl_eval(
 
     if (!lex->has_error())
     {
-        ast_root = wo::get_grammar_instance()->gen(*lex, &is_incomplete);
+        ast_root = wo::parser::parse_program(*lex, &is_incomplete);
         lex->drop_macro_vm_and_code_env();
     }
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "wo_lang_ast.hpp"
 
 namespace wo
@@ -89,7 +91,7 @@ namespace wo
             static grammar::produce build(lexer&, const inputs_t& input)
             {
                 AstList* result = new AstList();
-                if (!WO_IS_EMPTY(first_node))
+                if (first_node < input.size() && !WO_IS_EMPTY(first_node))
                 {
                     result->m_list.push_back(WO_NEED_AST(first_node));
                 }

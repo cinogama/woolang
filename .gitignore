@@ -361,6 +361,7 @@ _deps
 /build-x64-dyn/
 /build_test_v1.16/
 /build_byacc/
+woolang.output
 /3rd/woort
 .msvc/
 .zcode/
