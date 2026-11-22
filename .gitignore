@@ -359,6 +359,8 @@ _deps
 /out/
 /build/
 /build-x64-dyn/
+/build_test_v1.16/
+/build_byacc/
 /3rd/woort
 .msvc/
 .zcode/

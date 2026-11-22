@@ -1,3 +1,7 @@
 [submodule "3rd/woodyn"]
 	path = 3rd/woodyn
 	url = https://git.cinogama.net/cinogamaproject/woodyn.git
+[submodule "3rd/byacc"]
+	path = 3rd/byacc
+	url = https://git.cinogama.net/cinogamaproject/byacc.git
+	branch = master
