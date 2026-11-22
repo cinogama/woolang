@@ -78,7 +78,7 @@ namespace wo
         l_lnot,                 // !
         l_scopeing,             // ::
         l_template_using_begin, // ::<
-        l_typecast,             // :
+        l_typemark,             // :
         l_index_point,          // .
         l_double_index_point,   // ..  may be used? hey..
         l_variadic_sign,        // ...

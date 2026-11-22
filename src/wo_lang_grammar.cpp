@@ -308,7 +308,7 @@ namespace wo
                 NT(DECL_ATTRIBUTE),
                 TE(l_let),
                 NT(DEFINE_PATTERN),
-                TE(l_typecast),
+                TE(l_typemark),
                 NT(EXPRESSION),
                 TE(l_right_brackets),
                 NT(BLOCKED_SENTENCE)));
@@ -387,7 +387,7 @@ namespace wo
             P(RETURN_TYPE_DECLEAR_MAY_EMPTY, pass_empty, (TE(l_empty)));
             P(RETURN_TYPE_DECLEAR_MAY_EMPTY, pass_direct<0>, (NT(RETURN_TYPE_DECLEAR)));
             P(RETURN_TYPE_DECLEAR, pass_direct_keep_source_location<1>, (TE(l_function_result), NT(TYPE)));
-            P(TYPE_DECLEAR, pass_direct_keep_source_location<1>, (TE(l_typecast), NT(TYPE)));
+            P(TYPE_DECLEAR, pass_direct_keep_source_location<1>, (TE(l_typemark), NT(TYPE)));
             //////////////////////////////////////////////////////////////////////////////////////////////
             P(TYPE, pass_direct<0>, (NT(ORIGIN_TYPE)));
             P(TYPE, pass_type_mutable, (TE(l_mut), NT(ORIGIN_TYPE)));
@@ -616,7 +616,7 @@ namespace wo
             P(DEFINE_TEMPLATE_PARAM_LIST, pass_append_list<2, 0>, (
                 NT(DEFINE_TEMPLATE_PARAM_LIST), TE(l_comma), NT(DEFINE_TEMPLATE_PARAM)));
             P(DEFINE_TEMPLATE_PARAM, pass_create_template_param, (NT(IDENTIFIER)));
-            P(DEFINE_TEMPLATE_PARAM, pass_create_template_param, (NT(IDENTIFIER), TE(l_typecast), NT(TYPE)));
+            P(DEFINE_TEMPLATE_PARAM, pass_create_template_param, (NT(IDENTIFIER), TE(l_typemark), NT(TYPE)));
             //////////////////////////////////////////////////////////////////////////////////////////////
             P(SENTENCE, pass_direct<0>, (NT(DECL_UNION)));
             P(DECL_UNION, pass_union_declare, (

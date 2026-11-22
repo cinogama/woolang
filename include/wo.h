@@ -479,7 +479,7 @@ typedef enum _wo_lspv2_lexer_token
     WO_LSPV2_TOKEN_LNOT,                    /**< @brief ! */
     WO_LSPV2_TOKEN_SCOPEING,                /**< @brief :: */
     WO_LSPV2_TOKEN_TEMPLATE_USING_BEGIN,    /**< @brief ::< */
-    WO_LSPV2_TOKEN_TYPECAST,                /**< @brief : */
+    WO_LSPV2_TOKEN_TYPEMARK,                /**< @brief : */
     WO_LSPV2_TOKEN_INDEX_POINT,             /**< @brief . */
     WO_LSPV2_TOKEN_DOUBLE_INDEX_POINT,      /**< @brief .. [Reserved] */
     WO_LSPV2_TOKEN_VARIADIC_SIGN,           /**< @brief ... */

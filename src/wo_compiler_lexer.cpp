@@ -204,7 +204,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         {"::",     {lex_type::l_scopeing}},
         {":<",     {lex_type::l_template_using_begin}},
         {",",      {lex_type::l_comma}},
-        {":",      {lex_type::l_typecast}},
+        {":",      {lex_type::l_typemark}},
         {".",      {lex_type::l_index_point}},
         {"..",     {lex_type::l_double_index_point}},
         {"...",    {lex_type::l_variadic_sign}},
