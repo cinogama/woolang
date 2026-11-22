@@ -66,7 +66,7 @@ namespace parser
             ctx.reduce_inputs.push_back(item.to_produce());
 
         auto builder = ::wo::ast::get_builder(builder_index);
-        grammar::produce built = builder(*ctx.lex, ctx.reduce_inputs);
+        ::wo::produce built = builder(*ctx.lex, ctx.reduce_inputs);
 
         value result{};
         result.is_ast = built.is_ast();
@@ -159,12 +159,12 @@ namespace parser
 
 }
 
-    void init_woolang_grammar()
+    void init_woolang_parser()
     {
         ::wo::ast::init_builder();
     }
 
-    void shutdown_woolang_grammar()
+    void shutdown_woolang_parser()
     {
         ::wo::ast::shutdown_builder();
     }

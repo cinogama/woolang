@@ -2,7 +2,7 @@
 
 #include "wo_ir_compiler.hpp"
 #include "wo_repl_context.hpp"
-#include "wo_compiler_parser.hpp"
+#include "wo_ast_base.hpp"
 #include "wo_lang_ast.hpp"
 
 namespace wo

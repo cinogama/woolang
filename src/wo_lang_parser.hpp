@@ -4,7 +4,7 @@
 #include <initializer_list>
 #include <vector>
 
-#include "wo_compiler_parser.hpp"
+#include "wo_ast_base.hpp"
 #include "wo_lang_ast_builder.hpp"
 
 #ifndef WO_DISABLE_COMPILER
@@ -39,11 +39,11 @@ namespace parser
          * value carries it forward instead. */
         source_info last_token_begin;
 
-        grammar::produce to_produce() const
+        ::wo::produce to_produce() const
         {
             if (is_ast)
-                return grammar::produce(ast);
-            return grammar::produce(::wo::token{tok_type, tok_identifier});
+                return ::wo::produce(ast);
+            return ::wo::produce(::wo::token{tok_type, tok_identifier});
         }
     };
 
@@ -60,7 +60,7 @@ namespace parser
         value result{};
         bool result_valid = false;
 
-        std::vector<grammar::produce> reduce_inputs;
+        std::vector<::wo::produce> reduce_inputs;
     };
 
     template<typename BuilderT>
@@ -77,7 +77,7 @@ namespace parser
 }
 
     /* Kept for the existing wo_init / wo_shutdown call sites. */
-    void init_woolang_grammar();
-    void shutdown_woolang_grammar();
+    void init_woolang_parser();
+    void shutdown_woolang_parser();
 }
 #endif

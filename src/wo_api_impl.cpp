@@ -2,7 +2,7 @@
 #include "wo_afx.hpp"
 
 #include "wo_source_file_manager.hpp"
-#include "wo_compiler_parser.hpp"
+#include "wo_ast_base.hpp"
 #include "wo_stdlib_embedded.inc"
 #include "wo_lang_parser.hpp"
 #include "wo_crc_64.hpp"
@@ -84,7 +84,7 @@ void wo_init(
     wo::lexer::init_char_lookup_table();
 
 #ifndef WO_DISABLE_COMPILER
-    wo::init_woolang_grammar(); // Create grammar when init.
+    wo::init_woolang_parser(); // Initialize AST builders when init.
     wo::LangContext::init_lang_processers();
 #endif
 
@@ -114,7 +114,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
 #ifndef WO_DISABLE_COMPILER
     wo::LangContext::shutdown_lang_processers();
-    wo::shutdown_woolang_grammar();
+    wo::shutdown_woolang_parser();
 #endif
 }
 
@@ -141,7 +141,7 @@ wo::compile_result _wo_compile_impl(
     std::optional<woort_CodeEnv*> compile_env_result = std::nullopt;
     std::unique_ptr<wo::lexer> compile_lexer;
 
-    // Hoisted out of the grammar-success block below: deferred diagnose
+    // Hoisted out of the compile-success block below: deferred diagnose
     // payloads hold pointers to lang instances, so they must be rendered
     // while this context is still alive (see the failed branch).
     std::optional<std::unique_ptr<wo::LangContext>> lang_context;

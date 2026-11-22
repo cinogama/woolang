@@ -1,5 +1,5 @@
 #pragma once
-#include "wo_compiler_parser.hpp"
+#include "wo_ast_base.hpp"
 
 #include <optional>
 #include <list>
@@ -106,7 +106,7 @@ namespace wo
         struct AstValueBase;
         struct AstToken;
 
-        using AstEmpty = grammar::AstEmpty;
+        using AstEmpty = ::wo::AstEmpty;
         struct AstDeclareAttribue : public AstBase
         {
             enum lifecycle_attrib
@@ -1362,7 +1362,5 @@ namespace wo
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
     }
-
-    grammar::rule operator >> (grammar::rule ost, size_t builder_index);
 #endif
 }
