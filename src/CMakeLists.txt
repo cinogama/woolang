@@ -68,8 +68,9 @@ file(GLOB_RECURSE woo_src_cpp *.cpp)
 file(GLOB_RECURSE woo_src_hpp *.hpp)
 
 if (WO_DISABLE_COMPILER)
-    # The byacc-generated parser is not guarded internally; keep it out of
-    # runtime-only builds instead.
+    # The parser (woolang.tab.cpp, which includes the byacc-generated
+    # woolang.tab.inc) is not guarded internally; keep it out of runtime-only
+    # builds instead.
     list(FILTER woo_src_cpp EXCLUDE REGEX "(^|/)woolang\\.tab\\.cpp$")
     list(FILTER woo_src_cpp EXCLUDE REGEX "(^|/)wo_lang_parser\\.cpp$")
 endif()

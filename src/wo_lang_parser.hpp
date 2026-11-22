@@ -73,6 +73,13 @@ namespace parser
     value reduce(size_t builder_index, context& ctx, std::initializer_list<value> rhs);
     value make_empty_token(context& ctx);
 
+    /* yyparse is emitted by byacc into woolang.tab.inc, which
+     * woolang.tab.cpp includes inside namespace wo::parser; yylex and
+     * yyerror are defined in wo_lang_parser.cpp. */
+    int yyparse(context* ctx);
+    int yylex(value* yylval, context* ctx);
+    void yyerror(context* ctx, const char* s);
+
     ast::AstBase* parse_program(lexer& lex, bool* out_is_incomplete);
 }
 

@@ -12,7 +12,7 @@ option(WO_BUILD_FOR_COVERAGE_TEST       "Build woo for code coverage test." OFF)
 option(WO_BUILD_FOR_ASAN_TEST           "Build woo for code asan test." OFF)
 
 option(WO_DISABLE_COMPILER              "Only keep the runtime, which helps to reduce the file size." OFF)
-option(WO_REGENERATE_PARSER             "Regenerate src/woolang.tab.cpp from src/woolang.y with byacc." OFF)
+option(WO_REGENERATE_PARSER             "Regenerate src/woolang.tab.inc from src/woolang.y with byacc." OFF)
 option(WO_MAKE_OUTPUT_IN_SAME_PATH      "Build woo lib and driver and output in same path." OFF)
 option(WO_USE_WOORT_DIRECTLY            "Use the woort library directly, without going through woodyn." ON)
 if (NOT WO_USE_WOORT_DIRECTLY)
@@ -129,10 +129,10 @@ if (WO_REGENERATE_PARSER AND NOT WO_DISABLE_COMPILER)
     add_subdirectory("3rd/byacc" "${CMAKE_CURRENT_BINARY_DIR}/byacc" EXCLUDE_FROM_ALL)
 
     add_custom_target(regenerate_parser
-        COMMAND $<TARGET_FILE:byacc> -l -d -v -b woolang
-            -o "${CMAKE_CURRENT_SOURCE_DIR}/src/woolang.tab.cpp"
+        COMMAND $<TARGET_FILE:byacc> -l -v -H woolang.tab.h -b woolang
+            -o "${CMAKE_CURRENT_SOURCE_DIR}/src/woolang.tab.inc"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/woolang.y"
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
         DEPENDS byacc
-        COMMENT "Regenerating src/woolang.tab.cpp with byacc")
+        COMMENT "Regenerating src/woolang.tab.inc with byacc")
 endif()

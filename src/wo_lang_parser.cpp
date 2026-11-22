@@ -4,10 +4,6 @@
 
 #ifndef WO_DISABLE_COMPILER
 
-int yyparse(::wo::parser::context* ctx);
-int yylex(::wo::parser::value* yylval, ::wo::parser::context* ctx);
-void yyerror(::wo::parser::context* ctx, const char* s);
-
 namespace wo
 {
 namespace parser
@@ -157,6 +153,105 @@ namespace parser
         return nullptr;
     }
 
+    int yylex(::wo::parser::value* yylval, ::wo::parser::context* ctx)
+    {
+        using namespace wo;
+
+        for (;;)
+        {
+            lexer::peeked_token_t* peeked = ctx->lex->peek(true);
+            wo_assert(peeked != nullptr);
+
+            if (peeked->m_lex_type == lex_type::l_error)
+            {
+                ctx->lex->move_forward(true);
+                continue;
+            }
+
+            ctx->lookahead = *peeked;
+            ctx->lookahead_valid = true;
+
+            yylval->is_ast = false;
+            yylval->has_token = true;
+            yylval->ast = nullptr;
+            yylval->tok_type = peeked->m_lex_type;
+            yylval->tok_identifier = peeked->m_token_text;
+            yylval->begin = source_info{
+                peeked->m_token_begin[0],
+                peeked->m_token_begin[1] };
+            yylval->end = source_info{
+                peeked->m_token_end[0],
+                peeked->m_token_end[1] };
+            yylval->last_token_begin = yylval->begin;
+
+            if (peeked->m_lex_type == lex_type::l_eof)
+            {
+                ctx->at_eof = true;
+                return 0;
+            }
+
+            int token_code = static_cast<int>(peeked->m_lex_type) + 300;
+            ctx->lex->move_forward(true);
+            return token_code;
+        }
+    }
+
+    void yyerror(::wo::parser::context* ctx, const char* s)
+    {
+        using namespace wo;
+
+        (void)s;
+
+        if (!ctx->lookahead_valid)
+            return;
+
+        const lexer::peeked_token_t& tk = ctx->lookahead;
+        const char* text = (tk.m_token_text != nullptr)
+            ? tk.m_token_text->c_str()
+            : "";
+
+        if (tk.m_lex_type == lex_type::l_eof)
+        {
+            if (ctx->out_is_incomplete != nullptr)
+            {
+                *ctx->out_is_incomplete = true;
+                return;
+            }
+
+            ctx->lex->record_diagnose(
+                lexer::msglevel_t::error,
+                tk.m_token_begin[0],
+                tk.m_token_begin[1],
+                tk.m_token_end[0],
+                tk.m_token_end[1],
+                ctx->lex->get_source_path(),
+                diagnose::lexer::err_unexpected_eof{});
+            return;
+        }
+
+        if (tk.m_lex_type == lex_type::l_macro)
+        {
+            ctx->lex->record_diagnose(
+                lexer::msglevel_t::error,
+                tk.m_token_begin[0],
+                tk.m_token_begin[1],
+                tk.m_token_end[0],
+                tk.m_token_end[1],
+                ctx->lex->get_source_path(),
+                diagnose::parser::err_unknown_macro_named{ text });
+            return;
+        }
+
+        ctx->lex->record_diagnose(
+            lexer::msglevel_t::error,
+            tk.m_token_begin[0],
+            tk.m_token_begin[1],
+            tk.m_token_end[0],
+            tk.m_token_end[1],
+            ctx->lex->get_source_path(),
+            diagnose::lexer::err_unexpected_token{ text });
+    }
+
 }
 
     void init_woolang_parser()
@@ -168,105 +263,6 @@ namespace parser
     {
         ::wo::ast::shutdown_builder();
     }
-}
-
-int yylex(::wo::parser::value* yylval, ::wo::parser::context* ctx)
-{
-    using namespace wo;
-
-    for (;;)
-    {
-        lexer::peeked_token_t* peeked = ctx->lex->peek(true);
-        wo_assert(peeked != nullptr);
-
-        if (peeked->m_lex_type == lex_type::l_error)
-        {
-            ctx->lex->move_forward(true);
-            continue;
-        }
-
-        ctx->lookahead = *peeked;
-        ctx->lookahead_valid = true;
-
-        yylval->is_ast = false;
-        yylval->has_token = true;
-        yylval->ast = nullptr;
-        yylval->tok_type = peeked->m_lex_type;
-        yylval->tok_identifier = peeked->m_token_text;
-        yylval->begin = parser::source_info{
-            peeked->m_token_begin[0],
-            peeked->m_token_begin[1] };
-        yylval->end = parser::source_info{
-            peeked->m_token_end[0],
-            peeked->m_token_end[1] };
-        yylval->last_token_begin = yylval->begin;
-
-        if (peeked->m_lex_type == lex_type::l_eof)
-        {
-            ctx->at_eof = true;
-            return 0;
-        }
-
-        int token_code = static_cast<int>(peeked->m_lex_type) + 300;
-        ctx->lex->move_forward(true);
-        return token_code;
-    }
-}
-
-void yyerror(::wo::parser::context* ctx, const char* s)
-{
-    using namespace wo;
-
-    (void)s;
-
-    if (!ctx->lookahead_valid)
-        return;
-
-    const lexer::peeked_token_t& tk = ctx->lookahead;
-    const char* text = (tk.m_token_text != nullptr)
-        ? tk.m_token_text->c_str()
-        : "";
-
-    if (tk.m_lex_type == lex_type::l_eof)
-    {
-        if (ctx->out_is_incomplete != nullptr)
-        {
-            *ctx->out_is_incomplete = true;
-            return;
-        }
-
-        ctx->lex->record_diagnose(
-            lexer::msglevel_t::error,
-            tk.m_token_begin[0],
-            tk.m_token_begin[1],
-            tk.m_token_end[0],
-            tk.m_token_end[1],
-            ctx->lex->get_source_path(),
-            diagnose::lexer::err_unexpected_eof{});
-        return;
-    }
-
-    if (tk.m_lex_type == lex_type::l_macro)
-    {
-        ctx->lex->record_diagnose(
-            lexer::msglevel_t::error,
-            tk.m_token_begin[0],
-            tk.m_token_begin[1],
-            tk.m_token_end[0],
-            tk.m_token_end[1],
-            ctx->lex->get_source_path(),
-            diagnose::parser::err_unknown_macro_named{ text });
-        return;
-    }
-
-    ctx->lex->record_diagnose(
-        lexer::msglevel_t::error,
-        tk.m_token_begin[0],
-        tk.m_token_begin[1],
-        tk.m_token_end[0],
-        tk.m_token_end[1],
-        ctx->lex->get_source_path(),
-        diagnose::lexer::err_unexpected_token{ text });
 }
 
 #endif

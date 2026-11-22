@@ -5,8 +5,12 @@
  *     cmake -S . -B <build-dir> -DWO_REGENERATE_PARSER=ON
  *     cmake --build <build-dir> --target regenerate_parser
  * (the switch defaults to OFF; the committed parser is used otherwise), or
- * directly:
- *     byacc -l -d -v -b woolang -o src/woolang.tab.cpp src/woolang.y
+ * directly (from src/):
+ *     byacc -l -v -H woolang.tab.h -b woolang -o woolang.tab.inc woolang.y
+ *
+ * The generated woolang.tab.inc is compiled through woolang.tab.cpp, which
+ * includes it inside namespace wo::parser; yylex/yyerror are declared in
+ * wo_lang_parser.hpp.
  *
  * Terminals are declared with explicit values `lex_type + 300`; the lexer
  * never emits l_empty any more, so optional constructs use empty rules.
@@ -21,11 +25,6 @@
 #include "wo_lang_parser.hpp"
 
 #define YYSTYPE ::wo::parser::value
-
-/* The generated parser is compiled as C++, so these need declarations
- * before the skeleton's calls (the definitions live in wo_lang_parser.cpp). */
-int yylex(::wo::parser::value* yylval, ::wo::parser::context* ctx);
-void yyerror(::wo::parser::context* ctx, const char* s);
 
 #define BID(B)          (::wo::parser::builder_id< ::wo::ast::B >())
 #define R0(B)           (::wo::parser::reduce(BID(B), *ctx, {}))
