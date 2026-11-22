@@ -377,7 +377,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 ? (ANSI_HIR "error" ANSI_RST)
                 : (ANSI_HIC "infom" ANSI_RST)
                 )
-            + (" (" + to_string(m_range_end[0] + 1) + "," + to_string(m_range_end[1]))
+            + (" (" + std::to_string(m_range_end[0] + 1) + "," + std::to_string(m_range_end[1]))
             + (") " + unwrap_describe());
         else
             return (
@@ -385,7 +385,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 ? ("error")
                 : ("infom")
                 )
-            + (" (" + to_string(m_range_end[0] + 1) + "," + to_string(m_range_end[1]))
+            + (" (" + std::to_string(m_range_end[0] + 1) + "," + std::to_string(m_range_end[1]))
             + (") " + unwrap_describe());
     }
     bool lexer::compiler_message_t::compare_is_same(const compiler_message_t& another) const
