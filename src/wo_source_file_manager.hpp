@@ -18,21 +18,23 @@ namespace wo
         {
             static constexpr size_t BUF_SIZE = 4096;
 
-            woort_VFile* m_file;
+            std::optional<woort_VFile*> m_file;
             char         m_buf[BUF_SIZE];
 
         public:
-            explicit vfile_streambuf(woort_VFile* file) : m_file(file)
+            explicit vfile_streambuf(woort_VFile* file)
             {
+                if (file != nullptr)
+                    m_file.emplace(file);
                 setg(m_buf, m_buf + BUF_SIZE, m_buf + BUF_SIZE);
             }
 
             ~vfile_streambuf() override
             {
-                if (m_file != nullptr)
+                if (m_file.has_value())
                 {
-                    woort_vfile_close(m_file);
-                    m_file = nullptr;
+                    woort_vfile_close(m_file.value());
+                    m_file.reset();
                 }
             }
 
@@ -47,7 +49,7 @@ namespace wo
                 if (gptr() < egptr())
                     return traits_type::to_int_type(*gptr());
 
-                size_t nread = woort_vfile_read(m_file, m_buf, BUF_SIZE);
+                size_t nread = woort_vfile_read(m_file.value(), m_buf, BUF_SIZE);
                 if (nread == 0)
                     return traits_type::eof();
 
@@ -72,7 +74,7 @@ namespace wo
                     n -= count;
                 }
 
-                total += (std::streamsize)woort_vfile_read(m_file, s, (size_t)n);
+                total += (std::streamsize)woort_vfile_read(m_file.value(), s, (size_t)n);
                 return total;
             }
 
@@ -90,22 +92,22 @@ namespace wo
                 default:                  return std::streampos(-1);
                 }
 
-                if (!woort_vfile_seek(m_file, off, whence))
+                if (!woort_vfile_seek(m_file.value(), off, whence))
                     return std::streampos(-1);
 
                 setg(m_buf, m_buf + BUF_SIZE, m_buf + BUF_SIZE);
-                return (std::streampos)woort_vfile_tell(m_file);
+                return (std::streampos)woort_vfile_tell(m_file.value());
             }
 
             std::streampos seekpos(
                 std::streampos pos,
                 std::ios_base::openmode) override
             {
-                if (!woort_vfile_seek(m_file, (int64_t)pos, SEEK_SET))
+                if (!woort_vfile_seek(m_file.value(), (int64_t)pos, SEEK_SET))
                     return std::streampos(-1);
 
                 setg(m_buf, m_buf + BUF_SIZE, m_buf + BUF_SIZE);
-                return (std::streampos)woort_vfile_tell(m_file);
+                return (std::streampos)woort_vfile_tell(m_file.value());
             }
         };
 

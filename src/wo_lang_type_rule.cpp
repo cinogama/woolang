@@ -5,10 +5,12 @@
 #include "wo_lang_diagnose_lang.hpp"
 namespace wo
 {
+    using namespace ast;
+    using namespace std;
 #ifndef WO_DISABLE_COMPILER
     lang_TypeInstance::TypeCheckResult LangContext::is_type_accepted(
         lexer& lex,
-        ast::AstBase* node,
+        AstBase* node,
         lang_TypeInstance* accepter,
         lang_TypeInstance* provider)
     {
@@ -21,7 +23,7 @@ namespace wo
 
         // Set pending state.
         accepter->m_LANG_accepted_types.insert(
-            std::make_pair(provider, lang_TypeInstance::TypeCheckResult::PENDING));
+            make_pair(provider, lang_TypeInstance::TypeCheckResult::PENDING));
 
         auto judge =
             [&]()-> lang_TypeInstance::TypeCheckResult
@@ -339,7 +341,7 @@ namespace wo
 
     lang_TypeInstance::TypeCheckResult LangContext::check_cast_able(
         lexer& lex,
-        ast::AstBase* node,
+        AstBase* node,
         lang_TypeInstance* aimtype,
         lang_TypeInstance* srctype)
     {
@@ -354,7 +356,7 @@ namespace wo
 
         // Set pending state.
         aimtype->m_LANG_castfrom_types.insert(
-            std::make_pair(srctype, lang_TypeInstance::TypeCheckResult::PENDING));
+            make_pair(srctype, lang_TypeInstance::TypeCheckResult::PENDING));
 
         auto* immutable_aimtype = immutable_type(aimtype);
         auto* immutable_srctype = immutable_type(srctype);
@@ -396,20 +398,20 @@ namespace wo
                 if (determined_srctype->m_base_type == determined_aimtype->m_base_type)
                 {
                     // 8. User defined type can cast to basic type, basic type can cast to user defined type.
-                    const std::pair<
+                    const pair<
                         lang_TypeInstance::DeterminedType::base_type,
                         OriginTypeHolder::OriginNoTemplateSymbolAndInstance OriginTypeHolder::*>
                         base_type_record_table[] =
                     {
-                        std::make_pair(lang_TypeInstance::DeterminedType::VOID, &OriginTypeHolder::m_void),
-                        std::make_pair(lang_TypeInstance::DeterminedType::DYNAMIC, &OriginTypeHolder::m_dynamic),
-                        std::make_pair(lang_TypeInstance::DeterminedType::NIL, &OriginTypeHolder::m_nil),
-                        std::make_pair(lang_TypeInstance::DeterminedType::INTEGER, &OriginTypeHolder::m_int),
-                        std::make_pair(lang_TypeInstance::DeterminedType::REAL, &OriginTypeHolder::m_real),
-                        std::make_pair(lang_TypeInstance::DeterminedType::HANDLE, &OriginTypeHolder::m_handle),
-                        std::make_pair(lang_TypeInstance::DeterminedType::BOOLEAN, &OriginTypeHolder::m_bool),
-                        std::make_pair(lang_TypeInstance::DeterminedType::STRING, &OriginTypeHolder::m_string),
-                        std::make_pair(lang_TypeInstance::DeterminedType::GCHANDLE, &OriginTypeHolder::m_gchandle),
+                        make_pair(lang_TypeInstance::DeterminedType::VOID, &OriginTypeHolder::m_void),
+                        make_pair(lang_TypeInstance::DeterminedType::DYNAMIC, &OriginTypeHolder::m_dynamic),
+                        make_pair(lang_TypeInstance::DeterminedType::NIL, &OriginTypeHolder::m_nil),
+                        make_pair(lang_TypeInstance::DeterminedType::INTEGER, &OriginTypeHolder::m_int),
+                        make_pair(lang_TypeInstance::DeterminedType::REAL, &OriginTypeHolder::m_real),
+                        make_pair(lang_TypeInstance::DeterminedType::HANDLE, &OriginTypeHolder::m_handle),
+                        make_pair(lang_TypeInstance::DeterminedType::BOOLEAN, &OriginTypeHolder::m_bool),
+                        make_pair(lang_TypeInstance::DeterminedType::STRING, &OriginTypeHolder::m_string),
+                        make_pair(lang_TypeInstance::DeterminedType::GCHANDLE, &OriginTypeHolder::m_gchandle),
                     };
                     for (auto& [base_type, instance_member] : base_type_record_table)
                     {
@@ -650,7 +652,7 @@ namespace wo
 
     LangContext::TypeMixtureResult LangContext::easy_mixture_types(
         lexer& lex,
-        ast::AstBase* node,
+        AstBase* node,
         lang_TypeInstance* atype,
         lang_TypeInstance* btype,
         PassProcessStackT& out_stack)
@@ -685,14 +687,14 @@ namespace wo
 
         // NOTE: Symbol is same, but instance not same, consider builtin or template?
         auto fast_mixture_with_instance =
-            [&](lang_TypeInstance* a, lang_TypeInstance* b)-> std::optional<lang_TypeInstance*>
+            [&](lang_TypeInstance* a, lang_TypeInstance* b)-> optional<lang_TypeInstance*>
             {
                 if (is_type_accepted(lex, node, a, b) == lang_TypeInstance::TypeCheckResult::ACCEPT)
                     return a;
                 if (is_type_accepted(lex, node, b, a) == lang_TypeInstance::TypeCheckResult::ACCEPT)
                     return b;
 
-                return std::nullopt;
+                return nullopt;
             };
 
         if (immutable_atype->m_symbol->m_is_builtin)
@@ -751,7 +753,7 @@ namespace wo
             }
             case lang_TypeInstance::DeterminedType::TUPLE:
             {
-                std::vector<lang_TypeInstance*> mixed_elem_types;
+                vector<lang_TypeInstance*> mixed_elem_types;
 
                 auto* a_tuple = a_determined_type->m_external_type_description.m_tuple;
                 auto* b_tuple = b_determined_type->m_external_type_description.m_tuple;
@@ -787,7 +789,7 @@ namespace wo
                     || a_function->m_param_types.size() != b_function->m_param_types.size())
                     return TypeMixtureResult{ TypeMixtureResult::REJECT };
 
-                std::vector<lang_TypeInstance*> mixed_param_types;
+                vector<lang_TypeInstance*> mixed_param_types;
                 auto it_a = a_function->m_param_types.begin();
                 auto it_b = b_function->m_param_types.begin();
                 auto it_end = a_function->m_param_types.end();
@@ -839,7 +841,7 @@ namespace wo
             auto& a_template_arguments = immutable_atype->m_instance_template_arguments.value();
             auto& b_template_arguments = immutable_btype->m_instance_template_arguments.value();
 
-            std::vector<ast::AstIdentifier::TemplateArgumentInstance> mixed_template_args;
+            vector<AstIdentifier::TemplateArgumentInstance> mixed_template_args;
 
             auto it_a = a_template_arguments.begin();
             auto it_b = b_template_arguments.begin();
@@ -864,7 +866,7 @@ namespace wo
                     lex,
                     node,
                     immutable_atype->m_symbol,
-                    std::move(mixed_template_args),
+                    move(mixed_template_args),
                     out_stack,
                     &need_continue_process);
 

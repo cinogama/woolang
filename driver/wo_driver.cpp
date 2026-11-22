@@ -14,48 +14,53 @@
 #include <cassert>
 #include <vector>
 
-namespace {
+using namespace std;
+
+namespace wo
+{
+namespace
+{
 
 constexpr int EXIT_OK              = 0;
 constexpr int EXIT_RUNTIME_FAILED  = -1;
 constexpr int EXIT_COMPILE_FAILED  = -2;
 constexpr int EXIT_INTERNAL_ERROR  = -3;
 
-struct wo_driver_options {
+struct driver_options {
     const char* source_path = nullptr;
     const char* output_path = nullptr;
     bool        check_only  = false;
     bool        force_repl  = false;
 };
 
-void _wo_driver_show_banner()
+void driver_show_banner()
 {
-    std::cout << "Woolang (c) 2021 Cinogama project.\n\n";
-    std::cout << "Compiler version: " << wo_version() << '\n';
-    std::cout << "Runtime version: " << woort_version() << '\n';
-    std::cout << "Commit:  " << wo_commit_sha() << '\n';
-    std::cout << "Date:    " << wo_compile_date() << "\n\n";
-    std::cout << "Usage:\n";
-    std::cout << "    woolang\n";
-    std::cout << "    woolang -h\n";
-    std::cout << "    woolang --help\n";
-    std::cout << "    woolang <path> [options...]\n";
-    std::cout << "\nOptions:\n";
-    std::cout << "    -o <output>   Compile and save bytecode to the given path.\n";
-    std::cout << "    --check   Compile only, report syntax errors without running.\n";
-    std::cout << "    --repl         Always enter REPL mode, ignoring <path>.\n";
-    std::cout << "    -h, --help    Show this help message.\n";
-    std::cout << '\n';
+    cout << "Woolang (c) 2021 Cinogama project.\n\n";
+    cout << "Compiler version: " << wo_version() << '\n';
+    cout << "Runtime version: " << woort_version() << '\n';
+    cout << "Commit:  " << wo_commit_sha() << '\n';
+    cout << "Date:    " << wo_compile_date() << "\n\n";
+    cout << "Usage:\n";
+    cout << "    woolang\n";
+    cout << "    woolang -h\n";
+    cout << "    woolang --help\n";
+    cout << "    woolang <path> [options...]\n";
+    cout << "\nOptions:\n";
+    cout << "    -o <output>   Compile and save bytecode to the given path.\n";
+    cout << "    --check   Compile only, report syntax errors without running.\n";
+    cout << "    --repl         Always enter REPL mode, ignoring <path>.\n";
+    cout << "    -h, --help    Show this help message.\n";
+    cout << '\n';
     wo_print_compiler_help();
-    std::cout << '\n';
+    cout << '\n';
     woort_print_runtime_help();
 }
 
-bool _wo_driver_parse_option(int argc, char** argv, wo_driver_options* out)
+bool driver_parse_option(int argc, char** argv, driver_options* out)
 {
     for (int i = 1; i < argc; ++i)
     {
-        const std::string_view arg = argv[i];
+        const string_view arg = argv[i];
         if (arg.empty())
             continue;
 
@@ -63,15 +68,15 @@ bool _wo_driver_parse_option(int argc, char** argv, wo_driver_options* out)
         {
             if (i + 1 >= argc)
             {
-                std::cerr << "error: -o requires an output path\n";
+                cerr << "error: -o requires an output path\n";
                 return false;
             }
             out->output_path = argv[++i];
         }
         else if (arg == "-h" || arg == "--help")
         {
-            _wo_driver_show_banner();
-            std::exit(EXIT_OK);
+            driver_show_banner();
+            exit(EXIT_OK);
         }
         else if (arg == "-c" || arg == "--check")
         {
@@ -89,7 +94,7 @@ bool _wo_driver_parse_option(int argc, char** argv, wo_driver_options* out)
     return true;
 }
 
-int _wo_driver_save_binary(const char* path, woort_CodeEnv* cenv)
+int driver_save_binary(const char* path, woort_CodeEnv* cenv)
 {
     void* buf = nullptr;
     size_t len  = 0;
@@ -102,23 +107,23 @@ int _wo_driver_save_binary(const char* path, woort_CodeEnv* cenv)
         ~BufferGuard() { woort_free(p); }
     } guard{buf};
 
-    FILE* const f = std::fopen(path, "wb");
+    FILE* const f = fopen(path, "wb");
     if (f == nullptr)
         return errno != 0 ? errno : EXIT_INTERNAL_ERROR;
 
     int ret = EXIT_OK;
-    if (std::fwrite(buf, 1, len, f) != len)
+    if (fwrite(buf, 1, len, f) != len)
         ret = errno != 0 ? errno : EXIT_INTERNAL_ERROR;
-    std::fclose(f);
+    fclose(f);
     return ret;
 }
 
-int _wo_driver_run_program(woort_CodeEnv* cenv)
+int driver_run_program(woort_CodeEnv* cenv)
 {
     woort_vm* const vm = woort_vm_create();
     if (vm == nullptr)
     {
-        std::cerr << "Failed to create VM instance: out of memory.\n";
+        cerr << "Failed to create VM instance: out of memory.\n";
         return EXIT_INTERNAL_ERROR;
     }
 
@@ -128,7 +133,7 @@ int _wo_driver_run_program(woort_CodeEnv* cenv)
     woort_value v;
     if (!woort_push_reserve(1, &v))
     {
-        std::cerr << "Failed to run: cannot reserve stack.\n";
+        cerr << "Failed to run: cannot reserve stack.\n";
         ret = EXIT_INTERNAL_ERROR;
     }
     else if (woort_bootup(v, cenv, true) == WOORT_VM_CALL_STATUS_NORMAL)
@@ -145,31 +150,31 @@ int _wo_driver_run_program(woort_CodeEnv* cenv)
     return ret;
 }
 
-int _wo_driver_run_repl()
+int driver_run_repl()
 {
-    std::cout << "Woolang (c) 2021 Cinogama project.\n";
-    std::cout << "Woolang REPL driver(c) 2026 Cinogama project.\n";
-    std::cout << "Compiler version: " << wo_version() << '\n';
-    std::cout << "Runtime version: " << woort_version() << '\n';
+    cout << "Woolang (c) 2021 Cinogama project.\n";
+    cout << "Woolang REPL driver(c) 2026 Cinogama project.\n";
+    cout << "Compiler version: " << wo_version() << '\n';
+    cout << "Runtime version: " << woort_version() << '\n';
 
-    std::cout << "\nType :help for available commands, :q to exit.\n\n";
+    cout << "\nType :help for available commands, :q to exit.\n\n";
 
     wo_ReplSession* session = wo_repl_create(nullptr, nullptr);
     if (session == nullptr)
     {
-        std::cerr << "Failed to create REPL session.\n";
+        cerr << "Failed to create REPL session.\n";
         return -3;
     }
 
-    std::string line;
-    std::string buffer;
+    string line;
+    string buffer;
 
     // Command history for Up/Down recall (in-memory, current session only).
-    std::vector<std::string> history;
+    vector<string> history;
 
     while (true)
     {
-        const std::string prompt = buffer.empty() ? ">>> " : "... ";
+        const string prompt = buffer.empty() ? ">>> " : "... ";
 
         bool eof = false;
 
@@ -178,22 +183,22 @@ int _wo_driver_run_repl()
         // and tests keep working without ANSI noise.
         if (woort_stdin_isatty())
         {
-            std::optional<std::string> got = wo_repl_live_readline(prompt, history);
+            optional<string> got = repl_live_readline(prompt, history);
             if (got.has_value())
-                line = std::move(*got);
+                line = move(*got);
             else
                 eof = true;
         }
         else
         {
-            std::cout << prompt;
-            std::cout.flush();
+            cout << prompt;
+            cout.flush();
 
             char* const raw = woort_console_readline();
             if (raw == nullptr)
             {
                 // EOF or read error.
-                std::cout << '\n';
+                cout << '\n';
                 eof = true;
             }
             else
@@ -210,7 +215,7 @@ int _wo_driver_run_repl()
         // indented input (e.g. continuation lines) reaches the compiler
         // verbatim. A whitespace-only line still collapses to empty.
         const auto rtrim = line.find_last_not_of(" \t\r\n");
-        if (rtrim == std::string::npos)
+        if (rtrim == string::npos)
             line.clear();
         else
             line.erase(rtrim + 1);
@@ -223,7 +228,7 @@ int _wo_driver_run_repl()
         if (line == ":help" || line == ":h" || line == ":?")
         {
             buffer.clear();
-            std::cout << "REPL commands:\n"
+            cout << "REPL commands:\n"
                          "  :q, :quit      Exit the REPL.\n"
                          "  :help, :h, :?  Show this help.\n"
                          "  :cls, :clear   Clear the screen.\n"
@@ -236,7 +241,7 @@ int _wo_driver_run_repl()
             // ANSI clear-screen + cursor home. VT output processing is enabled
             // in woort_env bootup (Windows) and native on POSIX.
             buffer.clear();
-            std::cout << "\033[2J\033[H" << std::flush;
+            cout << "\033[2J\033[H" << flush;
             continue;
         }
 
@@ -249,10 +254,10 @@ int _wo_driver_run_repl()
             session = wo_repl_create(nullptr, nullptr);
             if (session == nullptr)
             {
-                std::cerr << "Failed to recreate REPL session.\n";
+                cerr << "Failed to recreate REPL session.\n";
                 return -3;
             }
-            std::cout << "Session reset.\n";
+            cout << "Session reset.\n";
             continue;
         }
 
@@ -280,12 +285,12 @@ int _wo_driver_run_repl()
         assert(errors != nullptr || result != WO_REPL_COMPILE_ERROR);
         if (result == WO_REPL_COMPILE_ERROR)
         {
-            std::cerr << wo_get_compile_error(errors, WO_COLORFUL) << std::endl;
+            cerr << wo_get_compile_error(errors, WO_COLORFUL) << endl;
             wo_compile_errors_free(errors);
         }
         else if (result == WO_REPL_RUNTIME_ERROR)
         {
-            std::cerr << "Execution has been terminated." << std::endl;
+            cerr << "Execution has been terminated." << endl;
         }
         else if (result == WO_REPL_OK)
         {
@@ -301,15 +306,18 @@ int _wo_driver_run_repl()
 }
 
 } // namespace
+} // namespace wo
+
+using namespace wo;
 
 int main(int argc, char** argv)
 {
     wo_init(argc, argv, nullptr);
 
-    wo_driver_options opts;
-    if (!_wo_driver_parse_option(argc, argv, &opts))
+    driver_options opts;
+    if (!driver_parse_option(argc, argv, &opts))
     {
-        _wo_driver_show_banner();
+        driver_show_banner();
         wo_finish(nullptr, nullptr);
         return EXIT_OK;
     }
@@ -317,7 +325,7 @@ int main(int argc, char** argv)
     if (opts.source_path == nullptr || opts.force_repl)
     {
         // No source file (or -repl requested): enter REPL mode.
-        int repl_ret = _wo_driver_run_repl();
+        int repl_ret = driver_run_repl();
         wo_finish(nullptr, nullptr);
         return repl_ret;
     }
@@ -330,7 +338,7 @@ int main(int argc, char** argv)
     {
         if (errors != nullptr)
         {
-            std::cerr << wo_get_compile_error(errors, WO_COLORFUL) << '\n';
+            cerr << wo_get_compile_error(errors, WO_COLORFUL) << '\n';
             wo_compile_errors_free(errors);
         }
         ret = EXIT_COMPILE_FAILED;
@@ -339,14 +347,14 @@ int main(int argc, char** argv)
     {
         if (opts.check_only)
         {
-            std::cout << "No syntax errors detected.\n";
+            cout << "No syntax errors detected.\n";
             ret = EXIT_OK;
         }
         else
         {
             ret = opts.output_path != nullptr
-                ? _wo_driver_save_binary(opts.output_path, cenv)
-                : _wo_driver_run_program(cenv);
+                ? driver_save_binary(opts.output_path, cenv)
+                : driver_run_program(cenv);
         }
         woort_codeenv_drop(cenv);
     }

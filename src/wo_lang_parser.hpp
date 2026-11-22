@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <initializer_list>
+#include <optional>
 #include <vector>
 
 #include "wo_ast_base.hpp"
@@ -49,8 +50,14 @@ namespace parser
 
     struct context
     {
-        lexer* lex = nullptr;
-        bool* out_is_incomplete = nullptr;
+        lexer& lex;
+        std::optional<bool*> out_is_incomplete;
+
+        context(lexer& lex_instance, std::optional<bool*> out_is_incomplete_flag)
+            : lex(lex_instance)
+            , out_is_incomplete(out_is_incomplete_flag)
+        {
+        }
 
         bool has_error_node = false;
         bool at_eof = false;
@@ -80,7 +87,9 @@ namespace parser
     int yylex(value* yylval, context* ctx);
     void yyerror(context* ctx, const char* s);
 
-    ast::AstBase* parse_program(lexer& lex, bool* out_is_incomplete);
+    std::optional<ast::AstBase*> parse_program(
+        lexer& lex,
+        std::optional<bool*> out_is_incomplete = std::nullopt);
 }
 
     /* Kept for the existing wo_init / wo_shutdown call sites. */

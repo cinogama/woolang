@@ -2,7 +2,13 @@
 
 #define WO_IMPL
 #include "wo.h"
+using namespace std;
+using namespace wo;
 
+namespace wo
+{
+namespace
+{
 #define WO_VERSION_INT(DEV,MAIN,SUB,CORRECT) \
     ((0x##DEV##ull)<<(3*16))|\
     ((0x##MAIN##ull)<<(2*16))|\
@@ -23,6 +29,8 @@ constexpr char version_str[] = WO_VERSION;
 #undef WO_VERSION
 #undef WO_VERSION_STR
 #undef WO_VERSION_INT
+}
+}
 
 const char* wo_compile_date(void)
 {

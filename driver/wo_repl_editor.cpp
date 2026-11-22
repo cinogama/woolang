@@ -27,7 +27,12 @@
 #   include <termios.h>
 #endif
 
-namespace {
+using namespace std;
+
+namespace wo
+{
+namespace
+{
 
 // ====================================================================
 // Syntax highlighting (token -> WOORT_ANSI_* color)
@@ -149,14 +154,14 @@ int utf8_seq_len(unsigned char b)
     return 1; // invalid lead byte: treat as a single byte
 }
 
-size_t cp_len_at(std::string_view s, size_t i)
+size_t cp_len_at(string_view s, size_t i)
 {
     if (i >= s.size())
         return 0;
     return static_cast<size_t>(utf8_seq_len(static_cast<unsigned char>(s[i])));
 }
 
-size_t prev_cp(std::string_view s, size_t cur)
+size_t prev_cp(string_view s, size_t cur)
 {
     if (cur == 0)
         return 0;
@@ -171,7 +176,7 @@ size_t prev_cp(std::string_view s, size_t cur)
 // point (at cursor_byte) falls inside [from,to), that single code point is
 // instead wrapped in `cursor_style ... WOORT_ANSI_RST`, and the token `color`
 // is re-applied to any bytes following it.
-void emit_segment(std::string& out, std::string_view src,
+void emit_segment(string& out, string_view src,
                   size_t from, size_t to, const char* color,
                   size_t cursor_byte, const char* cursor_style)
 {
@@ -240,11 +245,11 @@ void emit_segment(std::string& out, std::string_view src,
 // wrapped in cursor_style to mark the editing position; if cursor_byte is at or
 // past the end of src, a single styled space is appended (the end-of-line
 // insertion point). A null cursor_style produces plain highlighting.
-std::string highlight_source_ex(std::string_view src,
+string highlight_source_ex(string_view src,
                                 size_t cursor_byte,
                                 const char* cursor_style)
 {
-    std::string out;
+    string out;
     if (src.empty())
     {
         if (cursor_style != nullptr)
@@ -256,7 +261,7 @@ std::string highlight_source_ex(std::string_view src,
         return out;
     }
 
-    std::string zterm(src);
+    string zterm(src);
     wo_lspv2_lexer* lex = wo_lspv2_lexer_create(zterm.c_str());
     if (lex == nullptr)
     {
@@ -324,7 +329,7 @@ std::string highlight_source_ex(std::string_view src,
     return out;
 }
 
-std::string highlight_source(std::string_view src)
+string highlight_source(string_view src)
 {
     return highlight_source_ex(src, 0, nullptr);
 }
@@ -378,7 +383,7 @@ struct console_in
 // function simply assumes column 1 -- it never blocks indefinitely.
 void ensure_fresh_line(console_in& src)
 {
-    std::cout << "\033[6n" << std::flush; // DSR: report cursor position
+    cout << "\033[6n" << flush; // DSR: report cursor position
 
     if (src.peek() != 0x1B) // no ESC pending: no CPR, assume column 1
         return;             // (the byte is left in the lookahead for the editor)
@@ -400,7 +405,7 @@ void ensure_fresh_line(console_in& src)
     // 'ch' is now the terminating 'R' (or EOF): the column is complete.
 
     if (col > 1)
-        std::cout << "\r\n" << std::flush; // preserve prior text, drop a line
+        cout << "\r\n" << flush; // preserve prior text, drop a line
 }
 
 // ====================================================================
@@ -482,8 +487,8 @@ public:
 
 struct cursor_hide_guard
 {
-    cursor_hide_guard()  { std::cout << "\033[?25l" << std::flush; }
-    ~cursor_hide_guard() { std::cout << "\033[?25h" << std::flush; }
+    cursor_hide_guard()  { cout << "\033[?25l" << flush; }
+    ~cursor_hide_guard() { cout << "\033[?25h" << flush; }
 };
 
 // ====================================================================
@@ -513,13 +518,13 @@ enum class key_kind
 struct key_event
 {
     key_kind    kind = key_kind::other;
-    std::string utf8;
+    string utf8;
 };
 
 key_event read_char_text(console_in& src, unsigned char lead)
 {
     const int n = utf8_seq_len(lead);
-    std::string s;
+    string s;
     s.push_back(static_cast<char>(lead));
     for (int i = 1; i < n; ++i)
     {
@@ -528,7 +533,7 @@ key_event read_char_text(console_in& src, unsigned char lead)
             break; // truncated at end-of-stream: keep what we have
         s.push_back(static_cast<char>(c));
     }
-    return key_event{ key_kind::char_text, std::move(s) };
+    return key_event{ key_kind::char_text, move(s) };
 }
 
 key_event decode_escape(console_in& src)
@@ -625,29 +630,34 @@ key_event next_key(console_in& src)
 }
 
 } // namespace
+} // namespace wo
+
+using namespace wo;
 
 // ====================================================================
 // Public API
 // ====================================================================
 
-std::string wo_repl_render_highlight(std::string_view src)
+namespace wo
+{
+string repl_render_highlight(string_view src)
 {
     return highlight_source(src);
 }
 
-std::optional<std::string> wo_repl_live_readline(
-    std::string_view prompt, std::vector<std::string>& history)
+optional<string> repl_live_readline(
+    string_view prompt, vector<string>& history)
 {
     raw_mode_guard raw(true);
     if (!raw.ok())
-        return std::nullopt; // caller falls back to the plain reader
+        return nullopt; // caller falls back to the plain reader
 
     cursor_hide_guard hidden;
 
     const bool   main_prompt = !prompt.empty() && prompt[0] == '>';
     const char*  prompt_color = main_prompt ? WOORT_ANSI_HIB : WOORT_ANSI_BLU;
 
-    std::string  buf;   // input bytes
+    string  buf;   // input bytes
     size_t       cur = 0; // cursor byte offset
     bool         overwrite = false; // Insert key toggles overwrite mode
     console_in   src;
@@ -656,7 +666,7 @@ std::optional<std::string> wo_repl_live_readline(
     // editing a fresh line; draft preserves whatever they had typed before
     // they first pressed Up.
     size_t       hist_idx = history.size();
-    std::string  draft;
+    string  draft;
 
     const auto render = [&](bool with_cursor = true)
     {
@@ -676,14 +686,14 @@ std::optional<std::string> wo_repl_live_readline(
         const char* cursor_style = with_cursor
             ? (overwrite ? WOORT_ANSI_INV : WOORT_ANSI_UNDERLNE)
             : nullptr;
-        std::string line;
+        string line;
         line += "\r";
         line += prompt_color;
         line += prompt;
         line += WOORT_ANSI_RST;
         line += highlight_source_ex(buf, cur, cursor_style);
         line += WOORT_ANSI_RST "\033[K";
-        std::cout << line << std::flush;
+        cout << line << flush;
     };
 
     ensure_fresh_line(src);
@@ -698,37 +708,37 @@ std::optional<std::string> wo_repl_live_readline(
             // "\r\n": Windows VT output does not translate LF to CRLF the way
             // POSIX OPOST does, so emit CR explicitly to return to column 0.
             render(false); // clear the inline cursor marker from this line
-            std::cout << "\r\n" << std::flush;
+            cout << "\r\n" << flush;
             if (buf.empty())
-                return std::nullopt;
+                return nullopt;
             return buf;
 
         case key_kind::ctrl_d:
             if (buf.empty())
             {
                 render(false);
-                std::cout << "\r\n" << std::flush;
-                return std::nullopt;
+                cout << "\r\n" << flush;
+                return nullopt;
             }
             break; // ignore Ctrl-D on non-empty input
 
         case key_kind::cancel: // Ctrl-C: clear current input, stay in editor.
             buf.clear();
             cur = 0;
-            std::cout << "^C\r\n" << std::flush;
+            cout << "^C\r\n" << flush;
             render();
             continue;
 
         case key_kind::enter:
         {
             render(false); // clear the inline cursor marker from this line
-            std::cout << "\r\n" << std::flush;
+            cout << "\r\n" << flush;
 
             // Decide whether the submitted line becomes a new history entry.
             // Skip: blank lines, lines recalled from history and resubmitted
             // unchanged (even non-consecutive), and consecutive duplicates.
             const bool blank =
-                (buf.find_first_not_of(" \t") == std::string::npos);
+                (buf.find_first_not_of(" \t") == string::npos);
             const bool recalled_unchanged =
                 (hist_idx < history.size() && buf == history[hist_idx]);
             const bool dup_of_last =
@@ -790,7 +800,7 @@ std::optional<std::string> wo_repl_live_readline(
 
         case key_kind::tab:
         {
-            static const std::string four_spaces = "    ";
+            static const string four_spaces = "    ";
             buf.insert(cur, four_spaces);
             cur += four_spaces.size();
             render();
@@ -848,3 +858,5 @@ std::optional<std::string> wo_repl_live_readline(
         }
     }
 }
+
+} // namespace wo

@@ -241,8 +241,8 @@ namespace wo
         const static std::unordered_map<std::string, lex_type> _key_word_list;
 
     private:
-        static const char* lex_is_operate_type(lex_type tt);
-        static const char* lex_is_keyword_type(lex_type tt);
+        static std::optional<const char*> lex_is_operate_type(lex_type tt);
+        static std::optional<const char*> lex_is_keyword_type(lex_type tt);
         static lex_type lex_is_valid_operator(const std::string& op);
         static lex_type lex_is_keyword(const std::string& op);
 
@@ -311,7 +311,7 @@ namespace wo
             SharedContext& operator = (SharedContext&&) = delete;
 
             [[nodiscard]]
-            woort_vm* get_or_create_macro_vm();
+            std::optional<woort_vm*> get_or_create_macro_vm();
             void drop_macro_vm();
             void drop_macro_vm_and_code_env();
 

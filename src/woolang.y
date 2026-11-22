@@ -2034,13 +2034,13 @@ USELESS_TOKEN
         {
             $$ = R1(pass_token, $1);
 
-            ctx->lex->record_diagnose(
+            ctx->lex.record_diagnose(
                 ::wo::lexer::msglevel_t::error,
                 $1.begin.row_no,
                 $1.begin.col_no,
                 $1.end.row_no,
                 $1.end.col_no,
-                ctx->lex->get_source_path(),
+                ctx->lex.get_source_path(),
                 ::wo::diagnose::parser::err_unknown_macro_named{
                     $1.tok_identifier->c_str() });
         }

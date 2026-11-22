@@ -158,7 +158,7 @@ typedef struct wo_WooDyn_Functions
 WO_API void wo_init(
     int argc,
     char** argv,
-    /* Optional */ const wo_WooDyn_Functions* funcs);
+    /* OPTIONAL */ const wo_WooDyn_Functions* funcs);
 
 #define wo_init(argc, argv, funcs)                              \
     do                                                          \
@@ -263,7 +263,7 @@ WO_API /* OPTIONAL */ woort_CodeEnv* wo_load_binary(
  * @note The returned pointer is valid until the next call to this function or
  *       wo_compile_errors_free().
  */
-WO_API wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors);
+WO_API /* OPTIONAL */ wo_CompileErrorInfo* wo_compile_errors_next(wo_CompileErrors* errors);
 
 /**
  * @brief Free a compile errors iterator.
@@ -570,20 +570,20 @@ typedef struct _wo_lspv2_token_info
 WO_API wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src);
 
 /** @brief Destroy a lexer handle. */
-WO_API void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer);
+WO_API void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer_handle);
 
 /**
  * @brief Peek at the next token without consuming it.
  * @param lexer  The lexer handle.
  * @return Token info for the next token.
  */
-WO_API wo_lspv2_token_info* wo_lspv2_lexer_peek(wo_lspv2_lexer* lexer);
+WO_API wo_lspv2_token_info* wo_lspv2_lexer_peek(wo_lspv2_lexer* lexer_handle);
 
 /**
  * @brief Consume (advance past) the current token.
  * @param lexer  The lexer handle.
  */
-WO_API void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer);
+WO_API void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer_handle);
 
 /** @brief Free token info. */
 WO_API void wo_lspv2_token_info_free(wo_lspv2_token_info* info);

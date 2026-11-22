@@ -6,6 +6,8 @@
 
 namespace wo
 {
+    using namespace ast;
+    using namespace std;
 namespace parser
 {
     value make_empty_token(context& ctx)
@@ -31,10 +33,8 @@ namespace parser
         return result;
     }
 
-    value reduce(size_t builder_index, context& ctx, std::initializer_list<value> rhs)
+    value reduce(size_t builder_index, context& ctx, initializer_list<value> rhs)
     {
-        wo_assert(ctx.lex != nullptr);
-
         if (ctx.has_error_node)
         {
             /* The old driver stopped invoking builders after an error token
@@ -61,8 +61,8 @@ namespace parser
         for (const value& item : rhs)
             ctx.reduce_inputs.push_back(item.to_produce());
 
-        auto builder = ::wo::ast::get_builder(builder_index);
-        ::wo::produce built = builder(*ctx.lex, ctx.reduce_inputs);
+        auto builder = get_builder(builder_index);
+        produce built = builder(ctx.lex, ctx.reduce_inputs);
 
         value result{};
         result.is_ast = built.is_ast();
@@ -73,7 +73,7 @@ namespace parser
         }
         else
         {
-            const ::wo::token& built_token = built.read_token();
+            const token& built_token = built.read_token();
             result.tok_type = built_token.type;
             result.tok_identifier = built_token.identifier;
         }
@@ -104,17 +104,17 @@ namespace parser
 
         if (result.is_ast)
         {
-            ast::AstBase* node = result.ast;
+            AstBase* node = result.ast;
             if (node->source_location.source_file == nullptr)
             {
-                node->source_location.begin_at = ast::AstBase::location_t{
+                node->source_location.begin_at = AstBase::location_t{
                     result.begin.row_no,
                     result.begin.col_no };
-                node->source_location.end_at = ast::AstBase::location_t{
+                node->source_location.end_at = AstBase::location_t{
                     result.end.row_no,
                     result.end.col_no };
-                node->source_location.source_file = ctx.lex->get_source_path();
-                node->source_location.source_group = ctx.lex->get_source_group();
+                node->source_location.source_file = ctx.lex.get_source_path();
+                node->source_location.source_group = ctx.lex.get_source_group();
             }
         }
         else if (result.tok_type == lex_type::l_error)
@@ -125,46 +125,44 @@ namespace parser
         return result;
     }
 
-    ast::AstBase* parse_program(lexer& lex, bool* out_is_incomplete)
+    optional<AstBase*> parse_program(lexer& lex, optional<bool*> out_is_incomplete)
     {
-        context ctx;
-        ctx.lex = &lex;
-        ctx.out_is_incomplete = out_is_incomplete;
+        context ctx(lex, out_is_incomplete);
 
         if (yyparse(&ctx) != 0)
-            return nullptr;
+            return nullopt;
 
         if (!ctx.result_valid || lex.has_error())
-            return nullptr;
+            return nullopt;
 
         if (ctx.result.is_ast)
             return lex.merge_imported_ast_trees(ctx.result.ast);
 
         if (ctx.result.tok_type == lex_type::l_empty)
         {
-            if (out_is_incomplete != nullptr)
-                *out_is_incomplete = true;
+            if (out_is_incomplete.has_value())
+                *out_is_incomplete.value() = true;
             else
                 (void)lex.record_parser_error(
                     lexer::msglevel_t::error,
                     diagnose::lexer::err_source_cannot_be_empty{});
         }
 
-        return nullptr;
+        return nullopt;
     }
 
-    int yylex(::wo::parser::value* yylval, ::wo::parser::context* ctx)
+    int yylex(parser::value* yylval, parser::context* ctx)
     {
         using namespace wo;
 
         for (;;)
         {
-            lexer::peeked_token_t* peeked = ctx->lex->peek(true);
+            lexer::peeked_token_t* peeked = ctx->lex.peek(true);
             wo_assert(peeked != nullptr);
 
             if (peeked->m_lex_type == lex_type::l_error)
             {
-                ctx->lex->move_forward(true);
+                ctx->lex.move_forward(true);
                 continue;
             }
 
@@ -191,12 +189,12 @@ namespace parser
             }
 
             int token_code = static_cast<int>(peeked->m_lex_type) + 300;
-            ctx->lex->move_forward(true);
+            ctx->lex.move_forward(true);
             return token_code;
         }
     }
 
-    void yyerror(::wo::parser::context* ctx, const char* s)
+    void yyerror(parser::context* ctx, const char* s)
     {
         using namespace wo;
 
@@ -212,43 +210,43 @@ namespace parser
 
         if (tk.m_lex_type == lex_type::l_eof)
         {
-            if (ctx->out_is_incomplete != nullptr)
+            if (ctx->out_is_incomplete.has_value())
             {
-                *ctx->out_is_incomplete = true;
+                *ctx->out_is_incomplete.value() = true;
                 return;
             }
 
-            ctx->lex->record_diagnose(
+            ctx->lex.record_diagnose(
                 lexer::msglevel_t::error,
                 tk.m_token_begin[0],
                 tk.m_token_begin[1],
                 tk.m_token_end[0],
                 tk.m_token_end[1],
-                ctx->lex->get_source_path(),
+                ctx->lex.get_source_path(),
                 diagnose::lexer::err_unexpected_eof{});
             return;
         }
 
         if (tk.m_lex_type == lex_type::l_macro)
         {
-            ctx->lex->record_diagnose(
+            ctx->lex.record_diagnose(
                 lexer::msglevel_t::error,
                 tk.m_token_begin[0],
                 tk.m_token_begin[1],
                 tk.m_token_end[0],
                 tk.m_token_end[1],
-                ctx->lex->get_source_path(),
+                ctx->lex.get_source_path(),
                 diagnose::parser::err_unknown_macro_named{ text });
             return;
         }
 
-        ctx->lex->record_diagnose(
+        ctx->lex.record_diagnose(
             lexer::msglevel_t::error,
             tk.m_token_begin[0],
             tk.m_token_begin[1],
             tk.m_token_end[0],
             tk.m_token_end[1],
-            ctx->lex->get_source_path(),
+            ctx->lex.get_source_path(),
             diagnose::lexer::err_unexpected_token{ text });
     }
 
@@ -256,12 +254,12 @@ namespace parser
 
     void init_woolang_parser()
     {
-        ::wo::ast::init_builder();
+        init_builder();
     }
 
     void shutdown_woolang_parser()
     {
-        ::wo::ast::shutdown_builder();
+        shutdown_builder();
     }
 }
 

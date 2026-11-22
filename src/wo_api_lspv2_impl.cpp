@@ -1,8 +1,15 @@
 #include "wo_afx.hpp"
 
 #include <set>
+using namespace std;
+using namespace wo;
+using namespace ast;
 
-const char* _wo_strdupn(const char* str, size_t len)
+namespace wo
+{
+namespace
+{
+const char* duplicate_c_string_n(const char* str, size_t len)
 {
     char* new_str = (char*)malloc(len + 1);
     wo_assert(new_str != nullptr);
@@ -11,46 +18,57 @@ const char* _wo_strdupn(const char* str, size_t len)
     new_str[len] = '\0';
     return new_str;
 }
-const char* _wo_strdup(const char* str)
+const char* duplicate_c_string(const char* str)
 {
-    return _wo_strdupn(str, strlen(str));
+    return duplicate_c_string_n(str, strlen(str));
+}
+}
 }
 
 #ifndef WO_DISABLE_COMPILER
 
 static_assert(WO_NEED_LSP_API);
 
-constexpr size_t WO_LSPV2_SUB_VERSION = 5;
+namespace wo
+{
+namespace
+{
+constexpr size_t LSPV2_SUB_VERSION = 5;
+}
+}
 
 size_t wo_lspv2_sub_version(void)
 {
-    return WO_LSPV2_SUB_VERSION;
+    return LSPV2_SUB_VERSION;
 }
 
-wo::compile_result _wo_compile_impl(
-    const char* virtual_src_path,
-    /* OPTIONAL */ const void* src_may_null,
-    size_t src_len,
-    const std::optional<wo::lexer*>& append_macro_define_to_this_lexer,
-    std::optional<woort_CodeEnv*>* out_env_if_success,
-    std::optional<std::unique_ptr<wo::lexer>>* out_lexer_if_failed,
-    std::optional<std::unique_ptr<wo::LangContext>>* out_langcontext_if_pass_grammar);
+namespace wo
+{
+    compile_result compile_impl(
+        const char* virtual_src_path,
+        const optional<const void*>& src_may_null,
+        size_t src_len,
+        const optional<lexer*>& append_macro_define_to_this_lexer,
+        optional<woort_CodeEnv*>* out_env_if_success,
+        optional<unique_ptr<lexer>>* out_lexer_if_failed,
+        optional<unique_ptr<LangContext>>* out_langcontext_if_pass_grammar);
+}
 
 struct _wo_lspv2_source_meta
 {
-    wo::compile_result m_step;
+    compile_result m_step;
 
-    wo::ast::AstAllocator m_origin_astbase_list;
+    AstAllocator m_origin_astbase_list;
 
-    std::optional<woort_CodeEnv*> m_env_if_success;
-    std::optional<std::unique_ptr<wo::LangContext>> m_langcontext_if_passed_grammar;
-    std::optional<std::unique_ptr<wo::lexer>> m_lexer_if_failed;
+    optional<woort_CodeEnv*> m_env_if_success;
+    optional<unique_ptr<LangContext>> m_langcontext_if_passed_grammar;
+    optional<unique_ptr<lexer>> m_lexer_if_failed;
 
-    using value_or_type_expr_t = wo::ast::AstBase*;
-    using expr_map_t = std::multimap<
-        wo::ast::AstBase::location_t /* end place */, value_or_type_expr_t>;
-    using expr_location_map_t = std::map<wo::ast::AstBase::location_t /* begin place */, expr_map_t>;
-    using source_expr_collection_t = std::unordered_map<wo_pstring_t, expr_location_map_t>;
+    using value_or_type_expr_t = AstBase*;
+    using expr_map_t = multimap<
+        AstBase::location_t /* end place */, value_or_type_expr_t>;
+    using expr_location_map_t = map<AstBase::location_t /* begin place */, expr_map_t>;
+    using source_expr_collection_t = unordered_map<wo_pstring_t, expr_location_map_t>;
     source_expr_collection_t m_source_expr_collection;
 };
 
@@ -58,37 +76,37 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
     const char* virtual_src_path,
     const char* src)
 {
-    wo::wstring_pool::begin_new_pool();
+    wstring_pool::begin_new_pool();
 
     wo_lspv2_source_meta* meta = new wo_lspv2_source_meta();
 
-    wo::ast::AstAllocator old_ast_list;
+    AstAllocator old_ast_list;
     bool need_exchange_back =
-        wo::ast::AstBase::exchange_this_thread_ast(
+        AstBase::exchange_this_thread_ast(
             old_ast_list);
 
-    meta->m_step = _wo_compile_impl(
+    meta->m_step = compile_impl(
         virtual_src_path,
         src,
         src == nullptr ? 0 : strlen(src),
-        std::nullopt,
+        nullopt,
         &meta->m_env_if_success,
         &meta->m_lexer_if_failed,
         &meta->m_langcontext_if_passed_grammar);
 
-    wo::ast::AstBase::exchange_this_thread_ast(meta->m_origin_astbase_list);
+    AstBase::exchange_this_thread_ast(meta->m_origin_astbase_list);
 
     if (need_exchange_back)
-        wo::ast::AstBase::exchange_this_thread_ast(old_ast_list);
+        AstBase::exchange_this_thread_ast(old_ast_list);
 
     // Grammar passed, get more type information as possiable.
     if (meta->m_langcontext_if_passed_grammar.has_value())
     {
         for (auto* ast_base_instance : meta->m_origin_astbase_list.get_allocated_nodes_for_lspv2())
         {
-            if (((ast_base_instance->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_begin
-                || ast_base_instance->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_end)
-                && ast_base_instance->node_type != wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
+            if (((ast_base_instance->node_type < AstBase::node_type_t::AST_VALUE_begin
+                || ast_base_instance->node_type >= AstBase::node_type_t::AST_VALUE_end)
+                && ast_base_instance->node_type != AstBase::node_type_t::AST_TYPE_HOLDER)
                 || ast_base_instance->source_location.source_file == nullptr)
                 continue;
 
@@ -96,26 +114,26 @@ wo_lspv2_source_meta* wo_lspv2_compile_to_meta(
                 meta->m_source_expr_collection[
                     ast_base_instance->source_location.source_file];
 
-            if (ast_base_instance->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
+            if (ast_base_instance->node_type == AstBase::node_type_t::AST_TYPE_HOLDER)
             {
-                wo::ast::AstTypeHolder* ast_type_holder =
-                    static_cast<wo::ast::AstTypeHolder*>(ast_base_instance);
+                AstTypeHolder* ast_type_holder =
+                    static_cast<AstTypeHolder*>(ast_base_instance);
 
                 if (ast_type_holder->m_LANG_determined_type.has_value())
                 {
                     record[ast_base_instance->source_location.begin_at].insert(
-                        std::make_pair(ast_base_instance->source_location.end_at, ast_type_holder));
+                        make_pair(ast_base_instance->source_location.end_at, ast_type_holder));
                 }
             }
             else
             {
-                wo::ast::AstValueBase* ast_value =
-                    static_cast<wo::ast::AstValueBase*>(ast_base_instance);
+                AstValueBase* ast_value =
+                    static_cast<AstValueBase*>(ast_base_instance);
 
                 if (ast_value->m_LANG_determined_type.has_value())
                 {
                     record[ast_base_instance->source_location.begin_at].insert(
-                        std::make_pair(ast_base_instance->source_location.end_at, ast_value));
+                        make_pair(ast_base_instance->source_location.end_at, ast_value));
                 }
             }
         }
@@ -131,18 +149,18 @@ void wo_lspv2_meta_free(wo_lspv2_source_meta* meta)
     if (!meta->m_origin_astbase_list.empty())
     {
         // free ast
-        wo::ast::AstAllocator old_ast_list;
+        AstAllocator old_ast_list;
         bool need_exchange_back =
-            wo::ast::AstBase::exchange_this_thread_ast(
+            AstBase::exchange_this_thread_ast(
                 old_ast_list);
 
-        (void)wo::ast::AstBase::exchange_this_thread_ast(
+        (void)AstBase::exchange_this_thread_ast(
             meta->m_origin_astbase_list);
 
-        wo::ast::AstBase::clean_this_thread_ast();
+        AstBase::clean_this_thread_ast();
 
         if (need_exchange_back)
-            wo::ast::AstBase::exchange_this_thread_ast(old_ast_list);
+            AstBase::exchange_this_thread_ast(old_ast_list);
     }
 
     if (meta->m_env_if_success.has_value())
@@ -152,12 +170,12 @@ void wo_lspv2_meta_free(wo_lspv2_source_meta* meta)
     }
 
     delete meta;
-    wo::wstring_pool::end_pool();
+    wstring_pool::end_pool();
 }
 
 struct _wo_lspv2_error_iter
 {
-    using error_iter_t = wo::lexer::compiler_message_list_t::const_iterator;
+    using error_iter_t = lexer::compiler_message_list_t::const_iterator;
     error_iter_t m_current;
     error_iter_t m_end;
 };
@@ -185,12 +203,12 @@ wo_lspv2_error_info* wo_lspv2_compile_err_next(wo_lspv2_error_iter* iter)
     {
         auto& error = *(iter->m_current++);
         return new wo_lspv2_error_info{
-            error.m_level == wo::lexer::msglevel_t::error ? (
+            error.m_level == lexer::msglevel_t::error ? (
                 WO_LSP_ERROR) : WO_LSP_INFORMATION,
             error.m_layer,
-            _wo_strdup(error.unwrap_describe().c_str()),
+            duplicate_c_string(error.unwrap_describe().c_str()),
             wo_lspv2_location{
-                _wo_strdup(error.filename().c_str()),
+                duplicate_c_string(error.filename().c_str()),
                 { error.m_range_begin[0], error.m_range_begin[1] },
                 { error.m_range_end[0], error.m_range_end[1] },
             },
@@ -207,11 +225,11 @@ void wo_lspv2_err_info_free(wo_lspv2_error_info* info)
 
 struct _wo_lspv2_scope_iter
 {
-    using namespace_iter_t = decltype(wo::lang_Namespace::m_sub_namespaces)::const_iterator;
-    using scope_iter_t = decltype(wo::lang_Scope::m_sub_scopes)::const_iterator;
+    using namespace_iter_t = decltype(lang_Namespace::m_sub_namespaces)::const_iterator;
+    using scope_iter_t = decltype(lang_Scope::m_sub_scopes)::const_iterator;
 
-    std::optional<namespace_iter_t> m_current_ns;
-    std::optional<namespace_iter_t> m_end_ns;
+    optional<namespace_iter_t> m_current_ns;
+    optional<namespace_iter_t> m_end_ns;
 
     scope_iter_t m_current;
     scope_iter_t m_end;
@@ -227,15 +245,15 @@ wo_lspv2_scope* wo_lspv2_meta_get_global_scope(wo_lspv2_source_meta* meta)
 }
 wo_lspv2_scope_iter* wo_lspv2_scope_sub_scope_iter(wo_lspv2_scope* scope)
 {
-    wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope));
+    lang_Scope* lang_scope = launder(reinterpret_cast<lang_Scope*>(scope));
 
     return new wo_lspv2_scope_iter{
         lang_scope->is_namespace_scope() ?
-            std::optional(lang_scope->m_belongs_to_namespace->m_sub_namespaces.cbegin())
-            : std::nullopt,
+            optional(lang_scope->m_belongs_to_namespace->m_sub_namespaces.cbegin())
+            : nullopt,
         lang_scope->is_namespace_scope() ?
-            std::optional(lang_scope->m_belongs_to_namespace->m_sub_namespaces.cend())
-            : std::nullopt,
+            optional(lang_scope->m_belongs_to_namespace->m_sub_namespaces.cend())
+            : nullopt,
         lang_scope->m_sub_scopes.cbegin(),
         lang_scope->m_sub_scopes.cend(),
     };
@@ -249,8 +267,8 @@ wo_lspv2_scope* wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter)
                 (iter->m_current_ns.value()++)->second->m_this_scope.get());
         else
         {
-            iter->m_current_ns = std::nullopt;
-            iter->m_end_ns = std::nullopt;
+            iter->m_current_ns = nullopt;
+            iter->m_end_ns = nullopt;
         }
     }
 
@@ -267,10 +285,10 @@ wo_lspv2_scope* wo_lspv2_scope_sub_scope_next(wo_lspv2_scope_iter* iter)
 }
 wo_lspv2_scope_info* wo_lspv2_scope_get_info(wo_lspv2_scope* scope)
 {
-    wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope));
+    lang_Scope* lang_scope = launder(reinterpret_cast<lang_Scope*>(scope));
     auto* result = new wo_lspv2_scope_info{
         lang_scope->is_namespace_scope()
-            ? _wo_strdup(lang_scope->m_belongs_to_namespace->m_name->c_str())
+            ? duplicate_c_string(lang_scope->m_belongs_to_namespace->m_name->c_str())
             : nullptr,
         lang_scope->m_scope_location.has_value(),
         {},
@@ -279,7 +297,7 @@ wo_lspv2_scope_info* wo_lspv2_scope_get_info(wo_lspv2_scope* scope)
     if (result->m_has_location)
     {
         auto& loc = lang_scope->m_scope_location.value();
-        result->m_location.m_file_name = _wo_strdup(loc.source_file->c_str());
+        result->m_location.m_file_name = duplicate_c_string(loc.source_file->c_str());
         result->m_location.m_begin_location[0] = loc.begin_at.row;
         result->m_location.m_begin_location[1] = loc.begin_at.column;
         result->m_location.m_end_location[0] = loc.end_at.row;
@@ -298,7 +316,7 @@ void wo_lspv2_scope_info_free(wo_lspv2_scope_info* info)
 
 struct _wo_lspv2_symbol_iter
 {
-    using symbol_iter_t = decltype(wo::lang_Scope::m_defined_symbols)::const_iterator;
+    using symbol_iter_t = decltype(lang_Scope::m_defined_symbols)::const_iterator;
 
     symbol_iter_t m_current;
     symbol_iter_t m_end;
@@ -308,7 +326,7 @@ struct _wo_lspv2_symbol_iter
 
 wo_lspv2_symbol_iter* wo_lspv2_scope_symbol_iter(wo_lspv2_scope* scope)
 {
-    wo::lang_Scope* lang_scope = std::launder(reinterpret_cast<wo::lang_Scope*>(scope));
+    lang_Scope* lang_scope = launder(reinterpret_cast<lang_Scope*>(scope));
     return new _wo_lspv2_symbol_iter{
         lang_scope->m_defined_symbols.cbegin(),
         lang_scope->m_defined_symbols.cend(),
@@ -326,7 +344,7 @@ wo_lspv2_symbol* wo_lspv2_scope_symbol_next(wo_lspv2_symbol_iter* iter)
             return nullptr;
         }
 
-        const wo::lang_DefinedSymbols& defined_symbols = iter->m_current->second;
+        const lang_DefinedSymbols& defined_symbols = iter->m_current->second;
 
         if (!iter->m_unique_emitted)
         {
@@ -352,12 +370,12 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
     size_t template_param_count = 0;
     wo_lspv2_template_param* template_params = nullptr;
 
-    wo::lang_Symbol* lang_symbol =
-        std::launder(reinterpret_cast<wo::lang_Symbol*>(symbol));
+    lang_Symbol* lang_symbol =
+        launder(reinterpret_cast<lang_Symbol*>(symbol));
 
     switch (lang_symbol->m_symbol_kind)
     {
-    case wo::lang_Symbol::kind::VARIABLE:
+    case lang_Symbol::kind::VARIABLE:
         symbol_kind = WO_LSPV2_SYMBOL_VARIBALE;
         if (lang_symbol->m_is_template)
         {
@@ -374,11 +392,11 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
                     : WO_LSPV2_TEMPLATE_PARAM_TYPE
                     ;
 
-                template_param.m_name = _wo_strdup(param->m_param_name->c_str());
+                template_param.m_name = duplicate_c_string(param->m_param_name->c_str());
             }
         }
         break;
-    case wo::lang_Symbol::kind::ALIAS:
+    case lang_Symbol::kind::ALIAS:
         symbol_kind = WO_LSPV2_SYMBOL_ALIAS;
         if (lang_symbol->m_is_template)
         {
@@ -395,11 +413,11 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
                     : WO_LSPV2_TEMPLATE_PARAM_TYPE
                     ;
 
-                template_param.m_name = _wo_strdup(param->m_param_name->c_str());
+                template_param.m_name = duplicate_c_string(param->m_param_name->c_str());
             }
         }
         break;
-    case wo::lang_Symbol::kind::TYPE:
+    case lang_Symbol::kind::TYPE:
         symbol_kind = WO_LSPV2_SYMBOL_TYPE;
         if (lang_symbol->m_is_template)
         {
@@ -416,7 +434,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
                     : WO_LSPV2_TEMPLATE_PARAM_TYPE
                     ;
 
-                template_param.m_name = _wo_strdup(param->m_param_name->c_str());
+                template_param.m_name = duplicate_c_string(param->m_param_name->c_str());
             }
         }
         break;
@@ -426,7 +444,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
 
     auto* result = new wo_lspv2_symbol_info{
         symbol_kind,
-        _wo_strdup(lang_symbol->m_name->c_str()),
+        duplicate_c_string(lang_symbol->m_name->c_str()),
         template_param_count,
         template_params,
         lang_symbol->m_symbol_declare_location.has_value(),
@@ -435,7 +453,7 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
     if (result->m_has_location)
     {
         auto& loc = lang_symbol->m_symbol_declare_location.value();
-        result->m_location.m_file_name = _wo_strdup(loc.source_file->c_str());
+        result->m_location.m_file_name = duplicate_c_string(loc.source_file->c_str());
         result->m_location.m_begin_location[0] = loc.begin_at.row;
         result->m_location.m_begin_location[1] = loc.begin_at.column;
         result->m_location.m_end_location[0] = loc.end_at.row;
@@ -473,8 +491,8 @@ struct _wo_lspv2_expr_collection
 };
 struct _wo_lspv2_expr_iter
 {
-    wo::ast::AstBase::location_t m_begin_location;
-    wo::ast::AstBase::location_t m_end_location;
+    AstBase::location_t m_begin_location;
+    AstBase::location_t m_end_location;
 
     _wo_lspv2_source_meta::expr_location_map_t::const_iterator m_current_collection;
     _wo_lspv2_source_meta::expr_location_map_t::const_iterator m_end_collection;
@@ -516,7 +534,7 @@ wo_lspv2_expr_collection_info* wo_lspv2_expr_collection_get_info(
     wo_lspv2_expr_collection* collection)
 {
     return new wo_lspv2_expr_collection_info{
-        _wo_strdup(collection->m_file_name->c_str()),
+        duplicate_c_string(collection->m_file_name->c_str()),
     };
 }
 void wo_lspv2_expr_collection_info_free(wo_lspv2_expr_collection_info* collection)
@@ -531,8 +549,8 @@ wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_rang
     size_t end_row,
     size_t end_col)
 {
-    wo::ast::AstBase::location_t begin_location{ begin_row, begin_col };
-    wo::ast::AstBase::location_t end_location{ end_row, end_col };
+    AstBase::location_t begin_location{ begin_row, begin_col };
+    AstBase::location_t end_location{ end_row, end_col };
 
     auto begin_iter =
         collection->m_expr_collection->begin();
@@ -547,7 +565,7 @@ wo_lspv2_expr_iter* /* null if not found */ wo_lspv2_expr_collection_get_by_rang
         end_location,
         begin_iter,
         upper_bound_iter,
-        begin_iter->second.lower_bound(wo::ast::AstBase::location_t{ end_row, end_col }),
+        begin_iter->second.lower_bound(AstBase::location_t{ end_row, end_col }),
         begin_iter->second.end(),
     };
 }
@@ -582,30 +600,30 @@ wo_lspv2_expr* /* null if end */ wo_lspv2_expr_next(wo_lspv2_expr_iter* iter)
 
 wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
 {
-    wo::ast::AstBase* ast_base = std::launder(reinterpret_cast<wo::ast::AstBase*>(expr));
-    wo::lang_TypeInstance* type_instance = nullptr;
-    wo::lang_Symbol* variable_or_type_symbol = nullptr;
+    AstBase* ast_base = launder(reinterpret_cast<AstBase*>(expr));
+    lang_TypeInstance* type_instance = nullptr;
+    lang_Symbol* variable_or_type_symbol = nullptr;
     bool is_value = true;
     wo_lspv2_constant* const_value = nullptr;
 
-    std::vector<wo::ast::AstIdentifier::TemplateArgumentInstance>* template_instance_argument_list
+    vector<AstIdentifier::TemplateArgumentInstance>* template_instance_argument_list
         = nullptr;
 
-    if (ast_base->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
+    if (ast_base->node_type == AstBase::node_type_t::AST_TYPE_HOLDER)
     {
-        wo::ast::AstTypeHolder* type_holder = static_cast<wo::ast::AstTypeHolder*>(ast_base);
+        AstTypeHolder* type_holder = static_cast<AstTypeHolder*>(ast_base);
 
         is_value = false;
         type_instance = type_holder->m_LANG_determined_type.value();
 
-        if (type_holder->m_formal == wo::ast::AstTypeHolder::IDENTIFIER)
+        if (type_holder->m_formal == AstTypeHolder::IDENTIFIER)
         {
             variable_or_type_symbol =
                 type_holder->m_typeform.m_identifier->m_LANG_determined_symbol.value();
 
             if (type_holder->m_LANG_alias_instance_only_for_lspv2.has_value())
             {
-                wo_assert(variable_or_type_symbol->m_symbol_kind == wo::lang_Symbol::kind::ALIAS);
+                wo_assert(variable_or_type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS);
                 auto* alias_instance = type_holder->m_LANG_alias_instance_only_for_lspv2.value();
 
                 if (alias_instance->m_instance_template_arguments.has_value())
@@ -613,22 +631,22 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
             }
             else if (type_instance->m_instance_template_arguments.has_value())
             {
-                wo_assert(variable_or_type_symbol->m_symbol_kind == wo::lang_Symbol::kind::TYPE);
+                wo_assert(variable_or_type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
                 template_instance_argument_list = &type_instance->m_instance_template_arguments.value();
             }
         }
     }
     else
     {
-        wo_assert(ast_base->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_begin
-            && ast_base->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_end);
+        wo_assert(ast_base->node_type >= AstBase::node_type_t::AST_VALUE_begin
+            && ast_base->node_type < AstBase::node_type_t::AST_VALUE_end);
 
-        wo::ast::AstValueBase* value = static_cast<wo::ast::AstValueBase*>(ast_base);
+        AstValueBase* value = static_cast<AstValueBase*>(ast_base);
 
         type_instance = value->m_LANG_determined_type.value();
-        if (value->node_type == wo::ast::AstBase::node_type_t::AST_VALUE_VARIABLE)
+        if (value->node_type == AstBase::node_type_t::AST_VALUE_VARIABLE)
         {
-            auto* ast_value_variable = static_cast<wo::ast::AstValueVariable*>(value);
+            auto* ast_value_variable = static_cast<AstValueVariable*>(value);
             if (ast_value_variable->m_LANG_variable_instance.has_value())
             {
                 auto* variable_instance = ast_value_variable->m_LANG_variable_instance.value();
@@ -678,7 +696,7 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
     return new wo_lspv2_expr_info{
         reinterpret_cast<wo_lspv2_type*>(type_instance),
         wo_lspv2_location {
-            _wo_strdup(ast_base->source_location.source_file->c_str()),
+            duplicate_c_string(ast_base->source_location.source_file->c_str()),
             { ast_base->source_location.begin_at.row, ast_base->source_location.begin_at.column },
             { ast_base->source_location.end_at.row, ast_base->source_location.end_at.column },},
         variable_or_type_symbol == nullptr ? nullptr : reinterpret_cast<wo_lspv2_symbol*>(variable_or_type_symbol),
@@ -699,8 +717,8 @@ void wo_lspv2_expr_info_free(wo_lspv2_expr_info* expr_info)
 wo_lspv2_type_info* wo_lspv2_type_get_info(
     wo_lspv2_type* type, wo_lspv2_source_meta* meta)
 {
-    wo::lang_TypeInstance* type_instance =
-        std::launder(reinterpret_cast<wo::lang_TypeInstance*>(type));
+    lang_TypeInstance* type_instance =
+        launder(reinterpret_cast<lang_TypeInstance*>(type));
 
     size_t template_arguments_count = 0;
     wo_lspv2_template_argument* template_args = nullptr;
@@ -752,15 +770,15 @@ wo_lspv2_type_struct_info* wo_lspv2_type_get_struct_info(
 {
     (void)meta;
 
-    wo::lang_TypeInstance* type_instance =
-        std::launder(reinterpret_cast<wo::lang_TypeInstance*>(type));
+    lang_TypeInstance* type_instance =
+        launder(reinterpret_cast<lang_TypeInstance*>(type));
 
     auto determined_type = type_instance->get_determined_type();
     if (determined_type.has_value())
     {
         auto* determined_type_instance = determined_type.value();
         if (determined_type_instance->m_base_type
-            == wo::lang_TypeInstance::DeterminedType::base_type::STRUCT)
+            == lang_TypeInstance::DeterminedType::base_type::STRUCT)
         {
             auto* struct_type_detail =
                 determined_type_instance->m_external_type_description.m_struct;
@@ -776,7 +794,7 @@ wo_lspv2_type_struct_info* wo_lspv2_type_get_struct_info(
             for (auto& [member, member_detail] : struct_type_detail->m_member_types)
             {
                 result->m_member_names[member_detail.m_offset] =
-                    _wo_strdup(member->c_str());
+                    duplicate_c_string(member->c_str());
                 result->m_member_types[member_detail.m_offset] =
                     reinterpret_cast<wo_lspv2_type*>(
                         member_detail.m_member_type);
@@ -801,7 +819,7 @@ void wo_lspv2_type_struct_info_free(wo_lspv2_type_struct_info* info)
 
 struct _wo_lspv2_macro_iter
 {
-    using macro_iter_t = decltype(wo::LangContext::m_macros)::const_iterator;
+    using macro_iter_t = decltype(LangContext::m_macros)::const_iterator;
     macro_iter_t m_current;
     macro_iter_t m_end;
 };
@@ -833,11 +851,11 @@ wo_lspv2_macro* /* null if end */ wo_lspv2_macro_next(wo_lspv2_macro_iter* iter)
 }
 wo_lspv2_macro_info* wo_lspv2_macro_get_info(wo_lspv2_macro* macro)
 {
-    wo::lang_Macro* lang_macro = std::launder(reinterpret_cast<wo::lang_Macro*>(macro));
+    lang_Macro* lang_macro = launder(reinterpret_cast<lang_Macro*>(macro));
     return new wo_lspv2_macro_info{
-        _wo_strdup(lang_macro->m_name->c_str()),
+        duplicate_c_string(lang_macro->m_name->c_str()),
         wo_lspv2_location{
-            _wo_strdup(lang_macro->m_location.source_file->c_str()),
+            duplicate_c_string(lang_macro->m_location.source_file->c_str()),
             { lang_macro->m_location.begin_at.row, lang_macro->m_location.begin_at.column },
             { lang_macro->m_location.end_at.row, lang_macro->m_location.end_at.column },
         },
@@ -853,11 +871,11 @@ void wo_lspv2_macro_info_free(wo_lspv2_macro_info* info)
 wo_lspv2_constant_info* wo_lspv2_constant_get_info(
     wo_lspv2_constant* constant, wo_lspv2_source_meta* meta)
 {
-    const wo::ast::ConstantValue* cvalue =
-        reinterpret_cast<const wo::ast::ConstantValue*>(constant);
+    const ConstantValue* cvalue =
+        reinterpret_cast<const ConstantValue*>(constant);
 
     return new wo_lspv2_constant_info{
-        _wo_strdup(
+        duplicate_c_string(
             meta->m_langcontext_if_passed_grammar.value()->get_constant_str(
                 *cvalue).c_str())
     };
@@ -871,16 +889,20 @@ void wo_lspv2_constant_info_free(wo_lspv2_constant_info* info)
 
 // ==================== Semantic Tokens API ====================
 
+namespace wo
+{
+namespace
+{
 struct _semantic_token_entry
 {
-    wo::ast::AstBase::source_location_t location;
+    AstBase::source_location_t location;
     uint32_t token_type;
     uint32_t modifiers;
 };
 
 struct _semantic_token_key
 {
-    std::string file_name;
+    string file_name;
     size_t begin_row, begin_col, end_row, end_col;
     uint32_t token_type;
     bool operator<(const _semantic_token_key& other) const
@@ -894,10 +916,10 @@ struct _semantic_token_key
     }
 };
 
-static void _collect_token(
-    std::vector<_semantic_token_entry>& tokens,
-    std::set<_semantic_token_key>& seen,
-    const wo::ast::AstBase::source_location_t& loc,
+void _collect_token(
+    vector<_semantic_token_entry>& tokens,
+    set<_semantic_token_key>& seen,
+    const AstBase::source_location_t& loc,
     uint32_t token_type, uint32_t modifiers)
 {
     if (loc.source_file == nullptr)
@@ -909,17 +931,17 @@ static void _collect_token(
         loc.end_at.row, loc.end_at.column,
         token_type };
 
-    if (seen.insert(std::move(key)).second)
+    if (seen.insert(move(key)).second)
     {
         tokens.push_back({ loc, token_type, modifiers });
     }
 }
 
-static void _collect_all_semantic_tokens(
+void _collect_all_semantic_tokens(
     wo_lspv2_source_meta* meta,
-    std::vector<_semantic_token_entry>& out_tokens)
+    vector<_semantic_token_entry>& out_tokens)
 {
-    std::set<_semantic_token_key> seen;
+    set<_semantic_token_key> seen;
 
     // Phase 1: expression collections
     for (auto& [file_name, expr_map] : meta->m_source_expr_collection)
@@ -930,22 +952,22 @@ static void _collect_all_semantic_tokens(
             {
                 uint32_t token_type = WO_LSPV2_SEMANTIC_VARIABLE;
 
-                if (ast_node->node_type == wo::ast::AstBase::node_type_t::AST_TYPE_HOLDER)
+                if (ast_node->node_type == AstBase::node_type_t::AST_TYPE_HOLDER)
                 {
                     token_type = WO_LSPV2_SEMANTIC_TYPE;
                 }
-                else if (ast_node->node_type >= wo::ast::AstBase::node_type_t::AST_VALUE_begin
-                    && ast_node->node_type < wo::ast::AstBase::node_type_t::AST_VALUE_end)
+                else if (ast_node->node_type >= AstBase::node_type_t::AST_VALUE_begin
+                    && ast_node->node_type < AstBase::node_type_t::AST_VALUE_end)
                 {
-                    if (ast_node->node_type == wo::ast::AstBase::node_type_t::AST_VALUE_VARIABLE)
+                    if (ast_node->node_type == AstBase::node_type_t::AST_VALUE_VARIABLE)
                     {
-                        auto* var_node = static_cast<wo::ast::AstValueVariable*>(ast_node);
+                        auto* var_node = static_cast<AstValueVariable*>(ast_node);
                         if (var_node->m_LANG_variable_instance.has_value())
                         {
                             switch (var_node->m_LANG_variable_instance.value()->m_symbol->m_symbol_kind)
                             {
-                            case wo::lang_Symbol::kind::TYPE:
-                            case wo::lang_Symbol::kind::ALIAS:
+                            case lang_Symbol::kind::TYPE:
+                            case lang_Symbol::kind::ALIAS:
                                 token_type = WO_LSPV2_SEMANTIC_TYPE;
                                 break;
                             default:
@@ -980,14 +1002,14 @@ static void _collect_all_semantic_tokens(
             if (macro_handle == nullptr)
                 break;
 
-            wo::lang_Macro* lang_macro = std::launder(reinterpret_cast<wo::lang_Macro*>(macro_handle));
+            lang_Macro* lang_macro = launder(reinterpret_cast<lang_Macro*>(macro_handle));
             _collect_token(out_tokens, seen,
                 lang_macro->m_location,
                 WO_LSPV2_SEMANTIC_MACRO, WO_LSPV2_SEMANTIC_MOD_DECLARATION);
         }
     }
 
-    std::sort(out_tokens.begin(), out_tokens.end(),
+    sort(out_tokens.begin(), out_tokens.end(),
         [](const _semantic_token_entry& a, const _semantic_token_entry& b) {
             int cmp = a.location.source_file->compare(*b.location.source_file);
             if (cmp != 0) return cmp < 0;
@@ -997,9 +1019,12 @@ static void _collect_all_semantic_tokens(
         });
 }
 
+} // namespace
+}
+
 struct _wo_lspv2_semantic_token_iter
 {
-    std::vector<_semantic_token_entry> m_tokens;
+    vector<_semantic_token_entry> m_tokens;
     size_t m_index;
 };
 
@@ -1027,7 +1052,7 @@ wo_lspv2_semantic_token_info* wo_lspv2_semantic_token_next(
     auto& entry = iter->m_tokens[iter->m_index++];
     return new wo_lspv2_semantic_token_info{
         wo_lspv2_location{
-            _wo_strdup(entry.location.source_file->c_str()),
+            duplicate_c_string(entry.location.source_file->c_str()),
             { entry.location.begin_at.row, entry.location.begin_at.column },
             { entry.location.end_at.row, entry.location.end_at.column },
         },
@@ -1052,28 +1077,28 @@ wo_lspv2_lexer* wo_lspv2_lexer_create(const char* src)
     // wo_lspv2_lexer_free. begin_new_pool()/end_pool() are refcounted, so this
     // is safe even when the caller already has a pool open (e.g. a REPL
     // session).
-    wo::wstring_pool::begin_new_pool();
+    wstring_pool::begin_new_pool();
     return reinterpret_cast<wo_lspv2_lexer*>(
-        new wo::lexer(
-            std::nullopt,
-            std::nullopt,
-            std::make_unique<std::istringstream>(src),
-            std::nullopt));
+        new lexer(
+            nullopt,
+            nullopt,
+            make_unique<istringstream>(src),
+            nullopt));
 }
-void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer)
+void wo_lspv2_lexer_free(wo_lspv2_lexer* lexer_handle)
 {
-    delete reinterpret_cast<wo::lexer*>(lexer);
-    wo::wstring_pool::end_pool();
+    delete reinterpret_cast<lexer*>(lexer_handle);
+    wstring_pool::end_pool();
 }
 wo_lspv2_token_info* wo_lspv2_lexer_peek(
-    wo_lspv2_lexer* lexer)
+    wo_lspv2_lexer* lexer_handle)
 {
-    wo::lexer* lex = reinterpret_cast<wo::lexer*>(lexer);
+    lexer* lex = reinterpret_cast<lexer*>(lexer_handle);
     auto* token = lex->peek(false);
 
     return new wo_lspv2_token_info{
         (wo_lspv2_lexer_token)token->m_lex_type,
-        _wo_strdupn(token->m_token_text->data(), token->m_token_text->size()),
+        duplicate_c_string_n(token->m_token_text->data(), token->m_token_text->size()),
         token->m_token_text->size(),
          wo_lspv2_location{
             nullptr,
@@ -1082,9 +1107,9 @@ wo_lspv2_token_info* wo_lspv2_lexer_peek(
         },
     };
 }
-void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer)
+void wo_lspv2_lexer_consume(wo_lspv2_lexer* lexer_handle)
 {
-    wo::lexer* lex = reinterpret_cast<wo::lexer*>(lexer);
+    lexer* lex = reinterpret_cast<lexer*>(lexer_handle);
 
     lex->consume_forward();
 }
@@ -1097,7 +1122,7 @@ void wo_lspv2_token_info_free(wo_lspv2_token_info* info)
 const char* wo_lspv2_token_info_enstring(
     const void* p, size_t len)
 {
-    thread_local std::string str;
+    thread_local string str;
     char* _ens = woort_u8enstring(reinterpret_cast<const char*>(p), len, 0);
     str = _ens ? _ens : "";
     woort_free(_ens);

@@ -2,22 +2,23 @@
 
 namespace wo
 {
+    using namespace std;
 #ifndef WO_DISABLE_COMPILER
     using namespace ast;
 
     bool LangContext::declare_pattern_symbol_pass0_1(
         lexer& lex,
         bool is_pass0,
-        const std::optional<AstDeclareAttribue*>& attribute,
-        const std::optional<AstBase*>& var_defines,
-        ast::AstPatternBase* pattern,
-        const std::optional<ast::AstValueBase*>& init_value_only_used_for_template_or_function)
+        const optional<AstDeclareAttribue*>& attribute,
+        const optional<AstBase*>& var_defines,
+        AstPatternBase* pattern,
+        const optional<AstValueBase*>& init_value_only_used_for_template_or_function)
     {
         switch (pattern->node_type)
         {
-        case ast::AstBase::AST_PATTERN_SINGLE:
+        case AstBase::AST_PATTERN_SINGLE:
         {
-            ast::AstPatternSingle* single_pattern = static_cast<ast::AstPatternSingle*>(pattern);
+            AstPatternSingle* single_pattern = static_cast<AstPatternSingle*>(pattern);
             // Check has been declared?
             if (!single_pattern->m_LANG_declared_symbol)
             {
@@ -88,9 +89,9 @@ namespace wo
             }
             return true;
         }
-        case ast::AstBase::AST_PATTERN_TUPLE:
+        case AstBase::AST_PATTERN_TUPLE:
         {
-            ast::AstPatternTuple* tuple_pattern = static_cast<ast::AstPatternTuple*>(pattern);
+            AstPatternTuple* tuple_pattern = static_cast<AstPatternTuple*>(pattern);
             bool success = true;
             for (auto& sub_pattern : tuple_pattern->m_fields)
                 success = success && declare_pattern_symbol_pass0_1(
@@ -99,13 +100,13 @@ namespace wo
                     attribute,
                     var_defines,
                     sub_pattern,
-                    std::nullopt);
+                    nullopt);
 
             return success;
         }
-        case ast::AstBase::AST_PATTERN_UNION:
+        case AstBase::AST_PATTERN_UNION:
         {
-            ast::AstPatternUnion* union_pattern = static_cast<ast::AstPatternUnion*>(pattern);
+            AstPatternUnion* union_pattern = static_cast<AstPatternUnion*>(pattern);
             bool success = true;
             if (union_pattern->m_field)
                 success = declare_pattern_symbol_pass0_1(
@@ -114,11 +115,11 @@ namespace wo
                     attribute,
                     var_defines,
                     union_pattern->m_field.value(),
-                    std::nullopt);
+                    nullopt);
 
             return success;
         }
-        case ast::AstBase::AST_PATTERN_TAKEPLACE:
+        case AstBase::AST_PATTERN_TAKEPLACE:
         {
             // Nothing todo.
             return true;

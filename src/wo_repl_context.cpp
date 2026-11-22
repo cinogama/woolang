@@ -5,9 +5,11 @@
 #ifndef WO_DISABLE_COMPILER
 namespace wo
 {
+    using namespace ast;
+    using namespace std;
     REPLContext::REPLContext()
         : m_pvalue_indirect_for_mutable_statics(false)
-        , m_repl_printer(nullptr)
+        , m_repl_printer(nullopt)
         , m_builtin_types_registered(false)
     {
     }
@@ -17,7 +19,7 @@ namespace wo
         m_new_emitted_script_functions.clear();
     }
 
-    void REPLContext::emit_script_func(ast::AstValueFunction* func)
+    void REPLContext::emit_script_func(AstValueFunction* func)
     {
         m_new_emitted_script_functions.push_back(func);
     }

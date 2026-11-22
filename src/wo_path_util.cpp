@@ -4,7 +4,8 @@
 
 namespace wo
 {
-    std::string get_file_loc(std::string path)
+    using namespace std;
+    string get_file_loc(string path)
     {
         normalize_path(&path);
 
@@ -15,7 +16,7 @@ namespace wo
         return "";
     }
 
-    void normalize_path(std::string* inout_path)
+    void normalize_path(string* inout_path)
     {
 #ifdef _WIN32
         for (char& ch : *inout_path)

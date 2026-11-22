@@ -2,23 +2,29 @@
 #include "wo_builtin_lib_macro.hpp"
 
 #include "wo_compiler_lexer.hpp"
+using namespace std;
+using namespace wo;
 
-static woort_api builtin_macro_lexer_error()
+namespace wo
 {
-    wo::lexer* const lexer_instance =
-        static_cast<wo::lexer*>(woort_pointer(0));
+namespace
+{
+woort_api builtin_macro_lexer_error()
+{
+    lexer* const lexer_instance =
+        static_cast<lexer*>(woort_pointer(0));
 
     lexer_instance->produce_lexer_error(
-        wo::lexer::msglevel_t::error,
-        wo::diagnose::err_raw_message{woort_string(1)});
+        lexer::msglevel_t::error,
+        diagnose::err_raw_message{woort_string(1)});
 
     return woort_ret_void();
 }
 
-static woort_api builtin_macro_lexer_peek()
+woort_api builtin_macro_lexer_peek()
 {
-    wo::lexer* const lexer_instance =
-        static_cast<wo::lexer*>(woort_pointer(0));
+    lexer* const lexer_instance =
+        static_cast<lexer*>(woort_pointer(0));
 
     woort_value s;
     if (!woort_push_reserve(1, &s))
@@ -37,10 +43,10 @@ static woort_api builtin_macro_lexer_peek()
     return woort_ret();
 }
 
-static woort_api builtin_macro_lexer_next()
+woort_api builtin_macro_lexer_next()
 {
-    wo::lexer* const lexer_instance =
-        static_cast<wo::lexer*>(woort_pointer(0));
+    lexer* const lexer_instance =
+        static_cast<lexer*>(woort_pointer(0));
 
     woort_value s;
     if (!woort_push_reserve(1, &s))
@@ -62,19 +68,19 @@ static woort_api builtin_macro_lexer_next()
     return woort_ret();
 }
 
-static woort_api builtin_macro_lexer_current_path()
+woort_api builtin_macro_lexer_current_path()
 {
-    wo::lexer* const lexer_instance =
-        static_cast<wo::lexer*>(woort_pointer(0));
+    lexer* const lexer_instance =
+        static_cast<lexer*>(woort_pointer(0));
 
     return woort_ret_string(
         lexer_instance->get_source_path()->c_str());
 }
 
-static woort_api builtin_macro_lexer_current_location()
+woort_api builtin_macro_lexer_current_location()
 {
-    wo::lexer* const lexer_instance =
-        static_cast<wo::lexer*>(woort_pointer(0));
+    lexer* const lexer_instance =
+        static_cast<lexer*>(woort_pointer(0));
 
     woort_value s;
     if (!woort_push_reserve(1, &s))
@@ -93,7 +99,7 @@ static woort_api builtin_macro_lexer_current_location()
     return woort_ret();
 }
 
-static const woort_ExternLibFunc g_macro_funcs[] =
+const woort_ExternLibFunc g_macro_funcs[] =
 {
     {"macro_lexer_error", (void*)&builtin_macro_lexer_error},
     {"macro_lexer_peek", (void*)&builtin_macro_lexer_peek},
@@ -103,19 +109,24 @@ static const woort_ExternLibFunc g_macro_funcs[] =
     WOORT_EXTERN_LIB_FUNC_END,
 };
 
-static /* OPTIONAL */ woort_Dylib* g_macro_lib = nullptr;
+optional<woort_Dylib*> g_macro_lib;
+}
+}
 
 bool wo::builtin_macro_lib_bootup()
 {
-    g_macro_lib = woort_dylib_fake("woolang/compiler", g_macro_funcs, nullptr);
-    return g_macro_lib != nullptr;
+    woort_Dylib* lib = woort_dylib_fake("woolang/compiler", g_macro_funcs, nullptr);
+    if (lib != nullptr)
+        g_macro_lib.emplace(lib);
+
+    return g_macro_lib.has_value();
 }
 
 void wo::builtin_macro_lib_shutdown()
 {
-    if (g_macro_lib != nullptr)
+    if (g_macro_lib.has_value())
     {
-        woort_dylib_unload(g_macro_lib, WOORT_DYLIB_UNREF_AND_BURY);
-        g_macro_lib = nullptr;
+        woort_dylib_unload(g_macro_lib.value(), WOORT_DYLIB_UNREF_AND_BURY);
+        g_macro_lib.reset();
     }
 }

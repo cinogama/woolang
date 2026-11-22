@@ -6,33 +6,34 @@
 
 namespace wo
 {
+    using namespace std;
 #ifndef WO_DISABLE_COMPILER
     using namespace ast;
-    void BytecodeGenerateContext::begin_loop_while(ast::AstWhile* ast)
+    void BytecodeGenerateContext::begin_loop_while(AstWhile* ast)
     {
         m_loop_content_stack.push_back(
             LoopContent{
                 ast->m_LANG_binded_label.has_value()
-                    ? std::optional(ast->m_LANG_binded_label.value()->m_label)
-                    : std::nullopt,
+                    ? optional(ast->m_LANG_binded_label.value()->m_label)
+                    : nullopt,
                 c().named_label(ast, "#while_end"),
                 c().named_label(ast, "#while_begin")
             });
     }
-    void BytecodeGenerateContext::begin_loop_for(ast::AstFor* ast)
+    void BytecodeGenerateContext::begin_loop_for(AstFor* ast)
     {
         m_loop_content_stack.push_back(
             LoopContent{
                 ast->m_LANG_binded_label.has_value()
-                    ? std::optional(ast->m_LANG_binded_label.value()->m_label)
-                    : std::nullopt,
+                    ? optional(ast->m_LANG_binded_label.value()->m_label)
+                    : nullopt,
                 c().named_label(ast, "#for_end"),
                 c().named_label(ast, "#for_next"),
             });
     }
-    std::optional<BytecodeGenerateContext::LoopContent*>
+    optional<BytecodeGenerateContext::LoopContent*>
         BytecodeGenerateContext::find_nearest_loop_content_label(
-            const std::optional<wo_pstring_t>& label)
+            const optional<wo_pstring_t>& label)
     {
         auto loop_rend = m_loop_content_stack.rend();
         for (auto it = m_loop_content_stack.rbegin();
@@ -43,7 +44,7 @@ namespace wo
                 || (it->m_label.has_value() && it->m_label.value() == label.value()))
                 return &(*it);
         }
-        return std::nullopt;
+        return nullopt;
     }
 
     void BytecodeGenerateContext::end_loop()
@@ -52,87 +53,90 @@ namespace wo
         m_loop_content_stack.pop_back();
     }
 
-    static bool is_int_or_handle_type(lang_TypeInstance::DeterminedType::base_type bt)
+    namespace
     {
-        return bt == lang_TypeInstance::DeterminedType::INTEGER
-            || bt == lang_TypeInstance::DeterminedType::HANDLE;
-    }
-
-    static ast::AstValueBinaryOperator* try_get_optimizable_comparison_binop(ast::AstValueBase* cond)
-    {
-        if (cond->node_type != ast::AstBase::AST_VALUE_BINARY_OPERATOR)
-            return nullptr;
-
-        auto* binop = static_cast<ast::AstValueBinaryOperator*>(cond);
-
-        if (binop->m_LANG_overload_call.has_value())
-            return nullptr;
-
-        switch (binop->m_operator)
+        bool is_int_or_handle_type(lang_TypeInstance::DeterminedType::base_type bt)
         {
-        case ast::AstValueBinaryOperator::LESS:
-        case ast::AstValueBinaryOperator::LESS_EQUAL:
-        case ast::AstValueBinaryOperator::GREATER:
-        case ast::AstValueBinaryOperator::GREATER_EQUAL:
-        case ast::AstValueBinaryOperator::EQUAL:
-        case ast::AstValueBinaryOperator::NOT_EQUAL:
-            break;
-        default:
-            return nullptr;
+            return bt == lang_TypeInstance::DeterminedType::INTEGER
+                || bt == lang_TypeInstance::DeterminedType::HANDLE;
         }
 
-        auto* left_type_instance = binop->m_left->m_LANG_determined_type.value();
-        auto* right_type_instance = binop->m_right->m_LANG_determined_type.value();
-
-        if (!is_int_or_handle_type(left_type_instance->get_determined_type().value()->m_base_type)
-            || !is_int_or_handle_type(right_type_instance->get_determined_type().value()->m_base_type))
-            return nullptr;
-
-        return binop;
-    }
-
-    static void emit_optimized_jcc_negated(
-        IRCompiler& c,
-        ast::AstValueBinaryOperator* binop,
-        const woort_IRValue* left,
-        const woort_IRValue* right,
-        woort_IRLabel* target)
-    {
-        switch (binop->m_operator)
+        optional<AstValueBinaryOperator*> try_get_optimizable_comparison_binop(AstValueBase* cond)
         {
-        case ast::AstValueBinaryOperator::LESS:          c.jcc_ge(left, right, target); break;
-        case ast::AstValueBinaryOperator::LESS_EQUAL:     c.jcc_gt(left, right, target); break;
-        case ast::AstValueBinaryOperator::GREATER:       c.jcc_le(left, right, target); break;
-        case ast::AstValueBinaryOperator::GREATER_EQUAL:  c.jcc_lt(left, right, target); break;
-        case ast::AstValueBinaryOperator::EQUAL:          c.jcc_ne(left, right, target); break;
-        case ast::AstValueBinaryOperator::NOT_EQUAL:      c.jcc_eq(left, right, target); break;
-        default: wo_error("Unknown comparison operator."); break;
+            if (cond->node_type != AstBase::AST_VALUE_BINARY_OPERATOR)
+                return nullopt;
+
+            auto* binop = static_cast<AstValueBinaryOperator*>(cond);
+
+            if (binop->m_LANG_overload_call.has_value())
+                return nullopt;
+
+            switch (binop->m_operator)
+            {
+            case AstValueBinaryOperator::LESS:
+            case AstValueBinaryOperator::LESS_EQUAL:
+            case AstValueBinaryOperator::GREATER:
+            case AstValueBinaryOperator::GREATER_EQUAL:
+            case AstValueBinaryOperator::EQUAL:
+            case AstValueBinaryOperator::NOT_EQUAL:
+                break;
+            default:
+                return nullopt;
+            }
+
+            auto* left_type_instance = binop->m_left->m_LANG_determined_type.value();
+            auto* right_type_instance = binop->m_right->m_LANG_determined_type.value();
+
+            if (!is_int_or_handle_type(left_type_instance->get_determined_type().value()->m_base_type)
+                || !is_int_or_handle_type(right_type_instance->get_determined_type().value()->m_base_type))
+                return nullopt;
+
+            return binop;
         }
-    }
 
-    static void emit_optimized_jcc_direct(
-        IRCompiler& c,
-        ast::AstValueBinaryOperator* binop,
-        const woort_IRValue* left,
-        const woort_IRValue* right,
-        woort_IRLabel* target)
-    {
-        switch (binop->m_operator)
+        void emit_optimized_jcc_negated(
+            IRCompiler& c,
+            AstValueBinaryOperator* binop,
+            const woort_IRValue* left,
+            const woort_IRValue* right,
+            woort_IRLabel* target)
         {
-        case ast::AstValueBinaryOperator::LESS:          c.jcc_lt(left, right, target); break;
-        case ast::AstValueBinaryOperator::LESS_EQUAL:     c.jcc_le(left, right, target); break;
-        case ast::AstValueBinaryOperator::GREATER:       c.jcc_gt(left, right, target); break;
-        case ast::AstValueBinaryOperator::GREATER_EQUAL:  c.jcc_ge(left, right, target); break;
-        case ast::AstValueBinaryOperator::EQUAL:          c.jcc_eq(left, right, target); break;
-        case ast::AstValueBinaryOperator::NOT_EQUAL:      c.jcc_ne(left, right, target); break;
-        default: wo_error("Unknown comparison operator."); break;
+            switch (binop->m_operator)
+            {
+            case AstValueBinaryOperator::LESS:          c.jcc_ge(left, right, target); break;
+            case AstValueBinaryOperator::LESS_EQUAL:     c.jcc_gt(left, right, target); break;
+            case AstValueBinaryOperator::GREATER:       c.jcc_le(left, right, target); break;
+            case AstValueBinaryOperator::GREATER_EQUAL:  c.jcc_lt(left, right, target); break;
+            case AstValueBinaryOperator::EQUAL:          c.jcc_ne(left, right, target); break;
+            case AstValueBinaryOperator::NOT_EQUAL:      c.jcc_eq(left, right, target); break;
+            default: wo_error("Unknown comparison operator."); break;
+            }
+        }
+
+        void emit_optimized_jcc_direct(
+            IRCompiler& c,
+            AstValueBinaryOperator* binop,
+            const woort_IRValue* left,
+            const woort_IRValue* right,
+            woort_IRLabel* target)
+        {
+            switch (binop->m_operator)
+            {
+            case AstValueBinaryOperator::LESS:          c.jcc_lt(left, right, target); break;
+            case AstValueBinaryOperator::LESS_EQUAL:     c.jcc_le(left, right, target); break;
+            case AstValueBinaryOperator::GREATER:       c.jcc_gt(left, right, target); break;
+            case AstValueBinaryOperator::GREATER_EQUAL:  c.jcc_ge(left, right, target); break;
+            case AstValueBinaryOperator::EQUAL:          c.jcc_eq(left, right, target); break;
+            case AstValueBinaryOperator::NOT_EQUAL:      c.jcc_ne(left, right, target); break;
+            default: wo_error("Unknown comparison operator."); break;
+            }
         }
     }
 
     bool LangContext::update_instance_storage_and_code_gen_passir(
         lang_ValueInstance* instance,
         const woort_IRValue* opnumval,
-        const std::optional<uint16_t>& tuple_member_offset)
+        const optional<uint16_t>& tuple_member_offset)
     {
         if (instance->m_symbol->m_is_global
             || instance->m_symbol->is_declared_as_static())
@@ -207,9 +211,9 @@ namespace wo
 
     bool LangContext::update_pattern_storage_and_code_gen_passir(
         lexer& lex,
-        ast::AstPatternBase* pattern,
+        AstPatternBase* pattern,
         const woort_IRValue* opnumval,
-        const std::optional<uint16_t>& tuple_member_offset)
+        const optional<uint16_t>& tuple_member_offset)
     {
         switch (pattern->node_type)
         {
@@ -449,9 +453,10 @@ namespace wo
             }
             else
             {
-                auto* binop = try_get_optimizable_comparison_binop(node->m_condition);
-                if (binop)
+                auto binop_may_null = try_get_optimizable_comparison_binop(node->m_condition);
+                if (binop_may_null.has_value())
                 {
+                    auto* binop = binop_may_null.value();
                     m_ircontext.begin_eval_readonly();
                     if (!pass_final_value(lex, binop->m_left))
                         return FAILED;
@@ -526,9 +531,10 @@ namespace wo
 
             if (!dead_loop)
             {
-                auto* binop = try_get_optimizable_comparison_binop(node->m_condition);
-                if (binop)
+                auto binop_may_null = try_get_optimizable_comparison_binop(node->m_condition);
+                if (binop_may_null.has_value())
                 {
+                    auto* binop = binop_may_null.value();
                     m_ircontext.begin_eval_readonly();
                     if (!pass_final_value(lex, binop->m_left))
                         return FAILED;
@@ -650,9 +656,10 @@ namespace wo
                     m_ircontext.c().bind(
                         m_ircontext.c().named_label(node, "#for_cond"));
 
-                    auto* binop = try_get_optimizable_comparison_binop(node->m_condition.value());
-                    if (binop)
+                    auto binop_may_null = try_get_optimizable_comparison_binop(node->m_condition.value());
+                    if (binop_may_null.has_value())
                     {
+                        auto* binop = binop_may_null.value();
                         m_ircontext.begin_eval_readonly();
                         if (!pass_final_value(lex, binop->m_left))
                             return FAILED;
@@ -780,7 +787,7 @@ namespace wo
             m_ircontext.c().panic(m_ircontext.c().load_imm_string(
                 wstring_pool::get_pstr(
                     "Bad label for union: '"
-                    + std::string(get_type_name(node->m_matched_value->m_LANG_determined_type.value()))
+                    + string(get_type_name(node->m_matched_value->m_LANG_determined_type.value()))
                     + "', may be bad value returned by the external function.")));
 
             m_ircontext.c().bind(m_ircontext.c().named_label(node, "#match_end"));
@@ -883,41 +890,44 @@ namespace wo
         return WO_EXCEPT_ERROR(state, OKAY);
     }
 
-    bool _check_pattern_all_no_need_storage(AstPatternTuple* ptuple)
+    namespace
     {
-        for (auto* subtuple : ptuple->m_fields)
+        bool _check_pattern_all_no_need_storage(AstPatternTuple* ptuple)
         {
-            switch (subtuple->node_type)
+            for (auto* subtuple : ptuple->m_fields)
             {
-            case AstBase::AST_PATTERN_TAKEPLACE:
-                break;
-            case AstBase::AST_PATTERN_SINGLE:
-            {
-                AstPatternSingle* pattern_single =
-                    static_cast<AstPatternSingle*>(subtuple);
-                lang_Symbol* pattern_symbol = pattern_single->m_LANG_declared_symbol.value();
+                switch (subtuple->node_type)
+                {
+                case AstBase::AST_PATTERN_TAKEPLACE:
+                    break;
+                case AstBase::AST_PATTERN_SINGLE:
+                {
+                    AstPatternSingle* pattern_single =
+                        static_cast<AstPatternSingle*>(subtuple);
+                    lang_Symbol* pattern_symbol = pattern_single->m_LANG_declared_symbol.value();
 
-                wo_assert(pattern_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
-                    && !pattern_symbol->m_is_template);
+                    wo_assert(pattern_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                        && !pattern_symbol->m_is_template);
 
-                if (pattern_symbol->m_value_instance->IR_need_storage())
-                    return false; // Need storage.
-                break;
+                    if (pattern_symbol->m_value_instance->IR_need_storage())
+                        return false; // Need storage.
+                    break;
+                }
+                case AstBase::AST_PATTERN_TUPLE:
+                {
+                    AstPatternTuple* subtuple_pattern =
+                        static_cast<AstPatternTuple*>(subtuple);
+                    if (!_check_pattern_all_no_need_storage(subtuple_pattern))
+                        return false; // Need storage.
+                    break;
+                }
+                default:
+                    wo_error("Unknown pattern type.");
+                    return false; // Unknown pattern type.
+                }
             }
-            case AstBase::AST_PATTERN_TUPLE:
-            {
-                AstPatternTuple* subtuple_pattern =
-                    static_cast<AstPatternTuple*>(subtuple);
-                if (!_check_pattern_all_no_need_storage(subtuple_pattern))
-                    return false; // Need storage.
-                break;
-            }
-            default:
-                wo_error("Unknown pattern type.");
-                return false; // Unknown pattern type.
-            }
+            return true; // No need storage.
         }
-        return true; // No need storage.
     }
 
     WO_PASS_PROCESSER(AstVariableDefineItem)
@@ -1167,7 +1177,7 @@ namespace wo
                 auto* result_opnum = m_ircontext.get_eval_result();
 
                 bool update_result = update_pattern_storage_and_code_gen_passir(
-                    lex, node->m_pattern, result_opnum, std::nullopt);
+                    lex, node->m_pattern, result_opnum, nullopt);
 
                 if (!update_result)
                     return FAILED;
@@ -1250,434 +1260,437 @@ namespace wo
     }
 
 
-    struct REPLEchoIRGenerator
+    namespace
     {
-        using TypeWalkingSet = std::unordered_set<lang_TypeInstance*>;
-
-        struct TypewalkGuard
+        struct REPLEchoIRGenerator
         {
-            TypewalkGuard(const TypewalkGuard&) = delete;
-            TypewalkGuard(TypewalkGuard&&) = delete;
-            TypewalkGuard& operator = (const TypewalkGuard&) = delete;
-            TypewalkGuard& operator = (TypewalkGuard&&) = delete;
+            using TypeWalkingSet = unordered_set<lang_TypeInstance*>;
 
-            lang_TypeInstance* m_walking_type;
-            TypeWalkingSet* m_walking_set;
-
-            TypewalkGuard(
-                lang_TypeInstance* walking_type,
-                TypeWalkingSet* walking_set)
-                : m_walking_type(walking_type)
-                , m_walking_set(walking_set)
+            struct TypewalkGuard
             {
+                TypewalkGuard(const TypewalkGuard&) = delete;
+                TypewalkGuard(TypewalkGuard&&) = delete;
+                TypewalkGuard& operator = (const TypewalkGuard&) = delete;
+                TypewalkGuard& operator = (TypewalkGuard&&) = delete;
+
+                lang_TypeInstance* m_walking_type;
+                TypeWalkingSet* m_walking_set;
+
+                TypewalkGuard(
+                    lang_TypeInstance* walking_type,
+                    TypeWalkingSet* walking_set)
+                    : m_walking_type(walking_type)
+                    , m_walking_set(walking_set)
+                {
+                }
+                ~TypewalkGuard()
+                {
+                    (void)m_walking_set->erase(m_walking_type);
+                }
+            };
+
+            static bool is_type_contain_struct(
+                lang_TypeInstance* t, TypeWalkingSet& walked_set)
+            {
+                // Recursive type.
+                if (!walked_set.insert(t).second)
+                    return false;
+
+                TypewalkGuard g(t, &walked_set);
+                (void)g;
+
+                auto* const determined_type = t->get_determined_type().value();
+                switch (determined_type->m_base_type)
+                {
+                case lang_TypeInstance::DeterminedType::base_type::TUPLE:
+                case lang_TypeInstance::DeterminedType::base_type::STRUCT:
+                case lang_TypeInstance::DeterminedType::base_type::UNION:
+                    return true;
+                    /* ============== */
+
+                case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
+                case lang_TypeInstance::DeterminedType::base_type::MAPPING:
+                    return is_type_contain_struct(
+                        determined_type->m_external_type_description.m_dictionary_or_mapping->m_key_type, walked_set)
+                        || is_type_contain_struct(
+                            determined_type->m_external_type_description.m_dictionary_or_mapping->m_value_type, walked_set);
+                case lang_TypeInstance::DeterminedType::base_type::ARRAY:
+                case lang_TypeInstance::DeterminedType::base_type::VECTOR:
+                    return is_type_contain_struct(
+                        determined_type->m_external_type_description.m_array_or_vector->m_element_type, walked_set);
+                default:
+                    return false;
+                }
             }
-            ~TypewalkGuard()
+            // Print a literal (already-interned) string via echo.
+            static void emit_echo_str(
+                IRCompiler* c,
+                woort_IRConstantIndex echo,
+                const woort_IRValue* repl_printer,
+                wo_pstring_t str)
             {
-                (void)m_walking_set->erase(m_walking_type);
+                c->pushchk(c->load_imm_string(str));
+                c->pushchk(repl_printer);
+                c->pushchk(c->load_imm_int(2));
+                c->callnfp(echo, 3, nullopt);
+            }
+
+            // Box a primitive (int/real/bool) value into a dynamic value so it can
+            // be displayed generically. No-op for non-primitive types.
+            static void emit_boxdyn_if_primitive(
+                IRCompiler* c,
+                woort_IRValue* value,
+                const lang_TypeInstance::DeterminedType* det_type)
+            {
+                switch (det_type->m_base_type)
+                {
+                case lang_TypeInstance::DeterminedType::base_type::INTEGER:
+                    c->boxdyn(value, WOORT_BOX_VALUE_TYPE_INT, value);
+                    break;
+                case lang_TypeInstance::DeterminedType::base_type::REAL:
+                    c->boxdyn(value, WOORT_BOX_VALUE_TYPE_REAL, value);
+                    break;
+                case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
+                    c->boxdyn(value, WOORT_BOX_VALUE_TYPE_BOOL, value);
+                    break;
+                default:
+                    break;
+                }
+            }
+
+            static void emit_tuple_display(
+                IRCompiler* c,
+                woort_IRConstantIndex echo,
+                const woort_IRValue* repl_printer,
+                const woort_IRValue* boxed_val,
+                const lang_TypeInstance::DeterminedType* dt)
+            {
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("("));
+
+                uint32_t idx = 0;
+                woort_IRValue* const elem_value = c->new_value();
+                for (auto& elem_type_instance : dt->m_external_type_description.m_tuple->m_element_types)
+                {
+                    if (idx != 0)
+                    {
+                        emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
+                    }
+
+                    const lang_TypeInstance::DeterminedType* const elem_type =
+                        elem_type_instance->get_determined_type().value();
+
+                    c->ldidstruct(elem_value, boxed_val, idx);
+                    emit_boxdyn_if_primitive(c, elem_value, elem_type);
+
+                    generate_ir_displayer(c, repl_printer, elem_value, elem_type_instance);
+                    ++idx;
+                }
+
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(")"));
+            }
+
+            static void emit_struct_display(
+                IRCompiler* c,
+                woort_IRConstantIndex echo,
+                const woort_IRValue* repl_printer,
+                const woort_IRValue* boxed_val,
+                const lang_TypeInstance::DeterminedType* dt)
+            {
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("struct{"));
+
+                vector<pair<wo_pstring_t,
+                    const lang_TypeInstance::DeterminedType::Struct::StructMember*>>
+                    sorted_members;
+                for (const auto& [name, member] :
+                    dt->m_external_type_description.m_struct->m_member_types)
+                {
+                    sorted_members.emplace_back(name, &member);
+                }
+                sort(sorted_members.begin(), sorted_members.end(),
+                    [](const auto& a, const auto& b)
+                    { return a.second->m_offset < b.second->m_offset; });
+
+                bool first = true;
+                woort_IRValue* const member_value = c->new_value();
+                for (auto& [name, member] : sorted_members)
+                {
+                    if (!first)
+                    {
+                        emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
+                    }
+
+                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("= ")));
+                    c->pushchk(c->load_imm_string(name));
+                    c->pushchk(repl_printer);
+                    c->pushchk(c->load_imm_int(3));
+                    c->callnfp(echo, 4, nullopt);
+
+                    const lang_TypeInstance::DeterminedType* const member_type =
+                        member->m_member_type->get_determined_type().value();
+
+                    c->ldidstruct(member_value, boxed_val, (uint32_t)member->m_offset);
+                    emit_boxdyn_if_primitive(c, member_value, member_type);
+
+                    generate_ir_displayer(c, repl_printer, member_value, member->m_member_type);
+                    first = false;
+                }
+
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("}"));
+            }
+
+            static void emit_union_display(
+                IRCompiler* c,
+                woort_IRConstantIndex echo,
+                const woort_IRValue* repl_printer,
+                const woort_IRValue* boxed_val,
+                lang_TypeInstance* t,
+                const lang_TypeInstance::DeterminedType* dt)
+            {
+                woort_IRValue* const tag = c->new_value();
+                c->ldidstruct(tag, boxed_val, 0);
+
+                vector<pair<wo_pstring_t,
+                    const lang_TypeInstance::DeterminedType::Union::UnionMember*>>
+                    sorted_labels;
+                for (const auto& [name, member] :
+                    dt->m_external_type_description.m_union->m_union_label)
+                {
+                    sorted_labels.emplace_back(name, &member);
+                }
+                sort(sorted_labels.begin(), sorted_labels.end(),
+                    [](const auto& a, const auto& b)
+                    { return a.second->m_label < b.second->m_label; });
+
+                wo_pstring_t type_prefix = wstring_pool::get_pstr(
+                    *t->m_symbol->m_name + "::");
+
+                woort_IRLabel* const union_display_end = c->new_label();
+
+                for (const auto& [label_name, member] : sorted_labels)
+                {
+                    woort_IRLabel* const next_check = c->new_label();
+
+                    c->jcc_ne(tag, c->load_imm_int(member->m_label), next_check);
+
+                    emit_echo_str(c, echo, repl_printer, type_prefix);
+                    emit_echo_str(c, echo, repl_printer, label_name);
+
+                    if (member->m_item_type.has_value())
+                    {
+                        emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("("));
+
+                        woort_IRValue* const item_value = c->new_value();
+                        c->ldidstruct(item_value, boxed_val, 1);
+
+                        const lang_TypeInstance::DeterminedType* const item_det_type =
+                            member->m_item_type.value()->get_determined_type().value();
+                        emit_boxdyn_if_primitive(c, item_value, item_det_type);
+
+                        generate_ir_displayer(c, repl_printer, item_value, member->m_item_type.value());
+
+                        emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(")"));
+                    }
+
+                    c->jmp(union_display_end);
+                    c->bind(next_check);
+                }
+
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("<bad union>"));
+
+                c->bind(union_display_end);
+            }
+
+            static void emit_dict_mapping_display(
+                IRCompiler* c,
+                woort_IRConstantIndex echo,
+                const woort_IRValue* repl_printer,
+                const woort_IRValue* boxed_val,
+                const lang_TypeInstance::DeterminedType* dt)
+            {
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("{"));
+
+                // keys = map_keys(dict)
+                woort_IRValue* const dict_keys = c->new_value();
+                c->pushchk(boxed_val);
+                c->callnfp(
+                    c->imm_extern_function(
+                        rslib_extern_symbols::g_builtin_map_keys),
+                    1,
+                    dict_keys);
+
+                // len = array_len(keys)
+                woort_IRValue* const dict_len = c->new_value();
+                c->pushchk(dict_keys);
+                c->callnfp(
+                    c->imm_extern_function(
+                        rslib_extern_symbols::g_builtin_array_len),
+                    1,
+                    dict_len);
+
+                woort_IRValue* const dict_i = c->new_value();
+                c->load(dict_i, c->imm_int(0));
+
+                woort_IRLabel* const loop_begin = c->new_label();
+                woort_IRLabel* const loop_cond = c->new_label();
+
+                c->jmp(loop_cond);
+                c->bind(loop_begin);
+
+                woort_IRLabel* const display_comma_end = c->new_label();
+                c->jccz(dict_i, display_comma_end);
+
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
+
+                c->bind(display_comma_end);
+
+                // key = keys[i]
+                woort_IRValue* const dict_key = c->new_value();
+                c->ldidvecx(dict_key, dict_keys, dict_i);
+
+                // Display key
+                generate_ir_displayer(
+                    c,
+                    repl_printer,
+                    dict_key,
+                    dt->m_external_type_description.m_dictionary_or_mapping->m_key_type);
+
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(": "));
+
+                // val = dict[key]
+                woort_IRValue* const dict_val = c->new_value();
+                c->ldiddictxx(dict_val, boxed_val, dict_key);
+
+                // Display value
+                generate_ir_displayer(
+                    c,
+                    repl_printer,
+                    dict_val,
+                    dt->m_external_type_description.m_dictionary_or_mapping->m_value_type);
+
+                c->addi(dict_i, dict_i, c->load_imm_int(1));
+                c->bind(loop_cond);
+
+                c->jcc_lt(dict_i, dict_len, loop_begin);
+
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("}"));
+            }
+
+            static void emit_array_vector_display(
+                IRCompiler* c,
+                woort_IRConstantIndex echo,
+                const woort_IRValue* repl_printer,
+                const woort_IRValue* boxed_val,
+                const lang_TypeInstance::DeterminedType* dt)
+            {
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("["));
+
+                woort_IRValue* const vec_len = c->new_value();
+
+                c->pushchk(boxed_val);
+                c->callnfp(
+                    c->imm_extern_function(
+                        rslib_extern_symbols::g_builtin_array_len),
+                    1,
+                    vec_len);
+
+                woort_IRValue* const vec_i = c->new_value();
+                c->load(vec_i, c->imm_int(0));
+
+                woort_IRLabel* const loop_begin = c->new_label();
+                woort_IRLabel* const loop_cond = c->new_label();
+
+                c->jmp(loop_cond);
+                c->bind(loop_begin);
+
+                woort_IRLabel* const display_comma_end = c->new_label();
+                c->jccz(vec_i, display_comma_end);
+
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
+
+                c->bind(display_comma_end);
+
+                woort_IRValue* const element = c->new_value();
+                c->ldidvecx(element, boxed_val, vec_i);
+
+                generate_ir_displayer(
+                    c,
+                    repl_printer,
+                    element,
+                    dt->m_external_type_description.m_array_or_vector->m_element_type);
+
+                c->addi(vec_i, vec_i, c->load_imm_int(1));
+                c->bind(loop_cond);
+
+                c->jcc_lt(vec_i, vec_len, loop_begin);
+
+                emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("]"));
+            }
+
+            static void generate_ir_displayer(
+                IRCompiler* c,
+                const woort_IRValue* repl_printer,
+                const woort_IRValue* boxed_val,
+                lang_TypeInstance* t)
+            {
+                TypeWalkingSet walking_set;
+                if (!is_type_contain_struct(t, walking_set))
+                {
+                    // No aggregate to walk: display it directly via debug_print.
+                    if (t->is_based_on_void_in_IR())
+                    {
+                        const woort_IRConstantIndex echo =
+                            c->imm_extern_function(
+                                rslib_extern_symbols::g_builtin_repl_print_normal);
+
+                        c->pushchk(c->load_imm_string(wstring_pool::get_pstr("(void)")));
+                        c->pushchk(repl_printer);
+                        c->pushchk(c->load_imm_int(2));
+                        c->callnfp(echo, 3, nullopt);
+                    }
+                    else
+                    {
+                        const woort_IRConstantIndex echo_detail =
+                            c->imm_extern_function(
+                                rslib_extern_symbols::g_builtin_repl_print_debug);
+
+                        c->pushchk(boxed_val);
+                        c->pushchk(repl_printer);
+                        c->pushchk(c->load_imm_int(2));
+                        c->callnfp(echo_detail, 3, nullopt);
+                    }
+                    return;
+                }
+
+                const woort_IRConstantIndex echo =
+                    c->imm_extern_function(
+                        rslib_extern_symbols::g_builtin_repl_print_normal);
+
+                auto* const determined_type = t->get_determined_type().value();
+                switch (determined_type->m_base_type)
+                {
+                case lang_TypeInstance::DeterminedType::base_type::TUPLE:
+                    emit_tuple_display(c, echo, repl_printer, boxed_val, determined_type);
+                    break;
+                case lang_TypeInstance::DeterminedType::base_type::STRUCT:
+                    emit_struct_display(c, echo, repl_printer, boxed_val, determined_type);
+                    break;
+                case lang_TypeInstance::DeterminedType::base_type::UNION:
+                    emit_union_display(c, echo, repl_printer, boxed_val, t, determined_type);
+                    break;
+                case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
+                case lang_TypeInstance::DeterminedType::base_type::MAPPING:
+                    emit_dict_mapping_display(c, echo, repl_printer, boxed_val, determined_type);
+                    break;
+                case lang_TypeInstance::DeterminedType::base_type::ARRAY:
+                case lang_TypeInstance::DeterminedType::base_type::VECTOR:
+                    emit_array_vector_display(c, echo, repl_printer, boxed_val, determined_type);
+                    break;
+                default:
+                    wo_error("Cannot be here.");
+                }
             }
         };
-
-        static bool is_type_contain_struct(
-            lang_TypeInstance* t, TypeWalkingSet& walked_set)
-        {
-            // Recursive type.
-            if (!walked_set.insert(t).second)
-                return false;
-
-            TypewalkGuard g(t, &walked_set);
-            (void)g;
-
-            auto* const determined_type = t->get_determined_type().value();
-            switch (determined_type->m_base_type)
-            {
-            case lang_TypeInstance::DeterminedType::base_type::TUPLE:
-            case lang_TypeInstance::DeterminedType::base_type::STRUCT:
-            case lang_TypeInstance::DeterminedType::base_type::UNION:
-                return true;
-                /* ============== */
-
-            case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
-            case lang_TypeInstance::DeterminedType::base_type::MAPPING:
-                return is_type_contain_struct(
-                    determined_type->m_external_type_description.m_dictionary_or_mapping->m_key_type, walked_set)
-                    || is_type_contain_struct(
-                        determined_type->m_external_type_description.m_dictionary_or_mapping->m_value_type, walked_set);
-            case lang_TypeInstance::DeterminedType::base_type::ARRAY:
-            case lang_TypeInstance::DeterminedType::base_type::VECTOR:
-                return is_type_contain_struct(
-                    determined_type->m_external_type_description.m_array_or_vector->m_element_type, walked_set);
-            default:
-                return false;
-            }
-        }
-        // Print a literal (already-interned) string via echo.
-        static void emit_echo_str(
-            IRCompiler* c,
-            woort_IRConstantIndex echo,
-            const woort_IRValue* repl_printer,
-            wo_pstring_t str)
-        {
-            c->pushchk(c->load_imm_string(str));
-            c->pushchk(repl_printer);
-            c->pushchk(c->load_imm_int(2));
-            c->callnfp(echo, 3, nullptr);
-        }
-
-        // Box a primitive (int/real/bool) value into a dynamic value so it can
-        // be displayed generically. No-op for non-primitive types.
-        static void emit_boxdyn_if_primitive(
-            IRCompiler* c,
-            woort_IRValue* value,
-            const lang_TypeInstance::DeterminedType* det_type)
-        {
-            switch (det_type->m_base_type)
-            {
-            case lang_TypeInstance::DeterminedType::base_type::INTEGER:
-                c->boxdyn(value, WOORT_BOX_VALUE_TYPE_INT, value);
-                break;
-            case lang_TypeInstance::DeterminedType::base_type::REAL:
-                c->boxdyn(value, WOORT_BOX_VALUE_TYPE_REAL, value);
-                break;
-            case lang_TypeInstance::DeterminedType::base_type::BOOLEAN:
-                c->boxdyn(value, WOORT_BOX_VALUE_TYPE_BOOL, value);
-                break;
-            default:
-                break;
-            }
-        }
-
-        static void emit_tuple_display(
-            IRCompiler* c,
-            woort_IRConstantIndex echo,
-            const woort_IRValue* repl_printer,
-            const woort_IRValue* boxed_val,
-            const lang_TypeInstance::DeterminedType* dt)
-        {
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("("));
-
-            uint32_t idx = 0;
-            woort_IRValue* const elem_value = c->new_value();
-            for (auto& elem_type_instance : dt->m_external_type_description.m_tuple->m_element_types)
-            {
-                if (idx != 0)
-                {
-                    emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
-                }
-
-                const lang_TypeInstance::DeterminedType* const elem_type =
-                    elem_type_instance->get_determined_type().value();
-
-                c->ldidstruct(elem_value, boxed_val, idx);
-                emit_boxdyn_if_primitive(c, elem_value, elem_type);
-
-                generate_ir_displayer(c, repl_printer, elem_value, elem_type_instance);
-                ++idx;
-            }
-
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(")"));
-        }
-
-        static void emit_struct_display(
-            IRCompiler* c,
-            woort_IRConstantIndex echo,
-            const woort_IRValue* repl_printer,
-            const woort_IRValue* boxed_val,
-            const lang_TypeInstance::DeterminedType* dt)
-        {
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("struct{"));
-
-            std::vector<std::pair<wo_pstring_t,
-                const lang_TypeInstance::DeterminedType::Struct::StructMember*>>
-                sorted_members;
-            for (const auto& [name, member] :
-                dt->m_external_type_description.m_struct->m_member_types)
-            {
-                sorted_members.emplace_back(name, &member);
-            }
-            std::sort(sorted_members.begin(), sorted_members.end(),
-                [](const auto& a, const auto& b)
-                { return a.second->m_offset < b.second->m_offset; });
-
-            bool first = true;
-            woort_IRValue* const member_value = c->new_value();
-            for (auto& [name, member] : sorted_members)
-            {
-                if (!first)
-                {
-                    emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
-                }
-
-                c->pushchk(c->load_imm_string(wstring_pool::get_pstr("= ")));
-                c->pushchk(c->load_imm_string(name));
-                c->pushchk(repl_printer);
-                c->pushchk(c->load_imm_int(3));
-                c->callnfp(echo, 4, nullptr);
-
-                const lang_TypeInstance::DeterminedType* const member_type =
-                    member->m_member_type->get_determined_type().value();
-
-                c->ldidstruct(member_value, boxed_val, (uint32_t)member->m_offset);
-                emit_boxdyn_if_primitive(c, member_value, member_type);
-
-                generate_ir_displayer(c, repl_printer, member_value, member->m_member_type);
-                first = false;
-            }
-
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("}"));
-        }
-
-        static void emit_union_display(
-            IRCompiler* c,
-            woort_IRConstantIndex echo,
-            const woort_IRValue* repl_printer,
-            const woort_IRValue* boxed_val,
-            lang_TypeInstance* t,
-            const lang_TypeInstance::DeterminedType* dt)
-        {
-            woort_IRValue* const tag = c->new_value();
-            c->ldidstruct(tag, boxed_val, 0);
-
-            std::vector<std::pair<wo_pstring_t,
-                const lang_TypeInstance::DeterminedType::Union::UnionMember*>>
-                sorted_labels;
-            for (const auto& [name, member] :
-                dt->m_external_type_description.m_union->m_union_label)
-            {
-                sorted_labels.emplace_back(name, &member);
-            }
-            std::sort(sorted_labels.begin(), sorted_labels.end(),
-                [](const auto& a, const auto& b)
-                { return a.second->m_label < b.second->m_label; });
-
-            wo_pstring_t type_prefix = wstring_pool::get_pstr(
-                *t->m_symbol->m_name + "::");
-
-            woort_IRLabel* const union_display_end = c->new_label();
-
-            for (const auto& [label_name, member] : sorted_labels)
-            {
-                woort_IRLabel* const next_check = c->new_label();
-
-                c->jcc_ne(tag, c->load_imm_int(member->m_label), next_check);
-
-                emit_echo_str(c, echo, repl_printer, type_prefix);
-                emit_echo_str(c, echo, repl_printer, label_name);
-
-                if (member->m_item_type.has_value())
-                {
-                    emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("("));
-
-                    woort_IRValue* const item_value = c->new_value();
-                    c->ldidstruct(item_value, boxed_val, 1);
-
-                    const lang_TypeInstance::DeterminedType* const item_det_type =
-                        member->m_item_type.value()->get_determined_type().value();
-                    emit_boxdyn_if_primitive(c, item_value, item_det_type);
-
-                    generate_ir_displayer(c, repl_printer, item_value, member->m_item_type.value());
-
-                    emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(")"));
-                }
-
-                c->jmp(union_display_end);
-                c->bind(next_check);
-            }
-
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("<bad union>"));
-
-            c->bind(union_display_end);
-        }
-
-        static void emit_dict_mapping_display(
-            IRCompiler* c,
-            woort_IRConstantIndex echo,
-            const woort_IRValue* repl_printer,
-            const woort_IRValue* boxed_val,
-            const lang_TypeInstance::DeterminedType* dt)
-        {
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("{"));
-
-            // keys = map_keys(dict)
-            woort_IRValue* const dict_keys = c->new_value();
-            c->pushchk(boxed_val);
-            c->callnfp(
-                c->imm_extern_function(
-                    rslib_extern_symbols::g_builtin_map_keys),
-                1,
-                dict_keys);
-
-            // len = array_len(keys)
-            woort_IRValue* const dict_len = c->new_value();
-            c->pushchk(dict_keys);
-            c->callnfp(
-                c->imm_extern_function(
-                    rslib_extern_symbols::g_builtin_array_len),
-                1,
-                dict_len);
-
-            woort_IRValue* const dict_i = c->new_value();
-            c->load(dict_i, c->imm_int(0));
-
-            woort_IRLabel* const loop_begin = c->new_label();
-            woort_IRLabel* const loop_cond = c->new_label();
-
-            c->jmp(loop_cond);
-            c->bind(loop_begin);
-
-            woort_IRLabel* const display_comma_end = c->new_label();
-            c->jccz(dict_i, display_comma_end);
-
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
-
-            c->bind(display_comma_end);
-
-            // key = keys[i]
-            woort_IRValue* const dict_key = c->new_value();
-            c->ldidvecx(dict_key, dict_keys, dict_i);
-
-            // Display key
-            generate_ir_displayer(
-                c,
-                repl_printer,
-                dict_key,
-                dt->m_external_type_description.m_dictionary_or_mapping->m_key_type);
-
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(": "));
-
-            // val = dict[key]
-            woort_IRValue* const dict_val = c->new_value();
-            c->ldiddictxx(dict_val, boxed_val, dict_key);
-
-            // Display value
-            generate_ir_displayer(
-                c,
-                repl_printer,
-                dict_val,
-                dt->m_external_type_description.m_dictionary_or_mapping->m_value_type);
-
-            c->addi(dict_i, dict_i, c->load_imm_int(1));
-            c->bind(loop_cond);
-
-            c->jcc_lt(dict_i, dict_len, loop_begin);
-
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("}"));
-        }
-
-        static void emit_array_vector_display(
-            IRCompiler* c,
-            woort_IRConstantIndex echo,
-            const woort_IRValue* repl_printer,
-            const woort_IRValue* boxed_val,
-            const lang_TypeInstance::DeterminedType* dt)
-        {
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("["));
-
-            woort_IRValue* const vec_len = c->new_value();
-
-            c->pushchk(boxed_val);
-            c->callnfp(
-                c->imm_extern_function(
-                    rslib_extern_symbols::g_builtin_array_len),
-                1,
-                vec_len);
-
-            woort_IRValue* const vec_i = c->new_value();
-            c->load(vec_i, c->imm_int(0));
-
-            woort_IRLabel* const loop_begin = c->new_label();
-            woort_IRLabel* const loop_cond = c->new_label();
-
-            c->jmp(loop_cond);
-            c->bind(loop_begin);
-
-            woort_IRLabel* const display_comma_end = c->new_label();
-            c->jccz(vec_i, display_comma_end);
-
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr(", "));
-
-            c->bind(display_comma_end);
-
-            woort_IRValue* const element = c->new_value();
-            c->ldidvecx(element, boxed_val, vec_i);
-
-            generate_ir_displayer(
-                c,
-                repl_printer,
-                element,
-                dt->m_external_type_description.m_array_or_vector->m_element_type);
-
-            c->addi(vec_i, vec_i, c->load_imm_int(1));
-            c->bind(loop_cond);
-
-            c->jcc_lt(vec_i, vec_len, loop_begin);
-
-            emit_echo_str(c, echo, repl_printer, wstring_pool::get_pstr("]"));
-        }
-
-        static void generate_ir_displayer(
-            IRCompiler* c,
-            const woort_IRValue* repl_printer,
-            const woort_IRValue* boxed_val,
-            lang_TypeInstance* t)
-        {
-            TypeWalkingSet walking_set;
-            if (!is_type_contain_struct(t, walking_set))
-            {
-                // No aggregate to walk: display it directly via debug_print.
-                if (t->is_based_on_void_in_IR())
-                {
-                    const woort_IRConstantIndex echo =
-                        c->imm_extern_function(
-                            rslib_extern_symbols::g_builtin_repl_print_normal);
-
-                    c->pushchk(c->load_imm_string(wstring_pool::get_pstr("(void)")));
-                    c->pushchk(repl_printer);
-                    c->pushchk(c->load_imm_int(2));
-                    c->callnfp(echo, 3, nullptr);
-                }
-                else
-                {
-                    const woort_IRConstantIndex echo_detail =
-                        c->imm_extern_function(
-                            rslib_extern_symbols::g_builtin_repl_print_debug);
-
-                    c->pushchk(boxed_val);
-                    c->pushchk(repl_printer);
-                    c->pushchk(c->load_imm_int(2));
-                    c->callnfp(echo_detail, 3, nullptr);
-                }
-                return;
-            }
-
-            const woort_IRConstantIndex echo =
-                c->imm_extern_function(
-                    rslib_extern_symbols::g_builtin_repl_print_normal);
-
-            auto* const determined_type = t->get_determined_type().value();
-            switch (determined_type->m_base_type)
-            {
-            case lang_TypeInstance::DeterminedType::base_type::TUPLE:
-                emit_tuple_display(c, echo, repl_printer, boxed_val, determined_type);
-                break;
-            case lang_TypeInstance::DeterminedType::base_type::STRUCT:
-                emit_struct_display(c, echo, repl_printer, boxed_val, determined_type);
-                break;
-            case lang_TypeInstance::DeterminedType::base_type::UNION:
-                emit_union_display(c, echo, repl_printer, boxed_val, t, determined_type);
-                break;
-            case lang_TypeInstance::DeterminedType::base_type::DICTIONARY:
-            case lang_TypeInstance::DeterminedType::base_type::MAPPING:
-                emit_dict_mapping_display(c, echo, repl_printer, boxed_val, determined_type);
-                break;
-            case lang_TypeInstance::DeterminedType::base_type::ARRAY:
-            case lang_TypeInstance::DeterminedType::base_type::VECTOR:
-                emit_array_vector_display(c, echo, repl_printer, boxed_val, determined_type);
-                break;
-            default:
-                wo_error("Cannot be here.");
-            }
-        }
-    };
+    } // namespace
 
     WO_PASS_PROCESSER(AstEchoForREPL)
     {
@@ -1691,7 +1704,7 @@ namespace wo
         // woostd_repl_print_* native functions receive it (slot 1) ahead of the
         // echoed values. m_repl_context is always set for REPL AST nodes.
         const woort_IRValue* const repl_printer = m_ircontext.c().load_imm_int(
-            (woort_Int)(uintptr_t)m_repl_context.value()->m_repl_printer);
+            (woort_Int)(uintptr_t)m_repl_context.value()->m_repl_printer.value());
 
         REPLEchoIRGenerator::generate_ir_displayer(
             &m_ircontext.c(),
@@ -1733,7 +1746,7 @@ namespace wo
                     {
                         auto& [need_box, target] = target_storage.value();
                         woort_IRValue* const* const target_irvalue =
-                            std::get_if<woort_IRValue*>(&target);
+                            get_if<woort_IRValue*>(&target);
 
                         if (target_irvalue == nullptr)
                         {
@@ -1743,12 +1756,12 @@ namespace wo
                                 m_ircontext.c().boxdyn(
                                     v, need_box.value(), m_ircontext.c().load_imm_closure(node));
                                 m_ircontext.c().store(
-                                    std::get<woort_IRStaticIndex>(target), v);
+                                    get<woort_IRStaticIndex>(target), v);
                             }
                             else
                             {
                                 m_ircontext.c().store(
-                                    std::get<woort_IRStaticIndex>(target),
+                                    get<woort_IRStaticIndex>(target),
                                     m_ircontext.c().load_imm_closure(node));
                             }
                         }
@@ -1792,7 +1805,7 @@ namespace wo
                     {
                         auto& [need_box, target] = target_storage.value();
                         woort_IRValue* const* const target_irvalue =
-                            std::get_if<woort_IRValue*>(&target);
+                            get_if<woort_IRValue*>(&target);
 
                         if (target_irvalue == nullptr)
                         {
@@ -1805,7 +1818,7 @@ namespace wo
                             if (need_box.has_value())
                                 m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                            m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                         }
                         else
                         {
@@ -1871,12 +1884,12 @@ namespace wo
                 {
                     woort_IRValue* make_result_target = nullptr;
 
-                    std::optional<woort_IRStaticIndex> need_write_back_to_static =
-                        std::nullopt;
+                    optional<woort_IRStaticIndex> need_write_back_to_static =
+                        nullopt;
 
                     const auto& asigned_target = result.get_assign_target(node->m_LANG_determined_type.value());
 
-                    std::optional<woort_BoxValueType> need_box;
+                    optional<woort_BoxValueType> need_box;
 
                     if (asigned_target.has_value())
                     {
@@ -1884,12 +1897,12 @@ namespace wo
                         need_box = nb;
 
                         woort_IRValue* const* const target_irvalue =
-                            std::get_if<woort_IRValue*>(&target);
+                            get_if<woort_IRValue*>(&target);
 
                         if (target_irvalue == nullptr)
                         {
                             need_write_back_to_static.emplace(
-                                std::get<woort_IRStaticIndex>(target));
+                                get<woort_IRStaticIndex>(target));
 
                             make_result_target = m_ircontext.c().new_value();
                         }
@@ -1972,13 +1985,13 @@ namespace wo
                 {
                     woort_IRValue* make_result_target = nullptr;
 
-                    std::optional<woort_IRStaticIndex> need_write_back_to_static =
-                        std::nullopt;
+                    optional<woort_IRStaticIndex> need_write_back_to_static =
+                        nullopt;
 
                     const auto& asigned_target =
                         result.get_assign_target(node->m_LANG_determined_type.value());
 
-                    std::optional<woort_BoxValueType> need_box;
+                    optional<woort_BoxValueType> need_box;
 
                     if (asigned_target.has_value())
                     {
@@ -1986,12 +1999,12 @@ namespace wo
                         need_box = nb;
 
                         woort_IRValue* const* const target_irvalue =
-                            std::get_if<woort_IRValue*>(&target);
+                            get_if<woort_IRValue*>(&target);
 
                         if (target_irvalue == nullptr)
                         {
                             need_write_back_to_static.emplace(
-                                std::get<woort_IRStaticIndex>(target));
+                                get<woort_IRStaticIndex>(target));
 
                             make_result_target = m_ircontext.c().new_value();
                         }
@@ -2052,12 +2065,12 @@ namespace wo
                 {
                     woort_IRValue* make_result_target = nullptr;
 
-                    std::optional<woort_IRStaticIndex> need_write_back_to_static =
-                        std::nullopt;
+                    optional<woort_IRStaticIndex> need_write_back_to_static =
+                        nullopt;
 
                     const auto& asigned_target = result.get_assign_target(node->m_LANG_determined_type.value());
 
-                    std::optional<woort_BoxValueType> need_box;
+                    optional<woort_BoxValueType> need_box;
 
                     if (asigned_target.has_value())
                     {
@@ -2065,12 +2078,12 @@ namespace wo
                         need_box = nb;
 
                         woort_IRValue* const* const target_irvalue =
-                            std::get_if<woort_IRValue*>(&target);
+                            get_if<woort_IRValue*>(&target);
 
                         if (target_irvalue == nullptr)
                         {
                             need_write_back_to_static.emplace(
-                                std::get<woort_IRStaticIndex>(target));
+                                get<woort_IRStaticIndex>(target));
 
                             make_result_target = m_ircontext.c().new_value();
                         }
@@ -2138,7 +2151,7 @@ namespace wo
             }
             else if (node->m_function->node_type == AstBase::AST_VALUE_FUNCTION)
             {
-                ast::AstValueFunction* invoking_target_function = static_cast<ast::AstValueFunction*>(node->m_function);
+                AstValueFunction* invoking_target_function = static_cast<AstValueFunction*>(node->m_function);
                 if (invoking_target_function->m_LANG_captured_context.m_captured_variables.empty())
                 {
                     // No captured variables, we can call near.
@@ -2265,7 +2278,7 @@ namespace wo
                     ++fact_argument_to_pop;
                 }
 
-                auto emit_invoke_call = [&](woort_IRValue* dst) {
+                auto emit_invoke_call = [&](const optional<woort_IRValue*>& dst) {
                     if (node->m_IR_invoking_function_near.has_value())
                     {
                         AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
@@ -2292,7 +2305,7 @@ namespace wo
                 // Ok, invoke finished.
                 if (m_ircontext.is_eval_result_just_ignored())
                 {
-                    emit_invoke_call(nullptr);
+                    emit_invoke_call(nullopt);
 
                     if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
                         m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
@@ -2308,7 +2321,7 @@ namespace wo
 
                         if (is_void)
                         {
-                            emit_invoke_call(nullptr);
+                            emit_invoke_call(nullopt);
                             if (node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.has_value())
                                 m_ircontext.c().poprs(node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.value());
 
@@ -2321,7 +2334,7 @@ namespace wo
                             {
                                 auto& [need_box, target] = target_storage.value();
                                 woort_IRValue* const* const target_irvalue =
-                                    std::get_if<woort_IRValue*>(&target);
+                                    get_if<woort_IRValue*>(&target);
 
                                 if (target_irvalue == nullptr)
                                 {
@@ -2332,7 +2345,7 @@ namespace wo
                                     if (need_box.has_value())
                                         m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                    m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                 }
                                 else
                                 {
@@ -2403,7 +2416,7 @@ namespace wo
                         const auto& [need_box, target] = target_storage.value();
 
                         woort_IRValue* const* const target_irvalue =
-                            std::get_if<woort_IRValue*>(&target);
+                            get_if<woort_IRValue*>(&target);
 
                         if (target_irvalue == nullptr)
                         {
@@ -2420,7 +2433,7 @@ namespace wo
                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                                 m_ircontext.c().store(
-                                    std::get<woort_IRStaticIndex>(target), v);
+                                    get<woort_IRStaticIndex>(target), v);
                             }
                             else
                             {
@@ -2435,7 +2448,7 @@ namespace wo
                                 }
 
                                 m_ircontext.c().store(
-                                    std::get<woort_IRStaticIndex>(target), v);
+                                    get<woort_IRStaticIndex>(target), v);
                             }
                         }
                         else
@@ -2558,7 +2571,7 @@ namespace wo
                         {
                             auto& [need_box, target] = target_storage.value();
                             woort_IRValue* const* const target_irvalue =
-                                std::get_if<woort_IRValue*>(&target);
+                                get_if<woort_IRValue*>(&target);
 
                             if (target_irvalue == nullptr)
                             {
@@ -2568,7 +2581,7 @@ namespace wo
                                         opnum_to_check,
                                         convert_lang_base_type_to_woort_type_exclude_compile_type(
                                             target_determined_type_instance->m_base_type));
-                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), opnum_to_check);
+                                    m_ircontext.c().store(get<woort_IRStaticIndex>(target), opnum_to_check);
                                 }
                                 else
                                 {
@@ -2578,7 +2591,7 @@ namespace wo
                                         convert_lang_base_type_to_woort_type_exclude_compile_type(
                                             target_determined_type_instance->m_base_type),
                                         opnum_to_check);
-                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                    m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                 }
                             }
                             else
@@ -2651,7 +2664,7 @@ namespace wo
                     {
                         auto& [need_box, target] = target_storage.value();
                         woort_IRValue* const* const target_irvalue =
-                            std::get_if<woort_IRValue*>(&target);
+                            get_if<woort_IRValue*>(&target);
 
                         if (target_irvalue == nullptr)
                         {
@@ -2665,7 +2678,7 @@ namespace wo
                             if (need_box.has_value())
                                 m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                            m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                         }
                         else
                         {
@@ -2851,7 +2864,7 @@ namespace wo
                                 {
                                     auto& [need_box, target] = target_storage.value();
                                     woort_IRValue* const* const target_irvalue =
-                                        std::get_if<woort_IRValue*>(&target);
+                                        get_if<woort_IRValue*>(&target);
 
                                     if (target_irvalue == nullptr)
                                     {
@@ -2865,7 +2878,7 @@ namespace wo
                                             m_ircontext.c().boxdyn(
                                                 v, need_box.value(), v);
 
-                                        m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                        m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                     }
                                     else
                                     {
@@ -2903,7 +2916,7 @@ namespace wo
                                         {
                                             auto& [need_box, target] = target_storage.value();
                                             woort_IRValue* const* const target_irvalue =
-                                                std::get_if<woort_IRValue*>(&target);
+                                                get_if<woort_IRValue*>(&target);
 
                                             if (target_irvalue == nullptr)
                                             {
@@ -2913,7 +2926,7 @@ namespace wo
                                                 if (need_box)
                                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                             }
                                             else
                                             {
@@ -2939,7 +2952,7 @@ namespace wo
                                         {
                                             auto& [need_box, target] = target_storage.value();
                                             woort_IRValue* const* const target_irvalue =
-                                                std::get_if<woort_IRValue*>(&target);
+                                                get_if<woort_IRValue*>(&target);
 
                                             if (target_irvalue == nullptr)
                                             {
@@ -2949,7 +2962,7 @@ namespace wo
                                                 if (need_box)
                                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                             }
                                             else
                                             {
@@ -2985,7 +2998,7 @@ namespace wo
                                         {
                                             auto& [need_box, target] = target_storage.value();
                                             woort_IRValue* const* const target_irvalue =
-                                                std::get_if<woort_IRValue*>(&target);
+                                                get_if<woort_IRValue*>(&target);
 
                                             if (target_irvalue == nullptr)
                                             {
@@ -2995,7 +3008,7 @@ namespace wo
                                                 if (need_box)
                                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                             }
                                             else
                                             {
@@ -3019,7 +3032,7 @@ namespace wo
                                         {
                                             auto& [need_box, target] = target_storage.value();
                                             woort_IRValue* const* const target_irvalue =
-                                                std::get_if<woort_IRValue*>(&target);
+                                                get_if<woort_IRValue*>(&target);
 
                                             if (target_irvalue == nullptr)
                                             {
@@ -3029,7 +3042,7 @@ namespace wo
                                                 if (need_box)
                                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                             }
                                             else
                                             {
@@ -3064,7 +3077,7 @@ namespace wo
                                         {
                                             auto& [need_box, target] = target_storage.value();
                                             woort_IRValue* const* const target_irvalue =
-                                                std::get_if<woort_IRValue*>(&target);
+                                                get_if<woort_IRValue*>(&target);
 
                                             if (target_irvalue == nullptr)
                                             {
@@ -3074,7 +3087,7 @@ namespace wo
                                                 if (need_box)
                                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                             }
                                             else
                                             {
@@ -3101,7 +3114,7 @@ namespace wo
                                         {
                                             auto& [need_box, target] = target_storage.value();
                                             woort_IRValue* const* const target_irvalue =
-                                                std::get_if<woort_IRValue*>(&target);
+                                                get_if<woort_IRValue*>(&target);
 
                                             if (target_irvalue == nullptr)
                                             {
@@ -3111,7 +3124,7 @@ namespace wo
                                                 if (need_box)
                                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                             }
                                             else
                                             {
@@ -3138,7 +3151,7 @@ namespace wo
                                         {
                                             auto& [need_box, target] = target_storage.value();
                                             woort_IRValue* const* const target_irvalue =
-                                                std::get_if<woort_IRValue*>(&target);
+                                                get_if<woort_IRValue*>(&target);
 
                                             if (target_irvalue == nullptr)
                                             {
@@ -3148,7 +3161,7 @@ namespace wo
                                                 if (need_box)
                                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                             }
                                             else
                                             {
@@ -3183,7 +3196,7 @@ namespace wo
                                         {
                                             auto& [need_box, target] = target_storage.value();
                                             woort_IRValue* const* const target_irvalue =
-                                                std::get_if<woort_IRValue*>(&target);
+                                                get_if<woort_IRValue*>(&target);
 
                                             if (target_irvalue == nullptr)
                                             {
@@ -3193,7 +3206,7 @@ namespace wo
                                                 if (need_box.has_value())
                                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                             }
                                             else
                                             {
@@ -3218,7 +3231,7 @@ namespace wo
                                         {
                                             auto& [need_box, target] = target_storage.value();
                                             woort_IRValue* const* const target_irvalue =
-                                                std::get_if<woort_IRValue*>(&target);
+                                                get_if<woort_IRValue*>(&target);
 
                                             if (target_irvalue == nullptr)
                                             {
@@ -3228,7 +3241,7 @@ namespace wo
                                                 if (need_box.has_value())
                                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                             }
                                             else
                                             {
@@ -3253,7 +3266,7 @@ namespace wo
                                         {
                                             auto& [need_box, target] = target_storage.value();
                                             woort_IRValue* const* const target_irvalue =
-                                                std::get_if<woort_IRValue*>(&target);
+                                                get_if<woort_IRValue*>(&target);
 
                                             if (target_irvalue == nullptr)
                                             {
@@ -3267,7 +3280,7 @@ namespace wo
                                                 if (need_box.has_value())
                                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                             }
                                             else
                                             {
@@ -3339,43 +3352,46 @@ namespace wo
         return WO_EXCEPT_ERROR(state, OKAY);
     }
 
-    void check_and_generate_check_ir_for_divi_and_modi(
-        BytecodeGenerateContext& bgc,
-        const std::optional<ast::AstValueBase*>& left,
-        ast::AstValueBase* right,
-        const woort_IRValue* left_opnum,
-        const woort_IRValue* right_opnum)
+    namespace
     {
-        if (!config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION)
-            // Skip runtime check if disabled.
-            return;
-
-        if (right->m_evaled_const_value.has_value())
+        void check_and_generate_check_ir_for_divi_and_modi(
+            BytecodeGenerateContext& bgc,
+            const optional<AstValueBase*>& left,
+            AstValueBase* right,
+            const woort_IRValue* left_opnum,
+            const woort_IRValue* right_opnum)
         {
-            int64_t right_value = right->m_evaled_const_value.value().value_integer();
-            wo_assert(right_value != 0);
-            wo_assert(!left.has_value() || !left.value()->m_evaled_const_value.has_value());
+            if (!config::ENABLE_RUNTIME_CHECKING_INTEGER_DIVISION)
+                // Skip runtime check if disabled.
+                return;
 
-            if (right_value == -1)
-                // Need check l
-                bgc.c().chkdivil(left_opnum);
+            if (right->m_evaled_const_value.has_value())
+            {
+                int64_t right_value = right->m_evaled_const_value.value().value_integer();
+                wo_assert(right_value != 0);
+                wo_assert(!left.has_value() || !left.value()->m_evaled_const_value.has_value());
 
-            // Otherwise, no need to check.
-        }
-        else if (left.has_value() && left.value()->m_evaled_const_value.has_value())
-        {
-            int64_t left_value = left.value()->m_evaled_const_value.value().value_integer();
-            if (left_value == INT64_MIN)
-                // Need check r
-                bgc.c().chkdivir(right_opnum);
+                if (right_value == -1)
+                    // Need check l
+                    bgc.c().chkdivil(left_opnum);
+
+                // Otherwise, no need to check.
+            }
+            else if (left.has_value() && left.value()->m_evaled_const_value.has_value())
+            {
+                int64_t left_value = left.value()->m_evaled_const_value.value().value_integer();
+                if (left_value == INT64_MIN)
+                    // Need check r
+                    bgc.c().chkdivir(right_opnum);
+                else
+                    // Need check rz
+                    bgc.c().chkdivir(right_opnum);
+            }
             else
-                // Need check rz
-                bgc.c().chkdivir(right_opnum);
-        }
-        else
-        {
-            // Left & right both not constant.
-            bgc.c().chkdivilr(left_opnum, right_opnum);
+            {
+                // Left & right both not constant.
+                bgc.c().chkdivilr(left_opnum, right_opnum);
+            }
         }
     }
 
@@ -3531,7 +3547,7 @@ namespace wo
                 woort_IRValue* const v = m_ircontext.c().new_value();
                 node->m_IR_value_to_store_shortcut_result_MUST_BE_CLEAR_FOR_REPL.emplace(v);
 
-                m_ircontext.eval_to_assign(v, std::nullopt);
+                m_ircontext.eval_to_assign(v, nullopt);
 
                 WO_CONTINUE_PROCESS(node->m_left);
 
@@ -3573,7 +3589,7 @@ namespace wo
 
                 m_ircontext.eval_to_assign_if_not_ignore(
                     node->m_IR_value_to_store_shortcut_result_MUST_BE_CLEAR_FOR_REPL.value(),
-                    std::nullopt);
+                    nullopt);
 
                 WO_CONTINUE_PROCESS(node->m_right);
 
@@ -3597,7 +3613,7 @@ namespace wo
                         {
                             auto& [need_box, target] = target_storage.value();
                             woort_IRValue* const* const target_irvalue =
-                                std::get_if<woort_IRValue*>(&target);
+                                get_if<woort_IRValue*>(&target);
 
                             if (target_irvalue == nullptr)
                             {
@@ -3608,7 +3624,7 @@ namespace wo
                                         shortcut_evaled_value);
 
                                 m_ircontext.c().store(
-                                    std::get<woort_IRStaticIndex>(target),
+                                    get<woort_IRStaticIndex>(target),
                                     shortcut_evaled_value);
                             }
                             else
@@ -3862,7 +3878,7 @@ namespace wo
                         {
                             auto& [need_box, target] = target_storage.value();
                             woort_IRValue* const* const target_irvalue =
-                                std::get_if<woort_IRValue*>(&target);
+                                get_if<woort_IRValue*>(&target);
 
                             if (target_irvalue == nullptr)
                             {
@@ -3872,7 +3888,7 @@ namespace wo
                                 if (need_box.has_value())
                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                             }
                             else
                             {
@@ -3936,7 +3952,7 @@ namespace wo
                         {
                             auto& [need_box, target] = target_storage.value();
                             woort_IRValue* const* const target_irvalue =
-                                std::get_if<woort_IRValue*>(&target);
+                                get_if<woort_IRValue*>(&target);
 
                             if (target_irvalue == nullptr)
                             {
@@ -3963,7 +3979,7 @@ namespace wo
                                     m_ircontext.c().boxdyn(
                                         v, need_box.value(), v);
 
-                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                             }
                             else
                             {
@@ -4022,7 +4038,7 @@ namespace wo
                         {
                             auto& [need_box, target] = target_storage.value();
                             woort_IRValue* const* const target_irvalue =
-                                std::get_if<woort_IRValue*>(&target);
+                                get_if<woort_IRValue*>(&target);
 
                             if (target_irvalue == nullptr)
                             {
@@ -4033,7 +4049,7 @@ namespace wo
                                     m_ircontext.c().boxdyn(
                                         v, need_box.value(), v);
 
-                                m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                             }
                             else
                             {
@@ -4085,9 +4101,10 @@ namespace wo
             }
             else
             {
-                auto* binop = try_get_optimizable_comparison_binop(node->m_condition);
-                if (binop)
+                auto binop_may_null = try_get_optimizable_comparison_binop(node->m_condition);
+                if (binop_may_null.has_value())
                 {
+                    auto* binop = binop_may_null.value();
                     m_ircontext.begin_eval_readonly();
                     if (!pass_final_value(lex, binop->m_left))
                         return FAILED;
@@ -4112,9 +4129,9 @@ namespace wo
                         node->m_IR_cond_eval_result_MUST_BE_CLEAR_FOR_REPL.emplace(v);
 
                         if (m_ircontext.upper_need_box())
-                            m_ircontext.eval_to_assign_box(v, std::nullopt);
+                            m_ircontext.eval_to_assign_box(v, nullopt);
                         else
-                            m_ircontext.eval_to_assign(v, std::nullopt);
+                            m_ircontext.eval_to_assign(v, nullopt);
                     }
                     else
                         m_ircontext.eval_for_upper();
@@ -4154,9 +4171,9 @@ namespace wo
 
                     // Eval for box if need box.
                     if (m_ircontext.upper_need_box())
-                        m_ircontext.eval_to_assign_box(v, std::nullopt);
+                        m_ircontext.eval_to_assign_box(v, nullopt);
                     else
-                        m_ircontext.eval_to_assign(v, std::nullopt);
+                        m_ircontext.eval_to_assign(v, nullopt);
                 }
                 else
                     m_ircontext.eval_for_upper();
@@ -4179,9 +4196,9 @@ namespace wo
 
                     // Eval for box if need box.
                     if (m_ircontext.upper_need_box())
-                        m_ircontext.eval_to_assign_box(v, std::nullopt);
+                        m_ircontext.eval_to_assign_box(v, nullopt);
                     else
-                        m_ircontext.eval_to_assign(v, std::nullopt);
+                        m_ircontext.eval_to_assign(v, nullopt);
                 }
                 else if (m_ircontext.is_eval_result_just_ignored())
                 {
@@ -4308,7 +4325,7 @@ namespace wo
                             {
                                 const auto& [need_box, target] = asigned_target.value();
                                 woort_IRValue* const* const target_irvalue =
-                                    std::get_if<woort_IRValue*>(&target);
+                                    get_if<woort_IRValue*>(&target);
 
                                 woort_IRValue* const v = target_irvalue
                                     ? *target_irvalue
@@ -4319,7 +4336,7 @@ namespace wo
                                     m_ircontext.c().boxdyn(v, need_box.value(), v);
 
                                 if (target_irvalue == nullptr)
-                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                    m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                             }
                             else
                             {
@@ -4334,10 +4351,10 @@ namespace wo
                         {
                             woort_IRValue* make_result_target = nullptr;
 
-                            std::optional<woort_IRStaticIndex> need_write_back_to_static =
-                                std::nullopt;
+                            optional<woort_IRStaticIndex> need_write_back_to_static =
+                                nullopt;
 
-                            std::optional<woort_BoxValueType> need_box;
+                            optional<woort_BoxValueType> need_box;
 
                             if (asigned_target.has_value())
                             {
@@ -4345,12 +4362,12 @@ namespace wo
                                 need_box = nb;
 
                                 woort_IRValue* const* const target_irvalue =
-                                    std::get_if<woort_IRValue*>(&target);
+                                    get_if<woort_IRValue*>(&target);
 
                                 if (target_irvalue == nullptr)
                                 {
                                     need_write_back_to_static.emplace(
-                                        std::get<woort_IRStaticIndex>(target));
+                                        get<woort_IRStaticIndex>(target));
 
                                     make_result_target = m_ircontext.c().new_value();
                                 }
@@ -4512,7 +4529,7 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
-            std::vector<AstStructFieldValuePair*> struct_value_tobe_make(
+            vector<AstStructFieldValuePair*> struct_value_tobe_make(
                 node->m_fields.rbegin(), node->m_fields.rend());
 
             if (node->m_marked_struct_type.has_value())
@@ -4522,7 +4539,7 @@ namespace wo
                 auto* struct_determined_type = struct_type_instance->get_determined_type().value();
                 auto* struct_detail_info = struct_determined_type->m_external_type_description.m_struct;
 
-                std::sort(struct_value_tobe_make.begin(), struct_value_tobe_make.end(),
+                sort(struct_value_tobe_make.begin(), struct_value_tobe_make.end(),
                     [&struct_detail_info](AstStructFieldValuePair* a, AstStructFieldValuePair* b)
                     {
                         const auto offset_a = struct_detail_info->m_member_types.at(a->m_name).m_offset;
@@ -4550,7 +4567,7 @@ namespace wo
                     {
                         auto& [need_box, target] = target_storage.value();
                         woort_IRValue* const* const target_irvalue =
-                            std::get_if<woort_IRValue*>(&target);
+                            get_if<woort_IRValue*>(&target);
 
                         if (target_irvalue == nullptr)
                         {
@@ -4562,7 +4579,7 @@ namespace wo
                             if (need_box.has_value())
                                 m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                            m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                         }
                         else
                         {
@@ -4626,7 +4643,7 @@ namespace wo
                         (void)need_box;
 
                         woort_IRValue* const* const target_irvalue =
-                            std::get_if<woort_IRValue*>(&target);
+                            get_if<woort_IRValue*>(&target);
 
                         if (target_irvalue == nullptr)
                         {
@@ -4637,7 +4654,7 @@ namespace wo
                                 mkunion_value,
                                 (uint32_t)node->m_index);
 
-                            m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                            m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                         }
                         else
                         {
@@ -4677,7 +4694,7 @@ namespace wo
                 {
                     auto& [need_box, target] = target_storage.value();
                     woort_IRValue* const* const target_irvalue =
-                        std::get_if<woort_IRValue*>(&target);
+                        get_if<woort_IRValue*>(&target);
 
                     if (target_irvalue == nullptr)
                     {
@@ -4689,7 +4706,7 @@ namespace wo
                         if (need_box.has_value())
                             m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                        m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                        m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                     }
                     else
                     {
@@ -4727,7 +4744,7 @@ namespace wo
                 {
                     auto& [need_box, target] = target_storage.value();
                     woort_IRValue* const* const target_irvalue =
-                        std::get_if<woort_IRValue*>(&target);
+                        get_if<woort_IRValue*>(&target);
 
                     if (target_irvalue == nullptr)
                     {
@@ -4740,7 +4757,7 @@ namespace wo
                         if (need_box.has_value())
                             m_ircontext.c().boxdyn(v, need_box.value(), v);
 
-                        m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                        m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                     }
                     else
                     {
@@ -5094,7 +5111,7 @@ namespace wo
                             {
                                 check_and_generate_check_ir_for_divi_and_modi(
                                     m_ircontext,
-                                    std::nullopt,
+                                    nullopt,
                                     node->m_right,
                                     assign_expr_result_opnum,
                                     right_value_result);
@@ -5255,7 +5272,7 @@ namespace wo
                             {
                                 check_and_generate_check_ir_for_divi_and_modi(
                                     m_ircontext,
-                                    std::nullopt,
+                                    nullopt,
                                     node->m_right,
                                     assign_expr_result_opnum,
                                     right_value_result);
@@ -5534,7 +5551,7 @@ namespace wo
                             {
                                 auto& [need_box, target] = target_storage.value();
                                 woort_IRValue* const* const target_irvalue =
-                                    std::get_if<woort_IRValue*>(&target);
+                                    get_if<woort_IRValue*>(&target);
 
                                 if (target_irvalue == nullptr)
                                 {
@@ -5545,7 +5562,7 @@ namespace wo
                                     else
                                         m_ircontext.c().mov(v, eval_result_for_upper);
 
-                                    m_ircontext.c().store(std::get<woort_IRStaticIndex>(target), v);
+                                    m_ircontext.c().store(get<woort_IRStaticIndex>(target), v);
                                 }
                                 else
                                 {
@@ -5686,7 +5703,7 @@ namespace wo
         return true;
     }
 
-    bool LangContext::pass_final_value(lexer& lex, ast::AstValueBase* val)
+    bool LangContext::pass_final_value(lexer& lex, AstValueBase* val)
     {
         bool anylize_result =
             anylize_pass(lex, val, &LangContext::pass_final_B_process_bytecode_generation, true);
@@ -5754,13 +5771,13 @@ namespace wo
                         const auto& [need_box, target] = asigned_target.value();
 
                         woort_IRValue* const* const target_irvalue =
-                            std::get_if<woort_IRValue*>(&target);
+                            get_if<woort_IRValue*>(&target);
 
                         if (target_irvalue == nullptr)
                         {
                             // Assigned to static.
                             m_ircontext.c().store(
-                                std::get<woort_IRStaticIndex>(target),
+                                get<woort_IRStaticIndex>(target),
                                 need_box
                                 ? m_ircontext.c().load_imm_box_const(constant_value)
                                 : m_ircontext.c().load_imm_const(constant_value));
@@ -5791,14 +5808,14 @@ namespace wo
         return compile_result;
     }
     void LangContext::walk_through_constant_to_record_function_ast(
-        const ast::ConstantValue& const_value)
+        const ConstantValue& const_value)
     {
         switch (const_value.m_type)
         {
-        case ast::ConstantValue::Type::FUNCTION:
+        case ConstantValue::Type::FUNCTION:
             m_ircontext.m_being_used_function_instance.insert(const_value.value_function());
             break;
-        case ast::ConstantValue::Type::STRUCT:
+        case ConstantValue::Type::STRUCT:
         {
             auto& struct_constant = const_value.value_struct();
             for (size_t idx = 0; idx < struct_constant.m_count; ++idx)

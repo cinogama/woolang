@@ -2,6 +2,7 @@
 
 #include "woort.h"
 
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -41,8 +42,8 @@ namespace wo
         // AstEchoForREPL passes this as the first argument to the
         // woostd_repl_print_* native functions so that echoed bare-expression
         // results are buffered here instead of written directly to stdout.
-        // nullptr in non-REPL mode; set by _wo_ReplSession construction.
-        woort_REPLPrinter* m_repl_printer;
+        // nullopt in non-REPL mode; set by _wo_ReplSession construction.
+        std::optional<woort_REPLPrinter*> m_repl_printer;
 
         // Latch: whether builtin types have been registered for this REPL
         // session. A LangContext is normally one-shot (created and discarded

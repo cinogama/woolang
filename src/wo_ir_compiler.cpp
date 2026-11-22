@@ -7,38 +7,42 @@
 
 namespace wo
 {
+    using namespace ast;
+    using namespace std;
 #ifndef WO_DISABLE_COMPILER
     IRCompiler::IRCompiler()
     {
-        m_ircompiler = woort_IRCompiler_create();
+        woort_IRCompiler* const compiler = woort_IRCompiler_create();
+        if (compiler != nullptr)
+            m_ircompiler.emplace(compiler);
 
         static_assert(
             static_cast<void*>(nullptr) == static_cast<void*>(NULL));
     }
     IRCompiler::~IRCompiler()
     {
-        if (m_ircompiler != nullptr)
+        if (m_ircompiler.has_value())
             abondon();
     }
 
     void IRCompiler::abondon()
     {
-        wo_assert(m_ircompiler != nullptr);
+        wo_assert(m_ircompiler.has_value());
 
         m_current_functions_stack.clear();
 
-        woort_IRCompiler_close(m_ircompiler);
-        m_ircompiler = nullptr;
+        woort_IRCompiler_close(m_ircompiler.value());
+        m_ircompiler.reset();
     }
 
     bool IRCompiler::is_abondoned() const
     {
-        return m_ircompiler == nullptr;
+        return !m_ircompiler.has_value();
     }
 
     void IRCompiler::reset()
     {
-        if (m_ircompiler != nullptr)
+        if (m_ircompiler.has_value())
             abondon();
 
         m_entry_function.reset();
@@ -59,7 +63,9 @@ namespace wo
         m_tuple_imm_pool.clear();
         m_ordered_tuple_imm_list.clear();
 
-        m_ircompiler = woort_IRCompiler_create();
+        woort_IRCompiler* const compiler = woort_IRCompiler_create();
+        if (compiler != nullptr)
+            m_ircompiler.emplace(compiler);
     }
 
     woort_IRFunction* IRCompiler::push_function(
@@ -69,7 +75,7 @@ namespace wo
             return nullptr;
 
         woort_IRFunction* irfunc;
-        if (!woort_IRCompiler_add_function(m_ircompiler, param_count, captured_count, &irfunc))
+        if (!woort_IRCompiler_add_function(m_ircompiler.value(), param_count, captured_count, &irfunc))
         {
             abondon();
             return nullptr;
@@ -93,7 +99,7 @@ namespace wo
         if (is_abondoned())
             return 0;
 
-        return woort_IRCompiler_add_constant(m_ircompiler);
+        return woort_IRCompiler_add_constant(m_ircompiler.value());
     }
 
     woort_IRStaticIndex IRCompiler::alloc_static()
@@ -101,13 +107,13 @@ namespace wo
         if (is_abondoned())
             return 0;
 
-        return woort_IRCompiler_add_static(m_ircompiler);
+        return woort_IRCompiler_add_static(m_ircompiler.value());
     }
 
-    std::optional<woort_CodeEnv*> IRCompiler::commit(const std::optional<REPLContext*>& repl_ctx)
+    optional<woort_CodeEnv*> IRCompiler::commit(const optional<REPLContext*>& repl_ctx)
     {
         if (is_abondoned())
-            return std::nullopt;
+            return nullopt;
 
         // All function must be ended.
         wo_assert(m_current_functions_stack.empty());
@@ -119,8 +125,8 @@ namespace wo
         register_extern_symbols(WOORT_DEFAULT_ENTRY, entry_function_index);
 
         woort_CodeEnv* cenv;
-        if (!woort_IRCompiler_finish(m_ircompiler, &cenv))
-            return std::nullopt;
+        if (!woort_IRCompiler_finish(m_ircompiler.value(), &cenv))
+            return nullopt;
 
         woort_CodeEnv_lock(cenv);
 
@@ -172,7 +178,7 @@ namespace wo
         if (repl_ctx.has_value())
         {
             auto& emitted = repl_ctx.value()->m_new_emitted_script_functions;
-            for (ast::AstValueFunction* func : emitted)
+            for (AstValueFunction* func : emitted)
             {
                 repl_ctx.value()->m_prior_function_bytecode[func] =
                     get_function(cenv, func->m_IR_function_MUST_BE_CLEAR_FOR_REPL.value());
@@ -187,7 +193,7 @@ namespace wo
             /* OPTIONAL */ const char* func_name);
 
         auto set_constant_func_or_closure = [cenv](
-            ast::AstExternInformation* extern_info,
+            AstExternInformation* extern_info,
             woort_IRConstantIndex cidx,
             set_const_func_or_clos_func_t f)
             {
@@ -304,7 +310,7 @@ namespace wo
         woort_CodeEnv_drop(cenv);
 
         abondon();
-        return std::nullopt;
+        return nullopt;
     }
 
     const woort_Bytecode* IRCompiler::get_function(woort_CodeEnv* cenv, woort_IRFunction* irfunc)
@@ -316,9 +322,9 @@ namespace wo
         return bytecode;
     }
 
-    void IRCompiler::register_extern_symbols(std::string_view name, woort_IRConstantIndex cidx)
+    void IRCompiler::register_extern_symbols(string_view name, woort_IRConstantIndex cidx)
     {
-        if (m_extern_symbols.find(std::string(name)) != m_extern_symbols.end())
+        if (m_extern_symbols.find(string(name)) != m_extern_symbols.end())
             wo_error("Duplicate extern symbol name");
 
         m_extern_symbols.emplace(name, cidx);
@@ -397,7 +403,7 @@ namespace wo
         if (is_abondoned())
             return;
 
-        woort_IRCompiler_record_static_var(m_ircompiler, name, idx);
+        woort_IRCompiler_record_static_var(m_ircompiler.value(), name, idx);
     }
 
     woort_IRLabel* IRCompiler::new_label()
@@ -413,7 +419,7 @@ namespace wo
         return result;
     }
 
-    woort_IRLabel* IRCompiler::named_label(ast::AstBase* ast_node, const char* label_name)
+    woort_IRLabel* IRCompiler::named_label(AstBase* ast_node, const char* label_name)
     {
         if (is_abondoned())
             return nullptr;
@@ -618,43 +624,43 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::callnwo(woort_IRConstantIndex target, uint32_t argc, woort_IRValue* dst)
+    void IRCompiler::callnwo(woort_IRConstantIndex target, uint32_t argc, const optional<woort_IRValue*>& dst)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_CALLNWO(cur, target, argc, dst))
+        if (!woort_IR_CALLNWO(cur, target, argc, dst.value_or(nullptr)))
             abondon();
     }
 
-    void IRCompiler::callnfp(woort_IRConstantIndex target, uint32_t argc, woort_IRValue* dst)
+    void IRCompiler::callnfp(woort_IRConstantIndex target, uint32_t argc, const optional<woort_IRValue*>& dst)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_CALLNFP(cur, target, argc, dst))
+        if (!woort_IR_CALLNFP(cur, target, argc, dst.value_or(nullptr)))
             abondon();
     }
 
-    void IRCompiler::callnjit(woort_IRConstantIndex target, uint32_t argc, woort_IRValue* dst)
+    void IRCompiler::callnjit(woort_IRConstantIndex target, uint32_t argc, const optional<woort_IRValue*>& dst)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_CALLNJIT(cur, target, argc, dst))
+        if (!woort_IR_CALLNJIT(cur, target, argc, dst.value_or(nullptr)))
             abondon();
     }
 
-    void IRCompiler::call(const woort_IRValue* func_val, uint32_t argc, woort_IRValue* dst)
+    void IRCompiler::call(const woort_IRValue* func_val, uint32_t argc, const optional<woort_IRValue*>& dst)
     {
         if (is_abondoned())
             return;
 
         woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
-        if (!woort_IR_CALL(cur, func_val, argc, dst))
+        if (!woort_IR_CALL(cur, func_val, argc, dst.value_or(nullptr)))
             abondon();
     }
 
@@ -1899,7 +1905,7 @@ namespace wo
             abondon();
     }
 
-    void IRCompiler::push_srcloc(const ast::AstBase* node)
+    void IRCompiler::push_srcloc(const AstBase* node)
     {
         if (is_abondoned())
             return;
@@ -1987,7 +1993,7 @@ namespace wo
         if (is_abondoned())
             return 0;
 
-        std::optional<woort_IRConstantIndex>& slot = val ? m_boxed_true_imm : m_boxed_false_imm;
+        optional<woort_IRConstantIndex>& slot = val ? m_boxed_true_imm : m_boxed_false_imm;
         if (!slot.has_value())
         {
             const woort_IRConstantIndex cidx = alloc_constant();
@@ -2010,7 +2016,7 @@ namespace wo
         }
         return it->second;
     }
-    woort_IRConstantIndex IRCompiler::imm_closure(ast::AstValueFunction* val)
+    woort_IRConstantIndex IRCompiler::imm_closure(AstValueFunction* val)
     {
         if (is_abondoned())
             return 0;
@@ -2024,7 +2030,7 @@ namespace wo
         }
         return it->second;
     }
-    woort_IRConstantIndex IRCompiler::imm_function(ast::AstValueFunction* val)
+    woort_IRConstantIndex IRCompiler::imm_function(AstValueFunction* val)
     {
         if (is_abondoned())
             return 0;
@@ -2079,11 +2085,11 @@ namespace wo
     {
         return fetch_constant(imm_string(val));
     }
-    const woort_IRValue* IRCompiler::load_imm_closure(ast::AstValueFunction* val)
+    const woort_IRValue* IRCompiler::load_imm_closure(AstValueFunction* val)
     {
         return fetch_constant(imm_closure(val));
     }
-    const woort_IRValue* IRCompiler::load_imm_function(ast::AstValueFunction* val)
+    const woort_IRValue* IRCompiler::load_imm_function(AstValueFunction* val)
     {
         return fetch_constant(imm_function(val));
     }
@@ -2105,28 +2111,28 @@ namespace wo
     }
 
     woort_IRConstantIndex IRCompiler::imm_const(
-        const ast::ConstantValue& constant)
+        const ConstantValue& constant)
     {
         if (is_abondoned())
             return 0;
 
         switch (constant.m_type)
         {
-        case ast::ConstantValue::Type::NIL:
+        case ConstantValue::Type::NIL:
             return imm_nil();
-        case ast::ConstantValue::Type::BOOL:
+        case ConstantValue::Type::BOOL:
             return imm_bool(constant.value_bool());
-        case ast::ConstantValue::Type::INTEGER:
+        case ConstantValue::Type::INTEGER:
             return imm_int(constant.value_integer());
-        case ast::ConstantValue::Type::HANDLE:
+        case ConstantValue::Type::HANDLE:
             return imm_handle(constant.value_handle());
-        case ast::ConstantValue::Type::REAL:
+        case ConstantValue::Type::REAL:
             return imm_real(constant.value_real());
-        case ast::ConstantValue::Type::PSTRING:
+        case ConstantValue::Type::PSTRING:
             return imm_string(constant.value_pstring());
-        case ast::ConstantValue::Type::FUNCTION:
+        case ConstantValue::Type::FUNCTION:
             return imm_closure(constant.value_function());
-        case ast::ConstantValue::Type::STRUCT:
+        case ConstantValue::Type::STRUCT:
         {
             auto& struct_data = constant.value_struct();
             auto it = m_tuple_imm_pool.find(struct_data);
@@ -2142,7 +2148,7 @@ namespace wo
                 t.m_idx = alloc_constant();
                 woort_IRConstantIndex result_idx = t.m_idx;
                 m_ordered_tuple_imm_list.push_back(
-                    &m_tuple_imm_pool.emplace(struct_data, std::move(t)).first->second);
+                    &m_tuple_imm_pool.emplace(struct_data, move(t)).first->second);
                 return result_idx;
             }
             return it->second.m_idx;
@@ -2153,20 +2159,20 @@ namespace wo
         }
     }
     woort_IRConstantIndex IRCompiler::imm_box_const(
-        const ast::ConstantValue& constant)
+        const ConstantValue& constant)
     {
         if (is_abondoned())
             return 0;
 
         switch (constant.m_type)
         {
-        case ast::ConstantValue::Type::BOOL:
+        case ConstantValue::Type::BOOL:
             return imm_box_bool(constant.value_bool());
-        case ast::ConstantValue::Type::INTEGER:
+        case ConstantValue::Type::INTEGER:
             return imm_box_int(constant.value_integer());
-        case ast::ConstantValue::Type::HANDLE:
+        case ConstantValue::Type::HANDLE:
             return imm_box_handle(constant.value_handle());
-        case ast::ConstantValue::Type::REAL:
+        case ConstantValue::Type::REAL:
             return imm_box_real(constant.value_real());
         default:
             return imm_const(constant);
@@ -2188,12 +2194,12 @@ namespace wo
         return it->second;
     }
     const woort_IRValue* IRCompiler::load_imm_const(
-        const ast::ConstantValue& constant)
+        const ConstantValue& constant)
     {
         return fetch_constant(imm_const(constant));
     }
     const woort_IRValue* IRCompiler::load_imm_box_const(
-        const ast::ConstantValue& constant)
+        const ConstantValue& constant)
     {
         return fetch_constant(imm_box_const(constant));
     }

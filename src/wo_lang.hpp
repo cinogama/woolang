@@ -496,7 +496,7 @@ namespace wo
 
         // Resolve `name` as seen from `source_group`: a local symbol declared
         // by that source group wins, otherwise the non-local symbol is used.
-        lang_Symbol* find_defined_symbol(
+        std::optional<lang_Symbol*> find_defined_symbol(
             wo_pstring_t name, wo_pstring_t source_group) const;
 
         // Visit every symbol defined directly in this scope, regardless of
@@ -1509,7 +1509,7 @@ namespace wo
 
         bool /* is invalid */ collect_defers_from_current_scope_to(
             std::optional<lang_Scope*> to_scope,
-            std::vector<ast::AstBase*>* out_collect_result_may_null);
+            const std::optional<std::vector<ast::AstBase*>*>& out_collect_result_may_null);
 
         std::optional<lang_Scope*> get_loop_scope_by_label_may_nullopt(
             const std::optional<wo_pstring_t>& label);

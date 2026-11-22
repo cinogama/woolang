@@ -6,40 +6,46 @@
 #include <cstring>
 #include <sstream>
 #include <unordered_set>
+using namespace std;
+using namespace wo;
+using namespace ast;
 
 #ifndef WO_DISABLE_COMPILER
 
 // Factory declared in wo_api_impl.cpp, used to create wo_CompileErrors from a lexer.
-wo_CompileErrors* _wo_make_compile_errors(std::optional<std::unique_ptr<wo::lexer>> lex);
+namespace wo
+{
+    wo_CompileErrors* make_compile_errors(optional<unique_ptr<lexer>> lex);
+}
 
 struct _wo_ReplSession
 {
     // Persistent compiler state: accumulates symbols/types across evaluations.
-    std::unique_ptr<wo::LangContext> m_lang_context;
+    unique_ptr<LangContext> m_lang_context;
 
     // REPL-only state extracted from LangContext / IRCompiler.
-    wo::REPLContext m_repl_context;
+    REPLContext m_repl_context;
 
     // REPL-owned string pool. Detached from thread-local between evals;
     // installed via repl_tls_guard at each wo_repl_eval entry so that the
     // caller's TLS is not held for the session lifetime. Keeps all
     // wo_pstring_t values alive across the whole session.
-    std::optional<wo::wstring_pool*> m_repl_pool;
+    optional<wstring_pool*> m_repl_pool;
 
     // REPL-owned AST arena. Accumulates AST nodes across evals; installed
     // into thread-local via repl_tls_guard and extracted back on exit.
     // Needs to persist for template instantiation, error "defined here"
     // pointers, etc.
-    wo::ast::AstAllocator m_repl_ast_arena;
+    AstAllocator m_repl_ast_arena;
 
     // Persistent VM: survives across evaluations, holds runtime state.
-    woort_vm* m_vm;
+    optional<woort_vm*> m_vm;
 
     // Session-owned REPL printer. Bare-expression echoes (AstEchoForREPL) are
     // buffered here via the woostd_repl_print_* native functions during
     // wo_repl_eval; flushed (invoking the user callback, or stdout) after each
     // successful evaluation. m_repl_printer tracks whether creation succeeded.
-    woort_REPLPrinter* m_repl_printer;
+    optional<woort_REPLPrinter*> m_repl_printer;
 
     // Flat snapshot of ALL static storage slots from the last booted CodeEnv.
     // m_static_values[i] is the runtime value at woort_IRStaticIndex i.
@@ -49,13 +55,13 @@ struct _wo_ReplSession
     // scoped variables, and function-local statics without per-symbol
     // tracking: symbols retain their m_IR_storage across evals, and the
     // reserved range keeps their indices valid.
-    std::vector<woort_Value> m_static_values;
+    vector<woort_Value> m_static_values;
 
     // CodeEnvs that introduced new static variables or script functions are
     // kept alive so that closures defined in prior lines remain callable and
     // static storage stays valid. CodeEnvs from pure-expression evals (no new
     // definitions) are dropped immediately — nothing references them later.
-    std::vector<woort_CodeEnv*> m_cenv_history;
+    vector<woort_CodeEnv*> m_cenv_history;
 
     size_t m_line_counter;
     size_t m_repl_seq_num;
@@ -77,9 +83,9 @@ struct _wo_ReplSession
     // survive across evals, and the symbol-import visibility check
     // (check_source_has_been_imported_by_specify_source) behaves correctly.
     // wo_pstring_t values are kept alive by m_repl_pool.
-    wo::lexer::imported_source_path_set_t m_linked_script_path_set;
-    wo::lexer::who_import_me_map_t m_who_import_me_map_tree;
-    wo::lexer::who_import_me_map_t m_export_import_map;
+    lexer::imported_source_path_set_t m_linked_script_path_set;
+    lexer::who_import_me_map_t m_who_import_me_map_tree;
+    lexer::who_import_me_map_t m_export_import_map;
 
     _wo_ReplSession(woort_REPLPrinter_ResultCallback callback, void* param);
     ~_wo_ReplSession();
@@ -94,19 +100,21 @@ struct _wo_ReplSession
 //  TLS guard — scopes thread-local state to each wo_repl_eval call
 // ===================================================================
 
+namespace wo
+{
 namespace
 {
 // Installs the REPL's string pool and AST arena into thread-local storage
 // on construction; restores the caller's previous TLS on destruction.
 // This ensures TLS is only modified for the duration of an eval (or
 // session construction/destruction), not held across the session lifetime.
-struct _wo_repl_tls_guard
+struct repl_tls_guard
 {
     _wo_ReplSession&              S;
-    wo::wstring_pool::tls_state   saved_pool{ nullptr, 0 };
-    wo::ast::AstAllocator         saved_ast;
+    wstring_pool::tls_state   saved_pool{ nullptr, 0 };
+    AstAllocator         saved_ast;
 
-    explicit _wo_repl_tls_guard(_wo_ReplSession& s) : S(s)
+    explicit repl_tls_guard(_wo_ReplSession& s) : S(s)
     {
         // --- String pool ---
         // Allocate a fresh session-private pool on first use. Do NOT use
@@ -120,37 +128,38 @@ struct _wo_repl_tls_guard
         // and permanently lose its pool. The REPL owns and frees this pool
         // itself (see ~_wo_ReplSession), so bypass TLS refcounting here.
         if (!S.m_repl_pool.has_value())
-            S.m_repl_pool.emplace(new wo::wstring_pool());
+            S.m_repl_pool.emplace(new wstring_pool());
 
         // Install REPL pool into thread-local, saving caller's state.
         saved_pool =
-            wo::wstring_pool::exchange_this_thread_pool({ S.m_repl_pool.value(), 1 });
+            wstring_pool::exchange_this_thread_pool({ S.m_repl_pool.value(), 1 });
 
         // --- AST arena (two-step exchange to satisfy assertion) ---
         // Step 1: extract current thread-local into saved_ast (empty param).
-        wo::ast::AstBase::exchange_this_thread_ast(saved_ast);
+        AstBase::exchange_this_thread_ast(saved_ast);
         // Step 2: install REPL arena (thread-local is now empty).
-        wo::ast::AstBase::exchange_this_thread_ast(S.m_repl_ast_arena);
+        AstBase::exchange_this_thread_ast(S.m_repl_ast_arena);
     }
 
-    ~_wo_repl_tls_guard()
+    ~repl_tls_guard()
     {
         // Extract REPL arena back from thread-local.
-        wo::ast::AstBase::exchange_this_thread_ast(S.m_repl_ast_arena);
+        AstBase::exchange_this_thread_ast(S.m_repl_ast_arena);
         // Restore caller's AST (thread-local is now empty).
-        wo::ast::AstBase::exchange_this_thread_ast(saved_ast);
+        AstBase::exchange_this_thread_ast(saved_ast);
 
         // Restore caller's pool, save REPL pool back.
-        auto cur = wo::wstring_pool::exchange_this_thread_pool(saved_pool);
+        auto cur = wstring_pool::exchange_this_thread_pool(saved_pool);
         S.m_repl_pool = cur.pool;
     }
 
-    _wo_repl_tls_guard(const _wo_repl_tls_guard&)            = delete;
-    _wo_repl_tls_guard(_wo_repl_tls_guard&&)                 = delete;
-    _wo_repl_tls_guard& operator=(const _wo_repl_tls_guard&) = delete;
-    _wo_repl_tls_guard& operator=(_wo_repl_tls_guard&&)      = delete;
+    repl_tls_guard(const repl_tls_guard&)            = delete;
+    repl_tls_guard(repl_tls_guard&&)                 = delete;
+    repl_tls_guard& operator=(const repl_tls_guard&) = delete;
+    repl_tls_guard& operator=(repl_tls_guard&&)      = delete;
 };
 } // namespace
+}
 
 // ===================================================================
 //  Lifecycle
@@ -158,18 +167,20 @@ struct _wo_repl_tls_guard
 
     _wo_ReplSession::_wo_ReplSession(
         woort_REPLPrinter_ResultCallback callback, void* param)
-    : m_repl_pool(std::nullopt)
-    , m_vm(woort_vm_create())
+    : m_repl_pool(nullopt)
+    , m_vm(nullopt)
     , m_line_counter(0)
     , m_repl_seq_num(0)
     , m_repl_group_token(nullptr)
     {
-        wo_assert(m_vm != nullptr);
+        woort_vm* const vm = woort_vm_create();
+        if (vm != nullptr)
+            m_vm.emplace(vm);
 
         // Install REPL TLS (creates the session string pool on first use).
         // The guard detaches TLS when construction completes so the caller's
         // thread-local state is not held for the session lifetime.
-        _wo_repl_tls_guard guard(*this);
+        repl_tls_guard guard(*this);
 
         // Allocate the session-stable logical source identity. Every REPL eval
         // carries this in source_location.source_group (not source_file, which
@@ -180,11 +191,11 @@ struct _wo_repl_tls_guard
         {
             char group_buf[48];
             (void)snprintf(group_buf, sizeof(group_buf), "<Repl[%p]>", this);
-            m_repl_group_token = wo::wstring_pool::get_pstr(group_buf);
+            m_repl_group_token = wstring_pool::get_pstr(group_buf);
         }
 
         // Persistent compiler state.
-        m_lang_context = std::make_unique<wo::LangContext>();
+        m_lang_context = make_unique<LangContext>();
 
         // Wire REPLContext into LangContext so the compiler passes and
         // IRCompiler::commit() can access REPL state.
@@ -205,8 +216,9 @@ struct _wo_repl_tls_guard
         // callback flushes to stdout. Expose the printer to the IR generator
         // (REPLEchoIRGenerator) via REPLContext so the woostd_repl_print_*
         // native calls receive it as their first argument.
-        if (!woort_REPLPrinter_create(callback, param, &m_repl_printer))
-            m_repl_printer = nullptr;
+        woort_REPLPrinter* created_printer = nullptr;
+        if (woort_REPLPrinter_create(callback, param, &created_printer))
+            m_repl_printer.emplace(created_printer);
 
         m_repl_context.m_repl_printer = m_repl_printer;
     }
@@ -215,7 +227,7 @@ _wo_ReplSession::~_wo_ReplSession()
 {
     // Phase 1: cleanup under REPL TLS.
     {
-        _wo_repl_tls_guard guard(*this);
+        repl_tls_guard guard(*this);
 
         for (size_t i = 0; i <= m_repl_seq_num; ++i)
         {
@@ -235,20 +247,20 @@ _wo_ReplSession::~_wo_ReplSession()
         m_cenv_history.clear();
 
         // Destroy VM (swap out first to avoid GC deadlock).
-        if (m_vm != nullptr)
+        if (m_vm.has_value())
         {
-            woort_vm_close(m_vm);
-            m_vm = nullptr;
+            woort_vm_close(m_vm.value());
+            m_vm.reset();
         }
 
         // Destroy LangContext (releases symbol table, type table, etc.).
         m_lang_context.reset();
 
         // Destroy the REPL printer (drops any unflushed buffered output).
-        if (m_repl_printer != nullptr)
-            woort_REPLPrinter_destroy(m_repl_printer);
+        if (m_repl_printer.has_value())
+            woort_REPLPrinter_destroy(m_repl_printer.value());
 
-        m_repl_context.m_repl_printer = nullptr;
+        m_repl_context.m_repl_printer.reset();
 
         // guard destructor detaches TLS here.
     }
@@ -264,14 +276,18 @@ _wo_ReplSession::~_wo_ReplSession()
 //  Internal helpers
 // ===================================================================
 
-static void _wo_rollback_new_symbols(
-    wo::lang_Scope* root_scope,
-    const std::unordered_set<const wo::lang_Symbol*>& known_symbols)
+namespace wo
+{
+namespace
+{
+void rollback_new_symbols(
+    lang_Scope* root_scope,
+    const unordered_set<const lang_Symbol*>& known_symbols)
 {
     auto& syms = root_scope->m_defined_symbols;
     for (auto it = syms.begin(); it != syms.end(); )
     {
-        wo::lang_DefinedSymbols& defined_symbols = it->second;
+        lang_DefinedSymbols& defined_symbols = it->second;
 
         if (defined_symbols.m_unique_symbol.has_value()
             && known_symbols.find(defined_symbols.m_unique_symbol.value().get())
@@ -296,6 +312,8 @@ static void _wo_rollback_new_symbols(
             ++it;
     }
 }
+}
+}
 
 // ===================================================================
 //  Public API
@@ -305,11 +323,11 @@ wo_ReplSession* wo_repl_create(
     /* OPTIONAL */ woort_REPLPrinter_ResultCallback callback,
     /* OPTIONAL */ void* callback_user_param)
 {
-    auto* s = new (std::nothrow) _wo_ReplSession(callback, callback_user_param);
-    if (s == nullptr 
-        || s->m_vm == nullptr 
+    auto* s = new (nothrow) _wo_ReplSession(callback, callback_user_param);
+    if (s == nullptr
+        || !s->m_vm.has_value()
         || s->m_lang_context == nullptr
-        || s->m_repl_printer == nullptr)
+        || !s->m_repl_printer.has_value())
     {
         delete s;
         return nullptr;
@@ -335,7 +353,7 @@ wo_repl_result wo_repl_eval(
 
     // Install REPL TLS state (string pool + AST arena) for the duration
     // of this eval. Restored automatically on every return path.
-    _wo_repl_tls_guard tls_guard(*S);
+    repl_tls_guard tls_guard(*S);
 
     // --- 1. Reset IR context (fresh IRCompiler for this line) ---
     lc->m_ircontext.reset();
@@ -362,9 +380,9 @@ wo_repl_result wo_repl_eval(
     auto* root_scope = root_ns->m_this_scope.get();
 
     // --- 4. Snapshot root scope symbols (for rollback) ---
-    std::unordered_set<const wo::lang_Symbol*> known_symbols;
+    unordered_set<const lang_Symbol*> known_symbols;
     root_scope->for_each_defined_symbol(
-        [&known_symbols](const wo::lang_Symbol& symbol)
+        [&known_symbols](const lang_Symbol& symbol)
         {
             known_symbols.insert(&symbol);
         });
@@ -375,29 +393,29 @@ wo_repl_result wo_repl_eval(
     // session-stable `source_group` token passed below, not via this path.
     char repl_vfs_path[64];
     (void)snprintf(
-        repl_vfs_path, 
-        sizeof(repl_vfs_path), 
+        repl_vfs_path,
+        sizeof(repl_vfs_path),
         "<Repl[%p]:%zu>",
         session,
         session->m_repl_seq_num);
-    
+
     // Register the current snippet in the VFS so that
     // wo_get_compile_error() can read it back and render the underlined
     // source span. Mirrors wo_load_binary(); enable_modify=true lets each
     // eval overwrite the previous entry in place.
     (void)woort_vfs_create(
-        repl_vfs_path, src, std::strlen(src), /*enable_modify=*/true);
+        repl_vfs_path, src, strlen(src), /*enable_modify=*/true);
 
-    wo_pstring_t path_pstr = wo::wstring_pool::get_pstr(
-        std::string(WOORT_VFS_SCHEME) + repl_vfs_path);
+    wo_pstring_t path_pstr = wstring_pool::get_pstr(
+        string(WOORT_VFS_SCHEME) + repl_vfs_path);
 
-    auto source_stream = std::make_unique<std::istringstream>(
-        std::string(src));
+    auto source_stream = make_unique<istringstream>(
+        string(src));
 
-    auto lex = std::make_unique<wo::lexer>(
-        std::nullopt,
+    auto lex = make_unique<lexer>(
+        nullopt,
         path_pstr,
-        std::optional<std::unique_ptr<std::istream>>(std::move(source_stream)),
+        optional<unique_ptr<istream>>(move(source_stream)),
         S->m_repl_group_token);
 
     // Inject known imports from prior lines (so stdlib etc. stays visible).
@@ -410,12 +428,13 @@ wo_repl_result wo_repl_eval(
         S->m_export_import_map);
 
     // --- 6. Parse ---
-    wo::ast::AstBase* ast_root = nullptr;
+    AstBase* ast_root = nullptr;
     bool is_incomplete = false;
 
     if (!lex->has_error())
     {
-        ast_root = wo::parser::parse_program(*lex, &is_incomplete);
+        auto parsed_root = parser::parse_program(*lex, &is_incomplete);
+        ast_root = parsed_root.value_or(nullptr);
         lex->drop_macro_vm_and_code_env();
     }
 
@@ -431,18 +450,18 @@ wo_repl_result wo_repl_eval(
     }
 
     // --- 7. Run compiler pipeline (pass0 -> pass1 -> passir) ---
-    if (ast_root == nullptr 
-        || lc->process(*lex, ast_root) != wo::compile_result::PROCESS_OK)
+    if (ast_root == nullptr
+        || lc->process(*lex, ast_root) != compile_result::PROCESS_OK)
     {
         if (out_errors)
         {
             lex->realize_pending_diagnose(lc);
-            *out_errors = _wo_make_compile_errors(std::move(lex));
+            *out_errors = make_compile_errors(move(lex));
         }
         else
             lex.reset();
 
-        _wo_rollback_new_symbols(root_scope, known_symbols);
+        rollback_new_symbols(root_scope, known_symbols);
         return WO_REPL_COMPILE_ERROR;
     }
 
@@ -460,7 +479,7 @@ wo_repl_result wo_repl_eval(
     auto cenv_opt = lc->m_ircontext.finalize(lc->m_repl_context);
     if (!cenv_opt.has_value())
     {
-        _wo_rollback_new_symbols(root_scope, known_symbols);
+        rollback_new_symbols(root_scope, known_symbols);
         return WO_REPL_OUT_OF_MEMORY;
     }
     woort_CodeEnv* const cenv = cenv_opt.value();
@@ -477,7 +496,7 @@ wo_repl_result wo_repl_eval(
     }
 
     // --- 10. Boot the CodeEnv on the session VM ---
-    woort_VMRuntime* const last_vm = woort_vm_swap(S->m_vm);
+    woort_VMRuntime* const last_vm = woort_vm_swap(S->m_vm.value());
 
     woort_value v;
     woort_VmCallStatus status = WOORT_VM_CALL_STATUS_ABORTED;
@@ -497,8 +516,12 @@ wo_repl_result wo_repl_eval(
     {
         // Runtime panic: the VM's ABORT flag is now sticky.
         // Re-create a new vm to run.
-        woort_vm_close(S->m_vm);
-        S->m_vm = woort_vm_create();
+        woort_vm_close(S->m_vm.value());
+        woort_vm* const new_vm = woort_vm_create();
+        if (new_vm != nullptr)
+            S->m_vm.emplace(new_vm);
+        else
+            S->m_vm.reset();
 
         woort_codeenv_drop(cenv);
         return WO_REPL_RUNTIME_ERROR;
@@ -509,7 +532,7 @@ wo_repl_result wo_repl_eval(
     // during boot. Deliver them now: invokes the user callback if one was
     // supplied to wo_repl_create, otherwise writes the text to stdout. Done
     // with the session VM already swapped out, so no GC deadlock risk.
-    (void)woort_REPLPrinter_flush(S->m_repl_printer);
+    (void)woort_REPLPrinter_flush(S->m_repl_printer.value());
 
     // --- 11. Snapshot ALL static values from the booted CodeEnv ---
     // Read back every static slot (including newly declared ones) so the

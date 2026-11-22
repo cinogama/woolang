@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <optional>
 
 namespace wo
 {
@@ -48,26 +49,29 @@ namespace wo
 
         struct extern_lib_guard
         {
-            woort_Dylib* m_extern_library = nullptr;
+            std::optional<woort_Dylib*> m_extern_library;
 
             extern_lib_guard(const std::string& libpath, const std::string& script_path)
             {
-                m_extern_library = woort_dylib_load(
+                woort_Dylib* lib = woort_dylib_load(
                     libpath.c_str(),
                     libpath.c_str(),
                     script_path.c_str(), false);
+                if (lib != nullptr)
+                    m_extern_library.emplace(lib);
             }
             woort_NativeFunction load_func(const char* funcname)
             {
-                if (m_extern_library != nullptr)
-                    return (woort_NativeFunction)woort_dylib_load_func(m_extern_library, funcname);
+                if (m_extern_library.has_value())
+                    return (woort_NativeFunction)woort_dylib_load_func(
+                        m_extern_library.value(), funcname);
 
                 return nullptr;
             }
             ~extern_lib_guard()
             {
-                if (m_extern_library != nullptr)
-                    woort_dylib_unload(m_extern_library, WOORT_DYLIB_UNREF);
+                if (m_extern_library.has_value())
+                    woort_dylib_unload(m_extern_library.value(), WOORT_DYLIB_UNREF);
             }
         };
 
@@ -106,8 +110,8 @@ namespace wo
                 {
                     for (const auto& [libname, guard] : libs)
                     {
-                        if (guard->m_extern_library != nullptr)
-                            handles.push_back(guard->m_extern_library);
+                        if (guard->m_extern_library.has_value())
+                            handles.push_back(guard->m_extern_library.value());
                     }
                 }
                 return handles;

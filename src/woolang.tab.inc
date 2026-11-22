@@ -3615,13 +3615,13 @@ case 352:
 	{
             yyval = R1(pass_token, yystack.l_mark[0]);
 
-            ctx->lex->record_diagnose(
+            ctx->lex.record_diagnose(
                 ::wo::lexer::msglevel_t::error,
                 yystack.l_mark[0].begin.row_no,
                 yystack.l_mark[0].begin.col_no,
                 yystack.l_mark[0].end.row_no,
                 yystack.l_mark[0].end.col_no,
-                ctx->lex->get_source_path(),
+                ctx->lex.get_source_path(),
                 ::wo::diagnose::parser::err_unknown_macro_named{
                     yystack.l_mark[0].tok_identifier->c_str() });
         }

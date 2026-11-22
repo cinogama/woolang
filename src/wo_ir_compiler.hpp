@@ -58,7 +58,7 @@ namespace wo
 
     class IRCompiler
     {
-        /* OPTIONAL */ woort_IRCompiler* m_ircompiler;
+        std::optional<woort_IRCompiler*> m_ircompiler;
 
         IRCompiler(const IRCompiler&) = delete;
         IRCompiler(IRCompiler&&) = delete;
@@ -165,10 +165,10 @@ namespace wo
         void assertdyn(const woort_IRValue* src, woort_BoxValueType t);
 
         /* --- Function Calls --- */
-        void callnwo(woort_IRConstantIndex target, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
-        void callnfp(woort_IRConstantIndex target, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
-        void callnjit(woort_IRConstantIndex target, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
-        void call(const woort_IRValue* func_val, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
+        void callnwo(woort_IRConstantIndex target, uint32_t argc, const std::optional<woort_IRValue*>& dst);
+        void callnfp(woort_IRConstantIndex target, uint32_t argc, const std::optional<woort_IRValue*>& dst);
+        void callnjit(woort_IRConstantIndex target, uint32_t argc, const std::optional<woort_IRValue*>& dst);
+        void call(const woort_IRValue* func_val, uint32_t argc, const std::optional<woort_IRValue*>& dst);
         void packarg(woort_IRValue* dst, uint16_t named_param_count);
 
         /* --- Closures / Containers --- */
