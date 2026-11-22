@@ -21,30 +21,35 @@
 
 #define YYSTYPE ::wo::parser::value
 
+/* The generated parser is compiled as C++, so these need declarations
+ * before the skeleton's calls (the definitions live in wo_lang_parser.cpp). */
+int yylex(::wo::parser::value* yylval, ::wo::parser::context* ctx);
+void yyerror(::wo::parser::context* ctx, const char* s);
+
 #define BID(B)          (::wo::parser::builder_id< ::wo::ast::B >())
-#define R0(B)           (::wo::parser::reduce(BID(B), ctx, {}))
-#define R1(B, A1)       (::wo::parser::reduce(BID(B), ctx, { A1 }))
-#define R2(B, A1, A2)   (::wo::parser::reduce(BID(B), ctx, { A1, A2 }))
+#define R0(B)           (::wo::parser::reduce(BID(B), *ctx, {}))
+#define R1(B, A1)       (::wo::parser::reduce(BID(B), *ctx, { A1 }))
+#define R2(B, A1, A2)   (::wo::parser::reduce(BID(B), *ctx, { A1, A2 }))
 #define R3(B, A1, A2, A3) \
-    (::wo::parser::reduce(BID(B), ctx, { A1, A2, A3 }))
+    (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3 }))
 #define R4(B, A1, A2, A3, A4) \
-    (::wo::parser::reduce(BID(B), ctx, { A1, A2, A3, A4 }))
+    (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3, A4 }))
 #define R5(B, A1, A2, A3, A4, A5) \
-    (::wo::parser::reduce(BID(B), ctx, { A1, A2, A3, A4, A5 }))
+    (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3, A4, A5 }))
 #define R6(B, A1, A2, A3, A4, A5, A6) \
-    (::wo::parser::reduce(BID(B), ctx, { A1, A2, A3, A4, A5, A6 }))
+    (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3, A4, A5, A6 }))
 #define R7(B, A1, A2, A3, A4, A5, A6, A7) \
-    (::wo::parser::reduce(BID(B), ctx, { A1, A2, A3, A4, A5, A6, A7 }))
+    (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3, A4, A5, A6, A7 }))
 #define R8(B, A1, A2, A3, A4, A5, A6, A7, A8) \
-    (::wo::parser::reduce(BID(B), ctx, { A1, A2, A3, A4, A5, A6, A7, A8 }))
+    (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3, A4, A5, A6, A7, A8 }))
 #define R9(B, A1, A2, A3, A4, A5, A6, A7, A8, A9) \
-    (::wo::parser::reduce(BID(B), ctx, { A1, A2, A3, A4, A5, A6, A7, A8, A9 }))
+    (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3, A4, A5, A6, A7, A8, A9 }))
 #define R10(B, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) \
-    (::wo::parser::reduce(BID(B), ctx, { A1, A2, A3, A4, A5, A6, A7, A8, A9, A10 }))
+    (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3, A4, A5, A6, A7, A8, A9, A10 }))
 #define R11(B, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) \
-    (::wo::parser::reduce(BID(B), ctx, { A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11 }))
+    (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11 }))
 #define R12(B, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) \
-    (::wo::parser::reduce(BID(B), ctx, { A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12 }))
+    (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12 }))
 
 /* pass_append_list<from, to> has a comma in its template argument list;
  * alias it so it can be passed to the R<n> macros as a single macro argument. */

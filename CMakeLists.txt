@@ -12,6 +12,7 @@ option(WO_BUILD_FOR_COVERAGE_TEST       "Build woo for code coverage test." OFF)
 option(WO_BUILD_FOR_ASAN_TEST           "Build woo for code asan test." OFF)
 
 option(WO_DISABLE_COMPILER              "Only keep the runtime, which helps to reduce the file size." OFF)
+option(WO_REGENERATE_PARSER             "Regenerate src/woolang.tab.cpp from src/woolang.y with byacc." OFF)
 option(WO_MAKE_OUTPUT_IN_SAME_PATH      "Build woo lib and driver and output in same path." OFF)
 option(WO_USE_WOORT_DIRECTLY            "Use the woort library directly, without going through woodyn." ON)
 if (NOT WO_USE_WOORT_DIRECTLY)
@@ -116,9 +117,15 @@ endif ()
 add_subdirectory ("src")
 add_subdirectory ("driver")
 
-if (NOT WO_DISABLE_COMPILER AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rd/byacc/CMakeLists.txt")
-    # byacc is only needed to regenerate src/woolang.tab.cpp from src/woolang.y.
-    # The generated files are committed, so the normal build never runs it.
+if (WO_REGENERATE_PARSER AND NOT WO_DISABLE_COMPILER)
+    # Opt-in only: the generated parser is committed, so the default build
+    # never needs byacc or touches src/woolang.y.
+    if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/3rd/byacc/CMakeLists.txt")
+        message(FATAL_ERROR
+            "WO_REGENERATE_PARSER=ON requires the byacc submodule; run: "
+            "git submodule update --init 3rd/byacc")
+    endif()
+
     add_subdirectory("3rd/byacc" "${CMAKE_CURRENT_BINARY_DIR}/byacc" EXCLUDE_FROM_ALL)
 
     add_custom_target(regenerate_parser

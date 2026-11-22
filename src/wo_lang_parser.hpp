@@ -43,7 +43,7 @@ namespace parser
         {
             if (is_ast)
                 return grammar::produce(ast);
-            return grammar::produce(grammar::token{tok_type, tok_identifier});
+            return grammar::produce(::wo::token{tok_type, tok_identifier});
         }
     };
 

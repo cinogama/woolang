@@ -77,9 +77,9 @@ namespace parser
         }
         else
         {
-            const grammar::token& token = built.read_token();
-            result.tok_type = token.type;
-            result.tok_identifier = token.identifier;
+            const ::wo::token& built_token = built.read_token();
+            result.tok_type = built_token.type;
+            result.tok_identifier = built_token.identifier;
         }
 
         if (rhs.size() != 0)
