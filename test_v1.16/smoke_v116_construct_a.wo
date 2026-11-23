@@ -3,11 +3,11 @@ import smoke_v116_tool;
 
 /* Declaration-side tests for the 1.16 type/construct modifier split:
 
-       [name access] type Name = [construct access] Base
+       [name access] type Name: [construct access] Base
 
    The modifier before `type`/`enum`/`union` controls name visibility
    (and the default item access of enum/union members), the modifier
-   after `=` / after `enum` / after `union` controls where the type
+   after `:` / after `enum` / after `union` controls where the type
    may be constructed (`as` cast target or struct literal).
 
    No construct modifier means: constructible only in the declaring
@@ -17,8 +17,8 @@ import smoke_v116_tool;
 namespace smoke_v116_construct
 {
     // Name pub, construct permission default = only this file.
-    pub type LocalConstructInt = int;
-    pub type LocalConstructStruct = struct{
+    pub type LocalConstructInt: int;
+    pub type LocalConstructStruct: struct{
         pub value: int,
     };
     pub enum LocalConstructEnum
@@ -28,8 +28,8 @@ namespace smoke_v116_construct
     }
 
     // Name pub and construct permission pub: usable anywhere.
-    pub type OpenInt = pub int;
-    pub type OpenStruct = pub struct{
+    pub type OpenInt: pub int;
+    pub type OpenStruct: pub struct{
         pub value: int,
     };
     pub enum pub OpenEnum
@@ -42,12 +42,12 @@ namespace smoke_v116_construct
         Empty,
         Num(int),
     }
-    pub type OpenBox<T> = pub struct{
+    pub type OpenBox<T>: pub struct{
         pub value: T,
     };
 
     // Generic type declaration + namespace block + pub construct.
-    pub type Wrapper<T> = pub struct{
+    pub type Wrapper<T>: pub struct{
         pub value: T,
     }
     {
@@ -62,7 +62,7 @@ namespace smoke_v116_construct
     }
 
     // Construct permission limited to the type's own namespace.
-    pub type NamespacedInt = internal int
+    pub type NamespacedInt: internal int
     {
         pub func make(v: int)=> NamespacedInt
         {

@@ -16,7 +16,7 @@ namespace smoke_v116_internal
 
     // `internal` name + `pub` construct: name is only reachable inside
     // this namespace, but construction is not restricted.
-    internal type InnerInt = pub int;
+    internal type InnerInt: pub int;
 
     internal func make_inner(v: int)=> InnerInt
     {

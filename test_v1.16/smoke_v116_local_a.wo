@@ -23,7 +23,7 @@ local func explicit_local_helper()
     return explicit_local_value;
 }
 
-type file_local_pair = struct{
+type file_local_pair: struct{
     pub v: int,
 }
 {

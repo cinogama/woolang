@@ -9,7 +9,7 @@ import smoke_v116_tool;
      - `type` replaces `using` for type definitions, and the old
        public/private/protected modifiers are gone;
      - name visibility (pub/internal/local) is separated from
-       construct permission (modifier after `=` / enum / union);
+       construct permission (modifier after `:` / enum / union);
      - local symbols are per source file, while non-local symbols still
        conflict with every local of the same name;
      - internal-construct types are constructible only inside the
@@ -91,11 +91,11 @@ namespace smoke_v116_negative
             decl_vpath,
             @"namespace decl
               {
-                  pub type ClosedInt = int;
-                  pub type OpenInt = pub int;
+                  pub type ClosedInt: int;
+                  pub type OpenInt: pub int;
 
-                  pub type ClosedStruct = struct{ pub v: int };
-                  pub type OpenStruct = pub struct{ pub v: int };
+                  pub type ClosedStruct: struct{ pub v: int };
+                  pub type OpenStruct: pub struct{ pub v: int };
 
                   pub enum ClosedEnum { A, B }
                   pub enum pub OpenEnum { A, B }
@@ -110,7 +110,7 @@ namespace smoke_v116_negative
 
                   pub union pub OpenUnion { Plain, Num(int) }
 
-                  pub type InternalInt = internal int
+                  pub type InternalInt: internal int
                   {
                       pub func make(v: int)=> InternalInt
                       {
@@ -119,10 +119,10 @@ namespace smoke_v116_negative
                   }
 
                   // Local name: not reachable from other files at all.
-                  type LocalName = pub int;
+                  type LocalName: pub int;
 
                   // Internal name, default (declaring-file) construct.
-                  internal type InternalClosed = int;
+                  internal type InternalClosed: int;
                   pub func use_internal_closed()=> int
                   {
                       let v = 1 as InternalClosed;
@@ -191,10 +191,14 @@ namespace smoke_v116_negative
         // Old type declaration syntax is no longer accepted.
         expect_fail("old using type define", "using Foo = int;");
 
-        // New type declaration syntax.
-        expect_ok("new type define", "type Foo = int;");
-        expect_ok("pub type define", "pub type Foo = pub int;");
-        expect_fail("type define without assign", "type Foo int;");
+        // New type declaration syntax: the connector is `:`.
+        expect_ok("new type define", "type Foo: int;");
+        expect_ok("pub type define", "pub type Foo: pub int;");
+        expect_fail("type define without colon", "type Foo int;");
+
+        // The former `=` connector is no longer accepted.
+        expect_fail("type define with old assign", "type Foo = int;");
+        expect_fail("alias define with old assign", "alias Foo = int;");
 
         // Old access modifiers became ordinary identifiers.
         expect_fail("old public modifier", "public func foo(){}");
@@ -219,7 +223,7 @@ namespace smoke_v116_negative
         expect_fail("dup local let", "namespace n { local let a = 1; local let a = 2; }");
         expect_fail("local then pub", "namespace n { let a = 1; pub let a = 2; }");
         expect_fail("pub then local", "namespace n { pub let a = 1; let a = 2; }");
-        expect_fail("dup type", "namespace n { type T = int; type T = int; }");
+        expect_fail("dup type", "namespace n { type T: int; type T: int; }");
         expect_fail("dup local func", "namespace n { local func f(){} local func f(){} }");
         expect_fail("pub func then local func", "namespace n { pub func f(){} func f(){} }");
 
@@ -239,29 +243,29 @@ namespace smoke_v116_negative
         // Casting and struct literals use the construct modifier; the
         // default permission is limited to the declaring file.
         expect_ok("default construct in same file",
-            "type T = struct{ pub v: int }; func f(){ let x = T{ v = 1 }; do x; }");
+            "type T: struct{ pub v: int }; func f(){ let x = T{ v = 1 }; do x; }");
         expect_ok("explicit local construct in same file",
-            "type T = local struct{ pub v: int }; func f(){ let x = T{ v = 1 }; do x; }");
+            "type T: local struct{ pub v: int }; func f(){ let x = T{ v = 1 }; do x; }");
         expect_ok("pub construct in same file",
-            "type T = pub int; func f(){ let x = 1 as T; do x; }");
+            "type T: pub int; func f(){ let x = 1 as T; do x; }");
 
         // `internal` requires the type's own namespace; it is not
         // constructible in the parent namespace, not even in the
         // declaring file.
         expect_fail("internal construct without namespace",
-            "pub type T = internal int; func f(){ let x = 1 as T; do x; }");
+            "pub type T: internal int; func f(){ let x = 1 as T; do x; }");
         expect_fail("internal construct in parent namespace",
-            "namespace a { pub type T = internal int { pub func make(v: int)=> T { return v as T; } } func f(){ let x = 1 as T; do x; } }");
+            "namespace a { pub type T: internal int { pub func make(v: int)=> T { return v as T; } } func f(){ let x = 1 as T; do x; } }");
         expect_ok("internal construct in own namespace",
-            "pub type T = internal int { pub func make(v: int)=> T { return v as T; } } func f(){ let x = T::make(1); do x; }");
+            "pub type T: internal int { pub func make(v: int)=> T { return v as T; } } func f(){ let x = T::make(1); do x; }");
 
         // Name visibility remains independent.
         expect_ok("internal name same namespace",
-            "namespace a { internal type T = pub int; } namespace a { func f(){ let x = 1 as T; do x; } }");
+            "namespace a { internal type T: pub int; } namespace a { func f(){ let x = 1 as T; do x; } }");
         expect_ok("internal name child namespace",
-            "namespace a { internal type T = pub int; } namespace a::b { func f(){ let x = 1 as T; do x; } }");
+            "namespace a { internal type T: pub int; } namespace a::b { func f(){ let x = 1 as T; do x; } }");
         expect_fail("internal name outside namespace",
-            "namespace a { internal type T = pub int; } func f(){ let x = 1 as a::T; do x; }");
+            "namespace a { internal type T: pub int; } func f(){ let x = 1 as a::T; do x; }");
     }
 
     func test_item_modifiers()

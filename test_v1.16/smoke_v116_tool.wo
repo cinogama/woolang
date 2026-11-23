@@ -5,7 +5,7 @@ import pkg::std;
    `using` type definitions became `type`, and access modifiers are
    now pub / internal / local. */
 
-type test_func_pair = struct{
+type test_func_pair: struct{
     name: string,
     function: ()=> void,
 };
