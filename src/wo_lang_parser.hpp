@@ -31,14 +31,16 @@ namespace parser
         ast::AstBase* ast;
         lex_type tok_type;
         wo_pstring_t tok_identifier;
+
+        /* Source span of this value: `begin` is where its first RHS symbol
+         * starts, `end` just past its last token (a token's own end for
+         * terminals, forwarded from the RHS for nonterminals).  The old
+         * LR(1) driver read a node's end from the lookahead token's
+         * pre-begin, i.e. from the end of the token before it; byacc may
+         * perform default reductions without reading a lookahead, so the
+         * value carries it forward instead. */
         source_info begin;
         source_info end;
-
-        /* The start of the last token that belongs to this value.  The old
-         * LR(1) driver read this from the lookahead token's pre-begin; byacc
-         * may perform default reductions without reading a lookahead, so the
-         * value carries it forward instead. */
-        source_info last_token_begin;
 
         ::wo::produce to_produce() const
         {

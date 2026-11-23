@@ -27,7 +27,6 @@ namespace parser
             result.end = source_info{
                 ctx.lookahead.m_token_end[0],
                 ctx.lookahead.m_token_end[1] };
-            result.last_token_begin = result.begin;
         }
 
         return result;
@@ -86,7 +85,7 @@ namespace parser
                 if (item.has_token)
                 {
                     result.has_token = true;
-                    result.last_token_begin = item.last_token_begin;
+                    result.end = item.end;
                 }
             }
         }
@@ -98,9 +97,7 @@ namespace parser
         }
 
         if (!result.has_token)
-            result.last_token_begin = result.begin;
-
-        result.end = result.last_token_begin;
+            result.end = result.begin;
 
         if (result.is_ast)
         {
@@ -180,7 +177,6 @@ namespace parser
             yylval->end = source_info{
                 peeked->m_token_end[0],
                 peeked->m_token_end[1] };
-            yylval->last_token_begin = yylval->begin;
 
             if (peeked->m_lex_type == lex_type::l_eof)
             {
