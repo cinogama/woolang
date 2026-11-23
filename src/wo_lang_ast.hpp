@@ -1157,7 +1157,7 @@ namespace wo
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         // Declares a new nominal type based on another type:
-        //     type Name = Base;
+        //     type Name: Base;
         // The new type has the same representation as Base but is distinct
         // from it. enum/union declarations also build this node for their
         // underlying named type.
@@ -1169,7 +1169,7 @@ namespace wo
             AstTypeHolder* m_type;
             std::optional<AstDeclareAttribue*>
                 m_attribute;
-            // Modifier after '=', or after `enum` / `union`, controls whether
+            // Modifier after ':', or after `enum` / `union`, controls whether
             // this type can be constructed (as a cast target or by struct
             // literal) outside the declaring file.
             std::optional<AstDeclareAttribue::accessc_attrib>

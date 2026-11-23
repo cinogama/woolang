@@ -319,7 +319,7 @@ namespace wo
             // Builtin & compiler generated symbol is always constructible.
             return true;
 
-        // Construction permission is declared by the modifier after '=' in a
+        // Construction permission is declared by the modifier after ':' in a
         // `type` declaration; it is independent from the name visibility
         // (the modifier before `type`). Default: only the declaring file.
         // `internal` means the type can only be constructed or cast inside

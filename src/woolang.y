@@ -244,7 +244,7 @@ SENTENCE
         {
             $$ = R2(pass_type_declare_namespace, $1, $2);
         }
-    | DECL_ATTRIBUTE T_l_alias IDENTIFIER DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY T_l_assign TYPE T_l_semicolon
+    | DECL_ATTRIBUTE T_l_alias IDENTIFIER DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY T_l_typemark TYPE T_l_semicolon
         {
             $$ = R7(pass_alias_type_as, $1, $2, $3, $4, $5, $6, $7);
         }
@@ -335,7 +335,7 @@ IMPORT_SENTENCE
     ;
 
 DECL_TYPE
-    : DECL_ATTRIBUTE T_l_type IDENTIFIER DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY T_l_assign ACCESS_MODIFIER_MAY_EMPTY TYPE
+    : DECL_ATTRIBUTE T_l_type IDENTIFIER DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY T_l_typemark ACCESS_MODIFIER_MAY_EMPTY TYPE
         {
             $$ = R7(pass_type_declare, $1, $2, $3, $4, $5, $6, $7);
         }
