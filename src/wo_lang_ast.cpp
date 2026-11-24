@@ -2374,6 +2374,65 @@ namespace wo
 
         ////////////////////////////////////////////////////////
 
+        AstAliasValueDeclare::AstAliasValueDeclare(const AstAliasValueDeclare& item)
+            : AstBase(AST_ALIAS_VALUE_DECLARE)
+            , m_typename(item.m_typename)
+            , m_template_parameters(item.m_template_parameters)
+            , m_value(item.m_value)
+            , m_attribute(item.m_attribute)
+            , m_LANG_declared_symbol(nullopt)
+        {
+        }
+        AstAliasValueDeclare::AstAliasValueDeclare(
+            const optional<AstDeclareAttribue*>& attrib,
+            wo_pstring_t typename_,
+            const optional<vector<AstTemplateParam*>>& template_parameters,
+            AstValueBase* value)
+            : AstBase(AST_ALIAS_VALUE_DECLARE)
+            , m_typename(typename_)
+            , m_template_parameters(template_parameters)
+            , m_value(value)
+            , m_attribute(attrib)
+            , m_LANG_declared_symbol(nullopt)
+        {
+        }
+        AstBase* AstAliasValueDeclare::make_dup(optional<AstBase*> exist_instance, ContinuesList& out_continues) const
+        {
+            AstAliasValueDeclare* new_instance = exist_instance
+                ? static_cast<AstAliasValueDeclare*>(exist_instance.value())
+                : new AstAliasValueDeclare(*this)
+                ;
+
+            out_continues.push_back(AstBase::make_holder(&new_instance->m_value));
+            if (m_attribute)
+                out_continues.push_back(AstBase::make_holder(&new_instance->m_attribute.value()));
+            return new_instance;
+        }
+        AstIdentifier* AstAliasValueDeclare::get_value_alias_target_identifier(AstValueBase* value)
+        {
+            // `mut foo` / `immut foo` carry no meaning for an alias: the
+            // mutability always follows the target.
+            for (;;)
+            {
+                switch (value->node_type)
+                {
+                case AstBase::AST_VALUE_MARK_AS_MUTABLE:
+                    value = static_cast<AstValueMarkAsMutable*>(value)->m_marked_value;
+                    break;
+                case AstBase::AST_VALUE_MARK_AS_IMMUTABLE:
+                    value = static_cast<AstValueMarkAsImmutable*>(value)->m_marked_value;
+                    break;
+                default:
+                    if (value->node_type != AstBase::AST_VALUE_VARIABLE)
+                        return nullptr;
+
+                    return static_cast<AstValueVariable*>(value)->m_identifier;
+                }
+            }
+        }
+
+        ////////////////////////////////////////////////////////
+
         AstEnumItem::AstEnumItem(
             const optional<AstDeclareAttribue::accessc_attrib>& attribute,
             wo_pstring_t name, optional<AstValueBase*> value)

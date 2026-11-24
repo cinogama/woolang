@@ -76,6 +76,20 @@ namespace wo
             }
         };
 
+        struct err_value_alias_target_not_determined final
+        {
+            lang_Symbol* m_symbol;
+            std::string render(LangContext* lang) const
+            {
+                return format(u8"值别名 `%s` 的目标无法确定（可能是循环别名或目标声明失败）",
+                    lang->get_symbol_name(m_symbol));
+            }
+            bool operator==(const err_value_alias_target_not_determined& a) const
+            {
+                return m_symbol == a.m_symbol;
+            }
+        };
+
         struct err_ambiguous_target_named final
         {
             std::string m_name;

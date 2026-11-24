@@ -406,6 +406,15 @@ namespace wo::diagnose::parser
         bool operator==(const err_arg_define_after_expand_vecarr&) const { return true; }
     };
 
+    struct err_value_alias_rhs_must_be_name final
+    {
+        std::string render(LangContext* lang) const
+        {
+            return u8"值别名的右侧必须是函数或变量名";
+        }
+        bool operator==(const err_value_alias_rhs_must_be_name&) const { return true; }
+    };
+
     struct err_unknown_type final
     {
         std::string render(LangContext* lang) const

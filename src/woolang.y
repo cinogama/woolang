@@ -251,6 +251,10 @@ SENTENCE
         {
             $$ = R7(pass_alias_type_as, $1, $2, $3, $4, $5, $6, $7);
         }
+    | DECL_ATTRIBUTE T_l_alias IDENTIFIER DEFINE_TEMPLATE_PARAM_ITEM_MAY_EMPTY T_l_assign EXPRESSION T_l_semicolon
+        {
+            $$ = R7(pass_alias_value_as, $1, $2, $3, $4, $5, $6, $7);
+        }
     | DECL_ENUM
         {
             $$ = R1(pass_direct<0>, $1);

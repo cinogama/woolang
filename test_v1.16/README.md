@@ -33,10 +33,11 @@ cd test_v1.16
 | `smoke_v116_local_a.wo` / `_b.wo` | local 符号局部化（3243a3b1）：不同文件可在同一命名空间/根作用域声明同名 `local`/无修饰符符号，并各自解析 |
 | `smoke_v116_internal_a.wo` / `_b.wo` | `internal` 可见性：同命名空间跨文件、子命名空间可访问；`internal` 名字 + `pub` 构造可跨文件构造 |
 | `smoke_v116_construct_a.wo` / `_b.wo` | 构造修饰符分离（1ee99df8 / a89146a6 / 3f0ccdf9）：`A type Name: B Base`、`A enum B Name`、`A union B Name`；默认仅声明文件可构造、`internal` 仅类型自身命名空间可构造、`pub` 全局可构造；enum/union item 级修饰符；泛型类型 + 命名空间块 |
-| `smoke_v116_negative.wo` | 负向/回归测试（dumpling 内存编译）：旧语法 `using X = ...`、`type X = ...` / `alias X = ...`（旧 `=` 连接符）、`public` 等不再接受；同文件 local 重定义、local 与非 local 冲突；跨文件 local/pub 冲突与两文件同名 local 共存；构造权限矩阵；枚举/联合 item 权限；REPL 失败求值回滚（ec2b3cdc） |
+| `smoke_v116_negative.wo` | 负向/回归测试（dumpling 内存编译）：旧语法 `using X = ...`、`type X = ...`（旧 `=` 连接符）、`public` 等不再接受；`alias X = ...` 现在表示值别名，因此 `alias X = int` 仍失败（右侧必须是值名）；同文件 local 重定义、local 与非 local 冲突；跨文件 local/pub 冲突与两文件同名 local 共存；构造权限矩阵；枚举/联合 item 权限；REPL 失败求值回滚（ec2b3cdc） |
+| `smoke_v116_value_alias.wo` | 值别名 `alias A = foo`（函数/变量名字重定向，读写落到目标存储）、泛型值别名 `alias A<T> = foo:<T>` / `alias A<T> = typeof<T>::foo`、非泛型别名透传 `A:<int>(...)`、别名链、`pub alias` 导出文件内符号；负向：RHS 非名字、值别名当类型、循环别名、泛型别名缺实参 |
 | `smoke_v116_macro.wo` | 宏子系统冒烟（`#macro` 展开 + lexer token 类型与 `wo::lex_type` 的数值对齐） |
 
-当前共 9 个用例、164 个断言。
+当前共 10 个用例、196 个断言。
 
 ## 历史问题（已修复）
 

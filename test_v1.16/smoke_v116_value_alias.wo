@@ -1,0 +1,281 @@
+import pkg::std;
+import pkg::dumpling;
+import pkg::buffer;
+import smoke_v116_tool;
+
+/* Value aliases: `alias A = foo` redirects the name A to the function or
+   variable `foo` (a name-level alias, not a value copy), and generic value
+   aliases `alias A<T> = foo:<T>` / `alias A<T> = typeof<T>::foo` bind the
+   alias parameters while leaving the target's own pending parameters to be
+   deduced at the reference / call site.
+
+   Expression-position generic arguments are spelled `:<...>`; `typeof<T>`
+   keeps its `<...>` type form. */
+
+namespace smoke_v116_value_alias
+{
+    let mut counter = 0;
+    let base_value = 40;
+
+    func bump()
+    {
+        counter += 1;
+    }
+
+    func bump_by(v: int)
+    {
+        counter += v;
+    }
+
+    func identity<T>(v: T) => T
+    {
+        return v;
+    }
+
+    func make_pair<A, B>(a: A, b: B) => (A, B)
+    {
+        return (a, b);
+    }
+
+    func apply_one(f: (int) => int, v: int) => int
+    {
+        return f(v);
+    }
+
+    // Type-extension namespace: `typeof<T>::foo` names its members.
+    type Ops: int
+    {
+        pub func twice(v: int) => int
+        {
+            return v * 2;
+        }
+        pub func adapt<T>(v: T) => T
+        {
+            return v;
+        }
+    }
+
+    //////////////////////////////////////
+    // positive cases
+
+    func test_basic_aliases()
+    {
+        counter = 0;
+
+        alias inc = bump;
+        alias add_to_counter = bump_by;
+        alias base = base_value;
+
+        inc();
+        test_equal(counter, 1);
+
+        add_to_counter(4);
+        test_equal(counter, 5);
+
+        test_equal(base, 40);
+
+        // A function alias is an ordinary function value.
+        alias twice = typeof<Ops>::twice;
+        test_equal(apply_one(twice, 3), 6);
+    }
+
+    func test_variable_alias()
+    {
+        counter = 0;
+        alias c = counter;
+
+        test_equal(c, 0);
+
+        // Writing through the alias hits the target's storage.
+        c = 7;
+        test_equal(counter, 7);
+
+        counter = 9;
+        test_equal(c, 9);
+
+        // Local variable alias inside a function body keeps the same storage.
+        let mut local_value = 1;
+        alias lv = local_value;
+
+        lv += 2;
+        test_equal(local_value, 3);
+    }
+
+    func test_generic_aliases()
+    {
+        // Non-generic alias of a generic target: the target's parameters are
+        // deduced at the call site, or passed explicitly through the alias.
+        alias id = identity;
+        test_equal(id(3), 3);
+        test_equal(id:<string>("s"), "s");
+
+        // Partial binding: A is bound by the alias, B is still deduced.
+        alias pair_int = make_pair:<int>;
+        let p = pair_int(1, "x");
+        test_equal(p.0, 1);
+        test_equal(p.1, "x");
+
+        // Generic alias: `:<T>` is the value-position generic argument form.
+        alias id2<T> = identity:<T>;
+        test_equal(id2:<int>(5), 5);
+        test_equal(id2:<string>("v"), "v");
+
+        // Alias chaining specializes the generic alias first.
+        alias id_int = id2:<int>;
+        test_equal(id_int(6), 6);
+    }
+
+    func test_type_namespace_aliases()
+    {
+        alias twice_of<T> = typeof<T>::twice;
+        alias adapt_of<T> = typeof<T>::adapt;
+
+        // `twice` is not generic: the alias only selects it through T.
+        test_equal(twice_of:<Ops>(3), 6);
+
+        // `adapt` is still generic: its parameter is deduced from the argument
+        // even though the alias already consumed its own T.
+        test_equal(adapt_of:<Ops>(4), 4);
+        test_equal(adapt_of:<Ops>("text"), "text");
+
+        // Chaining a partially applied alias keeps the pending generic target.
+        alias ops_twice = twice_of:<Ops>;
+        test_equal(ops_twice(5), 10);
+
+        alias ops_adapt = adapt_of:<Ops>;
+        test_equal(ops_adapt(6), 6);
+    }
+
+    //////////////////////////////////////
+    // negative / cross-file cases (compiled on the fly through dumpling)
+
+    let lib_vpath = "smoke_v116_value_alias_neg/lib.wo";
+
+    func compile(source: string) => bool
+    {
+        let r = dumpling::Program::create(
+            "smoke_v116_value_alias_neg_tmp.wo", source as buffer, false);
+
+        match (r)
+        {
+            ok(_)?
+                return true;
+            err(_)?
+                return false;
+        }
+    }
+
+    func compile_with_lib(source: string) => bool
+    {
+        return compile("import smoke_v116_value_alias_neg::lib;\n" + source);
+    }
+
+    func expect_ok(name: string, source: string)
+    {
+        if (!compile(source))
+        {
+            std::println("Expected compile success but failed:", name);
+            test_assure(false);
+        }
+        else
+            test_assure(true);
+    }
+
+    func expect_fail(name: string, source: string)
+    {
+        if (compile(source))
+        {
+            std::println("Expected compile failure but succeeded:", name);
+            test_assure(false);
+        }
+        else
+            test_assure(true);
+    }
+
+    func expect_cross_ok(name: string, source: string)
+    {
+        if (!compile_with_lib(source))
+        {
+            std::println("Expected cross-file compile success but failed:", name);
+            test_assure(false);
+        }
+        else
+            test_assure(true);
+    }
+
+    func expect_cross_fail(name: string, source: string)
+    {
+        if (compile_with_lib(source))
+        {
+            std::println("Expected cross-file compile failure but succeeded:", name);
+            test_assure(false);
+        }
+        else
+            test_assure(true);
+    }
+
+    func register_lib_file()
+    {
+        do dumpling::VFile::register(
+            lib_vpath,
+            @"namespace valib
+              {
+                  func hidden(v: int) => int { return v + 1; }
+                  func hidden_generic<T>(v: T) => T { return v; }
+
+                  // A public alias may expose a file-local target: the access
+                  // modifier only governs the name's reachability.
+                  pub alias exported = hidden;
+                  pub alias exported_generic = hidden_generic;
+              }"@ as buffer,
+            false);
+    }
+
+    func test_negative_cases()
+    {
+        register_lib_file();
+
+        // The right-hand side of a value alias must be a name.
+        expect_fail("alias rhs literal", "alias X = 1;");
+        expect_fail("alias rhs type", "alias X = int;");
+        expect_fail("alias rhs call", "func f() => int { return 1; } alias X = f();");
+
+        // A value alias is not a type.
+        expect_fail("value alias as type",
+            "func f() {} alias g = f; func h(x: g) {}");
+
+        // Recursive alias chain.
+        expect_fail("recursive alias", "alias A = B; alias B = A;");
+
+        // A generic alias still needs its own arguments.
+        expect_fail("generic alias without arguments",
+            "func f<T>(v: T) => T { return v; } alias A<T> = f:<T>; let r = A(1);");
+
+        // Plain shapes that must keep working.
+        expect_ok("basic value alias",
+            "let mut v = 1; alias a = v; func f() { a = 2; }");
+        expect_ok("alias of generic target",
+            "func f<T>(v: T) => T { return v; } alias g = f; func h() => int { return g(1); }");
+        expect_ok("generic value alias",
+            "func f<T>(v: T) => T { return v; } alias g<T> = f:<T>; func h() => int { return g:<int>(2); }");
+
+        // Cross-file: the pub alias name is usable, its local target is not.
+        expect_cross_ok("pub alias exports local target",
+            "func use_it() => int { return valib::exported(1); }");
+        expect_cross_ok("pub alias exports generic local target",
+            "func use_it() => int { return valib::exported_generic(2); }");
+        expect_cross_fail("alias target stays file-local",
+            "func use_it() => int { return valib::hidden(1); }");
+    }
+
+    func main()
+    {
+        test_basic_aliases();
+        test_variable_alias();
+        test_generic_aliases();
+        test_type_namespace_aliases();
+        test_negative_cases();
+    }
+}
+
+test_function("smoke_v116_value_alias.main", smoke_v116_value_alias::main);

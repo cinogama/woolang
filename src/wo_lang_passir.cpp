@@ -313,6 +313,7 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstLabeled, AstBase::AST_LABELED, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstTypeDeclare, AstBase::AST_TYPE_DECLARE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, passir_A);
+        WO_LANG_REGISTER_PROCESSER(AstAliasValueDeclare, AstBase::AST_ALIAS_VALUE_DECLARE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstUsingNamespace, AstBase::AST_USING_NAMESPACE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, passir_A);
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, passir_A);
@@ -408,6 +409,13 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstAliasTypeDeclare)
     {
+        wo_assert(state == UNPROCESSED);
+        return OKAY;
+    }
+    WO_PASS_PROCESSER(AstAliasValueDeclare)
+    {
+        // A value alias only redirects a name at pass1; it never produces
+        // code and must not traverse its right-hand side expression.
         wo_assert(state == UNPROCESSED);
         return OKAY;
     }

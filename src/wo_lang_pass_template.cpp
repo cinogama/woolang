@@ -459,10 +459,17 @@ namespace wo
             AstTemplateConstantTypeCheckInPass1* checker =
                 new AstTemplateConstantTypeCheckInPass1(result->m_ast);
 
+            // Value aliases behave like template variables: `nothing` is not
+            // accepted as a constant argument for them either.
+            const bool make_instance_for_variable =
+                templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                || (templating_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS
+                    && templating_symbol->m_template_alias_instances->m_is_value_alias);
+
             if (!check_template_argument_count_and_type(lex, node, template_arguments, *template_params)
                 || !fast_check_and_create_template_type_alias_and_constant_in_current_scope(
                     lex,
-                    templating_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE,
+                    make_instance_for_variable,
                     *template_params,
                     template_arguments,
                     checker))
@@ -541,14 +548,34 @@ namespace wo
             lang_TemplateAstEvalStateAlias* template_eval_instance_alias =
                 static_cast<lang_TemplateAstEvalStateAlias*>(template_eval_instance);
 
-            AstTypeHolder* ast_type = static_cast<AstTypeHolder*>(
-                template_eval_instance_alias->m_ast);
-
             auto* new_template_alias_instance =
                 template_eval_instance_alias->m_alias_instance.get();
 
-            new_template_alias_instance->m_determined_type = ast_type->m_LANG_determined_type;
-            wo_assert(new_template_alias_instance->m_determined_type.has_value());
+            if (templating_symbol->m_template_alias_instances->m_is_value_alias)
+            {
+                // Value alias: the cloned identifier has already been resolved
+                // in the instantiated parameter scope. Record the target this
+                // instance redirects to.
+                AstIdentifier* target_identifier = static_cast<AstIdentifier*>(
+                    template_eval_instance_alias->m_ast);
+
+                wo_assert(target_identifier != nullptr
+                    && target_identifier->m_LANG_determined_symbol.has_value());
+                wo_assert(new_template_alias_instance->m_is_value_alias);
+
+                new_template_alias_instance->m_determined_value_target =
+                    lang_ValueAliasTarget{
+                        target_identifier->m_LANG_determined_symbol.value(),
+                        _collect_identifier_template_arguments(target_identifier) };
+            }
+            else
+            {
+                AstTypeHolder* ast_type = static_cast<AstTypeHolder*>(
+                    template_eval_instance_alias->m_ast);
+
+                new_template_alias_instance->m_determined_type = ast_type->m_LANG_determined_type;
+                wo_assert(new_template_alias_instance->m_determined_type.has_value());
+            }
 
             template_eval_instance_alias->m_state =
                 lang_TemplateAstEvalStateAlias::state::EVALUATED;
@@ -1663,11 +1690,22 @@ namespace wo
             if (find_symbol_in_current_scope(lex, function_variable_identifier, nullopt))
             {
                 lang_Symbol* function_symbol = function_variable_identifier->m_LANG_determined_symbol.value();
+
+                // Arguments appended by a value alias (or a previous deduction
+                // step) already fill the leading template parameters.
+                const size_t provided_template_argument_count =
+                    (function_variable_identifier->m_template_arguments.has_value()
+                        ? function_variable_identifier->m_template_arguments.value().size()
+                        : 0)
+                    + (function_variable_identifier->m_LANG_determined_and_appended_template_arguments.has_value()
+                        ? function_variable_identifier->m_LANG_determined_and_appended_template_arguments.value().size()
+                        : 0);
+
                 if (function_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
                     && function_symbol->m_is_template
                     && !function_symbol->m_template_value_instances->m_mutable
                     && function_symbol->m_template_value_instances->m_origin_value_ast->node_type == AstBase::AST_VALUE_FUNCTION
-                    && (!function_variable_identifier->m_template_arguments.has_value()
+                    && (provided_template_argument_count == 0
                         /*
                         Here, as long as the number of generic arguments is greater than or equal to the
                         number of generic parameters, it is considered that the arguments have been filled.
@@ -1675,8 +1713,8 @@ namespace wo
                         Parameter count mismatch issues will be handled elsewhere, this function only checks
                         whether the arguments are satisfied.
                         */
-                        || (function_symbol->m_template_value_instances->m_template_params.size() >
-                            function_variable_identifier->m_template_arguments.value().size())))
+                        || provided_template_argument_count
+                        < function_symbol->m_template_value_instances->m_template_params.size()))
                 {
                     if (function_variable->m_identifier->m_template_arguments.has_value())
                         WO_CONTINUE_PROCESS_LIST(function_variable->m_identifier->m_template_arguments.value());

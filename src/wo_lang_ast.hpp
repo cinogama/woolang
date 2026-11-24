@@ -233,6 +233,26 @@ namespace wo
             std::optional<std::vector<TemplateArgumentInstance>>
                 m_LANG_determined_and_appended_template_arguments;
 
+            // Value alias support: set while this identifier is being
+            // evaluated as the right-hand side of an `alias A = ...`
+            // declaration. In that mode the identifier only resolves the
+            // aliased symbol: the "template argument required" check is
+            // skipped so that a still-generic target is recorded and left to
+            // be deduced at the reference call site.
+            bool                    m_LANG_as_value_alias_rhs = false;
+            // Set once this reference has followed a value alias: the alias
+            // symbol's own accessibility has been checked, so the value
+            // reference must not re-check the target symbol's accessibility
+            // (a `pub alias` may name a private target).
+            bool                    m_LANG_target_reachability_checked = false;
+            // Set while a value alias template instance is being evaluated
+            // for this reference; cleared in the HOLD state that finishes it.
+            std::optional<lang_TemplateAstEvalStateBase*>
+                m_LANG_template_evalating_state;
+            // Set while a typing-advance processes the declaration node of an
+            // unresolved value-alias target (forward reference).
+            bool                    m_LANG_trying_advancing_alias_target = false;
+
             AstIdentifier(
                 wo_pstring_t identifier);
             AstIdentifier(
@@ -483,6 +503,7 @@ namespace wo
                 UNPROCESSED,
                 HOLD_FOR_FIRST_ARGUMENT_EVAL,
                 HOLD_FOR_FUNCTION_EVAL,
+                HOLD_FOR_FUNCTION_EVAL_ALIAS_RESOLVED,
                 HOLD_FOR_ARGUMENTS_EVAL,
                 HOLD_BRANCH_A_TEMPLATE_ARGUMENT_DEDUCTION,
                 HOLD_BRANCH_B_TEMPLATE_ARGUMENT_DEDUCTION,
@@ -1208,6 +1229,40 @@ namespace wo
                 const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
                 AstTypeHolder* type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        // `alias Name [<T, ...>] = foo`:
+        // Value alias of a function/variable. The right-hand side must be a
+        // plain value name (possibly scoped, possibly with `:<...>` template
+        // arguments) - see `get_value_alias_target_identifier`, which every
+        // consumer uses to unwrap it. Unlike AstAliasTypeDeclare the target is
+        // not evaluated here: the alias only records the target symbol and the
+        // already bound template arguments, and the reference site redirects
+        // itself to the target.
+        struct AstAliasValueDeclare : public AstBase
+        {
+            wo_pstring_t            m_typename;
+            std::optional<std::vector<AstTemplateParam*>>
+                m_template_parameters;
+            AstValueBase* m_value;
+            std::optional<AstDeclareAttribue*>
+                m_attribute;
+            std::optional<lang_Symbol*>
+                m_LANG_declared_symbol;
+
+        private:
+            AstAliasValueDeclare(const AstAliasValueDeclare&);
+        public:
+            AstAliasValueDeclare(
+                const std::optional<AstDeclareAttribue*>& attrib,
+                wo_pstring_t typename_,
+                const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
+                AstValueBase* value);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+
+            // Returns the identifier named by `value` (after unwrapping
+            // `mut` / `immut` marks), or nullptr if `value` is not a plain
+            // value name. Diagnostics are the caller's (builder) job.
+            static AstIdentifier* get_value_alias_target_identifier(AstValueBase* value);
         };
         struct AstEnumItem : public AstBase
         {

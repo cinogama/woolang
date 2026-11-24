@@ -294,6 +294,33 @@ namespace wo
 
             return new AstAliasTypeDeclare(attrib, type_name, in_type_template_params, base_type);
         }
+        auto pass_alias_value_as::build(lexer& lex, const astnode_builder::inputs_t& input)-> produce
+        {
+            optional<AstDeclareAttribue*> attrib = nullopt;
+            token new_name = WO_NEED_TOKEN(2);
+            optional<AstList*> template_params = nullopt;
+            AstValueBase* value = WO_NEED_AST_VALUE(5);
+
+            wo_pstring_t alias_name = new_name.identifier;
+
+            if (!WO_IS_EMPTY(0))
+                attrib = static_cast<AstDeclareAttribue*>(WO_NEED_AST_TYPE(0, AstBase::AST_DECLARE_ATTRIBUTE));
+            if (!WO_IS_EMPTY(3))
+                template_params = static_cast<AstList*>(WO_NEED_AST_TYPE(3, AstBase::AST_LIST));
+
+            if (AstAliasValueDeclare::get_value_alias_target_identifier(value) == nullptr)
+            {
+                // Value aliases only redirect a name: an arbitrary expression
+                // would be evaluated once here and could not alias storage.
+                lex.record_lang_error(lexer::msglevel_t::error, value,
+                    diagnose::parser::err_value_alias_rhs_must_be_name{});
+            }
+
+            optional<vector<AstTemplateParam*>> in_template_params =
+                _process_template_params(template_params);
+
+            return new AstAliasValueDeclare(attrib, alias_name, in_template_params, value);
+        }
         auto pass_build_where_constraint::build(lexer&, const astnode_builder::inputs_t& input)-> produce
         {
             AstList* expr_list = static_cast<AstList*>(WO_NEED_AST_TYPE(1, AstBase::AST_LIST));
@@ -1826,6 +1853,7 @@ namespace wo
             WO_AST_BUILDER(pass_type_declare);
             WO_AST_BUILDER(pass_type_declare_namespace);
             WO_AST_BUILDER(pass_alias_type_as);
+            WO_AST_BUILDER(pass_alias_value_as);
             WO_AST_BUILDER(pass_build_where_constraint);
             WO_AST_BUILDER(pass_func_def_named);
             WO_AST_BUILDER(pass_func_def_oper);

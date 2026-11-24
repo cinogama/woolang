@@ -11,5 +11,6 @@ import smoke_v116_internal_b;
 import smoke_v116_construct_a;
 import smoke_v116_construct_b;
 import smoke_v116_negative;
+import smoke_v116_value_alias;
 
 test_execute_all();

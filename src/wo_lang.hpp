@@ -155,16 +155,35 @@ namespace wo
         void determine_base_type_copy(const DeterminedType& copy_type);
         void determine_base_type_move(DeterminedType&& move_type);
     };
+    // Resolved target of a value alias (`alias A = foo` / `alias A<T> = ...`):
+    // the aliased symbol plus the template arguments already bound by the
+    // alias declaration. References redirect themselves to this pair, so the
+    // target's remaining (still pending) template parameters are deduced at
+    // the reference / call site exactly as if the target had been spelled out.
+    struct lang_ValueAliasTarget
+    {
+        lang_Symbol* m_symbol;
+        std::vector<ast::AstIdentifier::TemplateArgumentInstance>
+            m_template_arguments;
+    };
     struct lang_AliasInstance
     {
         lang_Symbol* m_symbol;
 
+        // True for `alias A = foo` (value alias), false for `alias A: T`.
+        bool m_is_value_alias;
+
         std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
         std::optional<lang_TypeInstance*> m_determined_type;
+        // Value alias target. For non-template aliases it is filled while the
+        // declaration is processed; for template aliases each template
+        // instance owns its own lang_AliasInstance (see lang_TemplateAstEvalStateAlias).
+        std::optional<lang_ValueAliasTarget> m_determined_value_target;
 
         lang_AliasInstance(
             lang_Symbol* symbol,
-            const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
+            const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments,
+            bool is_value_alias = false);
         lang_AliasInstance(const lang_AliasInstance&) = delete;
         lang_AliasInstance(lang_AliasInstance&&) = delete;
         lang_AliasInstance& operator=(const lang_AliasInstance&) = delete;
@@ -286,6 +305,8 @@ namespace wo
 
         lang_TemplateAstEvalStateAlias(
             lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
+        lang_TemplateAstEvalStateAlias(
+            lang_Symbol* symbol, ast::AstIdentifier* value_alias_target, const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
 
     struct lang_Symbol
@@ -295,6 +316,12 @@ namespace wo
             VARIABLE,
             TYPE,
             ALIAS,
+        };
+        // Disambiguates the value-alias template symbol constructor from the
+        // template variable one (both take an AstValueBase*).
+        enum class alias_symbol_tag
+        {
+            VALUE_ALIAS,
         };
 
         using TemplateArgumentListT = std::vector<
@@ -355,13 +382,20 @@ namespace wo
         {
             lang_Symbol* m_symbol;
             std::vector<ast::AstTemplateParam*> m_template_params;
-            ast::AstTypeHolder* m_origin_value_ast;
+            // AstTypeHolder for type aliases; the aliased value expression for
+            // value aliases (`m_is_value_alias` tells which).
+            ast::AstBase* m_origin_value_ast;
+            bool m_is_value_alias;
             std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateAlias>>
                 m_template_instances;
 
             TemplateAliasPrefab(
                 lang_Symbol* symbol,
                 ast::AstTypeHolder* ast,
+                const std::vector<ast::AstTemplateParam*>& template_params);
+            TemplateAliasPrefab(
+                lang_Symbol* symbol,
+                ast::AstValueBase* ast,
                 const std::vector<ast::AstTemplateParam*>& template_params);
 
             lang_TemplateAstEvalStateAlias* find_or_create_template_instance(
@@ -431,8 +465,24 @@ namespace wo
             ast::AstTypeHolder* template_type_base,
             const std::vector<ast::AstTemplateParam*>& template_params,
             bool is_alias);
+        // Template value alias: `alias A<T> = foo:<T>`.
+        lang_Symbol(
+            wo_pstring_t name,
+            const std::optional<ast::AstDeclareAttribue*>& attr,
+            std::optional<ast::AstBase*> symbol_declare_ast,
+            const std::optional<ast::AstBase::source_location_t>& location,
+            lang_Scope* scope,
+            ast::AstValueBase* template_value_alias_base,
+            const std::vector<ast::AstTemplateParam*>& template_params,
+            alias_symbol_tag is_value_alias_tag);
 
         bool is_declared_as_static() const;
+
+        // True for `alias A = foo` (value alias), false for `alias A: T` and
+        // for every other symbol kind. Uses the explicit flag stored in the
+        // alias instance / prefab: a template-parameter alias also has no
+        // determined type, so absence of one cannot be used as the test.
+        bool is_value_alias() const;
     };
 
     // All the symbols declared under one name in a scope.
@@ -1068,6 +1118,7 @@ namespace wo
     WO_AST_MACRO(AstLabeled);\
     WO_AST_MACRO(AstTypeDeclare);\
     WO_AST_MACRO(AstAliasTypeDeclare);\
+    WO_AST_MACRO(AstAliasValueDeclare);\
     WO_AST_MACRO(AstEnumItem);\
     WO_AST_MACRO(AstEnumDeclare);\
     WO_AST_MACRO(AstUnionItem);\
@@ -1092,6 +1143,7 @@ namespace wo
         WO_PASS_PROCESSER(AstVariableDefines, pass0);
         WO_PASS_PROCESSER(AstVariableDefineItem, pass0);
         WO_PASS_PROCESSER(AstAliasTypeDeclare, pass0);
+        WO_PASS_PROCESSER(AstAliasValueDeclare, pass0);
         WO_PASS_PROCESSER(AstTypeDeclare, pass0);
         WO_PASS_PROCESSER(AstEnumDeclare, pass0);
         WO_PASS_PROCESSER(AstUnionDeclare, pass0);
@@ -1153,6 +1205,21 @@ namespace wo
                 lexer& lex,
                 ast::AstIdentifier* ident,
                 const std::optional<bool*>& out_ambig);
+
+        // Reads the already evaluated template arguments of `ident`
+        // (`:<...>` arguments written at the reference, then the ones appended
+        // by an enclosing deduction / value alias).
+        lang_Symbol::TemplateArgumentListT
+            _collect_identifier_template_arguments(
+                ast::AstIdentifier* ident) const;
+        // Redirects `ident` to a value alias target: the identifier now names
+        // `target.m_symbol`, its own template arguments are consumed and the
+        // target arguments (alias-bound first, then `pass_through_arguments`)
+        // become the identifier's appended template arguments.
+        void _apply_value_alias_target_to_identifier(
+            ast::AstIdentifier* ident,
+            const lang_ValueAliasTarget& target,
+            lang_Symbol::TemplateArgumentListT&& pass_through_arguments);
 
         template<typename ... ArgTs>
         bool define_symbol_in_current_scope(
