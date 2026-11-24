@@ -2062,14 +2062,16 @@ namespace wo
                 }
 
                 // Ok, found the namespace.
-                auto symbol_may_null = symbol_namespace->m_this_scope->find_defined_symbol(
-                    ident->m_name, source_group);
-
-                if (symbol_may_null.has_value()
-                    && ident->m_find_type_only != (symbol_may_null.value()->m_symbol_kind == lang_Symbol::kind::VARIABLE))
                 {
-                    found_symbol.insert(symbol_may_null.value());
-                    break; // Break for continue outside loop
+                    auto symbol_may_null = symbol_namespace->m_this_scope->find_defined_symbol(
+                        ident->m_name, source_group);
+
+                    if (symbol_may_null.has_value()
+                        && ident->m_find_type_only != (symbol_may_null.value()->m_symbol_kind == lang_Symbol::kind::VARIABLE))
+                    {
+                        found_symbol.insert(symbol_may_null.value());
+                        break; // Break for continue outside loop
+                    }
                 }
 
             _label_try_upper_namespace:
