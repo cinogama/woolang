@@ -754,30 +754,6 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            // Redirects this identifier to a value alias target. While
-            // resolving the right-hand side of the alias declaration, the
-            // declaration must also be able to name the target (the reference
-            // site instead checks the alias name itself).
-            auto apply_value_alias_target =
-                [&](const lang_ValueAliasTarget& target,
-                    lang_Symbol::TemplateArgumentListT&& pass_through_arguments) -> bool
-                {
-                    _apply_value_alias_target_to_identifier(
-                        node, target, std::move(pass_through_arguments));
-
-                    if (node->m_LANG_as_value_alias_rhs
-                        && !check_symbol_is_reachable_in_current_scope(
-                            lex,
-                            node,
-                            node->m_LANG_determined_symbol.value(),
-                            node->source_location.source_group,
-                            !node->duplicated_node /* TMP: Skip import check in template function. */))
-                    {
-                        return false;
-                    }
-                    return true;
-                };
-
             if (node->m_LANG_template_evalating_state)
             {
                 // A value alias template instance finished evaluating for this
@@ -790,9 +766,10 @@ namespace wo
                 auto* value_alias_eval_state = static_cast<lang_TemplateAstEvalStateValueAlias*>(eval_state);
                 wo_assert(value_alias_eval_state->m_value_alias_instance->m_determined_value_target.has_value());
 
-                if (!apply_value_alias_target(
-                    value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(), {}))
-                    return FAILED;
+                _apply_value_alias_target_to_identifier(
+                    node,
+                    value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(),
+                    {});
 
                 return OKAY;
             }
@@ -815,27 +792,26 @@ namespace wo
             {
                 lang_Symbol* symbol = node->m_LANG_determined_symbol.value();
 
+                // Every written name is checked for reachability exactly once,
+                // when it is resolved. A value alias is a name-level binding:
+                // its declaration checks the name written on its right-hand
+                // side, so a reference only has to be able to name the alias
+                // it wrote, not the alias's target.
+                if (!check_symbol_is_reachable_in_current_scope(
+                    lex,
+                    node,
+                    symbol,
+                    node->source_location.source_group,
+                    !node->duplicated_node /* TMP: Skip import check in template function. */))
+                {
+                    return FAILED;
+                }
+
                 if (!node->m_find_type_only
                     && symbol->m_symbol_kind == lang_Symbol::kind::VALUE_ALIAS)
                 {
                     // A value alias in value position: redirect to its target.
-                    // Accessibility follows the alias name itself: a public
-                    // alias may name a private target.
-                    if (!check_symbol_is_reachable_in_current_scope(
-                        lex,
-                        node,
-                        symbol,
-                        node->source_location.source_group,
-                        !node->duplicated_node /* TMP: Skip import check in template function. */))
-                    {
-                        return FAILED;
-                    }
-
-                    if (!node->m_LANG_as_value_alias_rhs)
-                        // The alias name has been checked; the reference must
-                        // not re-check the target symbol.
-                        node->m_LANG_target_reachability_checked = true;
-
+                    // The alias name itself has just been checked.
                     if (symbol->m_is_template)
                     {
                         lang_Symbol::TemplateArgumentListT template_args =
@@ -860,9 +836,10 @@ namespace wo
                         auto* value_alias_eval_state =
                             static_cast<lang_TemplateAstEvalStateValueAlias*>(template_eval_state_instance);
 
-                        if (!apply_value_alias_target(
-                            value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(), {}))
-                            return FAILED;
+                        _apply_value_alias_target_to_identifier(
+                            node,
+                            value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(),
+                            {});
 
                         return OKAY;
                     }
@@ -896,10 +873,10 @@ namespace wo
                     lang_Symbol::TemplateArgumentListT pass_through_arguments =
                         _collect_identifier_template_arguments(node);
 
-                    if (!apply_value_alias_target(
+                    _apply_value_alias_target_to_identifier(
+                        node,
                         value_alias_instance->m_determined_value_target.value(),
-                        std::move(pass_through_arguments)))
-                        return FAILED;
+                        std::move(pass_through_arguments));
 
                     return OKAY;
                 }
@@ -1195,17 +1172,7 @@ namespace wo
 
                         if (type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE_ALIAS)
                         {
-                            // Check symbol can be reach.
-                            if (!check_symbol_is_reachable_in_current_scope(
-                                lex,
-                                node,
-                                type_symbol,
-                                node->source_location.source_group,
-                                !node->duplicated_node /* TMP: Skip import check in template function. */))
-                            {
-                                return FAILED;
-                            }
-                            else if (!type_alias_instance->m_symbol->m_is_template
+                            if (!type_alias_instance->m_symbol->m_is_template
                                 && identifier->m_template_arguments.has_value())
                             {
                                 lang_Symbol* refiliing_symbol =
@@ -1240,21 +1207,6 @@ namespace wo
                                 return HOLD;
                             }
                         }
-                        else
-                        {
-                            wo_assert(type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
-
-                            // Check symbol can be reach.
-                            if (!check_symbol_is_reachable_in_current_scope(
-                                lex,
-                                node,
-                                type_symbol,
-                                node->source_location.source_group,
-                                !node->duplicated_node /* TMP: Skip import check in template function. */))
-                            {
-                                return FAILED;
-                            }
-                        }
                     }
                     else
                     {
@@ -1272,17 +1224,6 @@ namespace wo
                         {
                             type_instance = static_cast<lang_TemplateAstEvalStateType*>(
                                 eval_state)->m_type_instance.get();
-
-                            // Check symbol can be reach.
-                            if (!check_symbol_is_reachable_in_current_scope(
-                                lex,
-                                node,
-                                type_symbol,
-                                node->source_location.source_group,
-                                !node->duplicated_node /* TMP: Skip import check in template function. */))
-                            {
-                                return FAILED;
-                            }
                         }
                     }
 
@@ -1588,20 +1529,6 @@ namespace wo
                     determined_value_instance->m_determined_constant_or_function.value());
             }
 
-            // Check symbol can be reach. A reference that followed a value
-            // alias already checked the alias name's accessibility, and the
-            // alias's target must not be checked again.
-            if (!node->m_identifier->m_LANG_target_reachability_checked
-                && !check_symbol_is_reachable_in_current_scope(
-                    lex,
-                    node,
-                    determined_value_instance->m_symbol,
-                    node->source_location.source_group,
-                    !node->duplicated_node /* TMP: Skip import check in template function. */))
-            {
-                return FAILED;
-            }
-
             // Mark as been used
             determined_value_instance->m_symbol->m_has_been_used = true;
 
@@ -1863,17 +1790,6 @@ namespace wo
             lang_ValueAliasTarget target{
                 target_identifier->m_LANG_determined_symbol.value(),
                 _collect_identifier_template_arguments(target_identifier) };
-
-            // The declaration itself must be able to name the target.
-            if (!check_symbol_is_reachable_in_current_scope(
-                lex,
-                node,
-                target.m_symbol,
-                node->source_location.source_group,
-                !node->duplicated_node /* TMP: Skip import check in template function. */))
-            {
-                return FAILED;
-            }
 
             declared_symbol->m_value_alias_instance->m_determined_value_target = std::move(target);
         }

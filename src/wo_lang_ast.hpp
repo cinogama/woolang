@@ -240,11 +240,6 @@ namespace wo
             // skipped so that a still-generic target is recorded and left to
             // be deduced at the reference call site.
             bool                    m_LANG_as_value_alias_rhs;
-            // Set once this reference has followed a value alias: the alias
-            // symbol's own accessibility has been checked, so the value
-            // reference must not re-check the target symbol's accessibility
-            // (a `pub alias` may name a private target).
-            bool                    m_LANG_target_reachability_checked;
             // Set while a value alias template instance is being evaluated
             // for this reference; cleared in the HOLD state that finishes it.
             std::optional<lang_TemplateAstEvalStateBase*>

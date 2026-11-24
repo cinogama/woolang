@@ -227,6 +227,24 @@ namespace smoke_v116_value_alias
                   // modifier only governs the name's reachability.
                   pub alias exported = hidden;
                   pub alias exported_generic = hidden_generic;
+
+                  // Alias chain across files: `mid` is declared where its
+                  // internal target is reachable; an outer alias only has to
+                  // name `mid`.
+                  internal func internal_target(v: int) => int { return v + 2; }
+                  pub alias mid = internal_target;
+
+                  // A template value alias's right-hand side is checked in
+                  // the declaration's namespace, not the reference site's.
+                  internal func internal_generic<T>(v: T) => T { return v; }
+                  pub alias generic_mid<T> = internal_generic:<T>;
+
+                  // A template type alias whose own name is internal here.
+                  type ChainBox<T>: struct
+                  {
+                      pub v: T,
+                  };
+                  internal alias HiddenChainBox<T>: ChainBox<T>;
               }"@ as buffer,
             false);
     }
@@ -266,6 +284,28 @@ namespace smoke_v116_value_alias
             "func use_it() => int { return valib::exported_generic(2); }");
         expect_cross_fail("alias target stays file-local",
             "func use_it() => int { return valib::hidden(1); }");
+
+        // Each alias declaration only names its own right-hand side: the
+        // outer alias may name `mid` even though `mid`'s target is internal
+        // to valib.
+        expect_cross_ok("alias chain names only its own rhs",
+            "pub alias outer = valib::mid; func use_it() => int { return outer(1); }");
+        // A generic alias's right-hand side is resolved (and checked) in the
+        // declaration's namespace.
+        expect_cross_ok("generic alias names internal target in its namespace",
+            "func use_it() => int { return valib::generic_mid:<int>(3); }");
+        expect_cross_fail("generic alias rhs names unreachable symbol",
+            "pub alias bad<T> = valib::internal_generic:<T>; func use_it() => int { return bad:<int>(1); }");
+        // A direct reference to the internal target is still rejected where
+        // that name is written.
+        expect_cross_fail("direct internal target is rejected",
+            "pub alias bad = valib::internal_target;");
+
+        // Reachability is judged when the written name is resolved, not when
+        // the template specialization happens to be instantiated: the first
+        // use of an internal template type alias must fail too.
+        expect_cross_fail("internal template type alias first use",
+            "type H: struct { pub p: valib::HiddenChainBox<int>, };");
     }
 
     func main()

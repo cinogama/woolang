@@ -324,7 +324,6 @@ namespace wo
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             , m_LANG_as_value_alias_rhs(false)
-            , m_LANG_target_reachability_checked(false)
             , m_LANG_trying_advancing_alias_target(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
@@ -342,7 +341,6 @@ namespace wo
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             , m_LANG_as_value_alias_rhs(false)
-            , m_LANG_target_reachability_checked(false)
             , m_LANG_trying_advancing_alias_target(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
@@ -362,7 +360,6 @@ namespace wo
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             , m_LANG_as_value_alias_rhs(false)
-            , m_LANG_target_reachability_checked(false)
             , m_LANG_trying_advancing_alias_target(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
@@ -382,7 +379,6 @@ namespace wo
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             , m_LANG_as_value_alias_rhs(false)
-            , m_LANG_target_reachability_checked(false)
             , m_LANG_trying_advancing_alias_target(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
@@ -399,7 +395,6 @@ namespace wo
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             , m_LANG_as_value_alias_rhs(false)
-            , m_LANG_target_reachability_checked(false)
             , m_LANG_trying_advancing_alias_target(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
