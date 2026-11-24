@@ -313,16 +313,15 @@ namespace wo
         if (fnd != m_template_instances.end())
             return fnd->second.get();
 
-        // Clone the aliased expression and evaluate only the identifier it
-        // names, in the instantiated parameter scope. The cloned wrapper
-        // expression is part of the clone tree but is never traversed as a
-        // value.
+        // Clone the aliased expression and evaluate only the written name it
+        // denotes, in the instantiated parameter scope. The cloned wrapper
+        // expression is part of the clone tree but never evaluated as a value.
         AstValueBase* value_instance = static_cast<AstValueBase*>(
             m_origin_value_ast->clone());
-        AstIdentifier* target_identifier =
-            AstAliasValueDeclare::get_value_alias_target_identifier(value_instance);
+        AstValueVariable* target_variable =
+            AstAliasValueDeclare::get_value_alias_target_variable(value_instance);
 
-        if (target_identifier == nullptr)
+        if (target_variable == nullptr)
         {
             // Only reachable if the declaration builder failed and the
             // pass0 symbol declaration did not run: report the instance as
@@ -330,7 +329,7 @@ namespace wo
             wo_assert(!"Value alias template instance without a target name.");
 
             auto new_instance = make_unique<lang_TemplateAstEvalStateValueAlias>(
-                m_symbol, static_cast<AstIdentifier*>(nullptr), template_args);
+                m_symbol, static_cast<AstValueVariable*>(nullptr), template_args);
             new_instance->m_state = lang_TemplateAstEvalStateBase::state::FAILED;
             new_instance->m_failed_error_for_this_instance.emplace();
 
@@ -340,11 +339,13 @@ namespace wo
             return result;
         }
 
-        target_identifier->m_find_type_only = false;
-        target_identifier->m_LANG_as_value_alias_rhs = true;
+        // Only the aliased name is resolved in this instance; the target's own
+        // pending template parameters are left to the reference / call site.
+        target_variable->m_LANG_resolve_name_only = true;
+        target_variable->m_LANG_as_value_alias_rhs = true;
 
         auto new_instance = make_unique<lang_TemplateAstEvalStateValueAlias>(
-            m_symbol, target_identifier, template_args);
+            m_symbol, target_variable, template_args);
 
         auto* result = new_instance.get();
 
@@ -563,7 +564,7 @@ namespace wo
     }
     lang_TemplateAstEvalStateValueAlias::lang_TemplateAstEvalStateValueAlias(
         lang_Symbol* symbol,
-        AstIdentifier* value_alias_target,
+        AstValueVariable* value_alias_target,
         const vector<AstIdentifier::TemplateArgumentInstance>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, value_alias_target)
     {

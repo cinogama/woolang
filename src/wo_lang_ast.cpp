@@ -324,7 +324,6 @@ namespace wo
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             , m_LANG_as_value_alias_rhs(false)
-            , m_LANG_trying_advancing_alias_target(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -341,7 +340,6 @@ namespace wo
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             , m_LANG_as_value_alias_rhs(false)
-            , m_LANG_trying_advancing_alias_target(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -360,7 +358,6 @@ namespace wo
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             , m_LANG_as_value_alias_rhs(false)
-            , m_LANG_trying_advancing_alias_target(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -379,7 +376,6 @@ namespace wo
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             , m_LANG_as_value_alias_rhs(false)
-            , m_LANG_trying_advancing_alias_target(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -395,7 +391,6 @@ namespace wo
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             , m_LANG_as_value_alias_rhs(false)
-            , m_LANG_trying_advancing_alias_target(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -1256,9 +1251,11 @@ namespace wo
         AstValueVariable::AstValueVariable(AstIdentifier* identifier)
             : AstValueBase(AST_VALUE_VARIABLE)
             , m_identifier(identifier)
+            , m_LANG_hold_state(LANG_hold_state::UNPROCESSED)
+            , m_LANG_resolve_name_only(false)
+            , m_LANG_as_value_alias_rhs(false)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_variable_instance(nullopt)
-            , m_LANG_trying_advancing_type_judgement(false)
         {
             m_identifier->m_find_type_only = false;
         }
@@ -2418,7 +2415,7 @@ namespace wo
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_attribute.value()));
             return new_instance;
         }
-        AstIdentifier* AstAliasValueDeclare::get_value_alias_target_identifier(AstValueBase* value)
+        AstValueVariable* AstAliasValueDeclare::get_value_alias_target_variable(AstValueBase* value)
         {
             // `mut foo` / `immut foo` carry no meaning for an alias: the
             // mutability always follows the target.
@@ -2436,9 +2433,14 @@ namespace wo
                     if (value->node_type != AstBase::AST_VALUE_VARIABLE)
                         return nullptr;
 
-                    return static_cast<AstValueVariable*>(value)->m_identifier;
+                    return static_cast<AstValueVariable*>(value);
                 }
             }
+        }
+        AstIdentifier* AstAliasValueDeclare::get_value_alias_target_identifier(AstValueBase* value)
+        {
+            AstValueVariable* target_variable = get_value_alias_target_variable(value);
+            return target_variable == nullptr ? nullptr : target_variable->m_identifier;
         }
 
         ////////////////////////////////////////////////////////

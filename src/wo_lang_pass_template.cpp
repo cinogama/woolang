@@ -591,19 +591,19 @@ namespace wo
             auto* new_template_value_alias_instance =
                 template_eval_instance_value_alias->m_value_alias_instance.get();
 
-            // The cloned identifier has already been resolved in the
-            // instantiated parameter scope. Record the target this instance
-            // redirects to.
-            AstIdentifier* target_identifier = static_cast<AstIdentifier*>(
+            // The cloned variable has already resolved its written name in
+            // the instantiated parameter scope. Record the target this
+            // instance redirects to.
+            AstValueVariable* target_variable = static_cast<AstValueVariable*>(
                 template_eval_instance_value_alias->m_ast);
 
-            wo_assert(target_identifier != nullptr
-                && target_identifier->m_LANG_determined_symbol.has_value());
+            wo_assert(target_variable != nullptr
+                && target_variable->m_identifier->m_LANG_determined_symbol.has_value());
 
             new_template_value_alias_instance->m_determined_value_target =
                 lang_ValueAliasTarget{
-                    target_identifier->m_LANG_determined_symbol.value(),
-                    _collect_identifier_template_arguments(target_identifier) };
+                    target_variable->m_identifier->m_LANG_determined_symbol.value(),
+                    _collect_identifier_template_arguments(target_variable->m_identifier) };
 
             template_eval_instance_value_alias->m_state =
                 lang_TemplateAstEvalStateBase::state::EVALUATED;

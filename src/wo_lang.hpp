@@ -326,7 +326,7 @@ namespace wo
         std::unique_ptr<lang_ValueAliasInstance> m_value_alias_instance;
 
         lang_TemplateAstEvalStateValueAlias(
-            lang_Symbol* symbol, ast::AstIdentifier* value_alias_target, const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
+            lang_Symbol* symbol, ast::AstValueVariable* value_alias_target, const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
 
     struct lang_Symbol

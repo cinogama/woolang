@@ -269,6 +269,14 @@ namespace smoke_v116_value_alias
         expect_fail("generic alias without arguments",
             "func f<T>(v: T) => T { return v; } alias A<T> = f:<T>; let r = A(1);");
 
+        // A value alias cannot hand template arguments to a non-generic target.
+        expect_fail("variable alias with template argument",
+            "let v = 1; alias a = v; let x = a:<int>;");
+        expect_fail("function alias with template argument",
+            "func f(v: int) => int { return v; } alias a = f; let x = a:<int>(1);");
+        expect_fail("template alias with extra argument",
+            "func f<T>(v: T) => T { return v; } alias g<T> = f:<T>; let x = g:<int, string>(1);");
+
         // Plain shapes that must keep working.
         expect_ok("basic value alias",
             "let mut v = 1; alias a = v; func f() { a = 2; }");

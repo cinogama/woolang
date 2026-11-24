@@ -697,37 +697,6 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstIdentifier)
     {
-        if (node->m_LANG_trying_advancing_alias_target)
-        {
-            // The typing-advance of the value alias declaration has finished
-            // (successfully or not). Leave the temporary scope and fold the
-            // captured errors back, mirroring AstTypeHolder's advance.
-            node->m_LANG_trying_advancing_alias_target = false;
-
-            end_last_scope(); // Leave temporary advance the processing of declaration nodes.
-
-            auto current_error_frame = std::move(lex.get_current_error_frame());
-            lex.end_trying_block();
-
-            auto& last_error_frame = lex.get_current_error_frame();
-            const size_t current_error_frame_depth = lex.get_error_frame_layer();
-
-            for (auto& errinform : current_error_frame)
-            {
-                // NOTE: Advanced judgement failed, only non-template will be here.
-                // make sure report it into error list.
-                lex.append_message(errinform).m_layer = errinform.m_layer - 1;
-
-                auto& root_error_frame = lex.get_root_error_frame();
-                if (&last_error_frame != &root_error_frame
-                    && !lex.root_frame_already_has_message(errinform))
-                {
-                    auto& supper_error = root_error_frame.emplace_back(errinform);
-                    supper_error.m_layer -= current_error_frame_depth;
-                }
-            }
-        }
-
         if (state == UNPROCESSED)
         {
             switch (node->m_formal)
@@ -754,26 +723,6 @@ namespace wo
         }
         else if (state == HOLD)
         {
-            if (node->m_LANG_template_evalating_state)
-            {
-                // A value alias template instance finished evaluating for this
-                // reference: redirect to the resolved target.
-                auto* eval_state = node->m_LANG_template_evalating_state.value();
-                node->m_LANG_template_evalating_state.reset();
-
-                finish_eval_template_ast(lex, eval_state);
-
-                auto* value_alias_eval_state = static_cast<lang_TemplateAstEvalStateValueAlias*>(eval_state);
-                wo_assert(value_alias_eval_state->m_value_alias_instance->m_determined_value_target.has_value());
-
-                _apply_value_alias_target_to_identifier(
-                    node,
-                    value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(),
-                    std::nullopt);
-
-                return OKAY;
-            }
-
             bool ambiguous = false;
             if (!find_symbol_in_current_scope(lex, node, &ambiguous))
             {
@@ -805,78 +754,6 @@ namespace wo
                     !node->duplicated_node /* TMP: Skip import check in template function. */))
                 {
                     return FAILED;
-                }
-
-                if (!node->m_find_type_only
-                    && symbol->m_symbol_kind == lang_Symbol::kind::VALUE_ALIAS)
-                {
-                    // A value alias in value position: redirect to its target.
-                    // The alias name itself has just been checked.
-                    if (symbol->m_is_template)
-                    {
-                        lang_Symbol::TemplateArgumentListT template_args =
-                            _collect_identifier_template_arguments(node).value_or(
-                                lang_Symbol::TemplateArgumentListT{});
-
-                        bool continue_process = false;
-                        auto template_eval_state_instance_may_nullopt =
-                            begin_eval_template_ast(lex, node, symbol, std::move(template_args), out_stack, &continue_process);
-
-                        if (!template_eval_state_instance_may_nullopt)
-                            return FAILED;
-
-                        auto* template_eval_state_instance =
-                            template_eval_state_instance_may_nullopt.value();
-
-                        if (continue_process)
-                        {
-                            node->m_LANG_template_evalating_state = template_eval_state_instance;
-                            return HOLD;
-                        }
-
-                        auto* value_alias_eval_state =
-                            static_cast<lang_TemplateAstEvalStateValueAlias*>(template_eval_state_instance);
-
-                        _apply_value_alias_target_to_identifier(
-                            node,
-                            value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(),
-                            std::nullopt);
-
-                        return OKAY;
-                    }
-
-                    auto* value_alias_instance = symbol->m_value_alias_instance;
-                    if (!value_alias_instance->m_determined_value_target.has_value())
-                    {
-                        // The declaration has not been processed yet (forward
-                        // reference): advance it, then re-enter this state.
-                        if (!node->m_LANG_trying_advancing_alias_target
-                            && symbol->m_symbol_declare_ast.has_value()
-                            && symbol->m_symbol_declare_ast.value()->finished_state == UNPROCESSED)
-                        {
-                            node->m_LANG_trying_advancing_alias_target = true;
-
-                            // Capture all error happend in this block.
-                            lex.begin_trying_block();
-
-                            entry_spcify_scope(symbol->m_belongs_to_scope);
-                            WO_CONTINUE_PROCESS(symbol->m_symbol_declare_ast.value());
-                            return HOLD;
-                        }
-
-                        lex.record_lang_error(lexer::msglevel_t::error, node,
-                            diagnose::lang2::err_value_alias_target_not_determined{symbol});
-                        return FAILED;
-                    }
-
-                    // Non-template alias: template arguments written here are
-                    // passed through to the (generic) target.
-                    _apply_value_alias_target_to_identifier(
-                        node,
-                        value_alias_instance->m_determined_value_target.value(),
-                        _collect_identifier_template_arguments(node));
-
-                    return OKAY;
                 }
 
                 bool has_template_arguments =
@@ -927,12 +804,6 @@ namespace wo
                     }
                 }
             }
-        }
-        else if (node->m_LANG_template_evalating_state)
-        {
-            // Failed to evaluate a value alias template instance.
-            failed_eval_template_ast(lex, node, node->m_LANG_template_evalating_state.value());
-            node->m_LANG_template_evalating_state.reset();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1341,7 +1212,7 @@ namespace wo
     }
     WO_PASS_PROCESSER(AstValueVariable)
     {
-        if (node->m_LANG_trying_advancing_type_judgement)
+        if (node->m_LANG_hold_state == AstValueVariable::LANG_hold_state::HOLD_FOR_DECLARATION_ADVANCE)
         {
             // The typing-advance of the declaration node has finished
             // (successfully or not).
@@ -1371,20 +1242,177 @@ namespace wo
                 }
             }
         }
+        else if (node->m_LANG_hold_state == AstValueVariable::LANG_hold_state::HOLD_FOR_ALIAS_DECLARATION_ADVANCE)
+        {
+            // The typing-advance of a forward-referenced value alias
+            // declaration has finished (successfully or not). Leave the
+            // temporary scope and fold the captured errors back, mirroring
+            // AstTypeHolder's advance.
+            end_last_scope(); // Leave temporary advance the processing of declaration nodes.
+
+            auto current_error_frame = std::move(lex.get_current_error_frame());
+            lex.end_trying_block();
+
+            auto& last_error_frame = lex.get_current_error_frame();
+            const size_t current_error_frame_depth = lex.get_error_frame_layer();
+
+            for (auto& errinform : current_error_frame)
+            {
+                // NOTE: Advanced judgement failed, only non-template will be here.
+                // make sure report it into error list.
+                lex.append_message(errinform).m_layer = errinform.m_layer - 1;
+
+                auto& root_error_frame = lex.get_root_error_frame();
+                if (&last_error_frame != &root_error_frame
+                    && !lex.root_frame_already_has_message(errinform))
+                {
+                    auto& supper_error = root_error_frame.emplace_back(errinform);
+                    supper_error.m_layer -= current_error_frame_depth;
+                }
+            }
+        }
 
         if (state == UNPROCESSED)
         {
+            if (node->m_LANG_as_value_alias_rhs)
+            {
+                // The declaration target of a value alias is only named here:
+                // the written name must not demand template arguments, the
+                // target's pending ones are left to the reference / call site.
+                node->m_identifier->m_LANG_as_value_alias_rhs = true;
+                node->m_identifier->m_find_type_only = false;
+            }
+
+            node->m_LANG_hold_state = AstValueVariable::LANG_hold_state::HOLD_FOR_WRITTEN_NAME;
             WO_CONTINUE_PROCESS(node->m_identifier);
             return HOLD;
         }
         else if (state == HOLD)
         {
+            if (node->m_LANG_hold_state == AstValueVariable::LANG_hold_state::HOLD_FOR_WRITTEN_NAME
+                || node->m_LANG_hold_state == AstValueVariable::LANG_hold_state::HOLD_FOR_ALIAS_DECLARATION_ADVANCE
+                || node->m_LANG_hold_state == AstValueVariable::LANG_hold_state::HOLD_FOR_ALIAS_TEMPLATE_INSTANCE)
+            {
+                // PHASE 1: the written name resolves to the entity it denotes.
+                // A value alias is a name-level redirect, so it is followed
+                // here, before anything is instantiated; a still-pending
+                // generic target is left to phase 2 / the call site.
+                for (;;)
+                {
+                    if (node->m_LANG_hold_state == AstValueVariable::LANG_hold_state::HOLD_FOR_ALIAS_TEMPLATE_INSTANCE)
+                    {
+                        // The alias template instance finished evaluating:
+                        // apply the target it recorded to the written name.
+                        auto* eval_state = node->m_LANG_template_evalating_state.value();
+                        node->m_LANG_template_evalating_state.reset();
+
+                        finish_eval_template_ast(lex, eval_state);
+
+                        auto* value_alias_eval_state =
+                            static_cast<lang_TemplateAstEvalStateValueAlias*>(eval_state);
+
+                        wo_assert(value_alias_eval_state->m_value_alias_instance->m_determined_value_target.has_value());
+
+                        _apply_value_alias_target_to_identifier(
+                            node->m_identifier,
+                            value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(),
+                            std::nullopt);
+                    }
+
+                    wo_assert(node->m_identifier->m_LANG_determined_symbol.has_value());
+                    lang_Symbol* written_symbol = node->m_identifier->m_LANG_determined_symbol.value();
+
+                    if (written_symbol->m_symbol_kind != lang_Symbol::kind::VALUE_ALIAS)
+                        break;
+
+                    node->m_LANG_hold_state = AstValueVariable::LANG_hold_state::HOLD_FOR_WRITTEN_NAME;
+
+                    if (written_symbol->m_is_template)
+                    {
+                        lang_Symbol::TemplateArgumentListT template_args =
+                            _collect_identifier_template_arguments(node->m_identifier).value_or(
+                                lang_Symbol::TemplateArgumentListT{});
+
+                        bool continue_process = false;
+                        auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
+                            lex, node, written_symbol, std::move(template_args), out_stack, &continue_process);
+
+                        if (!template_eval_state_instance_may_nullopt)
+                            return FAILED;
+
+                        auto* template_eval_state_instance = template_eval_state_instance_may_nullopt.value();
+
+                        if (continue_process)
+                        {
+                            node->m_LANG_hold_state =
+                                AstValueVariable::LANG_hold_state::HOLD_FOR_ALIAS_TEMPLATE_INSTANCE;
+                            node->m_LANG_template_evalating_state = template_eval_state_instance;
+                            return HOLD;
+                        }
+
+                        auto* value_alias_eval_state =
+                            static_cast<lang_TemplateAstEvalStateValueAlias*>(template_eval_state_instance);
+
+                        wo_assert(value_alias_eval_state->m_value_alias_instance->m_determined_value_target.has_value());
+
+                        _apply_value_alias_target_to_identifier(
+                            node->m_identifier,
+                            value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(),
+                            std::nullopt);
+
+                        continue;
+                    }
+
+                    auto* value_alias_instance = written_symbol->m_value_alias_instance;
+                    if (!value_alias_instance->m_determined_value_target.has_value())
+                    {
+                        // The declaration has not been processed yet (forward
+                        // reference): advance it, then re-enter this phase.
+                        if (written_symbol->m_symbol_declare_ast.has_value()
+                            && written_symbol->m_symbol_declare_ast.value()->finished_state == UNPROCESSED)
+                        {
+                            node->m_LANG_hold_state =
+                                AstValueVariable::LANG_hold_state::HOLD_FOR_ALIAS_DECLARATION_ADVANCE;
+
+                            // Capture all error happened in this block.
+                            lex.begin_trying_block();
+
+                            entry_spcify_scope(written_symbol->m_belongs_to_scope);
+                            WO_CONTINUE_PROCESS(written_symbol->m_symbol_declare_ast.value());
+                            return HOLD;
+                        }
+
+                        lex.record_lang_error(lexer::msglevel_t::error, node->m_identifier,
+                            diagnose::lang2::err_value_alias_target_not_determined{written_symbol});
+                        return FAILED;
+                    }
+
+                    // Non-template alias: template arguments written here are
+                    // passed through to the (generic) target.
+                    _apply_value_alias_target_to_identifier(
+                        node->m_identifier,
+                        value_alias_instance->m_determined_value_target.value(),
+                        _collect_identifier_template_arguments(node->m_identifier));
+                }
+
+                if (node->m_LANG_resolve_name_only)
+                {
+                    // A name-only consumer (the alias declaration, or the call
+                    // site deciding whether to deduce) is done with this
+                    // variable; the pass1 driver resumes it for phase 2.
+                    node->m_LANG_resolve_name_only = false;
+                    node->m_LANG_hold_state = AstValueVariable::LANG_hold_state::PARKED_NAME_RESOLVED;
+                    return OKAY;
+                }
+            }
+
+            // PHASE 2: obtain the value instance of the final target.
             lang_ValueInstance* determined_value_instance;
-            if (!node->m_LANG_trying_advancing_type_judgement)
+            if (node->m_LANG_hold_state != AstValueVariable::LANG_hold_state::HOLD_FOR_DECLARATION_ADVANCE)
             {
                 lang_ValueInstance* value_instance = nullptr;
 
-                if (!node->m_LANG_template_evalating_state)
+                if (node->m_LANG_hold_state != AstValueVariable::LANG_hold_state::HOLD_FOR_TARGET_TEMPLATE_INSTANCE)
                 {
                     wo_assert(node->m_identifier->m_LANG_determined_symbol);
                     lang_Symbol* var_symbol = node->m_identifier->m_LANG_determined_symbol.value();
@@ -1441,6 +1469,8 @@ namespace wo
 
                         if (continue_process)
                         {
+                            node->m_LANG_hold_state =
+                                AstValueVariable::LANG_hold_state::HOLD_FOR_TARGET_TEMPLATE_INSTANCE;
                             node->m_LANG_template_evalating_state = template_eval_state_instance;
                             return HOLD;
                         }
@@ -1449,6 +1479,23 @@ namespace wo
                     }
                     else
                     {
+                        // A value alias may pass template arguments through to a
+                        // non-generic target: that is never meaningful.
+                        if (node->m_identifier->m_LANG_determined_and_appended_template_arguments.has_value()
+                            && !var_symbol->m_is_builtin)
+                        {
+                            lex.record_lang_error(lexer::msglevel_t::error, node->m_identifier,
+                                diagnose::lang2::err_unexpected_template_argument{var_symbol});
+
+                            if (var_symbol->m_symbol_declare_ast.has_value())
+                            {
+                                lex.record_lang_error(lexer::msglevel_t::infom, var_symbol->m_symbol_declare_ast.value(),
+                                    diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(var_symbol)});
+                            }
+
+                            return FAILED;
+                        }
+
                         value_instance = var_symbol->m_value_instance;
                     }
                 }
@@ -1456,6 +1503,7 @@ namespace wo
                 {
                     auto* eval_template_state = static_cast<lang_TemplateAstEvalStateValue*>(
                         node->m_LANG_template_evalating_state.value());
+                    node->m_LANG_template_evalating_state.reset();
 
                     finish_eval_template_ast(lex, eval_template_state);
 
@@ -1479,13 +1527,13 @@ namespace wo
             {
                 lang_Symbol* var_symbol = node->m_identifier->m_LANG_determined_symbol.value();
 
-                if (!node->m_LANG_trying_advancing_type_judgement
+                if (node->m_LANG_hold_state != AstValueVariable::LANG_hold_state::HOLD_FOR_DECLARATION_ADVANCE
                     && var_symbol->m_symbol_declare_ast.has_value())
                 {
                     auto* define_ast = var_symbol->m_symbol_declare_ast.value();
                     if (define_ast->finished_state == UNPROCESSED)
                     {
-                        node->m_LANG_trying_advancing_type_judgement = true;
+                        node->m_LANG_hold_state = AstValueVariable::LANG_hold_state::HOLD_FOR_DECLARATION_ADVANCE;
                         node->m_LANG_variable_instance = determined_value_instance;
 
                         wo_assert(!var_symbol->m_is_template
@@ -1537,7 +1585,7 @@ namespace wo
                     determined_value_instance);
 
             // NOTE: Value in advancing_type_judgement must not be a captured variable.
-            wo_assert(!node->m_LANG_trying_advancing_type_judgement
+            wo_assert(node->m_LANG_hold_state != AstValueVariable::LANG_hold_state::HOLD_FOR_DECLARATION_ADVANCE
                 || node->m_LANG_variable_instance == determined_value_instance);
         }
         else
@@ -1764,30 +1812,32 @@ namespace wo
                 // Resolved per template instance.
                 return OKAY;
 
-            AstIdentifier* target_identifier =
-                AstAliasValueDeclare::get_value_alias_target_identifier(node->m_value);
-            wo_assert(target_identifier != nullptr);
+            AstValueVariable* target_variable =
+                AstAliasValueDeclare::get_value_alias_target_variable(node->m_value);
+            wo_assert(target_variable != nullptr);
 
             // Resolve the target name only; the alias never evaluates the
-            // aliased value.
-            target_identifier->m_LANG_as_value_alias_rhs = true;
-            WO_CONTINUE_PROCESS(target_identifier);
+            // aliased value, and a still-generic target may omit arguments.
+            target_variable->m_LANG_resolve_name_only = true;
+            target_variable->m_LANG_as_value_alias_rhs = true;
+            WO_CONTINUE_PROCESS(target_variable);
             return HOLD;
         }
         else if (state == HOLD)
         {
             wo_assert(!node->m_template_parameters);
 
-            AstIdentifier* target_identifier =
-                AstAliasValueDeclare::get_value_alias_target_identifier(node->m_value);
-            wo_assert(target_identifier != nullptr && target_identifier->m_LANG_determined_symbol);
+            AstValueVariable* target_variable =
+                AstAliasValueDeclare::get_value_alias_target_variable(node->m_value);
+            wo_assert(target_variable != nullptr
+                && target_variable->m_identifier->m_LANG_determined_symbol);
 
             lang_Symbol* declared_symbol = node->m_LANG_declared_symbol.value();
             wo_assert(declared_symbol->m_symbol_kind == lang_Symbol::kind::VALUE_ALIAS);
 
             lang_ValueAliasTarget target{
-                target_identifier->m_LANG_determined_symbol.value(),
-                _collect_identifier_template_arguments(target_identifier) };
+                target_variable->m_identifier->m_LANG_determined_symbol.value(),
+                _collect_identifier_template_arguments(target_variable->m_identifier) };
 
             declared_symbol->m_value_alias_instance->m_determined_value_target = std::move(target);
         }
@@ -3802,11 +3852,14 @@ namespace wo
 
                 // A value alias callee has to be followed before the deduction
                 // decision: the alias may leave the target's own template
-                // parameters pending, and the target is what gets deduced.
+                // parameters pending, and the target is what gets deduced. Only
+                // the name is resolved here; the variable is resumed for value
+                // evaluation afterwards.
                 if (node->m_function->node_type == AstBase::AST_VALUE_VARIABLE)
                 {
-                    AstIdentifier* callee_identifier =
-                        static_cast<AstValueVariable*>(node->m_function)->m_identifier;
+                    AstValueVariable* callee_variable =
+                        static_cast<AstValueVariable*>(node->m_function);
+                    AstIdentifier* callee_identifier = callee_variable->m_identifier;
 
                     optional<lang_Symbol*> callee_symbol = callee_identifier->m_LANG_determined_symbol;
                     if (!callee_symbol.has_value())
@@ -3817,7 +3870,8 @@ namespace wo
                         && callee_symbol.value()->m_symbol_kind == lang_Symbol::kind::VALUE_ALIAS)
                     {
                         node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL_ALIAS_RESOLVED;
-                        WO_CONTINUE_PROCESS(callee_identifier);
+                        callee_variable->m_LANG_resolve_name_only = true;
+                        WO_CONTINUE_PROCESS(callee_variable);
                         return HOLD;
                     }
                 }
@@ -7193,6 +7247,23 @@ namespace wo
                 // machine pops it (end_last_function) on completion/failure.
                 entry_spcify_scope(function->m_LANG_function_scope.value());
 
+                AstNodeWithState resumed_state(pass_behavior::HOLD, node_state.m_ast_node);
+                auto result = m_pass1_processers->process_node(this, lex, resumed_state, out_stack);
+                node_state.m_ast_node->finished_state = result;
+
+                wo_assert(result != pass_behavior::UNPROCESSED);
+
+                return result;
+            }
+            else if (
+                node_state.m_ast_node->finished_state == pass_behavior::OKAY
+                && node_state.m_ast_node->node_type == AstBase::AST_VALUE_VARIABLE
+                && static_cast<AstValueVariable*>(node_state.m_ast_node)->m_LANG_hold_state
+                    == AstValueVariable::LANG_hold_state::PARKED_NAME_RESOLVED)
+            {
+                // Resume a variable parked by a name-only consumer: its name
+                // has been resolved (possibly redirected through a value
+                // alias), continue the state machine at value evaluation.
                 AstNodeWithState resumed_state(pass_behavior::HOLD, node_state.m_ast_node);
                 auto result = m_pass1_processers->process_node(this, lex, resumed_state, out_stack);
                 node_state.m_ast_node->finished_state = result;
