@@ -126,14 +126,14 @@ extern func macro_entry(lexer: std::lexer)=> string
                 &_macro_codes,
                 &out_if_failed_lexer))
             {
-                auto macro_error_frame = move(lex.get_current_error_frame());
+                auto macro_error_frame = std::move(lex.get_current_error_frame());
                 lex.end_trying_block();
 
                 lex.produce_lexer_error(lexer::msglevel_t::error, diagnose::lexer::err_failed_to_compile_macro_controlor{});
                 for (auto& error_message : macro_error_frame)
                 {
                     auto layer = error_message.m_layer;
-                    lex.record_message(move(error_message)).m_layer = layer;
+                    lex.record_message(std::move(error_message)).m_layer = layer;
                 }
             }
             else
@@ -279,7 +279,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         return m_offset_in_page < rhs.m_offset_in_page;
     }
     lexer::CachedIStream::CachedIStream(unique_ptr<istream>&& source_stream)
-        : m_stream(move(source_stream))
+        : m_stream(std::move(source_stream))
         , m_page_counter(m_stream->tellg())
         , m_cached_size(0)
         , m_readed_size(0)
@@ -838,7 +838,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         {
             m_source_stream =
                 make_unique<CachedIStream>(
-                    move(source_stream.value()));
+                    std::move(source_stream.value()));
         }
         else
         {
@@ -948,7 +948,7 @@ extern func macro_entry(lexer: std::lexer)=> string
     lexer::compiler_message_t& lexer::record_message(compiler_message_t&& message)
     {
         auto& emplaced_message =
-            m_shared_context->m_error_frame.back().emplace_back(move(message));
+            m_shared_context->m_error_frame.back().emplace_back(std::move(message));
 
         emplaced_message.m_layer
             = m_shared_context->m_error_frame.size() - 1 + (
@@ -1213,7 +1213,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 if (ignore_comment)
                     goto label_comment_skipped_and_re_continue_here;
                 else
-                    return produce_token(lex_type::l_line_comment, move(token_literal_result));
+                    return produce_token(lex_type::l_line_comment, std::move(token_literal_result));
             }
             else if (peeked_char == '*')
             {
@@ -1243,7 +1243,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 if (ignore_comment)
                     goto label_comment_skipped_and_re_continue_here;
                 else
-                    return produce_token(lex_type::l_block_comment, move(token_literal_result));
+                    return produce_token(lex_type::l_block_comment, std::move(token_literal_result));
             }
             else
                 goto checking_valid_operator;
@@ -1251,7 +1251,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         case ';':
         {
             append_result_char(readed_char);
-            return produce_token(lex_type::l_semicolon, move(token_literal_result));
+            return produce_token(lex_type::l_semicolon, std::move(token_literal_result));
         }
         case '@':
         {
@@ -1267,7 +1267,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     if (following_ch == '"' && peek_char() == '@')
                     {
                         (void)read_char();
-                        return produce_token(lex_type::l_literal_raw_string, move(token_literal_result));
+                        return produce_token(lex_type::l_literal_raw_string, std::move(token_literal_result));
                     }
 
                     if (following_ch != EOF)
@@ -1289,7 +1289,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             {
                 following_ch = read_char();
                 if (following_ch == '"' && readed_char == '"')
-                    return produce_token(lex_type::l_literal_string, move(token_literal_result));
+                    return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
                 else if (following_ch == '\'' && readed_char == '\'')
                 {
                     switch (woort_u8strnlen(token_literal_result.data(), token_literal_result.size()))
@@ -1300,7 +1300,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     case 1:
                         return produce_token(
                             lex_type::l_literal_char,
-                            move(token_literal_result));
+                            std::move(token_literal_result));
                     default:
                         return produce_lexer_error(
                             msglevel_t::error, diagnose::lexer::err_too_many_char_in_char{});
@@ -1446,19 +1446,19 @@ extern func macro_entry(lexer: std::lexer)=> string
         case '(':
         {
             append_result_char(readed_char);
-            return produce_token(lex_type::l_left_brackets, move(token_literal_result));
+            return produce_token(lex_type::l_left_brackets, std::move(token_literal_result));
         }
         case ')':
         {
             append_result_char(readed_char);
 
-            return produce_token(lex_type::l_right_brackets, move(token_literal_result));
+            return produce_token(lex_type::l_right_brackets, std::move(token_literal_result));
         }
         case '{':
         {
             append_result_char(readed_char);
             ++_m_curry_count_in_format_string;
-            return produce_token(lex_type::l_left_curly_braces, move(token_literal_result));
+            return produce_token(lex_type::l_left_curly_braces, std::move(token_literal_result));
         }
         case '}':
         {
@@ -1469,7 +1469,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             }
             append_result_char(readed_char);
             --_m_curry_count_in_format_string;
-            return produce_token(lex_type::l_right_curly_braces, move(token_literal_result));
+            return produce_token(lex_type::l_right_curly_braces, std::move(token_literal_result));
         }
         case '#':
         {
@@ -1496,7 +1496,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 if (ignore_comment)
                     goto label_comment_skipped_and_re_continue_here;
                 else
-                    return produce_token(lex_type::L_shebang_comment, move(token_literal_result));
+                    return produce_token(lex_type::L_shebang_comment, std::move(token_literal_result));
             }
 
             // ATTENTION, SECURE:
@@ -1505,7 +1505,7 @@ extern func macro_entry(lexer: std::lexer)=> string
             if (!m_source_path.has_value())
             {
                 append_result_char(readed_char);
-                produce_token(lex_type::l_unknown_token, move(token_literal_result));
+                produce_token(lex_type::l_unknown_token, std::move(token_literal_result));
                 return;
             }
 
@@ -1542,7 +1542,7 @@ extern func macro_entry(lexer: std::lexer)=> string
 
                     // Ok, apply macro instance.
                     if (macro_instance->_macro_codes.has_value())
-                        insert_result.first->second = move(macro_instance);
+                        insert_result.first->second = std::move(macro_instance);
                 }
                 else
                 {
@@ -1657,7 +1657,7 @@ extern func macro_entry(lexer: std::lexer)=> string
         }
         case EOF:
         {
-            return produce_token(lex_type::l_eof, move(token_literal_result));
+            return produce_token(lex_type::l_eof, std::move(token_literal_result));
         }
         case 'F':
         case 'f':
@@ -1691,14 +1691,14 @@ extern func macro_entry(lexer: std::lexer)=> string
                 if (following_ch == '!' && m_source_path.has_value())
                 {
                     (void)read_char(); // Eat `!`
-                    return produce_token(lex_type::l_macro, move(token_literal_result));
+                    return produce_token(lex_type::l_macro, std::move(token_literal_result));
                 }
 
                 lex_type keyword_type = lexer::lex_is_keyword(token_literal_result);
                 if (lex_type::l_error != keyword_type)
-                    return produce_token(keyword_type, move(token_literal_result));
+                    return produce_token(keyword_type, std::move(token_literal_result));
 
-                return produce_token(lex_type::l_identifier, move(token_literal_result));
+                return produce_token(lex_type::l_identifier, std::move(token_literal_result));
             }
             else if (lexer::lex_isdigit(readed_char))
             {
@@ -1827,10 +1827,10 @@ extern func macro_entry(lexer: std::lexer)=> string
                 wo_assert(!(is_real && is_handle));
 
                 if (is_real)
-                    return produce_token(lex_type::l_literal_real, move(token_literal_result));
+                    return produce_token(lex_type::l_literal_real, std::move(token_literal_result));
                 if (is_handle)
-                    return produce_token(lex_type::l_literal_handle, move(token_literal_result));
-                return produce_token(lex_type::l_literal_integer, move(token_literal_result));
+                    return produce_token(lex_type::l_literal_handle, std::move(token_literal_result));
+                return produce_token(lex_type::l_literal_integer, std::move(token_literal_result));
 
 
             } // l_literal_integer/l_literal_handle/l_literal_real end
@@ -1882,12 +1882,12 @@ extern func macro_entry(lexer: std::lexer)=> string
                 if (operator_type == lex_type::l_error)
                     return produce_lexer_error(msglevel_t::error, diagnose::lexer::err_unknown_operator_str{ token_literal_result.c_str() });
 
-                return produce_token(operator_type, move(token_literal_result));
+                return produce_token(operator_type, std::move(token_literal_result));
             }
             else
             {
                 append_result_char(readed_char);
-                return produce_token(lex_type::l_unknown_token, move(token_literal_result));
+                return produce_token(lex_type::l_unknown_token, std::move(token_literal_result));
             }
         }
 
@@ -1902,11 +1902,11 @@ extern func macro_entry(lexer: std::lexer)=> string
             if (following_ch == '"')
             {
                 if (is_format_string_begin)
-                    return produce_token(lex_type::l_literal_string, move(token_literal_result));
+                    return produce_token(lex_type::l_literal_string, std::move(token_literal_result));
                 else
                 {
                     _m_in_format_string = false;
-                    return produce_token(lex_type::l_format_string_end, move(token_literal_result));
+                    return produce_token(lex_type::l_format_string_end, std::move(token_literal_result));
                 }
             }
             if (following_ch == '{')
@@ -1915,9 +1915,9 @@ extern func macro_entry(lexer: std::lexer)=> string
                 _m_in_format_string = true;
 
                 if (is_format_string_begin)
-                    return produce_token(lex_type::l_format_string_begin, move(token_literal_result));
+                    return produce_token(lex_type::l_format_string_begin, std::move(token_literal_result));
                 else
-                    return produce_token(lex_type::l_format_string, move(token_literal_result));
+                    return produce_token(lex_type::l_format_string, std::move(token_literal_result));
             }
             if (following_ch != EOF && following_ch != '\n')
             {
@@ -2169,7 +2169,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                     || token_instance->m_lex_type == lex_type::l_eof)
                     break;
 
-                auto& token = _m_peeked_tokens.emplace(move(*token_instance));
+                auto& token = _m_peeked_tokens.emplace(std::move(*token_instance));
                 token.m_token_begin[0] = macro_begin_row;
                 token.m_token_begin[1] = macro_begin_col;
                 token.m_token_begin[2] = macro_pre_begin_row;
@@ -2186,14 +2186,14 @@ extern func macro_entry(lexer: std::lexer)=> string
 
             while (!origin_peeked_queue.empty())
             {
-                _m_peeked_tokens.emplace(move(origin_peeked_queue.front()));
+                _m_peeked_tokens.emplace(std::move(origin_peeked_queue.front()));
                 origin_peeked_queue.pop();
             }
 
             auto& current_error_frame = tmp_lex.get_current_error_frame();
             if (!current_error_frame.empty())
             {
-                auto lexer_error_frame = move(current_error_frame);
+                auto lexer_error_frame = std::move(current_error_frame);
                 tmp_lex.end_trying_block();
 
                 produce_lexer_error(msglevel_t::error, diagnose::lexer::err_invalid_token_macro_controlor{
@@ -2202,7 +2202,7 @@ extern func macro_entry(lexer: std::lexer)=> string
                 for (auto& error_message : lexer_error_frame)
                 {
                     auto layer = error_message.m_layer;
-                    record_message(move(error_message)).m_layer = layer;
+                    record_message(std::move(error_message)).m_layer = layer;
                 }
 
                 // ATTENTION: Virtual file not been removed here, memory may leak.

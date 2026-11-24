@@ -533,7 +533,7 @@ key_event read_char_text(console_in& src, unsigned char lead)
             break; // truncated at end-of-stream: keep what we have
         s.push_back(static_cast<char>(c));
     }
-    return key_event{ key_kind::char_text, move(s) };
+    return key_event{ key_kind::char_text, std::move(s) };
 }
 
 key_event decode_escape(console_in& src)

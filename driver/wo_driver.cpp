@@ -185,7 +185,7 @@ int driver_run_repl()
         {
             optional<string> got = repl_live_readline(prompt, history);
             if (got.has_value())
-                line = move(*got);
+                line = std::move(*got);
             else
                 eof = true;
         }

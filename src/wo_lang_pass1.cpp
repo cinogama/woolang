@@ -838,7 +838,7 @@ namespace wo
         {
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
 
-            auto current_error_frame = move(lex.get_current_error_frame());
+            auto current_error_frame = std::move(lex.get_current_error_frame());
             lex.end_trying_block();
 
             auto& last_error_frame = lex.get_current_error_frame();
@@ -947,7 +947,7 @@ namespace wo
 
                             bool continue_process = false;
                             auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
-                                lex, node, type_symbol, move(template_args), out_stack, &continue_process);
+                                lex, node, type_symbol, std::move(template_args), out_stack, &continue_process);
 
                             if (!template_eval_state_instance_may_nullopt)
                                 return FAILED;
@@ -1234,7 +1234,7 @@ namespace wo
 
             end_last_scope(); // Leave temporary advance the processing of declaration nodes.
 
-            auto current_error_frame = move(lex.get_current_error_frame());
+            auto current_error_frame = std::move(lex.get_current_error_frame());
             lex.end_trying_block();
 
             auto& last_error_frame = lex.get_current_error_frame();
@@ -1303,7 +1303,7 @@ namespace wo
 
                         bool continue_process = false;
                         auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
-                            lex, node, var_symbol, move(template_args), out_stack, &continue_process);
+                            lex, node, var_symbol, std::move(template_args), out_stack, &continue_process);
 
                         if (!template_eval_state_instance_may_nullopt)
                             return FAILED;
@@ -3825,9 +3825,9 @@ namespace wo
                     }
 
                     // Prepare for template constant deduction.
-                    branch_a_context->m_deduction_results = move(deduction_results);
+                    branch_a_context->m_deduction_results = std::move(deduction_results);
                     branch_a_context->m_template_params = template_params;
-                    branch_a_context->m_undetermined_template_params = move(pending_template_params);
+                    branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
                     if (entry_function_located_scope)
                         end_last_scope();
 
@@ -3980,7 +3980,7 @@ namespace wo
                 ///////////////////////////////////////////////////////////////////////////////
 
                 // Make instance!
-                auto current_error_frame = move(lex.get_current_error_frame());
+                auto current_error_frame = std::move(lex.get_current_error_frame());
                 lex.end_trying_block();
 
                 if (!current_error_frame.empty())
@@ -4349,7 +4349,7 @@ namespace wo
                 break;
             case AstValueFunctionCall::HOLD_BRANCH_A_TEMPLATE_ARGUMENT_DEDUCTION:
             {
-                auto current_error_frame = move(lex.get_current_error_frame());
+                auto current_error_frame = std::move(lex.get_current_error_frame());
                 lex.end_trying_block();
 
                 wo_assert(!current_error_frame.empty());
@@ -4718,9 +4718,9 @@ namespace wo
                     }
                 }
 
-                branch_a_context->m_deduction_results = move(deduction_results);
+                branch_a_context->m_deduction_results = std::move(deduction_results);
                 branch_a_context->m_template_params = template_params;
-                branch_a_context->m_undetermined_template_params = move(pending_template_params);
+                branch_a_context->m_undetermined_template_params = std::move(pending_template_params);
                 end_last_scope();
 
                 if (deduction_error)
@@ -4742,7 +4742,7 @@ namespace wo
             }
             case AstValueStruct::HOLD_FOR_TEMPLATE_DEDUCTION:
             {
-                auto current_error_frame = move(lex.get_current_error_frame());
+                auto current_error_frame = std::move(lex.get_current_error_frame());
                 lex.end_trying_block();
 
                 if (!current_error_frame.empty())
@@ -4905,7 +4905,7 @@ namespace wo
                         AstValueFunctionCall_FakeAstArgumentDeductionContextB* branch_b_context =
                             new AstValueFunctionCall_FakeAstArgumentDeductionContextB();
 
-                        branch_b_context->m_arguments_tobe_deduct = move(arguments_tobe_deduct);
+                        branch_b_context->m_arguments_tobe_deduct = std::move(arguments_tobe_deduct);
 
                         node->m_LANG_branch_argument_deduction_context = branch_b_context;
 
@@ -5084,7 +5084,7 @@ namespace wo
         {
             if (node->m_LANG_hold_state == AstValueStruct::HOLD_FOR_TEMPLATE_DEDUCTION)
             {
-                auto current_error_frame = move(lex.get_current_error_frame());
+                auto current_error_frame = std::move(lex.get_current_error_frame());
                 lex.end_trying_block();
 
                 wo_assert(!current_error_frame.empty());

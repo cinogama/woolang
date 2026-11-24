@@ -866,7 +866,7 @@ namespace wo
                     lex,
                     node,
                     immutable_atype->m_symbol,
-                    move(mixed_template_args),
+                    std::move(mixed_template_args),
                     out_stack,
                     &need_continue_process);
 

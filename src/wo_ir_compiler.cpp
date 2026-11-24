@@ -2148,7 +2148,7 @@ namespace wo
                 t.m_idx = alloc_constant();
                 woort_IRConstantIndex result_idx = t.m_idx;
                 m_ordered_tuple_imm_list.push_back(
-                    &m_tuple_imm_pool.emplace(struct_data, move(t)).first->second);
+                    &m_tuple_imm_pool.emplace(struct_data, std::move(t)).first->second);
                 return result_idx;
             }
             return it->second.m_idx;

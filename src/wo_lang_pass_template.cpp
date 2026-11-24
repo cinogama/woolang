@@ -592,7 +592,7 @@ namespace wo
         wo_assert(!lex.get_current_error_frame().empty());
 
         template_eval_instance->m_failed_error_for_this_instance.emplace(
-            move(lex.get_current_error_frame()));
+            std::move(lex.get_current_error_frame()));
 
         lex.end_trying_block();
 

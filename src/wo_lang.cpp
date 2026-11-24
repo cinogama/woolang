@@ -198,7 +198,7 @@ namespace wo
         auto* result = new_instance.get();
 
         m_template_instances.insert(
-            make_pair(template_args, move(new_instance)));
+            make_pair(template_args, std::move(new_instance)));
 
         return result;
     }
@@ -229,7 +229,7 @@ namespace wo
         auto* result = new_instance.get();
 
         m_template_instances.insert(
-            make_pair(template_args, move(new_instance)));
+            make_pair(template_args, std::move(new_instance)));
 
         return result;
     }
@@ -260,7 +260,7 @@ namespace wo
         auto* result = new_instance.get();
 
         m_template_instances.insert(
-            make_pair(template_args, move(new_instance)));
+            make_pair(template_args, std::move(new_instance)));
 
         return result;
     }
@@ -410,7 +410,7 @@ namespace wo
 
         _update_type_instance_depend_this(move_type);
 
-        m_determined_base_type_or_mutable = move(move_type);
+        m_determined_base_type_or_mutable = std::move(move_type);
     }
 
     //////////////////////////////////////
@@ -776,7 +776,7 @@ namespace wo
                 auto new_chain_node = make_unique<OriginTypeChain>();
                 auto* next_chain_node_p = new_chain_node.get();
 
-                current_chain->m_chain.insert(make_pair(type, move(new_chain_node)));
+                current_chain->m_chain.insert(make_pair(type, std::move(new_chain_node)));
 
                 current_chain = next_chain_node_p;
             }
@@ -807,7 +807,7 @@ namespace wo
                 auto new_chain_node = make_unique<UnionStructTypeIndexChain>();
                 auto* next_chain_node_p = new_chain_node.get();
 
-                field_chain.insert(make_pair(type_may_null, move(new_chain_node)));
+                field_chain.insert(make_pair(type_may_null, std::move(new_chain_node)));
 
                 current_chain = next_chain_node_p;
             }
@@ -844,7 +844,7 @@ namespace wo
                 vector{
                     AstIdentifier::TemplateArgumentInstance(key_type),
                     AstIdentifier::TemplateArgumentInstance(value_type) });
-            new_type_instance->determine_base_type_move(move(determined_type_detail));
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -870,7 +870,7 @@ namespace wo
                 vector{
                     AstIdentifier::TemplateArgumentInstance(key_type),
                     AstIdentifier::TemplateArgumentInstance(value_type) });
-            new_type_instance->determine_base_type_move(move(determined_type_detail));
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -893,7 +893,7 @@ namespace wo
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(
                 m_array,
                 vector{ AstIdentifier::TemplateArgumentInstance(element_type) });
-            new_type_instance->determine_base_type_move(move(determined_type_detail));
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -915,7 +915,7 @@ namespace wo
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(
                 m_vector, vector{ AstIdentifier::TemplateArgumentInstance(element_type) });
-            new_type_instance->determine_base_type_move(move(determined_type_detail));
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -936,7 +936,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::TUPLE, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_tuple, nullopt);
-            new_type_instance->determine_base_type_move(move(determined_type_detail));
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -958,7 +958,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::FUNCTION, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_function, nullopt);
-            new_type_instance->determine_base_type_move(move(determined_type_detail));
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -987,7 +987,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::STRUCT, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_struct, nullopt);
-            new_type_instance->determine_base_type_move(move(determined_type_detail));
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -1023,7 +1023,7 @@ namespace wo
                 lang_TypeInstance::DeterminedType::base_type::UNION, desc);
 
             lang_TypeInstance* new_type_instance = new lang_TypeInstance(m_union, nullopt);
-            new_type_instance->determine_base_type_move(move(determined_type_detail));
+            new_type_instance->determine_base_type_move(std::move(determined_type_detail));
 
             chain_node->m_type_instance = new_type_instance;
         }
@@ -1469,7 +1469,7 @@ namespace wo
 
         while (!m_deferred_checks.empty())
         {
-            auto deferred_check = move(m_deferred_checks.front());
+            auto deferred_check = std::move(m_deferred_checks.front());
             m_deferred_checks.erase(m_deferred_checks.begin());
 
             // A parked function node is re-driven through the dispatcher's
@@ -1621,7 +1621,7 @@ namespace wo
         for (;;)
         {
             auto functions_to_finalize =
-                move(m_ircontext.m_being_used_function_instance);
+                std::move(m_ircontext.m_being_used_function_instance);
 
             m_ircontext.m_being_used_function_instance.clear();
             if (functions_to_finalize.empty())
@@ -1896,7 +1896,7 @@ namespace wo
         entry_spcify_scope(new_scope.get());
 
         return current_scope->m_sub_scopes.emplace_back(
-            move(new_scope)).get();
+            std::move(new_scope)).get();
     }
     void LangContext::entry_spcify_scope(lang_Scope* scope)
     {
@@ -1924,7 +1924,7 @@ namespace wo
                 m_created_symbol_edge;
 
             auto* new_namespace_ptr = get_current_namespace()->m_sub_namespaces.insert(
-                make_pair(name, move(new_namespace)))
+                make_pair(name, std::move(new_namespace)))
                 .first->second.get();
 
             m_scope_stack.push(new_namespace_ptr->m_this_scope.get());
@@ -2236,7 +2236,7 @@ namespace wo
             auto* result = mutable_type_instance.get();
 
             m_mutable_type_instance_cache.insert(
-                make_pair(origin_type, move(mutable_type_instance)));
+                make_pair(origin_type, std::move(mutable_type_instance)));
 
             return result;
         }
@@ -2993,7 +2993,7 @@ namespace wo
                 // Already pushed when set_result_*, ignore the result.
                 break;
             default:
-                m_evaled_result_storage.emplace(move(top_eval_state));
+                m_evaled_result_storage.emplace(std::move(top_eval_state));
             }
 
             if (need_pop_pdi)
@@ -3116,7 +3116,7 @@ namespace wo
         EvalResult /* dup */ e = m_eval_result_storage_target.top();
 
         e.m_treat_as_type.emplace(specify_type);
-        m_eval_result_storage_target.emplace(move(e));
+        m_eval_result_storage_target.emplace(std::move(e));
     }
     void BytecodeGenerateContext::eval_for_upper_box()
     {

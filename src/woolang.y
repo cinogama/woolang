@@ -26,7 +26,9 @@
 
 #define YYSTYPE ::wo::parser::value
 
-#define BID(B)          (::wo::parser::builder_id< ::wo::ast::B >())
+/* Variadic: an A_APPEND_* macro expands to a template-id, and the comma in
+ * that template argument list reaches BID as an argument separator. */
+#define BID(...)        (::wo::parser::builder_id< ::wo::ast::__VA_ARGS__ >())
 #define R0(B)           (::wo::parser::reduce(BID(B), *ctx, {}))
 #define R1(B, A1)       (::wo::parser::reduce(BID(B), *ctx, { A1 }))
 #define R2(B, A1, A2)   (::wo::parser::reduce(BID(B), *ctx, { A1, A2 }))
@@ -51,8 +53,9 @@
 #define R12(B, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) \
     (::wo::parser::reduce(BID(B), *ctx, { A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12 }))
 
-/* pass_append_list<from, to> has a comma in its template argument list;
- * alias it so it can be passed to the R<n> macros as a single macro argument. */
+/* pass_append_list<from, to> has a comma in its template argument list, so it
+ * cannot be written directly in an R<n> call; alias it so the R<n> macros see
+ * a single argument. BID re-joins the two pieces after this expansion. */
 #define A_APPEND_1_0 pass_append_list<1, 0>
 #define A_APPEND_2_0 pass_append_list<2, 0>
 #define A_APPEND_0_1 pass_append_list<0, 1>

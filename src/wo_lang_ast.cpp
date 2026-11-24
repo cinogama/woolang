@@ -436,7 +436,7 @@ namespace wo
         AstIdentifier::TemplateArgumentInstance::TemplateArgumentInstance(
             TemplateArgumentInstance&& another) noexcept
             : m_type(another.m_type)
-            , m_constant(move(another.m_constant))
+            , m_constant(std::move(another.m_constant))
         {
         }
         AstIdentifier::TemplateArgumentInstance& AstIdentifier::TemplateArgumentInstance::operator =(
@@ -459,7 +459,7 @@ namespace wo
             {
                 m_type = another.m_type;
                 if (another.m_constant.has_value())
-                    m_constant.emplace(move(another.m_constant.value()));
+                    m_constant.emplace(std::move(another.m_constant.value()));
                 else
                     m_constant.reset();
             }
@@ -1741,7 +1741,7 @@ namespace wo
 
                 instance.m_referenced_variables.push_back(variable);
                 return m_captured_variables.insert(
-                    make_pair(from_value, move(instance))
+                    make_pair(from_value, std::move(instance))
                 ).first->second.m_instance.get();
             }
             return fnd->second.m_instance.get();

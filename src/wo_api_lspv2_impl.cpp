@@ -931,7 +931,7 @@ void _collect_token(
         loc.end_at.row, loc.end_at.column,
         token_type };
 
-    if (seen.insert(move(key)).second)
+    if (seen.insert(std::move(key)).second)
     {
         tokens.push_back({ loc, token_type, modifiers });
     }

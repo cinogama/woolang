@@ -110,7 +110,7 @@ namespace wo
                     lexer new_lex(
                         &lex,
                         src_full_path_pstr,
-                        move(srcfile_stream.value()),
+                        std::move(srcfile_stream.value()),
                         nullopt);
 
                     auto imported_ast = parser::parse_program(new_lex);
@@ -741,7 +741,7 @@ namespace wo
                     wo_assert(arg->node_type == AstBase::AST_TEMPLATE_ARGUMENT);
                     args.push_back(static_cast<AstTemplateArgument*>(arg));
                 }
-                template_args = move(args);
+                template_args = std::move(args);
             }
 
             vector<wo_pstring_t> scope_identifiers_and_name;
@@ -785,7 +785,7 @@ namespace wo
                     wo_assert(arg->node_type == AstBase::AST_TEMPLATE_ARGUMENT);
                     args.push_back(static_cast<AstTemplateArgument*>(arg));
                 }
-                template_args = move(args);
+                template_args = std::move(args);
             }
 
             vector<wo_pstring_t> scope_identifiers_and_name;
@@ -824,7 +824,7 @@ namespace wo
                     wo_assert(arg->node_type == AstBase::AST_TEMPLATE_ARGUMENT);
                     args.push_back(static_cast<AstTemplateArgument*>(arg));
                 }
-                template_args = move(args);
+                template_args = std::move(args);
             }
 
             vector<wo_pstring_t> scope_identifiers_and_name;
@@ -1555,7 +1555,7 @@ namespace wo
             }
 
             AstVariableDefines* variable_defines = new AstVariableDefines(attrib);
-            variable_defines->m_definitions = move(defines);
+            variable_defines->m_definitions = std::move(defines);
 
             return variable_defines;
         }

@@ -415,7 +415,7 @@ wo_repl_result wo_repl_eval(
     auto lex = make_unique<lexer>(
         nullopt,
         path_pstr,
-        optional<unique_ptr<istream>>(move(source_stream)),
+        optional<unique_ptr<istream>>(std::move(source_stream)),
         S->m_repl_group_token);
 
     // Inject known imports from prior lines (so stdlib etc. stays visible).
@@ -456,7 +456,7 @@ wo_repl_result wo_repl_eval(
         if (out_errors)
         {
             lex->realize_pending_diagnose(lc);
-            *out_errors = make_compile_errors(move(lex));
+            *out_errors = make_compile_errors(std::move(lex));
         }
         else
             lex.reset();

@@ -242,7 +242,7 @@ compile_result wo::compile_impl(
         compile_lexer = make_unique<lexer>(
             append_macro_define_to_this_lexer,
             wstring_pool::get_pstr(real_file_path),
-            move(source_stream),
+            std::move(source_stream),
             nullopt);
 
         if (binary_loading_failed.has_value())
@@ -290,7 +290,7 @@ compile_result wo::compile_impl(
                         }
                     }
 
-                    lang_context = move(langctx);
+                    lang_context = std::move(langctx);
                 }
             }
 #else
@@ -315,7 +315,7 @@ compile_result wo::compile_impl(
         wo_assert(compile_result == compile_result::PROCESS_OK);
 
         if (out_env_if_success != nullptr)
-            *out_env_if_success = move(compile_env_result.value());
+            *out_env_if_success = std::move(compile_env_result.value());
     }
     else
     {
@@ -337,11 +337,11 @@ compile_result wo::compile_impl(
             lang_context.has_value() ? lang_context.value().get() : nullptr);
 
         if (out_lexer_if_failed != nullptr)
-            *out_lexer_if_failed = move(compile_lexer);
+            *out_lexer_if_failed = std::move(compile_lexer);
     }
 
     if (out_langcontext_if_pass_grammar != nullptr)
-        *out_langcontext_if_pass_grammar = move(lang_context);
+        *out_langcontext_if_pass_grammar = std::move(lang_context);
 
     return compile_result;
 }
@@ -393,7 +393,7 @@ struct _wo_CompileErrors
     wo_CompileErrorInfo m_current_info;
 
     _wo_CompileErrors(optional<unique_ptr<lexer>> lex)
-        : m_lexer(move(lex))
+        : m_lexer(std::move(lex))
         , m_current_index(0)
     {
         m_current_info.m_file_name = nullptr;
@@ -440,7 +440,7 @@ void wo_compile_errors_free(wo_CompileErrors* errors)
 // Factory for internal use (e.g., REPL).
 wo_CompileErrors* wo::make_compile_errors(optional<unique_ptr<lexer>> lex)
 {
-    return new _wo_CompileErrors(move(lex));
+    return new _wo_CompileErrors(std::move(lex));
 }
 
 namespace wo
@@ -754,7 +754,7 @@ const char* wo_get_compile_error(
     }
 
     if (out_errors != nullptr && failed_lexer.has_value())
-        *out_errors = make_compile_errors(move(failed_lexer));
+        *out_errors = make_compile_errors(std::move(failed_lexer));
 
     return nullptr;
 }
@@ -794,7 +794,7 @@ const char* wo_get_compile_error(
     if (out_errors != nullptr && failed_lexer.has_value())
     {
         *out_errors = reinterpret_cast<wo_CompileErrors*>(
-            new _wo_CompileErrors(move(failed_lexer)));
+            new _wo_CompileErrors(std::move(failed_lexer)));
     }
     return nullptr;
 }
