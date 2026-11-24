@@ -87,7 +87,7 @@ namespace wo
 
 #ifndef WO_DISABLE_COMPILER
     struct lang_TypeInstance;
-    struct lang_TypeAliasInstance;
+    struct lang_AliasInstance;
     struct lang_ValueInstance;
     struct lang_Symbol;
     struct lang_Scope;
@@ -233,13 +233,6 @@ namespace wo
             std::optional<std::vector<TemplateArgumentInstance>>
                 m_LANG_determined_and_appended_template_arguments;
 
-            // Set by AstValueVariable when this name is the declaration target
-            // of a value alias (`alias A = this`): only the aliased symbol is
-            // resolved, so the "template argument required" check is skipped
-            // and a still-generic target is left to be deduced at the
-            // reference / call site.
-            bool                    m_LANG_as_value_alias_rhs;
-
             AstIdentifier(
                 wo_pstring_t identifier);
             AstIdentifier(
@@ -335,7 +328,7 @@ namespace wo
 
             std::optional<lang_TemplateAstEvalStateBase*> m_LANG_template_evalating_state;
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
-            std::optional<lang_TypeAliasInstance*> m_LANG_type_alias_instance_only_for_lspv2;
+            std::optional<lang_AliasInstance*> m_LANG_alias_instance_only_for_lspv2;
             bool m_LANG_trying_advancing_type_judgement;
             std::optional<lang_Symbol*> m_LANG_refilling_template_target_symbol;
 
@@ -412,43 +405,11 @@ namespace wo
         };
         struct AstValueVariable : public AstValueBase
         {
-            enum LANG_hold_state
-            {
-                // Phase 1: resolve the written name to the entity it denotes.
-                // A value alias is a name-level redirect, so it is followed
-                // here, before anything is instantiated.
-                UNPROCESSED,
-                HOLD_FOR_WRITTEN_NAME,
-                HOLD_FOR_ALIAS_DECLARATION_ADVANCE,
-                HOLD_FOR_ALIAS_TEMPLATE_INSTANCE,
-                // Phase 1 done, phase 2 not started: parked at the request of a
-                // name-only consumer (`m_LANG_resolve_name_only`); if the value
-                // is wanted later, the pass1 driver resumes this variable for
-                // phase 2.
-                PARKED_NAME_RESOLVED,
-                // Phase 2: obtain the value instance of the final target.
-                HOLD_FOR_TARGET_TEMPLATE_INSTANCE,
-                HOLD_FOR_DECLARATION_ADVANCE,
-            };
-
             AstIdentifier* m_identifier;
 
-            LANG_hold_state m_LANG_hold_state;
-            // Set by a name-only consumer (the call site deciding whether to
-            // deduce) when only the written name is wanted: no value instance
-            // is evaluated (phase 2 is skipped).
-            bool m_LANG_resolve_name_only;
-            // Set by the alias declaration when this variable is the alias's
-            // declaration target: only the written name is resolved, and it
-            // may denote a still-generic target whose arguments are left to
-            // the reference / call site.
-            bool m_LANG_as_value_alias_rhs;
-
-            // Holds the template alias instance of phase 1 or the target's
-            // value instance of phase 2; the two are sequential, so one slot
-            // suffices (told apart by the state's symbol kind).
             std::optional<lang_TemplateAstEvalStateBase*> m_LANG_template_evalating_state;
             std::optional<lang_ValueInstance*> m_LANG_variable_instance;
+            bool m_LANG_trying_advancing_type_judgement;
 
             AstValueVariable(AstIdentifier* variable_name);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
@@ -522,7 +483,6 @@ namespace wo
                 UNPROCESSED,
                 HOLD_FOR_FIRST_ARGUMENT_EVAL,
                 HOLD_FOR_FUNCTION_EVAL,
-                HOLD_FOR_FUNCTION_EVAL_ALIAS_RESOLVED,
                 HOLD_FOR_ARGUMENTS_EVAL,
                 HOLD_BRANCH_A_TEMPLATE_ARGUMENT_DEDUCTION,
                 HOLD_BRANCH_B_TEMPLATE_ARGUMENT_DEDUCTION,
@@ -1248,42 +1208,6 @@ namespace wo
                 const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
                 AstTypeHolder* type);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
-        };
-        // `alias Name [<T, ...>] = foo`:
-        // Value alias of a function/variable. The right-hand side must be a
-        // plain value name (possibly scoped, possibly with `:<...>` template
-        // arguments) - see `get_value_alias_target_identifier`, which every
-        // consumer uses to unwrap it. Unlike AstAliasTypeDeclare the target is
-        // not evaluated here: the alias only records the target symbol and the
-        // already bound template arguments, and the reference site redirects
-        // itself to the target.
-        struct AstAliasValueDeclare : public AstBase
-        {
-            wo_pstring_t            m_typename;
-            std::optional<std::vector<AstTemplateParam*>>
-                m_template_parameters;
-            AstValueBase* m_value;
-            std::optional<AstDeclareAttribue*>
-                m_attribute;
-            std::optional<lang_Symbol*>
-                m_LANG_declared_symbol;
-
-        private:
-            AstAliasValueDeclare(const AstAliasValueDeclare&);
-        public:
-            AstAliasValueDeclare(
-                const std::optional<AstDeclareAttribue*>& attrib,
-                wo_pstring_t typename_,
-                const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
-                AstValueBase* value);
-            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
-
-            // Returns the value-variable node of `value` (after unwrapping
-            // `mut` / `immut` marks), or nullptr if `value` is not a plain
-            // value name. Diagnostics are the caller's (builder) job.
-            static AstValueVariable* get_value_alias_target_variable(AstValueBase* value);
-            // The written name of `get_value_alias_target_variable(value)`.
-            static AstIdentifier* get_value_alias_target_identifier(AstValueBase* value);
         };
         struct AstEnumItem : public AstBase
         {

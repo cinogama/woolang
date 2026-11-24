@@ -81,7 +81,6 @@ namespace wo
 
                 AST_TYPE_DECLARE,
                 AST_ALIAS_TYPE_DECLARE,
-                AST_ALIAS_VALUE_DECLARE,
 
                 AST_WHERE_CONSTRAINTS,
 
@@ -365,7 +364,7 @@ namespace wo
     struct token
     {
         lex_type     type;
-        wo_pstring_t identifier;
+        wo_pstring_t identifier = nullptr;
     };
 
     inline std::ostream& operator << (std::ostream& os, const token& tk)

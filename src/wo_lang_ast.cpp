@@ -323,7 +323,6 @@ namespace wo
             , m_template_arguments(nullopt)
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
-            , m_LANG_as_value_alias_rhs(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -339,7 +338,6 @@ namespace wo
             , m_template_arguments(template_arguments)
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
-            , m_LANG_as_value_alias_rhs(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -357,7 +355,6 @@ namespace wo
             , m_template_arguments(template_arguments)
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
-            , m_LANG_as_value_alias_rhs(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -375,22 +372,20 @@ namespace wo
             , m_template_arguments(template_arguments)
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
-            , m_LANG_as_value_alias_rhs(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
 
-        AstIdentifier::AstIdentifier(const AstIdentifier& identifier)
+        AstIdentifier::AstIdentifier(const AstIdentifier& identifer)
             : AstBase(AST_IDENTIFIER)
-            , m_formal(identifier.m_formal)
-            , m_find_type_only(identifier.m_find_type_only)
-            , m_from_type(identifier.m_from_type)
-            , m_scope(identifier.m_scope)
-            , m_name(identifier.m_name)
-            , m_template_arguments(identifier.m_template_arguments)
+            , m_formal(identifer.m_formal)
+            , m_find_type_only(identifer.m_find_type_only)
+            , m_from_type(identifer.m_from_type)
+            , m_scope(identifer.m_scope)
+            , m_name(identifer.m_name)
+            , m_template_arguments(identifer.m_template_arguments)
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
-            , m_LANG_as_value_alias_rhs(false)
             //, m_LANG_determined_searching_from_scope(std::nullopt)
         {
         }
@@ -598,7 +593,7 @@ namespace wo
             , m_formal(IDENTIFIER)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -610,7 +605,7 @@ namespace wo
             , m_formal(TYPEOF)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -622,7 +617,7 @@ namespace wo
             , m_formal(UNDERLYING)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -634,7 +629,7 @@ namespace wo
             , m_formal(FUNCTION)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -646,7 +641,7 @@ namespace wo
             , m_formal(STRUCTURE)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -658,7 +653,7 @@ namespace wo
             , m_formal(TUPLE)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -670,7 +665,7 @@ namespace wo
             , m_formal(UNION)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -1251,11 +1246,9 @@ namespace wo
         AstValueVariable::AstValueVariable(AstIdentifier* identifier)
             : AstValueBase(AST_VALUE_VARIABLE)
             , m_identifier(identifier)
-            , m_LANG_hold_state(LANG_hold_state::UNPROCESSED)
-            , m_LANG_resolve_name_only(false)
-            , m_LANG_as_value_alias_rhs(false)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_variable_instance(nullopt)
+            , m_LANG_trying_advancing_type_judgement(false)
         {
             m_identifier->m_find_type_only = false;
         }
@@ -2377,70 +2370,6 @@ namespace wo
             if (m_attribute)
                 out_continues.push_back(AstBase::make_holder(&new_instance->m_attribute.value()));
             return new_instance;
-        }
-
-        ////////////////////////////////////////////////////////
-
-        AstAliasValueDeclare::AstAliasValueDeclare(const AstAliasValueDeclare& item)
-            : AstBase(AST_ALIAS_VALUE_DECLARE)
-            , m_typename(item.m_typename)
-            , m_template_parameters(item.m_template_parameters)
-            , m_value(item.m_value)
-            , m_attribute(item.m_attribute)
-            , m_LANG_declared_symbol(nullopt)
-        {
-        }
-        AstAliasValueDeclare::AstAliasValueDeclare(
-            const optional<AstDeclareAttribue*>& attrib,
-            wo_pstring_t typename_,
-            const optional<vector<AstTemplateParam*>>& template_parameters,
-            AstValueBase* value)
-            : AstBase(AST_ALIAS_VALUE_DECLARE)
-            , m_typename(typename_)
-            , m_template_parameters(template_parameters)
-            , m_value(value)
-            , m_attribute(attrib)
-            , m_LANG_declared_symbol(nullopt)
-        {
-        }
-        AstBase* AstAliasValueDeclare::make_dup(optional<AstBase*> exist_instance, ContinuesList& out_continues) const
-        {
-            AstAliasValueDeclare* new_instance = exist_instance
-                ? static_cast<AstAliasValueDeclare*>(exist_instance.value())
-                : new AstAliasValueDeclare(*this)
-                ;
-
-            out_continues.push_back(AstBase::make_holder(&new_instance->m_value));
-            if (m_attribute)
-                out_continues.push_back(AstBase::make_holder(&new_instance->m_attribute.value()));
-            return new_instance;
-        }
-        AstValueVariable* AstAliasValueDeclare::get_value_alias_target_variable(AstValueBase* value)
-        {
-            // `mut foo` / `immut foo` carry no meaning for an alias: the
-            // mutability always follows the target.
-            for (;;)
-            {
-                switch (value->node_type)
-                {
-                case AstBase::AST_VALUE_MARK_AS_MUTABLE:
-                    value = static_cast<AstValueMarkAsMutable*>(value)->m_marked_value;
-                    break;
-                case AstBase::AST_VALUE_MARK_AS_IMMUTABLE:
-                    value = static_cast<AstValueMarkAsImmutable*>(value)->m_marked_value;
-                    break;
-                default:
-                    if (value->node_type != AstBase::AST_VALUE_VARIABLE)
-                        return nullptr;
-
-                    return static_cast<AstValueVariable*>(value);
-                }
-            }
-        }
-        AstIdentifier* AstAliasValueDeclare::get_value_alias_target_identifier(AstValueBase* value)
-        {
-            AstValueVariable* target_variable = get_value_alias_target_variable(value);
-            return target_variable == nullptr ? nullptr : target_variable->m_identifier;
         }
 
         ////////////////////////////////////////////////////////

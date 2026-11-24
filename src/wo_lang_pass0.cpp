@@ -138,7 +138,6 @@ namespace wo
         WO_LANG_REGISTER_PROCESSER(AstVariableDefines, AstBase::AST_VARIABLE_DEFINES, pass0);
         WO_LANG_REGISTER_PROCESSER(AstVariableDefineItem, AstBase::AST_VARIABLE_DEFINE_ITEM, pass0);
         WO_LANG_REGISTER_PROCESSER(AstAliasTypeDeclare, AstBase::AST_ALIAS_TYPE_DECLARE, pass0);
-        WO_LANG_REGISTER_PROCESSER(AstAliasValueDeclare, AstBase::AST_ALIAS_VALUE_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstTypeDeclare, AstBase::AST_TYPE_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstEnumDeclare, AstBase::AST_ENUM_DECLARE, pass0);
         WO_LANG_REGISTER_PROCESSER(AstUnionDeclare, AstBase::AST_UNION_DECLARE, pass0);
@@ -271,7 +270,7 @@ namespace wo
                 get_current_scope(),
                 node->m_type,
                 node->m_template_parameters.value(),
-                lang_Symbol::kind::TYPE_ALIAS);
+                true);
         else
             symbol_defined_success = define_symbol_in_current_scope(
                 &defined_symbol,
@@ -280,67 +279,8 @@ namespace wo
                 node,
                 node->source_location,
                 get_current_scope(),
-                lang_Symbol::kind::TYPE_ALIAS,
+                lang_Symbol::kind::ALIAS,
                 false);
-
-        if (symbol_defined_success)
-        {
-            wo_assert(defined_symbol != nullptr);
-            node->m_LANG_declared_symbol = defined_symbol;
-
-            defined_symbol->m_is_global = true;
-        }
-        else
-        {
-            lex.record_lang_error(lexer::msglevel_t::error, node, diagnose::parser::err_redefined{node->m_typename->c_str()});
-            if (defined_symbol->m_symbol_declare_ast.has_value())
-                lex.record_lang_error(lexer::msglevel_t::infom,
-                    defined_symbol->m_symbol_declare_ast.value(),
-                    diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(defined_symbol)});
-
-            return FAILED;
-        }
-        return OKAY;
-    }
-    WO_PASS_PROCESSER(AstAliasValueDeclare)
-    {
-        wo_assert(!node->m_LANG_declared_symbol);
-
-        AstIdentifier* target_identifier =
-            AstAliasValueDeclare::get_value_alias_target_identifier(node->m_value);
-
-        if (target_identifier == nullptr)
-            // The declaration builder already reported that the right-hand
-            // side is not a name. Do not declare a symbol: references get a
-            // plain "unfound" diagnostic instead of a half-formed alias.
-            return FAILED;
-
-        bool symbol_defined_success = false;
-        lang_Symbol* defined_symbol = nullptr;
-
-        if (node->m_template_parameters)
-            symbol_defined_success = define_symbol_in_current_scope(
-                &defined_symbol,
-                node->m_typename,
-                node->m_attribute,
-                node,
-                node->source_location,
-                get_current_scope(),
-                node->m_value,
-                node->m_template_parameters.value(),
-                lang_Symbol::alias_symbol_tag::VALUE_ALIAS);
-        else
-        {
-            symbol_defined_success = define_symbol_in_current_scope(
-                &defined_symbol,
-                node->m_typename,
-                node->m_attribute,
-                node,
-                node->source_location,
-                get_current_scope(),
-                lang_Symbol::kind::VALUE_ALIAS,
-                false);
-        }
 
         if (symbol_defined_success)
         {
@@ -379,7 +319,7 @@ namespace wo
                 get_current_scope(),
                 node->m_type,
                 node->m_template_parameters.value(),
-                lang_Symbol::kind::TYPE);
+                false);
         else
             symbol_defined_success = define_symbol_in_current_scope(
                 &defined_symbol,

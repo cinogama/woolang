@@ -58,22 +58,16 @@ namespace parser
         context(lexer& lex_instance, std::optional<bool*> out_is_incomplete_flag)
             : lex(lex_instance)
             , out_is_incomplete(out_is_incomplete_flag)
-            , has_error_node(false)
-            , at_eof(false)
-            , lookahead_valid(false)
-            , lookahead{}
-            , result{}
-            , result_valid(false)
         {
         }
 
-        bool has_error_node;
-        bool at_eof;
-        bool lookahead_valid;
-        lexer::peeked_token_t lookahead;
+        bool has_error_node = false;
+        bool at_eof = false;
+        bool lookahead_valid = false;
+        lexer::peeked_token_t lookahead{};
 
-        value result;
-        bool result_valid;
+        value result{};
+        bool result_valid = false;
 
         std::vector<::wo::produce> reduce_inputs;
     };
