@@ -1480,11 +1480,38 @@ namespace wo
             ast::AstValueVariable* ref_from_variable,
             lang_ValueInstance* variable_instance);
 
+        // What a permission check is about. The kind selects which
+        // declaration's permission is consulted (a symbol's name visibility,
+        // a type's constructibility, or a struct field's visibility) and
+        // which diagnostic is reported when the use is denied.
+        enum class access_check_kind
+        {
+            SYMBOL,         // Referring to a declared name.
+            CONSTRUCT,      // `as T` cast or `T{...}` struct literal.
+            STRUCT_FIELD,   // Reading/writing a struct field.
+        };
+
         bool check_symbol_is_imported(
             lexer& lex,
             ast::AstBase* node,
             lang_Symbol* symbol_instance,
             wo_pstring_t path);
+
+        // Shared implementation of the permission checks below. `access` is
+        // the permission declared by `declaring_symbol`; `path` and the
+        // current namespace describe the use site. Only the declaration
+        // written at the use site is ever passed here: resolving an alias
+        // must not turn into an access check of the alias's target.
+        bool check_access_is_allowed(
+            lexer& lex,
+            ast::AstBase* node,
+            access_check_kind kind,
+            ast::AstDeclareAttribue::accessc_attrib access,
+            lang_Symbol* declaring_symbol,
+            wo_pstring_t field_name,
+            wo_pstring_t path,
+            bool need_import_check);
+
         bool check_symbol_is_reachable_in_current_scope(
             lexer& lex,
             ast::AstBase* node,

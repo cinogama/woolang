@@ -137,6 +137,25 @@ namespace smoke_v116_negative
                   {
                       return hidden() + hidden_value;
                   }
+
+                  // An alias chain may expose a local target: every link is
+                  // checked where its own name is written.
+                  local type AliasTarget: int;
+                  local alias AliasMiddle: AliasTarget;
+                  pub alias AliasChain: AliasMiddle;
+                  pub func make_alias_chain()=> AliasChain
+                  {
+                      return 1 as AliasChain;
+                  }
+
+                  // Template-argument refilling follows the written alias
+                  // name, not the local target it resolves to.
+                  local type AliasTpl<T>: int;
+                  pub alias AliasRefill: AliasTpl<int>;
+                  pub func make_alias_refill()=> AliasRefill<real>
+                  {
+                      return 1 as AliasTpl<real>;
+                  }
               }"@ as buffer,
             false);
     }
@@ -360,6 +379,18 @@ namespace smoke_v116_negative
         // the root namespace cannot see them either.
         expect_cross_fail("internal func outside namespace",
             "func f(){ do decl::nsinternal(); }");
+
+        // Alias chains are checked link by link where each name is written:
+        // a pub alias may expose a local alias whose target is local too.
+        expect_cross_ok("pub alias over local chain",
+            @"func take<T>(x: T)=> T { return x; }
+              func f(){ do take:<decl::AliasChain>(decl::make_alias_chain()); }"@);
+
+        // Template-argument refilling keeps checking the written alias,
+        // not the local target it resolves to.
+        expect_cross_ok("alias refill over local template",
+            @"func take<T>(x: T)=> T { return x; }
+              func f(){ do take:<decl::AliasRefill<real>>(decl::make_alias_refill()); }"@);
     }
 
     func test_cross_file_conflicts()

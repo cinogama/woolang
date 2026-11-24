@@ -78,6 +78,58 @@ namespace wo
 
             return sites;
         }
+
+        // Is `namespace_` a descendant of (or equal to) `ancestor`?
+        bool is_namespace_inside(lang_Namespace* namespace_, lang_Namespace* ancestor)
+        {
+            for (;;)
+            {
+                if (namespace_ == ancestor)
+                    return true;
+
+                if (!namespace_->m_parent_namespace.has_value())
+                    return false;
+
+                namespace_ = namespace_->m_parent_namespace.value();
+            }
+        }
+
+        // Name visibility declared on a symbol; no modifier defaults to
+        // file-local.
+        AstDeclareAttribue::accessc_attrib get_symbol_declare_access(
+            lang_Symbol* symbol)
+        {
+            if (symbol->m_declare_attribute.has_value())
+            {
+                AstDeclareAttribue* declare_attribute =
+                    symbol->m_declare_attribute.value();
+
+                if (declare_attribute->m_access.has_value())
+                    return declare_attribute->m_access.value();
+            }
+            return AstDeclareAttribue::accessc_attrib::PRIVATE;
+        }
+
+        // Construction permission declared after ':' in a `type` declaration
+        // (or after `enum`/`union`); no modifier defaults to file-local. It is
+        // independent from the name visibility above.
+        AstDeclareAttribue::accessc_attrib get_type_construct_access(
+            lang_Symbol* symbol)
+        {
+            if (symbol->m_symbol_declare_ast.has_value())
+            {
+                AstBase* declare_ast = symbol->m_symbol_declare_ast.value();
+                if (declare_ast->node_type == AstBase::AST_TYPE_DECLARE)
+                {
+                    auto* type_declare =
+                        static_cast<AstTypeDeclare*>(declare_ast);
+
+                    if (type_declare->m_construct_attribute.has_value())
+                        return type_declare->m_construct_attribute.value();
+                }
+            }
+            return AstDeclareAttribue::accessc_attrib::PRIVATE;
+        }
     }
 
     bool LangContext::update_pattern_symbol_variable_type_pass1(
@@ -227,68 +279,120 @@ namespace wo
         }
         return true;
     }
-    bool LangContext::check_symbol_is_reachable_in_current_scope(
-        lexer& lex, AstBase* node, lang_Symbol* symbol_instance, wo_pstring_t path, bool need_import_check)
+
+    bool LangContext::check_access_is_allowed(
+        lexer& lex,
+        AstBase* node,
+        access_check_kind kind,
+        AstDeclareAttribue::accessc_attrib attrib,
+        lang_Symbol* declaring_symbol,
+        wo_pstring_t field_name,
+        wo_pstring_t path,
+        bool need_import_check)
     {
-        if (!symbol_instance->m_is_global)
-            // Local symbol is always reachable.
+        if (!declaring_symbol->m_is_global)
+            // Symbols local to a function or scope carry no access restriction.
             return true;
 
-        AstDeclareAttribue::accessc_attrib attrib =
-            AstDeclareAttribue::accessc_attrib::PRIVATE;
-
-        if (symbol_instance->m_declare_attribute.has_value())
+        if (kind == access_check_kind::CONSTRUCT
+            && !declaring_symbol->m_symbol_declare_location.has_value())
         {
-            AstDeclareAttribue* declare_attribute =
-                symbol_instance->m_declare_attribute.value();
-
-            if (declare_attribute->m_access.has_value())
-                attrib = declare_attribute->m_access.value();
+            // Builtin & compiler generated types are always constructible.
+            return true;
         }
 
-        const AstBase::source_location_t* symbol_location_may_null = nullptr;
-        if (symbol_instance->m_symbol_declare_location.has_value())
-            symbol_location_may_null = &symbol_instance->m_symbol_declare_location.value();
+        const AstBase::source_location_t* declare_location_may_null = nullptr;
+        if (declaring_symbol->m_symbol_declare_location.has_value())
+            declare_location_may_null = &declaring_symbol->m_symbol_declare_location.value();
 
-        if (need_import_check && !check_symbol_is_imported(lex, node, symbol_instance, path))
+        if (need_import_check
+            && !check_symbol_is_imported(lex, node, declaring_symbol, path))
+        {
             return false;
+        }
 
         switch (attrib)
         {
         case AstDeclareAttribue::accessc_attrib::PUBLIC:
             return true;
+
         case AstDeclareAttribue::accessc_attrib::PROTECTED:
         {
-            auto* symbol_defined_in_name_space =
-                symbol_instance->m_belongs_to_scope->m_belongs_to_namespace;
+            lang_Namespace* required_namespace = nullptr;
 
-            for (auto* namespace_ = get_current_namespace();;
-                namespace_ = namespace_->m_parent_namespace.value())
+            if (kind == access_check_kind::CONSTRUCT)
             {
-                if (namespace_ == symbol_defined_in_name_space)
-                    return true;
+                // `internal` construction permission is relative to the type's
+                // own namespace (the namespace named after the type), not the
+                // namespace where the type is declared.
+                auto* declare_scope = declaring_symbol->m_belongs_to_scope;
+                if (declare_scope->is_namespace_scope())
+                {
+                    auto* parent_namespace =
+                        declare_scope->m_belongs_to_namespace;
 
-                if (!namespace_->m_parent_namespace.has_value())
-                    break;
+                    auto fnd = parent_namespace->m_sub_namespaces.find(
+                        declaring_symbol->m_name);
+
+                    if (fnd != parent_namespace->m_sub_namespaces.end())
+                        required_namespace = fnd->second.get();
+                }
+            }
+            else
+            {
+                required_namespace =
+                    declaring_symbol->m_belongs_to_scope->m_belongs_to_namespace;
             }
 
-            lex.record_lang_error(lexer::msglevel_t::error, node,
-                diagnose::lang2::err_symbol_is_protected{symbol_instance, _get_scope_name(symbol_defined_in_name_space->m_this_scope.get()).c_str()});
+            if (required_namespace != nullptr
+                && is_namespace_inside(get_current_namespace(), required_namespace))
+            {
+                return true;
+            }
 
+            switch (kind)
+            {
+            case access_check_kind::SYMBOL:
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    diagnose::lang2::err_symbol_is_protected{declaring_symbol, _get_scope_name(required_namespace->m_this_scope.get()).c_str()});
+                break;
+            case access_check_kind::CONSTRUCT:
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    diagnose::lang2::err_type_is_not_constructible_in_namespace{
+                        declaring_symbol, (_get_symbol_name(declaring_symbol) + "::").c_str()});
+                break;
+            case access_check_kind::STRUCT_FIELD:
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    diagnose::lang1::err_struct_field_is_protected{field_name->c_str(), _get_scope_name(required_namespace->m_this_scope.get()).c_str()});
+                break;
+            }
             break;
         }
         case AstDeclareAttribue::accessc_attrib::PRIVATE:
         {
-            if (symbol_location_may_null == nullptr)
-                // Builtin & compiler generated symbol is always reachable.
+            if (declare_location_may_null == nullptr
+                || declare_location_may_null->source_group == path)
+            {
+                // Builtin & compiler generated symbols, and uses from the
+                // declaring file, are always allowed.
                 return true;
+            }
 
-            if (symbol_location_may_null->source_group == path)
-                return true;
-
-            lex.record_lang_error(lexer::msglevel_t::error, node,
-                diagnose::lang2::err_symbol_is_private{symbol_instance, symbol_location_may_null->source_file->c_str()});
-
+            switch (kind)
+            {
+            case access_check_kind::SYMBOL:
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    diagnose::lang2::err_symbol_is_private{declaring_symbol, declare_location_may_null->source_file->c_str()});
+                break;
+            case access_check_kind::CONSTRUCT:
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    diagnose::lang2::err_type_is_not_constructible{declaring_symbol, declare_location_may_null->source_file->c_str()});
+                break;
+            case access_check_kind::STRUCT_FIELD:
+                lex.record_lang_error(lexer::msglevel_t::error, node,
+                    diagnose::lang1::err_struct_field_is_private{field_name->c_str(), declare_location_may_null->source_file->c_str()});
+                break;
+            }
             break;
         }
         default:
@@ -296,12 +400,27 @@ namespace wo
             break;
         }
 
-        if (symbol_instance->m_symbol_declare_ast.has_value())
+        if (declaring_symbol->m_symbol_declare_ast.has_value())
         {
-            lex.record_lang_error(lexer::msglevel_t::infom, symbol_instance->m_symbol_declare_ast.value(),
-                diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(symbol_instance)});
+            lex.record_lang_error(lexer::msglevel_t::infom,
+                declaring_symbol->m_symbol_declare_ast.value(),
+                diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(declaring_symbol)});
         }
         return false;
+    }
+
+    bool LangContext::check_symbol_is_reachable_in_current_scope(
+        lexer& lex, AstBase* node, lang_Symbol* symbol_instance, wo_pstring_t path, bool need_import_check)
+    {
+        return check_access_is_allowed(
+            lex,
+            node,
+            access_check_kind::SYMBOL,
+            get_symbol_declare_access(symbol_instance),
+            symbol_instance,
+            nullptr,
+            path,
+            need_import_check);
     }
 
     bool LangContext::check_type_is_constructible_in_current_scope(
@@ -311,99 +430,15 @@ namespace wo
         wo_pstring_t path,
         bool need_import_check)
     {
-        if (!symbol_instance->m_is_global)
-            // Local symbol is always constructible.
-            return true;
-
-        if (!symbol_instance->m_symbol_declare_location.has_value())
-            // Builtin & compiler generated symbol is always constructible.
-            return true;
-
-        // Construction permission is declared by the modifier after ':' in a
-        // `type` declaration; it is independent from the name visibility
-        // (the modifier before `type`). Default: only the declaring file.
-        // `internal` means the type can only be constructed or cast inside
-        // the type's own namespace (the namespace named after the type).
-        AstDeclareAttribue::accessc_attrib attrib =
-            AstDeclareAttribue::accessc_attrib::PRIVATE;
-
-        if (symbol_instance->m_symbol_declare_ast.has_value())
-        {
-            AstBase* declare_ast = symbol_instance->m_symbol_declare_ast.value();
-            if (declare_ast->node_type == AstBase::AST_TYPE_DECLARE)
-            {
-                auto* type_declare =
-                    static_cast<AstTypeDeclare*>(declare_ast);
-
-                if (type_declare->m_construct_attribute.has_value())
-                    attrib = type_declare->m_construct_attribute.value();
-            }
-        }
-
-        auto& location = symbol_instance->m_symbol_declare_location.value();
-
-        if (need_import_check && !check_symbol_is_imported(lex, node, symbol_instance, path))
-            return false;
-
-        switch (attrib)
-        {
-        case AstDeclareAttribue::accessc_attrib::PUBLIC:
-            return true;
-        case AstDeclareAttribue::accessc_attrib::PROTECTED:
-        {
-            lang_Namespace* type_namespace = nullptr;
-
-            auto* declare_scope = symbol_instance->m_belongs_to_scope;
-            if (declare_scope->is_namespace_scope())
-            {
-                auto* parent_namespace = declare_scope->m_belongs_to_namespace;
-                auto fnd = parent_namespace->m_sub_namespaces.find(
-                    symbol_instance->m_name);
-
-                if (fnd != parent_namespace->m_sub_namespaces.end())
-                    type_namespace = fnd->second.get();
-            }
-
-            if (type_namespace != nullptr)
-            {
-                for (auto* namespace_ = get_current_namespace();;
-                    namespace_ = namespace_->m_parent_namespace.value())
-                {
-                    if (namespace_ == type_namespace)
-                        return true;
-
-                    if (!namespace_->m_parent_namespace.has_value())
-                        break;
-                }
-            }
-
-            lex.record_lang_error(lexer::msglevel_t::error, node,
-                diagnose::lang2::err_type_is_not_constructible_in_namespace{
-                    symbol_instance, (_get_symbol_name(symbol_instance) + "::").c_str()});
-
-            break;
-        }
-        case AstDeclareAttribue::accessc_attrib::PRIVATE:
-        {
-            if (location.source_group == path)
-                return true;
-
-            lex.record_lang_error(lexer::msglevel_t::error, node,
-                diagnose::lang2::err_type_is_not_constructible{symbol_instance, location.source_file->c_str()});
-
-            break;
-        }
-        default:
-            wo_error("unknown access attribute");
-            break;
-        }
-
-        if (symbol_instance->m_symbol_declare_ast.has_value())
-        {
-            lex.record_lang_error(lexer::msglevel_t::infom, symbol_instance->m_symbol_declare_ast.value(),
-                diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(symbol_instance)});
-        }
-        return false;
+        return check_access_is_allowed(
+            lex,
+            node,
+            access_check_kind::CONSTRUCT,
+            get_type_construct_access(symbol_instance),
+            symbol_instance,
+            nullptr,
+            path,
+            need_import_check);
     }
 
     bool LangContext::check_struct_field_is_reachable_in_current_scope(
@@ -414,61 +449,15 @@ namespace wo
         wo_pstring_t field_name,
         wo_pstring_t path)
     {
-        if (!struct_type_inst->m_is_global)
-            // Local symbol is always reachable.
-            return true;
-
-        switch (attrib)
-        {
-        case AstDeclareAttribue::accessc_attrib::PUBLIC:
-            return true;
-        case AstDeclareAttribue::accessc_attrib::PROTECTED:
-        {
-            auto* symbol_defined_in_name_space =
-                struct_type_inst->m_belongs_to_scope->m_belongs_to_namespace;
-
-            for (auto* namespace_ = get_current_namespace();;
-                namespace_ = namespace_->m_parent_namespace.value())
-            {
-                if (namespace_ == symbol_defined_in_name_space)
-                    return true;
-
-                if (!namespace_->m_parent_namespace.has_value())
-                    break;
-            }
-
-            lex.record_lang_error(lexer::msglevel_t::error, node,
-                diagnose::lang1::err_struct_field_is_protected{field_name->c_str(), _get_scope_name(symbol_defined_in_name_space->m_this_scope.get()).c_str()});
-
-            break;
-        }
-        case AstDeclareAttribue::accessc_attrib::PRIVATE:
-        {
-            if (!struct_type_inst->m_symbol_declare_location.has_value())
-                // Builtin & compiler generated symbol is always reachable.
-                return true;
-
-            auto& location = struct_type_inst->m_symbol_declare_location.value();
-
-            if (location.source_group == path)
-                return true;
-
-            lex.record_lang_error(lexer::msglevel_t::error, node,
-                diagnose::lang1::err_struct_field_is_private{field_name->c_str(), location.source_file->c_str()});
-
-            break;
-        }
-        default:
-            wo_error("unknown access attribute");
-            break;
-        }
-
-        if (struct_type_inst->m_symbol_declare_ast.has_value())
-        {
-            lex.record_lang_error(lexer::msglevel_t::infom, struct_type_inst->m_symbol_declare_ast.value(),
-                diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(struct_type_inst)});
-        }
-        return false;
+        return check_access_is_allowed(
+            lex,
+            node,
+            access_check_kind::STRUCT_FIELD,
+            attrib,
+            struct_type_inst,
+            field_name,
+            path,
+            false);
     }
 
     bool LangContext::collect_defers_from_current_scope_to(
@@ -903,13 +892,20 @@ namespace wo
             case AstTypeHolder::IDENTIFIER:
             {
                 AstIdentifier* identifier = node->m_typeform.m_identifier;
-                lang_Symbol* type_symbol = identifier->m_LANG_determined_symbol.value();
+
+                // The name written at this site. Template-argument refilling
+                // only redirects which symbol is instantiated; access is
+                // always checked against the written name (the alias), never
+                // against the target it resolves to.
+                lang_Symbol* written_type_symbol =
+                    identifier->m_LANG_determined_symbol.value();
+                lang_Symbol* type_symbol = written_type_symbol;
 
                 // If is refilling, use the target symbol.
                 if (node->m_LANG_refilling_template_target_symbol.has_value())
                     type_symbol = node->m_LANG_refilling_template_target_symbol.value();
 
-                wo_assert(type_symbol->m_symbol_kind != lang_Symbol::kind::VARIABLE);
+                wo_assert(written_type_symbol->m_symbol_kind != lang_Symbol::kind::VARIABLE);
 
                 if (!type_symbol->m_is_builtin)
                 {
@@ -1022,7 +1018,7 @@ namespace wo
                             if (!check_symbol_is_reachable_in_current_scope(
                                 lex,
                                 node,
-                                type_symbol,
+                                written_type_symbol,
                                 node->source_location.source_group,
                                 !node->duplicated_node /* TMP: Skip import check in template function. */))
                             {
@@ -1071,7 +1067,7 @@ namespace wo
                             if (!check_symbol_is_reachable_in_current_scope(
                                 lex,
                                 node,
-                                type_symbol,
+                                written_type_symbol,
                                 node->source_location.source_group,
                                 !node->duplicated_node /* TMP: Skip import check in template function. */))
                             {
@@ -1100,7 +1096,7 @@ namespace wo
                             if (!check_symbol_is_reachable_in_current_scope(
                                 lex,
                                 node,
-                                type_symbol,
+                                written_type_symbol,
                                 node->source_location.source_group,
                                 !node->duplicated_node /* TMP: Skip import check in template function. */))
                             {
