@@ -593,7 +593,7 @@ namespace wo
             , m_formal(IDENTIFIER)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -605,7 +605,7 @@ namespace wo
             , m_formal(TYPEOF)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -617,7 +617,7 @@ namespace wo
             , m_formal(UNDERLYING)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -629,7 +629,7 @@ namespace wo
             , m_formal(FUNCTION)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -641,7 +641,7 @@ namespace wo
             , m_formal(STRUCTURE)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -653,7 +653,7 @@ namespace wo
             , m_formal(TUPLE)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {
@@ -665,7 +665,7 @@ namespace wo
             , m_formal(UNION)
             , m_LANG_template_evalating_state(nullopt)
             , m_LANG_determined_type(nullopt)
-            , m_LANG_alias_instance_only_for_lspv2(nullopt)
+            , m_LANG_type_alias_instance_only_for_lspv2(nullopt)
             , m_LANG_trying_advancing_type_judgement(false)
             , m_LANG_refilling_template_target_symbol(nullopt)
         {

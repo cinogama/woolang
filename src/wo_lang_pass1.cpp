@@ -787,11 +787,11 @@ namespace wo
 
                 finish_eval_template_ast(lex, eval_state);
 
-                auto* alias_eval_state = static_cast<lang_TemplateAstEvalStateAlias*>(eval_state);
-                wo_assert(alias_eval_state->m_alias_instance->m_determined_value_target.has_value());
+                auto* value_alias_eval_state = static_cast<lang_TemplateAstEvalStateValueAlias*>(eval_state);
+                wo_assert(value_alias_eval_state->m_value_alias_instance->m_determined_value_target.has_value());
 
                 if (!apply_value_alias_target(
-                    alias_eval_state->m_alias_instance->m_determined_value_target.value(), {}))
+                    value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(), {}))
                     return FAILED;
 
                 return OKAY;
@@ -816,8 +816,7 @@ namespace wo
                 lang_Symbol* symbol = node->m_LANG_determined_symbol.value();
 
                 if (!node->m_find_type_only
-                    && symbol->m_symbol_kind == lang_Symbol::kind::ALIAS
-                    && symbol->is_value_alias())
+                    && symbol->m_symbol_kind == lang_Symbol::kind::VALUE_ALIAS)
                 {
                     // A value alias in value position: redirect to its target.
                     // Accessibility follows the alias name itself: a public
@@ -858,18 +857,18 @@ namespace wo
                             return HOLD;
                         }
 
-                        auto* alias_eval_state =
-                            static_cast<lang_TemplateAstEvalStateAlias*>(template_eval_state_instance);
+                        auto* value_alias_eval_state =
+                            static_cast<lang_TemplateAstEvalStateValueAlias*>(template_eval_state_instance);
 
                         if (!apply_value_alias_target(
-                            alias_eval_state->m_alias_instance->m_determined_value_target.value(), {}))
+                            value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(), {}))
                             return FAILED;
 
                         return OKAY;
                     }
 
-                    auto* alias_instance = symbol->m_alias_instance;
-                    if (!alias_instance->m_determined_value_target.has_value())
+                    auto* value_alias_instance = symbol->m_value_alias_instance;
+                    if (!value_alias_instance->m_determined_value_target.has_value())
                     {
                         // The declaration has not been processed yet (forward
                         // reference): advance it, then re-enter this state.
@@ -898,7 +897,7 @@ namespace wo
                         _collect_identifier_template_arguments(node);
 
                     if (!apply_value_alias_target(
-                        alias_instance->m_determined_value_target.value(),
+                        value_alias_instance->m_determined_value_target.value(),
                         std::move(pass_through_arguments)))
                         return FAILED;
 
@@ -935,8 +934,9 @@ namespace wo
                     }
                     else
                     {
-                        // Template argument refill is vaild for alias.
-                        if (symbol->m_symbol_kind != lang_Symbol::kind::ALIAS)
+                        // Template argument refill is valid for alias.
+                        if (symbol->m_symbol_kind != lang_Symbol::kind::TYPE_ALIAS
+                            && symbol->m_symbol_kind != lang_Symbol::kind::VALUE_ALIAS)
                         {
                             lex.record_lang_error(lexer::msglevel_t::error, node,
                                 diagnose::lang2::err_unexpected_template_argument{symbol});
@@ -1093,7 +1093,7 @@ namespace wo
                     union
                     {
                         lang_TypeInstance* type_instance;
-                        lang_AliasInstance* alias_instance;
+                        lang_TypeAliasInstance* type_alias_instance;
                     };
 
                     if (!node->m_LANG_template_evalating_state)
@@ -1139,9 +1139,9 @@ namespace wo
                             }
                             else
                             {
-                                if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
-                                    alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
-                                        template_eval_state_instance)->m_alias_instance.get();
+                                if (type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE_ALIAS)
+                                    type_alias_instance = static_cast<lang_TemplateAstEvalStateTypeAlias*>(
+                                        template_eval_state_instance)->m_type_alias_instance.get();
                                 else
                                     type_instance = static_cast<lang_TemplateAstEvalStateType*>(
                                         template_eval_state_instance)->m_type_instance.get();
@@ -1149,15 +1149,15 @@ namespace wo
                         }
                         else
                         {
-                            if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
-                                alias_instance = type_symbol->m_alias_instance;
+                            if (type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE_ALIAS)
+                                type_alias_instance = type_symbol->m_type_alias_instance;
                             else
                                 type_instance = type_symbol->m_type_instance;
                         }
 
                         const bool type_or_alias_determined =
-                            type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS
-                            ? alias_instance->m_determined_type.has_value()
+                            type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE_ALIAS
+                            ? type_alias_instance->m_determined_type.has_value()
                             : type_instance->get_determined_type().has_value()
                             ;
 
@@ -1185,7 +1185,7 @@ namespace wo
                             }
 
                             // NOTE: Type not decided is okay, but alias not.
-                            if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
+                            if (type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE_ALIAS)
                             {
                                 lex.record_lang_error(lexer::msglevel_t::error, node,
                                     diagnose::lang1::err_type_determined_failed{});
@@ -1193,7 +1193,7 @@ namespace wo
                             }
                         }
 
-                        if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
+                        if (type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE_ALIAS)
                         {
                             // Check symbol can be reach.
                             if (!check_symbol_is_reachable_in_current_scope(
@@ -1205,11 +1205,11 @@ namespace wo
                             {
                                 return FAILED;
                             }
-                            else if (!alias_instance->m_symbol->m_is_template
+                            else if (!type_alias_instance->m_symbol->m_is_template
                                 && identifier->m_template_arguments.has_value())
                             {
                                 lang_Symbol* refiliing_symbol =
-                                    alias_instance->m_determined_type.value()->m_symbol;
+                                    type_alias_instance->m_determined_type.value()->m_symbol;
 
                                 wo_assert(refiliing_symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
                                 if (!refiliing_symbol->m_is_template && !refiliing_symbol->m_is_builtin)
@@ -1218,7 +1218,7 @@ namespace wo
                                         diagnose::lang2::err_unexpected_template_argument{refiliing_symbol});
 
                                     lex.record_lang_error(lexer::msglevel_t::infom, node,
-                                        diagnose::lang2::info_trying_refill_template_argument{alias_instance->m_determined_type.value(), alias_instance->m_symbol});
+                                        diagnose::lang2::info_trying_refill_template_argument{type_alias_instance->m_determined_type.value(), type_alias_instance->m_symbol});
 
                                     if (refiliing_symbol->m_symbol_declare_ast.has_value())
                                     {
@@ -1263,10 +1263,10 @@ namespace wo
 
                         finish_eval_template_ast(lex, eval_state);
 
-                        if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
+                        if (type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE_ALIAS)
                         {
-                            alias_instance = static_cast<lang_TemplateAstEvalStateAlias*>(
-                                eval_state)->m_alias_instance.get();
+                            type_alias_instance = static_cast<lang_TemplateAstEvalStateTypeAlias*>(
+                                eval_state)->m_type_alias_instance.get();
                         }
                         else
                         {
@@ -1286,11 +1286,11 @@ namespace wo
                         }
                     }
 
-                    if (type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS)
+                    if (type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE_ALIAS)
                     {
                         // Eval alias type.
-                        node->m_LANG_alias_instance_only_for_lspv2 = alias_instance;
-                        type_instance = alias_instance->m_determined_type.value();
+                        node->m_LANG_type_alias_instance_only_for_lspv2 = type_alias_instance;
+                        type_instance = type_alias_instance->m_determined_type.value();
 
                     }
 
@@ -1726,7 +1726,7 @@ namespace wo
                         get_current_scope(),
                         node->m_type,
                         node->m_template_parameters.value(),
-                        true);
+                        lang_Symbol::kind::TYPE_ALIAS);
                 else
                     symbol_defined_success = define_symbol_in_current_scope(
                         &defined_symbol,
@@ -1735,7 +1735,7 @@ namespace wo
                         node,
                         node->source_location,
                         get_current_scope(),
-                        lang_Symbol::kind::ALIAS,
+                        lang_Symbol::kind::TYPE_ALIAS,
                         false);
 
                 if (symbol_defined_success)
@@ -1769,7 +1769,7 @@ namespace wo
             wo_assert(!node->m_template_parameters);
             lang_Symbol* symbol = node->m_LANG_declared_symbol.value();
 
-            symbol->m_alias_instance->m_determined_type =
+            symbol->m_type_alias_instance->m_determined_type =
                 node->m_type->m_LANG_determined_type.value();
         }
         return WO_EXCEPT_ERROR(state, OKAY);
@@ -1812,11 +1812,8 @@ namespace wo
                         node,
                         node->source_location,
                         get_current_scope(),
-                        lang_Symbol::kind::ALIAS,
+                        lang_Symbol::kind::VALUE_ALIAS,
                         false);
-
-                    if (symbol_defined_success)
-                        defined_symbol->m_alias_instance->m_is_value_alias = true;
                 }
 
                 if (symbol_defined_success)
@@ -1861,7 +1858,7 @@ namespace wo
             wo_assert(target_identifier != nullptr && target_identifier->m_LANG_determined_symbol);
 
             lang_Symbol* declared_symbol = node->m_LANG_declared_symbol.value();
-            wo_assert(declared_symbol->m_alias_instance->m_is_value_alias);
+            wo_assert(declared_symbol->m_symbol_kind == lang_Symbol::kind::VALUE_ALIAS);
 
             lang_ValueAliasTarget target{
                 target_identifier->m_LANG_determined_symbol.value(),
@@ -1878,7 +1875,7 @@ namespace wo
                 return FAILED;
             }
 
-            declared_symbol->m_alias_instance->m_determined_value_target = std::move(target);
+            declared_symbol->m_value_alias_instance->m_determined_value_target = std::move(target);
         }
         return WO_EXCEPT_ERROR(state, OKAY);
     }
@@ -1901,7 +1898,7 @@ namespace wo
                         get_current_scope(),
                         node->m_type,
                         node->m_template_parameters.value(),
-                        false);
+                        lang_Symbol::kind::TYPE);
                 else
                     symbol_defined_success = define_symbol_in_current_scope(
                         &defined_symbol,
@@ -3903,8 +3900,7 @@ namespace wo
                             lex, callee_identifier, nullopt);
 
                     if (callee_symbol.has_value()
-                        && callee_symbol.value()->m_symbol_kind == lang_Symbol::kind::ALIAS
-                        && callee_symbol.value()->is_value_alias())
+                        && callee_symbol.value()->m_symbol_kind == lang_Symbol::kind::VALUE_ALIAS)
                     {
                         node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL_ALIAS_RESOLVED;
                         WO_CONTINUE_PROCESS(callee_identifier);

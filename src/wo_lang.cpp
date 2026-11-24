@@ -53,11 +53,17 @@ namespace wo
             else
                 delete m_type_instance;
             break;
-        case kind::ALIAS:
+        case kind::TYPE_ALIAS:
             if (m_is_template)
-                delete m_template_alias_instances;
+                delete m_template_type_alias_instances;
             else
-                delete m_alias_instance;
+                delete m_type_alias_instance;
+            break;
+        case kind::VALUE_ALIAS:
+            if (m_is_template)
+                delete m_template_value_alias_instances;
+            else
+                delete m_value_alias_instance;
             break;
         default:
             wo_error("Unexpected symbol kind.");
@@ -92,8 +98,11 @@ namespace wo
         case kind::TYPE:
             m_type_instance = new lang_TypeInstance(this, nullopt);
             break;
-        case kind::ALIAS:
-            m_alias_instance = new lang_AliasInstance(this, nullopt);
+        case kind::TYPE_ALIAS:
+            m_type_alias_instance = new lang_TypeAliasInstance(this, nullopt);
+            break;
+        case kind::VALUE_ALIAS:
+            m_value_alias_instance = new lang_ValueAliasInstance(this);
             break;
         default:
             wo_error("Unexpected symbol kind.");
@@ -131,41 +140,8 @@ namespace wo
         lang_Scope* scope,
         AstTypeHolder* template_type_base,
         const vector<AstTemplateParam*>& template_params,
-        bool is_alias)
-        : m_is_template(true)
-        , m_is_global(false)
-        , m_name(name)
-        , m_declare_attribute(attr)
-        , m_belongs_to_scope(scope)
-        , m_symbol_declare_ast(symbol_declare_ast)
-        , m_symbol_declare_location(location)
-        , m_is_builtin(false)
-        , m_symbol_edge(0)
-        , m_has_been_used(false)
-    {
-        if (is_alias)
-        {
-            m_symbol_kind = kind::ALIAS;
-            m_template_alias_instances = new TemplateAliasPrefab(
-                this, template_type_base, template_params);
-        }
-        else
-        {
-            m_symbol_kind = kind::TYPE;
-            m_template_type_instances = new TemplateTypePrefab(
-                this, template_type_base, template_params);
-        }
-    }
-    lang_Symbol::lang_Symbol(
-        wo_pstring_t name,
-        const optional<AstDeclareAttribue*>& attr,
-        optional<AstBase*> symbol_declare_ast,
-        const optional<AstBase::source_location_t>& location,
-        lang_Scope* scope,
-        AstValueBase* template_value_alias_base,
-        const vector<AstTemplateParam*>& template_params,
-        alias_symbol_tag)
-        : m_symbol_kind(kind::ALIAS)
+        kind type_kind)
+        : m_symbol_kind(type_kind)
         , m_is_template(true)
         , m_is_global(false)
         , m_name(name)
@@ -177,19 +153,38 @@ namespace wo
         , m_symbol_edge(0)
         , m_has_been_used(false)
     {
-        m_template_alias_instances = new TemplateAliasPrefab(
-            this, template_value_alias_base, template_params);
+        wo_assert(type_kind == kind::TYPE || type_kind == kind::TYPE_ALIAS);
+
+        if (type_kind == kind::TYPE_ALIAS)
+            m_template_type_alias_instances = new TemplateTypeAliasPrefab(
+                this, template_type_base, template_params);
+        else
+            m_template_type_instances = new TemplateTypePrefab(
+                this, template_type_base, template_params);
     }
-
-    bool lang_Symbol::is_value_alias() const
+    lang_Symbol::lang_Symbol(
+        wo_pstring_t name,
+        const optional<AstDeclareAttribue*>& attr,
+        optional<AstBase*> symbol_declare_ast,
+        const optional<AstBase::source_location_t>& location,
+        lang_Scope* scope,
+        AstValueBase* template_value_alias_base,
+        const vector<AstTemplateParam*>& template_params,
+        alias_symbol_tag)
+        : m_symbol_kind(kind::VALUE_ALIAS)
+        , m_is_template(true)
+        , m_is_global(false)
+        , m_name(name)
+        , m_declare_attribute(attr)
+        , m_belongs_to_scope(scope)
+        , m_symbol_declare_ast(symbol_declare_ast)
+        , m_symbol_declare_location(location)
+        , m_is_builtin(false)
+        , m_symbol_edge(0)
+        , m_has_been_used(false)
     {
-        if (m_symbol_kind != kind::ALIAS)
-            return false;
-
-        if (m_is_template)
-            return m_template_alias_instances->m_is_value_alias;
-
-        return m_alias_instance->m_is_value_alias;
+        m_template_value_alias_instances = new TemplateValueAliasPrefab(
+            this, template_value_alias_base, template_params);
     }
 
     bool lang_Symbol::is_declared_as_static() const
@@ -271,80 +266,85 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_Symbol::TemplateAliasPrefab::TemplateAliasPrefab(
+    lang_Symbol::TemplateTypeAliasPrefab::TemplateTypeAliasPrefab(
         lang_Symbol* symbol,
         AstTypeHolder* ast,
         const vector<AstTemplateParam*>& template_params)
         : m_symbol(symbol)
         , m_template_params(template_params)
-        , m_origin_value_ast(ast)
-        , m_is_value_alias(false)
+        , m_origin_type_ast(ast)
     {
     }
-    lang_Symbol::TemplateAliasPrefab::TemplateAliasPrefab(
-        lang_Symbol* symbol,
-        AstValueBase* ast,
-        const vector<AstTemplateParam*>& template_params)
-        : m_symbol(symbol)
-        , m_template_params(template_params)
-        , m_origin_value_ast(ast)
-        , m_is_value_alias(true)
-    {
-    }
-    lang_TemplateAstEvalStateAlias* lang_Symbol::TemplateAliasPrefab::find_or_create_template_instance(
+    lang_TemplateAstEvalStateTypeAlias* lang_Symbol::TemplateTypeAliasPrefab::find_or_create_template_instance(
         const TemplateArgumentListT& template_args)
     {
         auto fnd = m_template_instances.find(template_args);
         if (fnd != m_template_instances.end())
             return fnd->second.get();
 
-        if (m_is_value_alias)
+        AstTypeHolder* template_instance = static_cast<AstTypeHolder*>(
+            m_origin_type_ast->clone());
+        auto new_instance = make_unique<lang_TemplateAstEvalStateTypeAlias>(
+            m_symbol, template_instance, template_args);
+
+        auto* result = new_instance.get();
+
+        m_template_instances.insert(
+            make_pair(template_args, std::move(new_instance)));
+
+        return result;
+    }
+
+    //////////////////////////////////////
+
+    lang_Symbol::TemplateValueAliasPrefab::TemplateValueAliasPrefab(
+        lang_Symbol* symbol,
+        AstValueBase* ast,
+        const vector<AstTemplateParam*>& template_params)
+        : m_symbol(symbol)
+        , m_template_params(template_params)
+        , m_origin_value_ast(ast)
+    {
+    }
+    lang_TemplateAstEvalStateValueAlias* lang_Symbol::TemplateValueAliasPrefab::find_or_create_template_instance(
+        const TemplateArgumentListT& template_args)
+    {
+        auto fnd = m_template_instances.find(template_args);
+        if (fnd != m_template_instances.end())
+            return fnd->second.get();
+
+        // Clone the aliased expression and evaluate only the identifier it
+        // names, in the instantiated parameter scope. The cloned wrapper
+        // expression is part of the clone tree but is never traversed as a
+        // value.
+        AstValueBase* value_instance = static_cast<AstValueBase*>(
+            m_origin_value_ast->clone());
+        AstIdentifier* target_identifier =
+            AstAliasValueDeclare::get_value_alias_target_identifier(value_instance);
+
+        if (target_identifier == nullptr)
         {
-            // Value alias: clone the aliased expression and evaluate only the
-            // identifier it names, in the instantiated parameter scope. The
-            // cloned wrapper expression is part of the clone tree but is never
-            // traversed as a value.
-            AstValueBase* value_instance = static_cast<AstValueBase*>(
-                m_origin_value_ast->clone());
-            AstIdentifier* target_identifier =
-                AstAliasValueDeclare::get_value_alias_target_identifier(value_instance);
+            // Only reachable if the declaration builder failed and the
+            // pass0 symbol declaration did not run: report the instance as
+            // failed instead of dereferencing a null target.
+            wo_assert(!"Value alias template instance without a target name.");
 
-            if (target_identifier == nullptr)
-            {
-                // Only reachable if the declaration builder failed and the
-                // pass0 symbol declaration did not run: report the instance as
-                // failed instead of dereferencing a null target.
-                wo_assert(!"Value alias template instance without a target name.");
-
-                auto new_instance = make_unique<lang_TemplateAstEvalStateAlias>(
-                    m_symbol, static_cast<AstIdentifier*>(nullptr), template_args);
-                new_instance->m_state = lang_TemplateAstEvalStateBase::state::FAILED;
-                new_instance->m_failed_error_for_this_instance.emplace();
-
-                auto* result = new_instance.get();
-                m_template_instances.insert(
-                    make_pair(template_args, std::move(new_instance)));
-                return result;
-            }
-
-            target_identifier->m_find_type_only = false;
-            target_identifier->m_LANG_as_value_alias_rhs = true;
-
-            auto new_instance = make_unique<lang_TemplateAstEvalStateAlias>(
-                m_symbol, target_identifier, template_args);
+            auto new_instance = make_unique<lang_TemplateAstEvalStateValueAlias>(
+                m_symbol, static_cast<AstIdentifier*>(nullptr), template_args);
+            new_instance->m_state = lang_TemplateAstEvalStateBase::state::FAILED;
+            new_instance->m_failed_error_for_this_instance.emplace();
 
             auto* result = new_instance.get();
-
             m_template_instances.insert(
                 make_pair(template_args, std::move(new_instance)));
-
             return result;
         }
 
-        AstTypeHolder* template_instance = static_cast<AstTypeHolder*>(
-            m_origin_value_ast->clone());
-        auto new_instance = make_unique<lang_TemplateAstEvalStateAlias>(
-            m_symbol, template_instance, template_args);
+        target_identifier->m_find_type_only = false;
+        target_identifier->m_LANG_as_value_alias_rhs = true;
+
+        auto new_instance = make_unique<lang_TemplateAstEvalStateValueAlias>(
+            m_symbol, target_identifier, template_args);
 
         auto* result = new_instance.get();
 
@@ -553,34 +553,38 @@ namespace wo
 
     //////////////////////////////////////
 
-    lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(
+    lang_TemplateAstEvalStateTypeAlias::lang_TemplateAstEvalStateTypeAlias(
         lang_Symbol* symbol,
         AstTypeHolder* ast,
         const vector<AstIdentifier::TemplateArgumentInstance>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, ast)
     {
-        m_alias_instance = make_unique<lang_AliasInstance>(symbol, template_arguments);
+        m_type_alias_instance = make_unique<lang_TypeAliasInstance>(symbol, template_arguments);
     }
-    lang_TemplateAstEvalStateAlias::lang_TemplateAstEvalStateAlias(
+    lang_TemplateAstEvalStateValueAlias::lang_TemplateAstEvalStateValueAlias(
         lang_Symbol* symbol,
         AstIdentifier* value_alias_target,
         const vector<AstIdentifier::TemplateArgumentInstance>& template_arguments)
         : lang_TemplateAstEvalStateBase(symbol, value_alias_target)
     {
-        m_alias_instance = make_unique<lang_AliasInstance>(
-            symbol, template_arguments, true /* is_value_alias */);
+        m_value_alias_instance = make_unique<lang_ValueAliasInstance>(symbol);
     }
 
     //////////////////////////////////////
 
-    lang_AliasInstance::lang_AliasInstance(
+    lang_TypeAliasInstance::lang_TypeAliasInstance(
         lang_Symbol* symbol,
-        const optional<vector<AstIdentifier::TemplateArgumentInstance>>& template_arguments,
-        bool is_value_alias)
+        const optional<vector<AstIdentifier::TemplateArgumentInstance>>& template_arguments)
         : m_symbol(symbol)
-        , m_is_value_alias(is_value_alias)
         , m_instance_template_arguments(template_arguments)
         , m_determined_type(nullopt)
+    {
+    }
+
+    //////////////////////////////////////
+
+    lang_ValueAliasInstance::lang_ValueAliasInstance(lang_Symbol* symbol)
+        : m_symbol(symbol)
         , m_determined_value_target(nullopt)
     {
     }
@@ -2075,8 +2079,8 @@ namespace wo
     namespace
     {
         // Whether a symbol found by name may satisfy this identifier. Value
-        // and type positions accept disjoint symbol kinds; aliases belong to
-        // exactly one of them (type alias vs value alias).
+        // and type positions accept disjoint symbol kinds; type aliases live
+        // in the type namespace and value aliases in the value one.
         bool _symbol_is_visible_for_identifier(
             lang_Symbol* symbol, bool find_type_only)
         {
@@ -2085,9 +2089,10 @@ namespace wo
             case lang_Symbol::kind::VARIABLE:
                 return !find_type_only;
             case lang_Symbol::kind::TYPE:
+            case lang_Symbol::kind::TYPE_ALIAS:
                 return find_type_only;
-            case lang_Symbol::kind::ALIAS:
-                return find_type_only != symbol->is_value_alias();
+            case lang_Symbol::kind::VALUE_ALIAS:
+                return !find_type_only;
             default:
                 return false;
             }
@@ -2460,13 +2465,13 @@ namespace wo
                 nullopt,
                 nullopt,
                 get_current_scope(),
-                lang_Symbol::kind::ALIAS,
+                lang_Symbol::kind::TYPE_ALIAS,
                 false);
 
             if (!symbol_defined)
                 return false;
 
-            symbol->m_alias_instance->m_determined_type = template_arg.m_type;
+            symbol->m_type_alias_instance->m_determined_type = template_arg.m_type;
         }
         return true;
     }

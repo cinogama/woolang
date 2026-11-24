@@ -271,7 +271,7 @@ namespace wo
                 get_current_scope(),
                 node->m_type,
                 node->m_template_parameters.value(),
-                true);
+                lang_Symbol::kind::TYPE_ALIAS);
         else
             symbol_defined_success = define_symbol_in_current_scope(
                 &defined_symbol,
@@ -280,7 +280,7 @@ namespace wo
                 node,
                 node->source_location,
                 get_current_scope(),
-                lang_Symbol::kind::ALIAS,
+                lang_Symbol::kind::TYPE_ALIAS,
                 false);
 
         if (symbol_defined_success)
@@ -338,11 +338,8 @@ namespace wo
                 node,
                 node->source_location,
                 get_current_scope(),
-                lang_Symbol::kind::ALIAS,
+                lang_Symbol::kind::VALUE_ALIAS,
                 false);
-
-            if (symbol_defined_success)
-                defined_symbol->m_alias_instance->m_is_value_alias = true;
         }
 
         if (symbol_defined_success)
@@ -382,7 +379,7 @@ namespace wo
                 get_current_scope(),
                 node->m_type,
                 node->m_template_parameters.value(),
-                false);
+                lang_Symbol::kind::TYPE);
         else
             symbol_defined_success = define_symbol_in_current_scope(
                 &defined_symbol,

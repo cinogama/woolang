@@ -166,28 +166,40 @@ namespace wo
         std::vector<ast::AstIdentifier::TemplateArgumentInstance>
             m_template_arguments;
     };
-    struct lang_AliasInstance
+    // `alias A: T` — the aliased type. For non-template aliases it is filled
+    // while the declaration is processed; for template aliases each template
+    // instance owns its own lang_TypeAliasInstance (see
+    // lang_TemplateAstEvalStateTypeAlias).
+    struct lang_TypeAliasInstance
     {
         lang_Symbol* m_symbol;
 
-        // True for `alias A = foo` (value alias), false for `alias A: T`.
-        bool m_is_value_alias;
-
         std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
         std::optional<lang_TypeInstance*> m_determined_type;
-        // Value alias target. For non-template aliases it is filled while the
-        // declaration is processed; for template aliases each template
-        // instance owns its own lang_AliasInstance (see lang_TemplateAstEvalStateAlias).
+
+        lang_TypeAliasInstance(
+            lang_Symbol* symbol,
+            const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
+        lang_TypeAliasInstance(const lang_TypeAliasInstance&) = delete;
+        lang_TypeAliasInstance(lang_TypeAliasInstance&&) = delete;
+        lang_TypeAliasInstance& operator=(const lang_TypeAliasInstance&) = delete;
+        lang_TypeAliasInstance& operator=(lang_TypeAliasInstance&&) = delete;
+    };
+    // `alias A = foo` — the aliased name. For non-template aliases the target
+    // is filled while the declaration is processed; for template aliases each
+    // template instance owns its own lang_ValueAliasInstance (see
+    // lang_TemplateAstEvalStateValueAlias).
+    struct lang_ValueAliasInstance
+    {
+        lang_Symbol* m_symbol;
+
         std::optional<lang_ValueAliasTarget> m_determined_value_target;
 
-        lang_AliasInstance(
-            lang_Symbol* symbol,
-            const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments,
-            bool is_value_alias = false);
-        lang_AliasInstance(const lang_AliasInstance&) = delete;
-        lang_AliasInstance(lang_AliasInstance&&) = delete;
-        lang_AliasInstance& operator=(const lang_AliasInstance&) = delete;
-        lang_AliasInstance& operator=(lang_AliasInstance&&) = delete;
+        explicit lang_ValueAliasInstance(lang_Symbol* symbol);
+        lang_ValueAliasInstance(const lang_ValueAliasInstance&) = delete;
+        lang_ValueAliasInstance(lang_ValueAliasInstance&&) = delete;
+        lang_ValueAliasInstance& operator=(const lang_ValueAliasInstance&) = delete;
+        lang_ValueAliasInstance& operator=(lang_ValueAliasInstance&&) = delete;
     };
     struct lang_ValueInstance
     {
@@ -299,13 +311,18 @@ namespace wo
             ast::AstTypeHolder* ast,
             const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
-    struct lang_TemplateAstEvalStateAlias : public lang_TemplateAstEvalStateBase
+    struct lang_TemplateAstEvalStateTypeAlias : public lang_TemplateAstEvalStateBase
     {
-        std::unique_ptr<lang_AliasInstance> m_alias_instance;
+        std::unique_ptr<lang_TypeAliasInstance> m_type_alias_instance;
 
-        lang_TemplateAstEvalStateAlias(
+        lang_TemplateAstEvalStateTypeAlias(
             lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
-        lang_TemplateAstEvalStateAlias(
+    };
+    struct lang_TemplateAstEvalStateValueAlias : public lang_TemplateAstEvalStateBase
+    {
+        std::unique_ptr<lang_ValueAliasInstance> m_value_alias_instance;
+
+        lang_TemplateAstEvalStateValueAlias(
             lang_Symbol* symbol, ast::AstIdentifier* value_alias_target, const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
 
@@ -315,7 +332,10 @@ namespace wo
         {
             VARIABLE,
             TYPE,
-            ALIAS,
+            // `alias A: T` — the name lives in the type namespace.
+            TYPE_ALIAS,
+            // `alias A = foo` — the name lives in the value namespace.
+            VALUE_ALIAS,
         };
         // Disambiguates the value-alias template symbol constructor from the
         // template variable one (both take an AstValueBase*).
@@ -378,33 +398,51 @@ namespace wo
             TemplateTypePrefab& operator=(const TemplateTypePrefab&) = delete;
             TemplateTypePrefab& operator=(TemplateTypePrefab&&) = delete;
         };
-        struct TemplateAliasPrefab
+        struct TemplateTypeAliasPrefab
         {
             lang_Symbol* m_symbol;
             std::vector<ast::AstTemplateParam*> m_template_params;
-            // AstTypeHolder for type aliases; the aliased value expression for
-            // value aliases (`m_is_value_alias` tells which).
-            ast::AstBase* m_origin_value_ast;
-            bool m_is_value_alias;
-            std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateAlias>>
+            ast::AstTypeHolder* m_origin_type_ast;
+
+            std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateTypeAlias>>
                 m_template_instances;
 
-            TemplateAliasPrefab(
+            TemplateTypeAliasPrefab(
                 lang_Symbol* symbol,
                 ast::AstTypeHolder* ast,
                 const std::vector<ast::AstTemplateParam*>& template_params);
-            TemplateAliasPrefab(
+
+            lang_TemplateAstEvalStateTypeAlias* find_or_create_template_instance(
+                const TemplateArgumentListT& template_args);
+
+            TemplateTypeAliasPrefab(const TemplateTypeAliasPrefab&) = delete;
+            TemplateTypeAliasPrefab(TemplateTypeAliasPrefab&&) = delete;
+            TemplateTypeAliasPrefab& operator=(const TemplateTypeAliasPrefab&) = delete;
+            TemplateTypeAliasPrefab& operator=(TemplateTypeAliasPrefab&&) = delete;
+        };
+        struct TemplateValueAliasPrefab
+        {
+            lang_Symbol* m_symbol;
+            std::vector<ast::AstTemplateParam*> m_template_params;
+            // The aliased value expression (`alias A<T> = foo:<T>`); only the
+            // identifier it names is evaluated per instance.
+            ast::AstValueBase* m_origin_value_ast;
+
+            std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateValueAlias>>
+                m_template_instances;
+
+            TemplateValueAliasPrefab(
                 lang_Symbol* symbol,
                 ast::AstValueBase* ast,
                 const std::vector<ast::AstTemplateParam*>& template_params);
 
-            lang_TemplateAstEvalStateAlias* find_or_create_template_instance(
+            lang_TemplateAstEvalStateValueAlias* find_or_create_template_instance(
                 const TemplateArgumentListT& template_args);
 
-            TemplateAliasPrefab(const TemplateAliasPrefab&) = delete;
-            TemplateAliasPrefab(TemplateAliasPrefab&&) = delete;
-            TemplateAliasPrefab& operator=(const TemplateAliasPrefab&) = delete;
-            TemplateAliasPrefab& operator=(TemplateAliasPrefab&&) = delete;
+            TemplateValueAliasPrefab(const TemplateValueAliasPrefab&) = delete;
+            TemplateValueAliasPrefab(TemplateValueAliasPrefab&&) = delete;
+            TemplateValueAliasPrefab& operator=(const TemplateValueAliasPrefab&) = delete;
+            TemplateValueAliasPrefab& operator=(TemplateValueAliasPrefab&&) = delete;
         };
 
         kind                            m_symbol_kind;
@@ -426,10 +464,12 @@ namespace wo
         {
             TemplateTypePrefab* m_template_type_instances;
             TemplateValuePrefab* m_template_value_instances;
-            TemplateAliasPrefab* m_template_alias_instances;
+            TemplateTypeAliasPrefab* m_template_type_alias_instances;
+            TemplateValueAliasPrefab* m_template_value_alias_instances;
             lang_TypeInstance* m_type_instance;
             lang_ValueInstance* m_value_instance;
-            lang_AliasInstance* m_alias_instance;
+            lang_TypeAliasInstance* m_type_alias_instance;
+            lang_ValueAliasInstance* m_value_alias_instance;
         };
 
         lang_Symbol(const lang_Symbol&) = delete;
@@ -464,7 +504,7 @@ namespace wo
             lang_Scope* scope,
             ast::AstTypeHolder* template_type_base,
             const std::vector<ast::AstTemplateParam*>& template_params,
-            bool is_alias);
+            kind type_kind);
         // Template value alias: `alias A<T> = foo:<T>`.
         lang_Symbol(
             wo_pstring_t name,
@@ -477,12 +517,6 @@ namespace wo
             alias_symbol_tag is_value_alias_tag);
 
         bool is_declared_as_static() const;
-
-        // True for `alias A = foo` (value alias), false for `alias A: T` and
-        // for every other symbol kind. Uses the explicit flag stored in the
-        // alias instance / prefab: a template-parameter alias also has no
-        // determined type, so absence of one cannot be used as the test.
-        bool is_value_alias() const;
     };
 
     // All the symbols declared under one name in a scope.
