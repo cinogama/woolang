@@ -163,7 +163,10 @@ namespace wo
     struct lang_ValueAliasTarget
     {
         lang_Symbol* m_symbol;
-        std::vector<ast::AstIdentifier::TemplateArgumentInstance>
+        // nullopt: the alias is not generic, it bound no template arguments.
+        // An alias with template parameters always binds a non-empty list, so
+        // emptiness is never used to mean "not generic".
+        std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>
             m_template_arguments;
     };
     // `alias A: T` — the aliased type. For non-template aliases it is filled
@@ -1242,18 +1245,22 @@ namespace wo
 
         // Reads the already evaluated template arguments of `ident`
         // (`:<...>` arguments written at the reference, then the ones appended
-        // by an enclosing deduction / value alias).
-        lang_Symbol::TemplateArgumentListT
+        // by an enclosing deduction / value alias). nullopt when the identifier
+        // carries no template arguments at all: templates have at least one
+        // parameter, so an empty list is never a meaningful argument list here.
+        std::optional<lang_Symbol::TemplateArgumentListT>
             _collect_identifier_template_arguments(
                 ast::AstIdentifier* ident) const;
         // Redirects `ident` to a value alias target: the identifier now names
         // `target.m_symbol`, its own template arguments are consumed and the
-        // target arguments (alias-bound first, then `pass_through_arguments`)
-        // become the identifier's appended template arguments.
+        // target arguments (alias-bound first, then the optional
+        // `pass_through_arguments`) become the identifier's appended template
+        // arguments. `pass_through_arguments` is nullopt when this reference
+        // forwards no arguments to the target.
         void _apply_value_alias_target_to_identifier(
             ast::AstIdentifier* ident,
             const lang_ValueAliasTarget& target,
-            lang_Symbol::TemplateArgumentListT&& pass_through_arguments);
+            std::optional<lang_Symbol::TemplateArgumentListT> pass_through_arguments);
 
         template<typename ... ArgTs>
         bool define_symbol_in_current_scope(

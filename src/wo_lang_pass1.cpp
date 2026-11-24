@@ -769,7 +769,7 @@ namespace wo
                 _apply_value_alias_target_to_identifier(
                     node,
                     value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(),
-                    {});
+                    std::nullopt);
 
                 return OKAY;
             }
@@ -815,7 +815,8 @@ namespace wo
                     if (symbol->m_is_template)
                     {
                         lang_Symbol::TemplateArgumentListT template_args =
-                            _collect_identifier_template_arguments(node);
+                            _collect_identifier_template_arguments(node).value_or(
+                                lang_Symbol::TemplateArgumentListT{});
 
                         bool continue_process = false;
                         auto template_eval_state_instance_may_nullopt =
@@ -839,7 +840,7 @@ namespace wo
                         _apply_value_alias_target_to_identifier(
                             node,
                             value_alias_eval_state->m_value_alias_instance->m_determined_value_target.value(),
-                            {});
+                            std::nullopt);
 
                         return OKAY;
                     }
@@ -870,13 +871,10 @@ namespace wo
 
                     // Non-template alias: template arguments written here are
                     // passed through to the (generic) target.
-                    lang_Symbol::TemplateArgumentListT pass_through_arguments =
-                        _collect_identifier_template_arguments(node);
-
                     _apply_value_alias_target_to_identifier(
                         node,
                         value_alias_instance->m_determined_value_target.value(),
-                        std::move(pass_through_arguments));
+                        _collect_identifier_template_arguments(node));
 
                     return OKAY;
                 }
@@ -5135,9 +5133,6 @@ namespace wo
 
                     return FAILED;
                 }
-
-                target_struct_typeholder->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments
-                    = template_argument_list;
 
                 target_struct_typeholder->m_typeform.m_identifier->
                     m_LANG_determined_and_appended_template_arguments = template_argument_list;

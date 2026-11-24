@@ -2342,7 +2342,7 @@ namespace wo
         return nullopt;
     }
 
-    lang_Symbol::TemplateArgumentListT
+    std::optional<lang_Symbol::TemplateArgumentListT>
         LangContext::_collect_identifier_template_arguments(
             AstIdentifier* ident) const
     {
@@ -2364,12 +2364,17 @@ namespace wo
             result.insert(result.end(), appended.begin(), appended.end());
         }
 
+        // A template always declares at least one parameter, so an empty list
+        // can only mean "this identifier carries no template arguments".
+        if (result.empty())
+            return nullopt;
+
         return result;
     }
     void LangContext::_apply_value_alias_target_to_identifier(
         AstIdentifier* ident,
         const lang_ValueAliasTarget& target,
-        lang_Symbol::TemplateArgumentListT&& pass_through_arguments)
+        std::optional<lang_Symbol::TemplateArgumentListT> pass_through_arguments)
     {
         wo_assert(target.m_symbol != nullptr);
         wo_assert(target.m_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
@@ -2382,15 +2387,25 @@ namespace wo
         // re-fill a generic target: `alias A = foo; A:<int>(v)`).
         ident->m_template_arguments.reset();
 
-        lang_Symbol::TemplateArgumentListT arguments = target.m_template_arguments;
-        arguments.insert(arguments.end(),
-            make_move_iterator(pass_through_arguments.begin()),
-            make_move_iterator(pass_through_arguments.end()));
+        std::optional<lang_Symbol::TemplateArgumentListT> arguments =
+            target.m_template_arguments;
 
-        if (arguments.empty())
+        if (pass_through_arguments.has_value())
+        {
+            if (!arguments.has_value())
+                arguments.emplace();
+
+            arguments.value().insert(
+                arguments.value().end(),
+                make_move_iterator(pass_through_arguments.value().begin()),
+                make_move_iterator(pass_through_arguments.value().end()));
+        }
+
+        if (!arguments.has_value())
             ident->m_LANG_determined_and_appended_template_arguments.reset();
         else
-            ident->m_LANG_determined_and_appended_template_arguments = std::move(arguments);
+            ident->m_LANG_determined_and_appended_template_arguments =
+                std::move(arguments.value());
     }
 
     lang_TypeInstance* LangContext::mutable_type(lang_TypeInstance* origin_type)
