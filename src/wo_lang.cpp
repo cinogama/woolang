@@ -2409,6 +2409,34 @@ namespace wo
                 std::move(arguments.value());
     }
 
+    lang_Symbol* LangContext::_resolve_deduction_value_symbol(
+        lang_Symbol* symbol,
+        size_t* inout_provided_template_argument_count)
+    {
+        if (symbol->m_symbol_kind != lang_Symbol::kind::VALUE_ALIAS)
+            return symbol;
+
+        if (symbol->m_is_template)
+            // A template alias has to be applied at the reference before the
+            // target's own parameters can be deduced through it.
+            return nullptr;
+
+        auto* value_alias_instance = symbol->m_value_alias_instance;
+        if (!value_alias_instance->m_determined_value_target.has_value())
+            // Forward reference: the declaration has not been processed yet.
+            return nullptr;
+
+        const auto& target = value_alias_instance->m_determined_value_target.value();
+
+        wo_assert(target.m_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+
+        if (target.m_template_arguments.has_value())
+            *inout_provided_template_argument_count +=
+                target.m_template_arguments.value().size();
+
+        return target.m_symbol;
+    }
+
     lang_TypeInstance* LangContext::mutable_type(lang_TypeInstance* origin_type)
     {
         if (origin_type->is_immutable())

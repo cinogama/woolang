@@ -1717,11 +1717,10 @@ namespace wo
 
             if (find_symbol_in_current_scope(lex, function_variable_identifier, nullopt))
             {
-                lang_Symbol* function_symbol = function_variable_identifier->m_LANG_determined_symbol.value();
-
-                // Arguments appended by a value alias (or a previous deduction
-                // step) already fill the leading template parameters.
-                const size_t provided_template_argument_count =
+                // Arguments written at the reference, appended by a previous
+                // deduction step, and bound by a value alias already fill the
+                // leading template parameters of the final target.
+                size_t provided_template_argument_count =
                     (function_variable_identifier->m_template_arguments.has_value()
                         ? function_variable_identifier->m_template_arguments.value().size()
                         : 0)
@@ -1729,7 +1728,15 @@ namespace wo
                         ? function_variable_identifier->m_LANG_determined_and_appended_template_arguments.value().size()
                         : 0);
 
-                if (function_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
+                // A reference that has not been evaluated yet still names the
+                // value alias: follow it synchronously, so an alias of a
+                // still-generic target deduces exactly like the target itself.
+                lang_Symbol* function_symbol = _resolve_deduction_value_symbol(
+                    function_variable_identifier->m_LANG_determined_symbol.value(),
+                    &provided_template_argument_count);
+
+                if (function_symbol != nullptr
+                    && function_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
                     && function_symbol->m_is_template
                     && !function_symbol->m_template_value_instances->m_mutable
                     && function_symbol->m_template_value_instances->m_origin_value_ast->node_type == AstBase::AST_VALUE_FUNCTION

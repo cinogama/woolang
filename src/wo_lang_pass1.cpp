@@ -3436,7 +3436,23 @@ namespace wo
                     case AstBase::AST_VALUE_VARIABLE:
                     {
                         AstValueVariable* argument_variable = static_cast<AstValueVariable*>(argument);
-                        lang_Symbol* symbol = argument_variable->m_identifier->m_LANG_determined_symbol.value();
+                        AstIdentifier* argument_identifier = argument_variable->m_identifier;
+
+                        // Only arguments that check_need_template_deduct_function
+                        // deferred reach here, so a value alias is followable;
+                        // the arguments it bound already fill leading template
+                        // parameters of the target.
+                        size_t provided_template_argument_count =
+                            argument_identifier->m_template_arguments.has_value()
+                            ? argument_identifier->m_template_arguments.value().size() : 0;
+                        if (argument_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
+                            provided_template_argument_count +=
+                                argument_identifier->m_LANG_determined_and_appended_template_arguments.value().size();
+
+                        lang_Symbol* symbol = _resolve_deduction_value_symbol(
+                            argument_identifier->m_LANG_determined_symbol.value(),
+                            &provided_template_argument_count);
+                        wo_assert(symbol != nullptr);
 
                         auto& template_instance = symbol->m_template_value_instances;
 
@@ -3448,13 +3464,11 @@ namespace wo
                         vector<AstTemplateParam*> pending_template_params;
                         auto it_template_param = template_instance->m_template_params.begin();
                         auto it_template_param_end = template_instance->m_template_params.end();
-                        if (argument_variable->m_identifier->m_template_arguments.has_value())
+                        for (size_t i = 0;
+                            i < provided_template_argument_count && it_template_param != it_template_param_end;
+                            ++i)
                         {
-                            for (auto& _useless : argument_variable->m_identifier->m_template_arguments.value())
-                            {
-                                (void)_useless;
-                                ++it_template_param;
-                            }
+                            ++it_template_param;
                         }
                         for (; it_template_param != it_template_param_end; ++it_template_param)
                             pending_template_params.push_back(*it_template_param);
@@ -3696,7 +3710,23 @@ namespace wo
                 case AstBase::AST_VALUE_VARIABLE:
                 {
                     AstValueVariable* argument_variable = static_cast<AstValueVariable*>(argument);
-                    lang_Symbol* symbol = argument_variable->m_identifier->m_LANG_determined_symbol.value();
+                    AstIdentifier* argument_identifier = argument_variable->m_identifier;
+
+                    // Only arguments that check_need_template_deduct_function
+                    // deferred reach here, so a value alias is followable; the
+                    // arguments it bound already fill leading template
+                    // parameters of the target.
+                    size_t provided_template_argument_count =
+                        argument_identifier->m_template_arguments.has_value()
+                        ? argument_identifier->m_template_arguments.value().size() : 0;
+                    if (argument_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
+                        provided_template_argument_count +=
+                            argument_identifier->m_LANG_determined_and_appended_template_arguments.value().size();
+
+                    lang_Symbol* symbol = _resolve_deduction_value_symbol(
+                        argument_identifier->m_LANG_determined_symbol.value(),
+                        &provided_template_argument_count);
+                    wo_assert(symbol != nullptr);
 
                     auto& template_instance = symbol->m_template_value_instances;
 
@@ -3708,13 +3738,11 @@ namespace wo
                     vector<AstTemplateParam*> pending_template_params;
                     auto it_template_param = template_instance->m_template_params.begin();
                     auto it_template_param_end = template_instance->m_template_params.end();
-                    if (argument_variable->m_identifier->m_template_arguments.has_value())
+                    for (size_t i = 0;
+                        i < provided_template_argument_count && it_template_param != it_template_param_end;
+                        ++i)
                     {
-                        for (auto& _useless : argument_variable->m_identifier->m_template_arguments.value())
-                        {
-                            (void)_useless;
-                            ++it_template_param;
-                        }
+                        ++it_template_param;
                     }
                     for (; it_template_param != it_template_param_end; ++it_template_param)
                         pending_template_params.push_back(*it_template_param);

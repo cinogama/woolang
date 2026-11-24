@@ -1261,6 +1261,18 @@ namespace wo
             ast::AstIdentifier* ident,
             const lang_ValueAliasTarget& target,
             std::optional<lang_Symbol::TemplateArgumentListT> pass_through_arguments);
+        // Resolves the symbol deduction should look at for a value reference
+        // that has not been evaluated yet: a non-template value alias whose
+        // target is already recorded is followed to the target symbol, adding
+        // the number of arguments the alias already bound to
+        // `*inout_provided_template_argument_count`. Returns `symbol` itself
+        // when it is not a value alias, and nullptr when the reference names a
+        // value alias that cannot be followed synchronously here (a template
+        // alias, or a forward reference whose declaration has not been
+        // processed yet).
+        lang_Symbol* _resolve_deduction_value_symbol(
+            lang_Symbol* symbol,
+            size_t* inout_provided_template_argument_count);
 
         template<typename ... ArgTs>
         bool define_symbol_in_current_scope(

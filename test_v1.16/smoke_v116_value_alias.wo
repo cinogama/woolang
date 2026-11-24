@@ -37,7 +37,25 @@ namespace smoke_v116_value_alias
         return (a, b);
     }
 
+    // Function-typed struct field: an alias member is deduced like the target.
+    type Holder<T>: struct
+    {
+        pub f: (T) => T,
+        pub v: T,
+    };
+
     func apply_one(f: (int) => int, v: int) => int
+    {
+        return f(v);
+    }
+
+    func apply_pair(f: (int, string) => (int, string), v: int) => string
+    {
+        let p = f(v, "y");
+        return p.1;
+    }
+
+    func pick_first<T>(v: T, f: (T) => T) => T
     {
         return f(v);
     }
@@ -144,6 +162,28 @@ namespace smoke_v116_value_alias
 
         alias ops_adapt = adapt_of:<Ops>;
         test_equal(ops_adapt(6), 6);
+    }
+
+    func test_alias_as_argument()
+    {
+        // An alias of a still-generic target is deduced at the argument
+        // position exactly like the target itself.
+        alias id = identity;
+        test_equal(apply_one(id, 3), 3);
+        test_equal(apply_one(identity, 4), 4);
+        test_equal(pick_first(3, id), 3);
+
+        // Partial binding: A is bound by the alias, B is deduced here.
+        alias pair_int = make_pair:<int>;
+        test_equal(apply_pair(pair_int, 1), "y");
+    }
+
+    func test_alias_as_member()
+    {
+        // The same deduction at a struct member value.
+        alias id = identity;
+        let h = Holder:<int>{ f = id, v = 3 };
+        test_equal(h.f(h.v), 3);
     }
 
     //////////////////////////////////////
@@ -322,6 +362,8 @@ namespace smoke_v116_value_alias
         test_variable_alias();
         test_generic_aliases();
         test_type_namespace_aliases();
+        test_alias_as_argument();
+        test_alias_as_member();
         test_negative_cases();
     }
 }
