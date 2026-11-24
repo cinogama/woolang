@@ -764,7 +764,7 @@ namespace wo
                     }
                     else
                     {
-                        // Template argument refill is vaild for alias.
+                        // Template argument refill is valid for alias.
                         if (symbol->m_symbol_kind != lang_Symbol::kind::ALIAS)
                         {
                             lex.record_lang_error(lexer::msglevel_t::error, node,
@@ -4852,9 +4852,6 @@ namespace wo
 
                     return FAILED;
                 }
-
-                target_struct_typeholder->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments
-                    = template_argument_list;
 
                 target_struct_typeholder->m_typeform.m_identifier->
                     m_LANG_determined_and_appended_template_arguments = template_argument_list;

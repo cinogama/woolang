@@ -376,14 +376,14 @@ namespace wo
         {
         }
 
-        AstIdentifier::AstIdentifier(const AstIdentifier& identifer)
+        AstIdentifier::AstIdentifier(const AstIdentifier& identifier)
             : AstBase(AST_IDENTIFIER)
-            , m_formal(identifer.m_formal)
-            , m_find_type_only(identifer.m_find_type_only)
-            , m_from_type(identifer.m_from_type)
-            , m_scope(identifer.m_scope)
-            , m_name(identifer.m_name)
-            , m_template_arguments(identifer.m_template_arguments)
+            , m_formal(identifier.m_formal)
+            , m_find_type_only(identifier.m_find_type_only)
+            , m_from_type(identifier.m_from_type)
+            , m_scope(identifier.m_scope)
+            , m_name(identifier.m_name)
+            , m_template_arguments(identifier.m_template_arguments)
             , m_LANG_determined_symbol(nullopt)
             , m_LANG_determined_and_appended_template_arguments(nullopt)
             //, m_LANG_determined_searching_from_scope(std::nullopt)

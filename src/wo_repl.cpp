@@ -111,10 +111,12 @@ namespace
 struct repl_tls_guard
 {
     _wo_ReplSession&              S;
-    wstring_pool::tls_state   saved_pool{ nullptr, 0 };
+    wstring_pool::tls_state   saved_pool;
     AstAllocator         saved_ast;
 
-    explicit repl_tls_guard(_wo_ReplSession& s) : S(s)
+    explicit repl_tls_guard(_wo_ReplSession& s)
+        : S(s)
+        , saved_pool{ nullptr, 0 }
     {
         // --- String pool ---
         // Allocate a fresh session-private pool on first use. Do NOT use
