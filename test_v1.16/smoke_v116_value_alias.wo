@@ -36,6 +36,30 @@ namespace smoke_v116_value_alias
         pub v: T,
     };
 
+    type Pair<K, V>: struct
+    {
+        pub k: K,
+        pub v: V,
+    };
+
+    func pair<A, B>(a: A, b: B)=> (A, B)
+    {
+        return (a, b);
+    }
+
+    func second<A, B>(a: A, b: B)=> B
+    {
+        do a;
+        return b;
+    }
+
+    // `f` is used with an `int` and a `string`: a generic function passed here
+    // with only part of its arguments gets the rest from this parameter type.
+    func apply_second(f: (int, string) => string, v: int)=> string
+    {
+        return f(v, "y");
+    }
+
     // `f` is used with an `int`: an argument that aliases a generic function
     // gets its parameter from the parameter type.
     func apply_one(f: (int) => int, v: int)=> int
@@ -55,6 +79,7 @@ namespace smoke_v116_value_alias
     // Alias to a non-generic function and to a generic one.
     alias plus = add;
     alias id = identity;
+    alias both = pair;
 
     // The target may be named through its type.
     alias ship_label = typeof<Ship>::label;
@@ -150,6 +175,30 @@ namespace smoke_v116_value_alias
         test_equal(holder.f(holder.v), 4);
     }
 
+    func test_partial_arguments()
+    {
+        // Arguments written at a call fill the leading parameters; the call
+        // arguments deduce the others.
+        let p1 = pair:<int>(1, "x");
+        test_equal(p1.0, 1);
+        test_equal(p1.1, "x");
+
+        // The same through an alias.
+        let p2 = both:<string>("s", 2);
+        test_equal(p2.0, "s");
+        test_equal(p2.1, 2);
+
+        // A struct type works the same way.
+        let boxed = Pair:<int>{ k = 1, v = "s" };
+        test_equal(boxed.k, 1);
+        test_equal(boxed.v, "s");
+
+        // A generic function with part of its arguments written is deduced
+        // from the parameter type it is passed to.
+        test_equal(apply_second(second:<int>, 1), "y");
+        test_equal(apply_second(second, 1), "y");
+    }
+
     func main()
     {
         test_basic();
@@ -159,6 +208,7 @@ namespace smoke_v116_value_alias
         test_struct_member();
         test_template_alias();
         test_chains();
+        test_partial_arguments();
     }
 
     // Declared after its use site in test_chains.

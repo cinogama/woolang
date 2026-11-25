@@ -3408,7 +3408,8 @@ namespace wo
                             && !symbol->m_template_value_instances->m_mutable);
 
                         unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance> deduction_results;
-                        vector<AstTemplateParam*> pending_template_params = argument_reference.pending_params();
+                        vector<AstTemplateParam*> pending_template_params =
+                            argument_reference.start_deduction(&deduction_results);
 
                         entry_spcify_scope(symbol->m_belongs_to_scope);
 
@@ -3422,11 +3423,17 @@ namespace wo
 
                         end_last_scope();
 
-                        if (deduction_results.size() == pending_template_params.size())
+                        vector<AstTemplateParam*> undetermined_template_params;
+                        vector<AstIdentifier::TemplateArgumentInstance> deduced_arguments =
+                            collect_deduced_arguments(
+                                pending_template_params,
+                                deduction_results,
+                                &undetermined_template_params);
+
+                        if (undetermined_template_params.empty())
                         {
                             // We can decided this argument now.
-                            argument_reference.append_deduced_arguments(
-                                collect_deduced_arguments(pending_template_params, deduction_results, nullptr));
+                            argument_reference.append_deduced_arguments(deduced_arguments);
 
                             entry_spcify_scope(node->m_scope_before_deduction);
 
@@ -3643,7 +3650,8 @@ namespace wo
                         && !symbol->m_template_value_instances->m_mutable);
 
                     unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance> deduction_results;
-                    vector<AstTemplateParam*> pending_template_params = argument_reference.pending_params();
+                    vector<AstTemplateParam*> pending_template_params =
+                        argument_reference.start_deduction(&deduction_results);
 
                     entry_spcify_scope(symbol->m_belongs_to_scope);
 
@@ -3657,11 +3665,17 @@ namespace wo
 
                     end_last_scope();
 
-                    if (deduction_results.size() == pending_template_params.size())
+                    vector<AstTemplateParam*> undetermined_template_params;
+                    vector<AstIdentifier::TemplateArgumentInstance> deduced_arguments =
+                        collect_deduced_arguments(
+                            pending_template_params,
+                            deduction_results,
+                            &undetermined_template_params);
+
+                    if (undetermined_template_params.empty())
                     {
                         // We can decided this argument now.
-                        argument_reference.append_deduced_arguments(
-                            collect_deduced_arguments(pending_template_params, deduction_results, nullptr));
+                        argument_reference.append_deduced_arguments(deduced_arguments);
 
                         WO_CONTINUE_PROCESS(param_and_argument_pair.m_argument);
                     }
@@ -3839,11 +3853,9 @@ namespace wo
 
                         template_params = callee.m_template_params;
 
-                        // Arguments written at the call fill the leading
-                        // parameters; the others are what the call arguments
-                        // have to deduce.
-                        callee.collect_written_arguments(&deduction_results);
-                        pending_template_params = callee.pending_params();
+                        // What the call arguments have to deduce: the
+                        // parameters the written arguments leave pending.
+                        pending_template_params = callee.start_deduction(&deduction_results);
 
                         // NOTE: The callee is a function definition, checked
                         // when its need for deduction was decided.
@@ -4759,10 +4771,9 @@ namespace wo
 
                 template_params = struct_type_reference.m_template_params;
 
-                // Arguments written at the literal fill the leading parameters;
-                // the others are what the member values have to deduce.
-                struct_type_reference.collect_written_arguments(&deduction_results);
-                pending_template_params = struct_type_reference.pending_params();
+                // What the member values have to deduce: the parameters the
+                // written arguments leave pending.
+                pending_template_params = struct_type_reference.start_deduction(&deduction_results);
 
                 AstTypeHolder* struct_def_type_holder = symbol->m_template_type_instances->m_origin_value_ast;
                 unordered_map<wo_pstring_t, AstTypeHolder*> struct_template_deduction_target;

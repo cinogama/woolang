@@ -524,8 +524,10 @@ namespace wo
         // The written arguments followed by the deduced ones.
         std::vector<ast::AstIdentifier::TemplateArgumentInstance> given_arguments() const;
 
-        // Binds the parameters covered by the written arguments in `out_deduced`.
-        void collect_written_arguments(
+        // Begins deducing the reference: `out_deduced` receives the arguments
+        // written at the reference. Returns the parameters the written
+        // arguments leave to deduction.
+        std::vector<ast::AstTemplateParam*> start_deduction(
             std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_deduced) const;
 
         // Makes `arguments` (in parameter order, see
@@ -1481,6 +1483,16 @@ namespace wo
         const char* get_function_name(ast::AstValueFunction* func);
         std::string get_constant_str(const ast::ConstantValue& val);
 
+        // Template argument deduction: unify a declared parameter type, the
+        // "formal", with the type of what is passed for it. A formal is an
+        // unevaluated type holder in which template parameters appear by name.
+        //
+        // `pending_template_params` are the parameters left to deduction and
+        // the determined-arguments map the arguments determined so far. The
+        // map must already hold the arguments written at the reference (see
+        // lang_TemplateReference::start_deduction): a parameter found there
+        // counts as determined and constrains nothing, and whether what is
+        // passed fits it is checked once the template is instantiated.
         bool template_argument_deduction_from_constant(
             lexer& lex,
             const std::vector<ast::AstTemplateParam*>& template_params,

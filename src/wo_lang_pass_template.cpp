@@ -771,6 +771,14 @@ namespace wo
                         }
                         goto _label_fake_hkt_trying_template;
                     }
+
+                    // A parameter determined already (written at the
+                    // reference, or deduced from what was passed earlier)
+                    // constrains nothing here. Whether what is passed fits it
+                    // is checked once the template is instantiated.
+                    if (out_determined_template_arg_pair->find(identifier->m_name)
+                        != out_determined_template_arg_pair->end())
+                        goto _label_fake_hkt_trying_template;
                 }
                 /* FALL THROUGH */
                 [[fallthrough]];
@@ -1712,7 +1720,7 @@ namespace wo
 
         return arguments;
     }
-    void lang_TemplateReference::collect_written_arguments(
+    vector<AstTemplateParam*> lang_TemplateReference::start_deduction(
         unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance>* out_deduced) const
     {
         for (size_t position = 0;
@@ -1722,6 +1730,8 @@ namespace wo
             out_deduced->insert(
                 make_pair((*m_template_params)[position]->m_param_name, m_written_arguments[position]));
         }
+
+        return pending_params();
     }
     void lang_TemplateReference::append_deduced_arguments(
         const vector<AstIdentifier::TemplateArgumentInstance>& arguments) const

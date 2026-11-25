@@ -581,6 +581,34 @@ namespace smoke_v116_negative
             @"func identity<T>(x: T)=> T { return x; }
               type Box<T>: struct { pub v: T, };
               func f(){ let b = Box:<int>{ w = identity }; do b; }"@);
+
+        // Arguments written at a reference fill the leading parameters and
+        // what is passed deduces the others, wherever the reference is used.
+        expect_ok("callee with partial written template arguments",
+            @"func pair<A, B>(a: A, b: B)=> (A, B) { return (a, b); }
+              func f()=> (int, string) { return pair:<int>(1, "x"); }"@);
+        expect_ok("generic function argument with partial written arguments",
+            @"func second<A, B>(a: A, b: B)=> B { do a; return b; }
+              func apply(f: (int, string) => string, v: int)=> string { return f(v, "x"); }
+              func f()=> string { return apply(second:<int>, 1); }"@);
+        expect_ok("struct type with partial written template arguments",
+            @"type Box<K, V>: struct { pub k: K, pub v: V, };
+              func f(){ let b = Box:<int>{ k = 1, v = "s" }; do b; }"@);
+
+        // What is passed must fit the arguments that were written; that is
+        // judged once the template is instantiated.
+        expect_fail("argument does not fit a written template argument",
+            @"func pair<A, B>(a: A, b: B)=> (A, B) { return (a, b); }
+              func f()=> (int, int) { return pair:<int>("s", 1); }"@);
+        expect_fail("generic function argument does not fit a written argument",
+            @"func second<A, B>(a: A, b: B)=> B { do a; return b; }
+              func apply(f: (real, string) => string, v: real)=> string { return f(v, "x"); }
+              func f()=> string { return apply(second:<int>, 1.5); }"@);
+
+        // A parameter nothing determines is still reported as such.
+        expect_fail("pending parameter nothing determines",
+            @"func pick<T, N: int>(x: T)=> T { return x; }
+              func f()=> int { return pick:<int>(1); }"@);
     }
 
     func test_repl_rollback()
