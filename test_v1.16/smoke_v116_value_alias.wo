@@ -1,0 +1,96 @@
+import pkg::std;
+import smoke_v116_tool;
+
+/* Value aliases (dev_1.16): `alias Name<...> = <value-name>;` introduces
+   another name for a function or variable. The alias always points at the
+   symbol itself, never at a concrete generic instance; template arguments
+   written at the use site belong to the target (or instantiate the alias
+   itself when the alias is a template). */
+
+namespace smoke_v116_value_alias
+{
+    func identity<T>(x: T)=> T
+    {
+        return x;
+    }
+    func add(a: int, b: int)=> int
+    {
+        return a + b;
+    }
+
+    type Ship: int
+    {
+        pub func label()=> string
+        {
+            return "ship";
+        }
+        pub func produce<U>(x: U)=> U
+        {
+            return x;
+        }
+    }
+
+    // Alias to a non-generic function and to a generic one.
+    alias plus = add;
+    alias id = identity;
+
+    // Template aliases compute a name from a type.
+    alias label_of<T> = typeof<T>::label;
+    alias label_of_alt<T> = typeof:<T>::label;
+    alias produce_of<T> = typeof<T>::produce;
+    alias label_const<T, N: int> = typeof<T>::label;
+
+    // Template alias naming another template alias.
+    alias inner<T> = typeof<T>::label;
+    alias outer<T> = inner:<T>;
+
+    // Forward alias chain: forward_b is declared after forward_a.
+    alias forward_a = forward_b;
+    alias forward_b = identity;
+
+    func test_basic()
+    {
+        test_equal(plus(2, 3), 5);
+
+        let mut x = 1;
+        alias y = x;
+        test_equal(y, 1);
+        y = 2;
+        test_equal(x, 2);
+    }
+
+    func test_generic_target()
+    {
+        // Deduction runs on the target symbol, not on the alias.
+        test_equal(id(3), 3);
+        // Written arguments specialize the target as if its name was used.
+        test_equal(id:<int>(4), 4);
+
+        alias id2 = id;
+        test_equal(id2(5), 5);
+    }
+
+    func test_template_alias()
+    {
+        test_equal(label_of:<Ship>(), "ship");
+        test_equal(label_of_alt:<Ship>(), "ship");
+        test_equal(label_const:<Ship, {0}>(), "ship");
+        test_equal(produce_of:<Ship>(7), 7);
+    }
+
+    func test_chains()
+    {
+        test_equal(outer:<Ship>(), "ship");
+        test_equal(forward_a(6), 6);
+    }
+
+    func main()
+    {
+        test_basic();
+        test_generic_target();
+        test_template_alias();
+        test_chains();
+    }
+}
+
+test_function("smoke_v116_value_alias.main", smoke_v116_value_alias::main);

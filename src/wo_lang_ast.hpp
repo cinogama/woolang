@@ -87,7 +87,7 @@ namespace wo
 
 #ifndef WO_DISABLE_COMPILER
     struct lang_TypeInstance;
-    struct lang_AliasInstance;
+    struct lang_TypeAliasInstance;
     struct lang_ValueInstance;
     struct lang_Symbol;
     struct lang_Scope;
@@ -221,6 +221,11 @@ namespace wo
             // Find type symbol only if true, else find value symbol.
             bool                    m_find_type_only;
 
+            // True when this identifier is the target of `alias A = <name>;`.
+            // In this mode template arguments may only instantiate another
+            // template value alias; they must not specialize the final target.
+            bool                    m_is_alias_target;
+
             std::optional<std::variant<AstTypeHolder*, lang_TypeInstance*>>
                 m_from_type;
             std::vector<wo_pstring_t> m_scope;
@@ -230,8 +235,16 @@ namespace wo
 
             std::optional<lang_Symbol*>
                 m_LANG_determined_symbol;
+            // The symbol directly found at this use site, before following a
+            // value alias. Access checks and diagnostics use this name.
+            std::optional<lang_Symbol*>
+                m_LANG_written_symbol;
             std::optional<std::vector<TemplateArgumentInstance>>
                 m_LANG_determined_and_appended_template_arguments;
+            // Pending instantiation of a template value alias.
+            std::optional<lang_TemplateAstEvalStateBase*>
+                m_LANG_template_evalating_state;
+            bool m_LANG_trying_advancing_alias_target;
 
             AstIdentifier(
                 wo_pstring_t identifier);
@@ -328,7 +341,7 @@ namespace wo
 
             std::optional<lang_TemplateAstEvalStateBase*> m_LANG_template_evalating_state;
             std::optional<lang_TypeInstance*> m_LANG_determined_type;
-            std::optional<lang_AliasInstance*> m_LANG_alias_instance_only_for_lspv2;
+            std::optional<lang_TypeAliasInstance*> m_LANG_type_alias_instance_only_for_lspv2;
             bool m_LANG_trying_advancing_type_judgement;
             std::optional<lang_Symbol*> m_LANG_refilling_template_target_symbol;
 
@@ -1207,6 +1220,30 @@ namespace wo
                 wo_pstring_t typename_,
                 const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
                 AstTypeHolder* type);
+            virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
+        };
+        // A value alias: `alias Name<...> = <value-name>;`. The target is
+        // resolved in value position to a symbol; the alias never stores a
+        // concrete instance.
+        struct AstAliasValueDeclare : public AstBase
+        {
+            wo_pstring_t            m_typename;
+            std::optional<std::vector<AstTemplateParam*>>
+                m_template_parameters;
+            AstIdentifier* m_target;
+            std::optional<AstDeclareAttribue*>
+                m_attribute;
+            std::optional<lang_Symbol*>
+                m_LANG_declared_symbol;
+
+        private:
+            AstAliasValueDeclare(const AstAliasValueDeclare&);
+        public:
+            AstAliasValueDeclare(
+                const std::optional<AstDeclareAttribue*>& attrib,
+                wo_pstring_t typename_,
+                const std::optional<std::vector<AstTemplateParam*>>& template_parameters,
+                AstIdentifier* target);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstEnumItem : public AstBase

@@ -81,6 +81,7 @@ namespace wo
 
                 AST_TYPE_DECLARE,
                 AST_ALIAS_TYPE_DECLARE,
+                AST_ALIAS_VALUE_DECLARE,
 
                 AST_WHERE_CONSTRAINTS,
 

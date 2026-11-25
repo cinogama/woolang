@@ -156,6 +156,16 @@ namespace smoke_v116_negative
                   {
                       return 1 as AliasTpl<real>;
                   }
+
+                  // Value aliases use the same name-based access rule: a pub
+                  // alias may expose a local function, while a local alias
+                  // name stays in its declaring file.
+                  local func hidden_generic<T>(x: T)=> T { return x; }
+                  pub alias ValueAliasExposed = hidden_generic;
+
+                  local alias ValueAliasPrivate = hidden;
+                  alias ValueAliasMiddle = hidden;
+                  pub alias ValueAliasChain = ValueAliasMiddle;
               }"@ as buffer,
             false);
     }
@@ -215,9 +225,10 @@ namespace smoke_v116_negative
         expect_ok("pub type define", "pub type Foo: pub int;");
         expect_fail("type define without colon", "type Foo int;");
 
-        // The former `=` connector is no longer accepted.
+        // Type definitions still use `:`; `=` after `alias` introduces a
+        // value alias, so a type name is not a valid target.
         expect_fail("type define with old assign", "type Foo = int;");
-        expect_fail("alias define with old assign", "alias Foo = int;");
+        expect_fail("value alias target must be a value", "alias Foo = int;");
 
         // Old access modifiers became ordinary identifiers.
         expect_fail("old public modifier", "public func foo(){}");
@@ -391,6 +402,15 @@ namespace smoke_v116_negative
         expect_cross_ok("alias refill over local template",
             @"func take<T>(x: T)=> T { return x; }
               func f(){ do take:<decl::AliasRefill<real>>(decl::make_alias_refill()); }"@);
+
+        // Value aliases follow the same rules: the written alias name is
+        // checked, so a pub alias may expose a local function or alias.
+        expect_cross_ok("pub value alias over local function",
+            "func f(){ let v = decl::ValueAliasExposed(5); do v; }");
+        expect_cross_ok("pub value alias over local alias",
+            "func f(){ let v = decl::ValueAliasChain(); do v; }");
+        expect_cross_fail("local value alias cross file",
+            "func f(){ let v = decl::ValueAliasPrivate(); do v; }");
     }
 
     func test_cross_file_conflicts()
@@ -419,6 +439,42 @@ namespace smoke_v116_negative
         "@);
     }
 
+    func test_value_alias_rules()
+    {
+        // A value alias may name a generic symbol without arguments; the
+        // use site supplies/deduces them as if the target name was written.
+        expect_ok("value alias to generic symbol",
+            @"func identity<T>(x: T)=> T { return x; }
+              alias id = identity;
+              func f(){ let v = id(1); do v; }"@);
+        expect_ok("value alias explicit target arguments",
+            @"func identity<T>(x: T)=> T { return x; }
+              alias id = identity;
+              func f(){ let v = id:<int>(1); do v; }"@);
+        expect_ok("template value alias computes a name",
+            @"type S: int { pub func f()=> int { return 1; } }
+              alias g<T> = typeof<T>::f;
+              func h(){ let v = g:<S>(); do v; }"@);
+
+        // The RHS may only specialize another template alias; naming a
+        // concrete instance would make the alias point at an instance.
+        expect_fail("value alias rhs cannot specialize a function",
+            @"func identity<T>(x: T)=> T { return x; }
+              alias bad = identity:<int>;"@);
+        expect_fail("value alias rhs cannot specialize through alias",
+            @"func identity<T>(x: T)=> T { return x; }
+              alias id = identity;
+              alias bad = id:<int>;"@);
+        expect_fail("template value alias needs arguments",
+            @"alias pick<T> = typeof<T>::foo;
+              alias bad = pick;"@);
+        expect_fail("recursive value alias", "alias a = a;");
+        expect_fail("value alias name in type position",
+            @"func f()=> int { return 1; }
+              alias a = f;
+              let x: a = 1;"@);
+    }
+
     func test_repl_rollback()
     {
         // Evaluates through dumpling's REPL; a compile error must roll
@@ -428,6 +484,13 @@ namespace smoke_v116_negative
 
         test_assure(repl_eval_ok(repl, "let repl_value = 7;"));
         test_assure(repl_eval_ok(repl, "return repl_value;"));
+
+        // A value alias may point across REPL evaluations; the target symbol
+        // lives in an earlier evaluation and stays valid.
+        test_assure(repl_eval_ok(repl, "alias repl_alias = repl_value;"));
+        test_assure(repl_eval_ok(repl, "return repl_alias;"));
+        test_assure(!repl_eval_ok(repl, "alias repl_broken = missing_name;"));
+
         test_assure(!repl_eval_ok(repl, "let broken = ;"));
         test_assure(repl_eval_ok(repl, "return repl_value;"));
 
@@ -468,6 +531,7 @@ namespace smoke_v116_negative
         test_cross_file_construct();
         test_cross_file_access();
         test_cross_file_conflicts();
+        test_value_alias_rules();
         test_repl_rollback();
     }
 }

@@ -4,6 +4,7 @@ import smoke_v116_tool;
 
 import smoke_v116_basic;
 import smoke_v116_macro;
+import smoke_v116_value_alias;
 import smoke_v116_local_a;
 import smoke_v116_local_b;
 import smoke_v116_internal_a;

@@ -48,6 +48,29 @@ namespace wo
             }
         };
 
+        struct err_value_alias_target_undetermined final
+        {
+            lang_Symbol* m_alias;
+            std::string render(LangContext* lang) const
+            {
+                return format(u8"无法确定值别名 `%s` 的目标",
+                    lang->get_symbol_name(m_alias));
+            }
+            bool operator==(const err_value_alias_target_undetermined& a) const
+            {
+                return m_alias == a.m_alias;
+            }
+        };
+
+        struct info_value_alias_target_cannot_take_template_argument final
+        {
+            std::string render(LangContext* lang) const
+            {
+                return u8"值别名的目标不能指定泛型实参；只有模板别名本身可以在此处使用泛型实参";
+            }
+            bool operator==(const info_value_alias_target_cannot_take_template_argument&) const { return true; }
+        };
+
         struct err_cannot_use_builtin_typename_here final
         {
             lang_Symbol* m_symbol;

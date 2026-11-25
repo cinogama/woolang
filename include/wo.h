@@ -641,6 +641,7 @@ typedef enum _wo_lspv2_symbol_kind
     WO_LSPV2_SYMBOL_VARIBALE,  /**< @brief Variable binding. */
     WO_LSPV2_SYMBOL_TYPE,      /**< @brief Type definition. */
     WO_LSPV2_SYMBOL_ALIAS,     /**< @brief Type alias. */
+    WO_LSPV2_SYMBOL_VALUE_ALIAS, /**< @brief Value alias. */
 
 } wo_lspv2_symbol_kind;
 

@@ -155,20 +155,40 @@ namespace wo
         void determine_base_type_copy(const DeterminedType& copy_type);
         void determine_base_type_move(DeterminedType&& move_type);
     };
-    struct lang_AliasInstance
+    struct lang_TypeAliasInstance
     {
         lang_Symbol* m_symbol;
 
         std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>> m_instance_template_arguments;
         std::optional<lang_TypeInstance*> m_determined_type;
 
-        lang_AliasInstance(
+        lang_TypeAliasInstance(
             lang_Symbol* symbol,
             const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
-        lang_AliasInstance(const lang_AliasInstance&) = delete;
-        lang_AliasInstance(lang_AliasInstance&&) = delete;
-        lang_AliasInstance& operator=(const lang_AliasInstance&) = delete;
-        lang_AliasInstance& operator=(lang_AliasInstance&&) = delete;
+        lang_TypeAliasInstance(const lang_TypeAliasInstance&) = delete;
+        lang_TypeAliasInstance(lang_TypeAliasInstance&&) = delete;
+        lang_TypeAliasInstance& operator=(const lang_TypeAliasInstance&) = delete;
+        lang_TypeAliasInstance& operator=(lang_TypeAliasInstance&&) = delete;
+    };
+    struct lang_ValueAliasInstance
+    {
+        lang_Symbol* m_symbol;
+
+        std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>
+            m_instance_template_arguments;
+
+        // The symbol this alias names. Always a value symbol
+        // (lang_Symbol::kind::VARIABLE, possibly still a template); never an
+        // alias and never a concrete instance.
+        lang_Symbol* m_determined_symbol;
+
+        lang_ValueAliasInstance(
+            lang_Symbol* symbol,
+            const std::optional<std::vector<ast::AstIdentifier::TemplateArgumentInstance>>& template_arguments);
+        lang_ValueAliasInstance(const lang_ValueAliasInstance&) = delete;
+        lang_ValueAliasInstance(lang_ValueAliasInstance&&) = delete;
+        lang_ValueAliasInstance& operator=(const lang_ValueAliasInstance&) = delete;
+        lang_ValueAliasInstance& operator=(lang_ValueAliasInstance&&) = delete;
     };
     struct lang_ValueInstance
     {
@@ -280,12 +300,19 @@ namespace wo
             ast::AstTypeHolder* ast,
             const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
-    struct lang_TemplateAstEvalStateAlias : public lang_TemplateAstEvalStateBase
+    struct lang_TemplateAstEvalStateTypeAlias : public lang_TemplateAstEvalStateBase
     {
-        std::unique_ptr<lang_AliasInstance> m_alias_instance;
+        std::unique_ptr<lang_TypeAliasInstance> m_type_alias_instance;
 
-        lang_TemplateAstEvalStateAlias(
+        lang_TemplateAstEvalStateTypeAlias(
             lang_Symbol* symbol, ast::AstTypeHolder* ast, const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
+    };
+    struct lang_TemplateAstEvalStateValueAlias : public lang_TemplateAstEvalStateBase
+    {
+        std::unique_ptr<lang_ValueAliasInstance> m_value_alias_instance;
+
+        lang_TemplateAstEvalStateValueAlias(
+            lang_Symbol* symbol, ast::AstIdentifier* ast, const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& template_arguments);
     };
 
     struct lang_Symbol
@@ -294,7 +321,8 @@ namespace wo
         {
             VARIABLE,
             TYPE,
-            ALIAS,
+            TYPE_ALIAS,
+            VALUE_ALIAS,
         };
 
         using TemplateArgumentListT = std::vector<
@@ -351,26 +379,47 @@ namespace wo
             TemplateTypePrefab& operator=(const TemplateTypePrefab&) = delete;
             TemplateTypePrefab& operator=(TemplateTypePrefab&&) = delete;
         };
-        struct TemplateAliasPrefab
+        struct TemplateTypeAliasPrefab
         {
             lang_Symbol* m_symbol;
             std::vector<ast::AstTemplateParam*> m_template_params;
             ast::AstTypeHolder* m_origin_value_ast;
-            std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateAlias>>
+            std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateTypeAlias>>
                 m_template_instances;
 
-            TemplateAliasPrefab(
+            TemplateTypeAliasPrefab(
                 lang_Symbol* symbol,
                 ast::AstTypeHolder* ast,
                 const std::vector<ast::AstTemplateParam*>& template_params);
 
-            lang_TemplateAstEvalStateAlias* find_or_create_template_instance(
+            lang_TemplateAstEvalStateTypeAlias* find_or_create_template_instance(
                 const TemplateArgumentListT& template_args);
 
-            TemplateAliasPrefab(const TemplateAliasPrefab&) = delete;
-            TemplateAliasPrefab(TemplateAliasPrefab&&) = delete;
-            TemplateAliasPrefab& operator=(const TemplateAliasPrefab&) = delete;
-            TemplateAliasPrefab& operator=(TemplateAliasPrefab&&) = delete;
+            TemplateTypeAliasPrefab(const TemplateTypeAliasPrefab&) = delete;
+            TemplateTypeAliasPrefab(TemplateTypeAliasPrefab&&) = delete;
+            TemplateTypeAliasPrefab& operator=(const TemplateTypeAliasPrefab&) = delete;
+            TemplateTypeAliasPrefab& operator=(TemplateTypeAliasPrefab&&) = delete;
+        };
+        struct TemplateValueAliasPrefab
+        {
+            lang_Symbol* m_symbol;
+            std::vector<ast::AstTemplateParam*> m_template_params;
+            ast::AstIdentifier* m_origin_value_ast;
+            std::map<TemplateArgumentListT, std::unique_ptr<lang_TemplateAstEvalStateValueAlias>>
+                m_template_instances;
+
+            TemplateValueAliasPrefab(
+                lang_Symbol* symbol,
+                ast::AstIdentifier* ast,
+                const std::vector<ast::AstTemplateParam*>& template_params);
+
+            lang_TemplateAstEvalStateValueAlias* find_or_create_template_instance(
+                const TemplateArgumentListT& template_args);
+
+            TemplateValueAliasPrefab(const TemplateValueAliasPrefab&) = delete;
+            TemplateValueAliasPrefab(TemplateValueAliasPrefab&&) = delete;
+            TemplateValueAliasPrefab& operator=(const TemplateValueAliasPrefab&) = delete;
+            TemplateValueAliasPrefab& operator=(TemplateValueAliasPrefab&&) = delete;
         };
 
         kind                            m_symbol_kind;
@@ -392,10 +441,12 @@ namespace wo
         {
             TemplateTypePrefab* m_template_type_instances;
             TemplateValuePrefab* m_template_value_instances;
-            TemplateAliasPrefab* m_template_alias_instances;
+            TemplateTypeAliasPrefab* m_template_type_alias_instances;
+            TemplateValueAliasPrefab* m_template_value_alias_instances;
             lang_TypeInstance* m_type_instance;
             lang_ValueInstance* m_value_instance;
-            lang_AliasInstance* m_alias_instance;
+            lang_TypeAliasInstance* m_type_alias_instance;
+            lang_ValueAliasInstance* m_value_alias_instance;
         };
 
         lang_Symbol(const lang_Symbol&) = delete;
@@ -430,7 +481,15 @@ namespace wo
             lang_Scope* scope,
             ast::AstTypeHolder* template_type_base,
             const std::vector<ast::AstTemplateParam*>& template_params,
-            bool is_alias);
+            bool is_type_alias);
+        lang_Symbol(
+            wo_pstring_t name,
+            const std::optional<ast::AstDeclareAttribue*>& attr,
+            std::optional<ast::AstBase*> symbol_declare_ast,
+            const std::optional<ast::AstBase::source_location_t>& location,
+            lang_Scope* scope,
+            ast::AstIdentifier* template_value_alias_base,
+            const std::vector<ast::AstTemplateParam*>& template_params);
 
         bool is_declared_as_static() const;
     };
@@ -1068,6 +1127,7 @@ namespace wo
     WO_AST_MACRO(AstLabeled);\
     WO_AST_MACRO(AstTypeDeclare);\
     WO_AST_MACRO(AstAliasTypeDeclare);\
+    WO_AST_MACRO(AstAliasValueDeclare);\
     WO_AST_MACRO(AstEnumItem);\
     WO_AST_MACRO(AstEnumDeclare);\
     WO_AST_MACRO(AstUnionItem);\
@@ -1092,6 +1152,7 @@ namespace wo
         WO_PASS_PROCESSER(AstVariableDefines, pass0);
         WO_PASS_PROCESSER(AstVariableDefineItem, pass0);
         WO_PASS_PROCESSER(AstAliasTypeDeclare, pass0);
+        WO_PASS_PROCESSER(AstAliasValueDeclare, pass0);
         WO_PASS_PROCESSER(AstTypeDeclare, pass0);
         WO_PASS_PROCESSER(AstEnumDeclare, pass0);
         WO_PASS_PROCESSER(AstUnionDeclare, pass0);
@@ -1153,6 +1214,22 @@ namespace wo
                 lexer& lex,
                 ast::AstIdentifier* ident,
                 const std::optional<bool*>& out_ambig);
+
+        enum class value_alias_resolve_result
+        {
+            RESOLVED,
+            ADVANCING,
+            FAILED,
+        };
+        // Follow a value-alias chain to a value symbol. A non-template alias
+        // whose target has not been resolved yet is advanced on demand (the
+        // declaration is pushed onto out_stack); the caller must return HOLD.
+        value_alias_resolve_result resolve_value_alias_symbol(
+            lexer& lex,
+            ast::AstIdentifier* ident,
+            lang_Symbol* symbol,
+            PassProcessStackT& out_stack,
+            lang_Symbol** out_target_symbol);
 
         template<typename ... ArgTs>
         bool define_symbol_in_current_scope(
@@ -1466,6 +1543,12 @@ namespace wo
 
         ast::AstValueBase* get_marked_origin_value_node(ast::AstValueBase* node);
         bool check_need_template_deduct_function(lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack);
+        // Before asking whether `target` needs template deduction, make sure a
+        // value-alias callee/argument has been resolved to its underlying
+        // symbol. Returns true when the identifier was pushed for processing
+        // and the caller must return HOLD.
+        bool resolve_value_alias_for_deduction(
+            lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack);
         bool check_need_template_deduct_struct_type(lexer& lex, ast::AstTypeHolder* target, PassProcessStackT& out_stack);
 
         void using_namespace_declare_for_current_scope(ast::AstUsingNamespace* using_namespace);

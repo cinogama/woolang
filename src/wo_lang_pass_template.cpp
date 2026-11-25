@@ -18,8 +18,11 @@ namespace wo
         case lang_Symbol::kind::VARIABLE:
             template_params = &inst->m_symbol->m_template_value_instances->m_template_params;
             break;
-        case lang_Symbol::kind::ALIAS:
-            template_params = &inst->m_symbol->m_template_alias_instances->m_template_params;
+        case lang_Symbol::kind::TYPE_ALIAS:
+            template_params = &inst->m_symbol->m_template_type_alias_instances->m_template_params;
+            break;
+        case lang_Symbol::kind::VALUE_ALIAS:
+            template_params = &inst->m_symbol->m_template_value_alias_instances->m_template_params;
             break;
         case lang_Symbol::kind::TYPE:
             template_params = &inst->m_symbol->m_template_type_instances->m_template_params;
@@ -359,9 +362,9 @@ namespace wo
             template_params = &template_variable_prefab->m_template_params;
             break;
         }
-        case lang_Symbol::kind::ALIAS:
+        case lang_Symbol::kind::TYPE_ALIAS:
         {
-            auto& template_alias_prefab = templating_symbol->m_template_alias_instances;
+            auto& template_alias_prefab = templating_symbol->m_template_type_alias_instances;
             check_and_do_final_deduce_for_constant_template_argument(
                 this,
                 lex,
@@ -376,6 +379,26 @@ namespace wo
 
             result = template_eval_state_instance;
             template_params = &template_alias_prefab->m_template_params;
+            break;
+        }
+        case lang_Symbol::kind::VALUE_ALIAS:
+        {
+            auto& template_value_alias_prefab =
+                templating_symbol->m_template_value_alias_instances;
+            check_and_do_final_deduce_for_constant_template_argument(
+                this,
+                lex,
+                node,
+                templating_symbol,
+                template_arguments,
+                template_value_alias_prefab->m_template_params);
+
+            auto* template_eval_state_instance =
+                template_value_alias_prefab->find_or_create_template_instance(
+                    template_arguments);
+
+            result = template_eval_state_instance;
+            template_params = &template_value_alias_prefab->m_template_params;
             break;
         }
         case lang_Symbol::kind::TYPE:
@@ -536,22 +559,43 @@ namespace wo
             template_eval_instance_value->m_value_instance->check_and_reset_const_if_func_captured();
             break;
         }
-        case lang_Symbol::kind::ALIAS:
+        case lang_Symbol::kind::TYPE_ALIAS:
         {
-            lang_TemplateAstEvalStateAlias* template_eval_instance_alias =
-                static_cast<lang_TemplateAstEvalStateAlias*>(template_eval_instance);
+            lang_TemplateAstEvalStateTypeAlias* template_eval_instance_alias =
+                static_cast<lang_TemplateAstEvalStateTypeAlias*>(template_eval_instance);
 
             AstTypeHolder* ast_type = static_cast<AstTypeHolder*>(
                 template_eval_instance_alias->m_ast);
 
             auto* new_template_alias_instance =
-                template_eval_instance_alias->m_alias_instance.get();
+                template_eval_instance_alias->m_type_alias_instance.get();
 
             new_template_alias_instance->m_determined_type = ast_type->m_LANG_determined_type;
             wo_assert(new_template_alias_instance->m_determined_type.has_value());
 
             template_eval_instance_alias->m_state =
-                lang_TemplateAstEvalStateAlias::state::EVALUATED;
+                lang_TemplateAstEvalStateTypeAlias::state::EVALUATED;
+
+            break;
+        }
+        case lang_Symbol::kind::VALUE_ALIAS:
+        {
+            lang_TemplateAstEvalStateValueAlias* template_eval_instance_value_alias =
+                static_cast<lang_TemplateAstEvalStateValueAlias*>(template_eval_instance);
+
+            AstIdentifier* ast_identifier = static_cast<AstIdentifier*>(
+                template_eval_instance_value_alias->m_ast);
+
+            lang_Symbol* target_symbol =
+                ast_identifier->m_LANG_determined_symbol.value();
+
+            wo_assert(target_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+
+            template_eval_instance_value_alias->m_value_alias_instance->m_determined_symbol =
+                target_symbol;
+
+            template_eval_instance_value_alias->m_state =
+                lang_TemplateAstEvalStateValueAlias::state::EVALUATED;
 
             break;
         }
@@ -771,18 +815,18 @@ namespace wo
                     {
                     case lang_Symbol::kind::TYPE:
                         break;
-                    case lang_Symbol::kind::ALIAS:
+                    case lang_Symbol::kind::TYPE_ALIAS:
                     {
                         if (determined_type_symbol->m_is_template)
                             // Not support;
                             return true;
 
-                        if (!determined_type_symbol->m_alias_instance->m_determined_type.has_value())
+                        if (!determined_type_symbol->m_type_alias_instance->m_determined_type.has_value())
                             // Not determined yet.
                             return true;
 
                         determined_type_symbol = determined_type_symbol
-                            ->m_alias_instance->m_determined_type.value()->m_symbol;
+                            ->m_type_alias_instance->m_determined_type.value()->m_symbol;
 
                         break;
                     }
@@ -1345,16 +1389,16 @@ namespace wo
                 {
                 case lang_Symbol::kind::TYPE:
                     break;
-                case lang_Symbol::kind::ALIAS:
+                case lang_Symbol::kind::TYPE_ALIAS:
                 {
                     if (determined_type_symbol->m_is_template)
                         return nullopt;
 
-                    if (!determined_type_symbol->m_alias_instance->m_determined_type.has_value())
+                    if (!determined_type_symbol->m_type_alias_instance->m_determined_type.has_value())
                         return nullopt;
 
                     determined_type_symbol = determined_type_symbol
-                        ->m_alias_instance->m_determined_type.value()->m_symbol;
+                        ->m_type_alias_instance->m_determined_type.value()->m_symbol;
                     break;
                 }
                 default:
@@ -1640,6 +1684,30 @@ namespace wo
             break;
         }
         return node;
+    }
+    bool LangContext::resolve_value_alias_for_deduction(
+        lexer& lex, AstValueBase* target, PassProcessStackT& out_stack)
+    {
+        target = get_marked_origin_value_node(target);
+
+        if (target->node_type != AstBase::AST_VALUE_VARIABLE)
+            return false;
+
+        AstValueVariable* variable = static_cast<AstValueVariable*>(target);
+        AstIdentifier* identifier = variable->m_identifier;
+
+        if (!find_symbol_in_current_scope(lex, identifier, nullopt))
+            return false;
+
+        lang_Symbol* symbol = identifier->m_LANG_determined_symbol.value();
+        if (symbol->m_symbol_kind != lang_Symbol::kind::VALUE_ALIAS)
+            return false;
+
+        // Let the identifier resolve the alias: a template alias is
+        // instantiated, an unresolved chain is advanced, and the determined
+        // symbol becomes the underlying value symbol.
+        out_stack.push(identifier);
+        return true;
     }
     bool LangContext::check_need_template_deduct_function(
         lexer& lex, AstValueBase* target, PassProcessStackT& out_stack)

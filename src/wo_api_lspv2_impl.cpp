@@ -396,14 +396,35 @@ wo_lspv2_symbol_info* wo_lspv2_symbol_get_info(wo_lspv2_symbol* symbol)
             }
         }
         break;
-    case lang_Symbol::kind::ALIAS:
+    case lang_Symbol::kind::TYPE_ALIAS:
         symbol_kind = WO_LSPV2_SYMBOL_ALIAS;
         if (lang_symbol->m_is_template)
         {
-            template_param_count = lang_symbol->m_template_alias_instances->m_template_params.size();
+            template_param_count = lang_symbol->m_template_type_alias_instances->m_template_params.size();
             template_params = new wo_lspv2_template_param[template_param_count];
             size_t count = 0;
-            for (auto& param : lang_symbol->m_template_alias_instances->m_template_params)
+            for (auto& param : lang_symbol->m_template_type_alias_instances->m_template_params)
+            {
+                auto& template_param = template_params[count++];
+
+                template_param.m_kind =
+                    param->m_marked_type.has_value()
+                    ? WO_LSPV2_TEMPLATE_PARAM_CONSTANT
+                    : WO_LSPV2_TEMPLATE_PARAM_TYPE
+                    ;
+
+                template_param.m_name = duplicate_c_string(param->m_param_name->c_str());
+            }
+        }
+        break;
+    case lang_Symbol::kind::VALUE_ALIAS:
+        symbol_kind = WO_LSPV2_SYMBOL_VALUE_ALIAS;
+        if (lang_symbol->m_is_template)
+        {
+            template_param_count = lang_symbol->m_template_value_alias_instances->m_template_params.size();
+            template_params = new wo_lspv2_template_param[template_param_count];
+            size_t count = 0;
+            for (auto& param : lang_symbol->m_template_value_alias_instances->m_template_params)
             {
                 auto& template_param = template_params[count++];
 
@@ -621,10 +642,10 @@ wo_lspv2_expr_info* wo_lspv2_expr_get_info(wo_lspv2_expr* expr)
             variable_or_type_symbol =
                 type_holder->m_typeform.m_identifier->m_LANG_determined_symbol.value();
 
-            if (type_holder->m_LANG_alias_instance_only_for_lspv2.has_value())
+            if (type_holder->m_LANG_type_alias_instance_only_for_lspv2.has_value())
             {
-                wo_assert(variable_or_type_symbol->m_symbol_kind == lang_Symbol::kind::ALIAS);
-                auto* alias_instance = type_holder->m_LANG_alias_instance_only_for_lspv2.value();
+                wo_assert(variable_or_type_symbol->m_symbol_kind == lang_Symbol::kind::TYPE_ALIAS);
+                auto* alias_instance = type_holder->m_LANG_type_alias_instance_only_for_lspv2.value();
 
                 if (alias_instance->m_instance_template_arguments.has_value())
                     template_instance_argument_list = &alias_instance->m_instance_template_arguments.value();
@@ -967,7 +988,7 @@ void _collect_all_semantic_tokens(
                             switch (var_node->m_LANG_variable_instance.value()->m_symbol->m_symbol_kind)
                             {
                             case lang_Symbol::kind::TYPE:
-                            case lang_Symbol::kind::ALIAS:
+                            case lang_Symbol::kind::TYPE_ALIAS:
                                 token_type = WO_LSPV2_SEMANTIC_TYPE;
                                 break;
                             default:
