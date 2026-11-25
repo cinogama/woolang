@@ -4947,7 +4947,7 @@ namespace wo
             {
                 AstTypeHolder* struct_type = node->m_marked_struct_type.value();
 
-                // It has been determined in UNPROCESSED state.
+                // The struct type was evaluated in HOLD_FOR_MEMBER_TYPE_EVAL.
                 lang_TypeInstance* struct_type_instance = struct_type->m_LANG_determined_type.value();
                 auto determined_base_type = struct_type_instance->get_determined_type();
 
@@ -4971,6 +4971,12 @@ namespace wo
                             if (!field_instance->m_value->m_LANG_determined_type.has_value())
                             {
                                 auto fnd = deduction_results.find(field_instance->m_name);
+
+                                // A member the struct does not have is reported
+                                // when the fields are checked; there is no
+                                // parameter type to deduce its value from.
+                                if (fnd == deduction_results.end())
+                                    continue;
 
                                 arguments_tobe_deduct.push_back(
                                     AstValueFunctionCall_FakeAstArgumentDeductionContextB::ArgumentMatch{

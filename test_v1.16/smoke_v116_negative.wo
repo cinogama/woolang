@@ -570,6 +570,17 @@ namespace smoke_v116_negative
         expect_fail("struct type with too many deduced and written arguments",
             @"type Box<K, V>: struct { pub k: K, pub v: V, };
               func f(){ let b = Box:<int, string, real>{ k = 1, v = "s" }; do b; }"@);
+
+        // A member the struct does not have is reported as such, also when
+        // its value was left to deduction instead of being evaluated.
+        expect_fail("struct literal with unknown member and generic value",
+            @"func identity<T>(x: T)=> T { return x; }
+              type Box<T>: struct { pub v: T, };
+              func f(){ let b = Box:<int>{ v = 3, w = identity }; do b; }"@);
+        expect_fail("struct literal with only an unknown member",
+            @"func identity<T>(x: T)=> T { return x; }
+              type Box<T>: struct { pub v: T, };
+              func f(){ let b = Box:<int>{ w = identity }; do b; }"@);
     }
 
     func test_repl_rollback()
