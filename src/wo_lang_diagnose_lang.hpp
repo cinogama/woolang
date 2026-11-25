@@ -550,31 +550,31 @@ namespace wo
             }
         };
 
-        struct err_symbol_is_private final
+        struct err_symbol_is_local final
         {
             lang_Symbol* m_symbol;
             std::string m_where;
             std::string render(LangContext* lang) const
             {
-                return format(u8"符号 `%s` 是私有的，只能在 `%s` 内访问",
+                return format(u8"`%s` 只能在 `%s` 内访问",
                     lang->get_symbol_name(m_symbol), m_where.c_str());
             }
-            bool operator==(const err_symbol_is_private& a) const
+            bool operator==(const err_symbol_is_local& a) const
             {
                 return m_symbol == a.m_symbol && m_where == a.m_where;
             }
         };
 
-        struct err_symbol_is_protected final
+        struct err_symbol_is_internal final
         {
             lang_Symbol* m_symbol;
             std::string m_where;
             std::string render(LangContext* lang) const
             {
-                return format(u8"符号 `%s` 是受保护的，只能在命名空间 `%s` 内访问",
+                return format(u8"`%s` 只能在命名空间 `%s` 内访问",
                     lang->get_symbol_name(m_symbol), m_where.c_str());
             }
-            bool operator==(const err_symbol_is_protected& a) const
+            bool operator==(const err_symbol_is_internal& a) const
             {
                 return m_symbol == a.m_symbol && m_where == a.m_where;
             }

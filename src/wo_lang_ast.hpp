@@ -116,8 +116,8 @@ namespace wo
             enum accessc_attrib
             {
                 PUBLIC,
-                PROTECTED,
-                PRIVATE,
+                INTERNAL,
+                LOCAL,
             };
             enum external_attrib
             {

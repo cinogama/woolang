@@ -45,9 +45,9 @@ namespace wo
                 case lex_type::l_pub:
                     return AstDeclareAttribue::accessc_attrib::PUBLIC;
                 case lex_type::l_local:
-                    return AstDeclareAttribue::accessc_attrib::PRIVATE;
+                    return AstDeclareAttribue::accessc_attrib::LOCAL;
                 case lex_type::l_internal:
-                    return AstDeclareAttribue::accessc_attrib::PROTECTED;
+                    return AstDeclareAttribue::accessc_attrib::INTERNAL;
                 default:
                     wo_error("Unknown attribute.");
                     return nullopt;
@@ -913,9 +913,9 @@ namespace wo
                 case lex_type::l_pub:
                     attrib = AstDeclareAttribue::accessc_attrib::PUBLIC; break;
                 case lex_type::l_local:
-                    attrib = AstDeclareAttribue::accessc_attrib::PRIVATE; break;
+                    attrib = AstDeclareAttribue::accessc_attrib::LOCAL; break;
                 case lex_type::l_internal:
-                    attrib = AstDeclareAttribue::accessc_attrib::PROTECTED; break;
+                    attrib = AstDeclareAttribue::accessc_attrib::INTERNAL; break;
                 default:
                     wo_error("Unknown attribute.");
                 }

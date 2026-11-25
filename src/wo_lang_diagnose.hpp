@@ -176,7 +176,7 @@ namespace wo::diagnose::lexer
         std::string m_token;
         std::string render(LangContext* lang) const
         {
-            return format(u8"意外的符号: `%s`", m_token.c_str());
+            return format(u8"意外的: `%s`", m_token.c_str());
         }
         bool operator==(const err_unexpected_token& a) const { return m_token == a.m_token; }
     };
@@ -624,7 +624,7 @@ namespace wo::diagnose::lang1
     {
         std::string render(LangContext* lang) const
         {
-            return u8"指定的外部函数符号名应当是一个常量";
+            return u8"指定的外部函数名应当是一个常量";
         }
         bool operator==(const err_extern_name_should_be_constant&) const { return true; }
     };
@@ -916,31 +916,31 @@ namespace wo::diagnose::lang1
         bool operator==(const err_cannot_unpack_here&) const { return true; }
     };
 
-    struct err_struct_field_is_private final
+    struct err_struct_field_is_local final
     {
         std::string m_field;
         std::string m_where;
         std::string render(LangContext* lang) const
         {
-            return format(u8"结构体字段 `%s` 是私有的，只能在 `%s` 内访问",
+            return format(u8"结构体字段 `%s` 只能在 `%s` 内访问",
                 m_field.c_str(), m_where.c_str());
         }
-        bool operator==(const err_struct_field_is_private& a) const
+        bool operator==(const err_struct_field_is_local& a) const
         {
             return m_field == a.m_field && m_where == a.m_where;
         }
     };
 
-    struct err_struct_field_is_protected final
+    struct err_struct_field_is_internal final
     {
         std::string m_field;
         std::string m_where;
         std::string render(LangContext* lang) const
         {
-            return format(u8"结构体字段 `%s` 是受保护的，只能在命名空间 `%s` 内访问",
+            return format(u8"结构体字段 `%s` 只能在命名空间 `%s` 内访问",
                 m_field.c_str(), m_where.c_str());
         }
-        bool operator==(const err_struct_field_is_protected& a) const
+        bool operator==(const err_struct_field_is_internal& a) const
         {
             return m_field == a.m_field && m_where == a.m_where;
         }
@@ -951,7 +951,7 @@ namespace wo::diagnose::lang1
         std::string m_name;
         std::string render(LangContext* lang) const
         {
-            return format(u8"符号 `%s` 在此定义", m_name.c_str());
+            return format(u8"`%s` 在此定义", m_name.c_str());
         }
         bool operator==(const info_symbol_named_defined_here& a) const { return m_name == a.m_name; }
     };

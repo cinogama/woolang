@@ -386,7 +386,7 @@ namespace wo
         // The REPL passes a session-stable token here while giving each
         // eval a unique `source_path` (held by source_file, for VFS source
         // rendering), so that compiler-semantic mechanisms that compare
-        // source_group across evals (using-namespace map, PRIVATE access
+        // source_group across evals (using-namespace map, LOCAL access
         // check, import visibility) treat every REPL snippet as the same
         // logical file.
         lexer(

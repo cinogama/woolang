@@ -1293,7 +1293,7 @@ namespace wo
             vector<tuple<AstDeclareAttribue::accessc_attrib, wo_pstring_t, lang_TypeInstance*>> param_types;
             for (auto* field : type_holder->m_typeform.m_structure.m_fields)
                 param_types.push_back(make_tuple(
-                    field->m_attribute.value_or(AstDeclareAttribue::accessc_attrib::PRIVATE),
+                    field->m_attribute.value_or(AstDeclareAttribue::accessc_attrib::LOCAL),
                     field->m_name,
                     field->m_type->m_LANG_determined_type.value()));
 

@@ -290,9 +290,9 @@ namespace wo
                 case lex_type::l_pub:
                     m_access = accessc_attrib::PUBLIC; break;
                 case lex_type::l_local:
-                    m_access = accessc_attrib::PRIVATE; break;
+                    m_access = accessc_attrib::LOCAL; break;
                 case lex_type::l_internal:
-                    m_access = accessc_attrib::PROTECTED; break;
+                    m_access = accessc_attrib::INTERNAL; break;
                 default:
                     abort(); //WTF?
                 }

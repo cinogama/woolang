@@ -127,7 +127,7 @@ namespace wo
                 if (declare_attribute->m_access.has_value())
                     return declare_attribute->m_access.value();
             }
-            return AstDeclareAttribue::accessc_attrib::PRIVATE;
+            return AstDeclareAttribue::accessc_attrib::LOCAL;
         }
 
         // Construction permission declared after ':' in a `type` declaration
@@ -148,7 +148,7 @@ namespace wo
                         return type_declare->m_construct_attribute.value();
                 }
             }
-            return AstDeclareAttribue::accessc_attrib::PRIVATE;
+            return AstDeclareAttribue::accessc_attrib::LOCAL;
         }
     }
 
@@ -336,7 +336,7 @@ namespace wo
         case AstDeclareAttribue::accessc_attrib::PUBLIC:
             return true;
 
-        case AstDeclareAttribue::accessc_attrib::PROTECTED:
+        case AstDeclareAttribue::accessc_attrib::INTERNAL:
         {
             lang_Namespace* required_namespace = nullptr;
 
@@ -374,7 +374,7 @@ namespace wo
             {
             case access_check_kind::SYMBOL:
                 lex.record_lang_error(lexer::msglevel_t::error, node,
-                    diagnose::lang2::err_symbol_is_protected{declaring_symbol, _get_scope_name(required_namespace->m_this_scope.get()).c_str()});
+                    diagnose::lang2::err_symbol_is_internal{declaring_symbol, _get_scope_name(required_namespace->m_this_scope.get()).c_str()});
                 break;
             case access_check_kind::CONSTRUCT:
                 lex.record_lang_error(lexer::msglevel_t::error, node,
@@ -383,12 +383,12 @@ namespace wo
                 break;
             case access_check_kind::STRUCT_FIELD:
                 lex.record_lang_error(lexer::msglevel_t::error, node,
-                    diagnose::lang1::err_struct_field_is_protected{field_name->c_str(), _get_scope_name(required_namespace->m_this_scope.get()).c_str()});
+                    diagnose::lang1::err_struct_field_is_internal{field_name->c_str(), _get_scope_name(required_namespace->m_this_scope.get()).c_str()});
                 break;
             }
             break;
         }
-        case AstDeclareAttribue::accessc_attrib::PRIVATE:
+        case AstDeclareAttribue::accessc_attrib::LOCAL:
         {
             if (declare_location_may_null == nullptr
                 || declare_location_may_null->source_group == path)
@@ -402,7 +402,7 @@ namespace wo
             {
             case access_check_kind::SYMBOL:
                 lex.record_lang_error(lexer::msglevel_t::error, node,
-                    diagnose::lang2::err_symbol_is_private{declaring_symbol, declare_location_may_null->source_file->c_str()});
+                    diagnose::lang2::err_symbol_is_local{declaring_symbol, declare_location_may_null->source_file->c_str()});
                 break;
             case access_check_kind::CONSTRUCT:
                 lex.record_lang_error(lexer::msglevel_t::error, node,
@@ -410,7 +410,7 @@ namespace wo
                 break;
             case access_check_kind::STRUCT_FIELD:
                 lex.record_lang_error(lexer::msglevel_t::error, node,
-                    diagnose::lang1::err_struct_field_is_private{field_name->c_str(), declare_location_may_null->source_file->c_str()});
+                    diagnose::lang1::err_struct_field_is_local{field_name->c_str(), declare_location_may_null->source_file->c_str()});
                 break;
             }
             break;

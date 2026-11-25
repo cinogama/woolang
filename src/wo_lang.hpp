@@ -1296,7 +1296,7 @@ namespace wo
                 && (!attr.has_value()
                     || !attr.value()->m_access.has_value()
                     || attr.value()->m_access.value()
-                    == ast::AstDeclareAttribue::accessc_attrib::PRIVATE);
+                    == ast::AstDeclareAttribue::accessc_attrib::LOCAL);
 
             wo_assert(!src_location.has_value()
                 || src_location.value().source_file != nullptr);

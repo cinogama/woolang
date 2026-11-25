@@ -207,7 +207,7 @@ namespace wo
                 wo_pstring_t source_file;
                 // Stable logical source identity used by compiler-semantic
                 // mechanisms that compare source files across declarations
-                // (PRIVATE access check, using-namespace map key, import
+                // (LOCAL access check, using-namespace map key, import
                 // visibility). Equal to `source_file` for normal files; the
                 // REPL overrides it with a session-stable token so every
                 // eval line shares one semantic identity, while `source_file`

@@ -70,7 +70,7 @@ struct _wo_ReplSession
     // constructed with this as `source_group`, while each gets a unique
     // `source_path` ("<repl N @ ptr>") for VFS source rendering. This way
     // every REPL snippet shares one semantic identity, so the compiler's
-    // source-file-based mechanisms (using-namespace map, PRIVATE access
+    // source-file-based mechanisms (using-namespace map, LOCAL access
     // check, import visibility) work across evals as if they were in the
     // same file.
     wo_pstring_t m_repl_group_token;
@@ -187,7 +187,7 @@ struct repl_tls_guard
         // Allocate the session-stable logical source identity. Every REPL eval
         // carries this in source_location.source_group (not source_file, which
         // holds the unique per-snippet VFS path) so compiler-semantic
-        // mechanisms (using-namespace, PRIVATE access, import visibility) treat
+        // mechanisms (using-namespace, LOCAL access, import visibility) treat
         // all snippets as the same file. The session pointer disambiguates
         // concurrent sessions in the same process.
         {
