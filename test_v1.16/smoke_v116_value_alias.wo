@@ -30,9 +30,37 @@ namespace smoke_v116_value_alias
         }
     }
 
+    type Holder<T>: struct
+    {
+        pub f: (T) => T,
+        pub v: T,
+    };
+
+    // `f` is used with an `int`: an argument that aliases a generic function
+    // gets its parameter from the parameter type.
+    func apply_one(f: (int) => int, v: int)=> int
+    {
+        return f(v);
+    }
+
+    // `T` appears in both `v` and `f`, so deduction also reads the other
+    // argument.
+    func pick_first<T>(v: T, f: (T) => T)=> T
+    {
+        return f(v);
+    }
+
+    let mut counter = 0;
+
     // Alias to a non-generic function and to a generic one.
     alias plus = add;
     alias id = identity;
+
+    // The target may be named through its type.
+    alias ship_label = typeof<Ship>::label;
+
+    // An alias of a global variable is the same storage.
+    alias count = counter;
 
     // Template aliases compute a name from a type.
     alias label_of<T> = typeof<T>::label;
@@ -51,12 +79,22 @@ namespace smoke_v116_value_alias
     func test_basic()
     {
         test_equal(plus(2, 3), 5);
+        test_equal(ship_label(), "ship");
 
         let mut x = 1;
         alias y = x;
         test_equal(y, 1);
         y = 2;
         test_equal(x, 2);
+    }
+
+    func test_global_variable()
+    {
+        test_equal(count, 0);
+        count = 7;
+        test_equal(counter, 7);
+        counter = 9;
+        test_equal(count, 9);
     }
 
     func test_generic_target()
@@ -68,6 +106,26 @@ namespace smoke_v116_value_alias
 
         alias id2 = id;
         test_equal(id2(5), 5);
+    }
+
+    func test_argument_position()
+    {
+        // An alias passed as an argument is deduced like the target name.
+        test_equal(apply_one(id, 3), 3);
+        test_equal(pick_first(3, id), 3);
+        test_equal(pick_first("s", id), "s");
+
+        // A template alias is instantiated first; the parameter still
+        // pending on its target is then deduced the same way.
+        test_equal(apply_one(produce_of:<Ship>, 4), 4);
+        test_equal(pick_first(5, produce_of:<Ship>), 5);
+    }
+
+    func test_struct_member()
+    {
+        // The same deduction for the value of a struct literal member.
+        let holder = Holder:<int>{ f = id, v = 3 };
+        test_equal(holder.f(holder.v), 3);
     }
 
     func test_template_alias()
@@ -82,15 +140,24 @@ namespace smoke_v116_value_alias
     {
         test_equal(outer:<Ship>(), "ship");
         test_equal(forward_a(6), 6);
+
+        // A use site may precede the alias declaration.
+        test_equal(later:<int>(8), 8);
     }
 
     func main()
     {
         test_basic();
+        test_global_variable();
         test_generic_target();
+        test_argument_position();
+        test_struct_member();
         test_template_alias();
         test_chains();
     }
+
+    // Declared after its use site in test_chains.
+    alias later = identity;
 }
 
 test_function("smoke_v116_value_alias.main", smoke_v116_value_alias::main);

@@ -14,7 +14,10 @@ import smoke_v116_tool;
        conflict with every local of the same name;
      - internal-construct types are constructible only inside the
        type's own namespace;
-     - enum/union item access modifiers.
+     - enum/union item access modifiers;
+     - value aliases (`alias A = name`): the RHS names a value and may only
+       specialize a template alias, arguments written at a reference belong
+       to the target, and the alias is no type name.
 
    Cross-file cases use a virtual file registered with dumpling. */
 
@@ -461,6 +464,12 @@ namespace smoke_v116_negative
         expect_fail("value alias rhs cannot specialize a function",
             @"func identity<T>(x: T)=> T { return x; }
               alias bad = identity:<int>;"@);
+        // The same holds for the RHS of a template alias, checked when the
+        // alias is instantiated.
+        expect_fail("template value alias rhs cannot specialize a function",
+            @"func identity<T>(x: T)=> T { return x; }
+              alias id2<T> = identity:<T>;
+              func f(){ let v = id2:<int>(1); do v; }"@);
         expect_fail("value alias rhs cannot specialize through alias",
             @"func identity<T>(x: T)=> T { return x; }
               alias id = identity;
@@ -469,10 +478,45 @@ namespace smoke_v116_negative
             @"alias pick<T> = typeof<T>::foo;
               alias bad = pick;"@);
         expect_fail("recursive value alias", "alias a = a;");
-        expect_fail("value alias name in type position",
+
+        // Arguments written at a reference belong to the target and are
+        // judged against it: a non-generic target takes none.
+        expect_fail("variable alias with template argument",
+            @"let v = 1;
+              alias a = v;
+              func f(){ let x = a:<int>; do x; }"@);
+        expect_fail("function alias with template argument",
+            @"func g(x: int)=> int { return x; }
+              alias a = g;
+              func f(){ do a:<int>(1); }"@);
+        expect_fail("template value alias with extra argument",
+            @"type S: int { pub func f()=> int { return 1; } }
+              alias g<T> = typeof<T>::f;
+              func h(){ let v = g:<S, int>(); do v; }"@);
+
+        // A use site may precede the alias declarations: each declaration
+        // is processed on demand, like an undetermined type alias.
+        expect_ok("value alias used before declaration",
+            @"func identity<T>(x: T)=> T { return x; }
+              let g1 = later:<int>(3);
+              let g2 = chain_a:<string>("x");
+              alias later = identity;
+              alias chain_a = chain_b;
+              alias chain_b = identity;"@);
+
+        // A value alias is a value name only. Unlike a type alias
+        // (`alias A: T;`), it cannot be written where a type is expected.
+        expect_ok("type alias as parameter type",
+            @"alias A: int;
+              func g(x: A)=> int { return x; }"@);
+        expect_fail("value alias name as parameter type",
             @"func f()=> int { return 1; }
               alias a = f;
-              let x: a = 1;"@);
+              func g(x: a)=> int { return 1; }"@);
+        expect_fail("value alias name as return type",
+            @"func f()=> int { return 1; }
+              alias a = f;
+              func g()=> a { return 1; }"@);
     }
 
     func test_repl_rollback()
