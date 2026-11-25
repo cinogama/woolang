@@ -141,8 +141,13 @@ namespace smoke_v116_value_alias
         test_equal(outer:<Ship>(), "ship");
         test_equal(forward_a(6), 6);
 
-        // A use site may precede the alias declaration.
+        // A use site may precede the alias declaration, deduction included.
         test_equal(later:<int>(8), 8);
+        test_equal(later("s"), "s");
+        test_equal(apply_one(later, 9), 9);
+
+        let holder = Holder:<int>{ f = later, v = 4 };
+        test_equal(holder.f(holder.v), 4);
     }
 
     func main()

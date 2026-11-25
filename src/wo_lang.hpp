@@ -492,6 +492,47 @@ namespace wo
             const std::vector<ast::AstTemplateParam*>& template_params);
 
         bool is_declared_as_static() const;
+
+        // The template parameters; empty for a symbol that is not a template.
+        const std::vector<ast::AstTemplateParam*>& template_params() const;
+    };
+
+    // A written reference to a (possibly generic) entity, read once its name
+    // has been resolved: the symbol the reference denotes, the template
+    // arguments written at the reference, and the parameters those arguments
+    // do not cover, which are the ones deduction has to supply.
+    //
+    // Arguments reach a reference from two sides. Written ones (`foo:<int>`)
+    // always fill the leading parameters. Deduced ones are appended by a
+    // deduction context and cover exactly the parameters the written ones left
+    // pending, in parameter order.
+    struct lang_TemplateReference
+    {
+        ast::AstIdentifier* m_identifier;
+        lang_Symbol* m_symbol;
+        const std::vector<ast::AstTemplateParam*>* m_template_params;
+        std::vector<ast::AstIdentifier::TemplateArgumentInstance> m_written_arguments;
+
+        // `identifier` must be resolved and its written arguments evaluated.
+        static lang_TemplateReference describe(ast::AstIdentifier* identifier);
+
+        // Parameters not covered by the written arguments. More written
+        // arguments than parameters leaves none pending: that is an argument
+        // count error for the consumer of the name, not something to deduce.
+        std::vector<ast::AstTemplateParam*> pending_params() const;
+
+        // The written arguments followed by the deduced ones.
+        std::vector<ast::AstIdentifier::TemplateArgumentInstance> given_arguments() const;
+
+        // Binds the parameters covered by the written arguments in `out_deduced`.
+        void collect_written_arguments(
+            std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>* out_deduced) const;
+
+        // Makes `arguments` (in parameter order, see
+        // LangContext::collect_deduced_arguments) the reference's deduced
+        // arguments.
+        void append_deduced_arguments(
+            const std::vector<ast::AstIdentifier::TemplateArgumentInstance>& arguments) const;
     };
 
     // All the symbols declared under one name in a scope.
@@ -1542,14 +1583,45 @@ namespace wo
             const std::vector<ast::AstTemplateParam*>& pending_template_params);
 
         ast::AstValueBase* get_marked_origin_value_node(ast::AstValueBase* node);
-        bool check_need_template_deduct_function(lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack);
-        // Before asking whether `target` needs template deduction, make sure a
-        // value-alias callee/argument has been resolved to its underlying
-        // symbol. Returns true when the identifier was pushed for processing
-        // and the caller must return HOLD.
-        bool resolve_value_alias_for_deduction(
-            lexer& lex, ast::AstValueBase* target, PassProcessStackT& out_stack);
-        bool check_need_template_deduct_struct_type(lexer& lex, ast::AstTypeHolder* target, PassProcessStackT& out_stack);
+
+        // The arguments deduced for `params`, in parameter order. A parameter
+        // without a deduced argument goes to `out_missing` when given.
+        static std::vector<ast::AstIdentifier::TemplateArgumentInstance> collect_deduced_arguments(
+            const std::vector<ast::AstTemplateParam*>& params,
+            const std::unordered_map<wo_pstring_t, ast::AstIdentifier::TemplateArgumentInstance>& deduced,
+            std::vector<ast::AstTemplateParam*>* out_missing);
+
+        // What a value or type used where template arguments may be deduced
+        // still needs before it can be evaluated.
+        enum class template_deduction_need
+        {
+            NONE,       // Nothing to deduce; evaluate it as written.
+            NEEDED,     // Parameters are pending; the caller deduces them first.
+            PENDING,    // Its name is being resolved: work was pushed, HOLD.
+        };
+
+        // Resolves the name of `target`, a variable or an anonymous function,
+        // and tells whether its template parameters still need deduction.
+        //
+        // Resolving a name may need pass work (following a value alias can
+        // instantiate a template alias or advance a forward declaration), so
+        // the identifier is driven through the pass rather than looked up. The
+        // name is therefore fully resolved before any decision reads it, and
+        // how many arguments it was given is not judged here: deduction gets
+        // its chance first, the consumer of the name judges last.
+        template_deduction_need prepare_value_template_deduction(
+            ast::AstValueBase* target, PassProcessStackT& out_stack);
+        // The same for a struct type, which may be deduced from member values.
+        template_deduction_need prepare_struct_type_template_deduction(
+            ast::AstTypeHolder* target, PassProcessStackT& out_stack);
+
+        // Judges the arguments given at a resolved reference against its
+        // symbol. Runs where the reference is consumed, after deduction had its
+        // chance, and reports on the identifier.
+        //   A non-template type alias may still be given arguments: they
+        //   refill the type it names (see AstTypeHolder).
+        bool check_template_arguments_presence(
+            lexer& lex, const lang_TemplateReference& reference, bool allow_alias_refill);
 
         void using_namespace_declare_for_current_scope(ast::AstUsingNamespace* using_namespace);
         void append_using_namespace_for_current_scope(const std::unordered_set<lang_Namespace*>& using_namespaces, wo_pstring_t source);

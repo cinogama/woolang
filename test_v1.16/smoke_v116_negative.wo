@@ -17,7 +17,9 @@ import smoke_v116_tool;
      - enum/union item access modifiers;
      - value aliases (`alias A = name`): the RHS names a value and may only
        specialize a template alias, arguments written at a reference belong
-       to the target, and the alias is no type name.
+       to the target, and the alias is no type name;
+     - template argument counts: judged where a name is consumed, after
+       deduction had its chance, for types and values alike.
 
    Cross-file cases use a virtual file registered with dumpling. */
 
@@ -504,6 +506,32 @@ namespace smoke_v116_negative
               alias chain_a = chain_b;
               alias chain_b = identity;"@);
 
+        // The use site may also rely on deduction: the alias name is resolved
+        // before the deduction decides, wherever the alias is declared.
+        expect_ok("forward value alias callee with deduction",
+            @"func identity<T>(x: T)=> T { return x; }
+              func f()=> int { return later(3); }
+              alias later = identity;"@);
+        expect_ok("forward value alias as argument",
+            @"func identity<T>(x: T)=> T { return x; }
+              func apply_one(f: (int) => int, v: int)=> int { return f(v); }
+              func f()=> int { return apply_one(later, 3); }
+              alias later = identity;"@);
+        expect_ok("forward value alias as struct member",
+            @"func identity<T>(x: T)=> T { return x; }
+              type Holder<T>: struct { pub f: (T) => T, pub v: T, };
+              func f()=> int { let h = Holder:<int>{ f = later, v = 3 }; return h.f(h.v); }
+              alias later = identity;"@);
+        expect_ok("forward value alias in direct call",
+            @"func identity<T>(x: T)=> T { return x; }
+              let g = 3->later();
+              alias later = identity;"@);
+        expect_ok("forward value alias in generic function body",
+            @"func identity<T>(x: T)=> T { return x; }
+              func pick<T>(v: T)=> T { return later(v); }
+              let g = pick(3);
+              alias later = identity;"@);
+
         // A value alias is a value name only. Unlike a type alias
         // (`alias A: T;`), it cannot be written where a type is expected.
         expect_ok("type alias as parameter type",
@@ -517,6 +545,31 @@ namespace smoke_v116_negative
             @"func f()=> int { return 1; }
               alias a = f;
               func g()=> a { return 1; }"@);
+    }
+
+    func test_template_arguments()
+    {
+        // How many arguments a name was given is judged where the name is
+        // consumed, for types as for values, once deduction had its chance.
+        expect_fail("generic type without template arguments",
+            @"type Wrap<T>: int;
+              func f(){ let x = 1 as Wrap; do x; }"@);
+        expect_fail("type name with stray template argument",
+            @"type T: int;
+              func f(){ let x = 1 as T:<int>; do x; }"@);
+        expect_fail("value alias of generic function as value",
+            @"func identity<T>(x: T)=> T { return x; }
+              alias id = identity;
+              func f(){ let g = id; do g; }"@);
+
+        // Arguments a struct type cannot take are an argument count error,
+        // not something to deduce from the member values.
+        expect_fail("struct type with too many template arguments",
+            @"type Box<T>: struct { pub v: T, };
+              func f(){ let b = Box:<int, string>{ v = 3 }; do b; }"@);
+        expect_fail("struct type with too many deduced and written arguments",
+            @"type Box<K, V>: struct { pub k: K, pub v: V, };
+              func f(){ let b = Box:<int, string, real>{ k = 1, v = "s" }; do b; }"@);
     }
 
     func test_repl_rollback()
@@ -576,6 +629,7 @@ namespace smoke_v116_negative
         test_cross_file_access();
         test_cross_file_conflicts();
         test_value_alias_rules();
+        test_template_arguments();
         test_repl_rollback();
     }
 }

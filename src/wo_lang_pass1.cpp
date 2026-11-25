@@ -79,6 +79,26 @@ namespace wo
             return sites;
         }
 
+        // The names of template parameters, comma separated; used to tell
+        // which parameters deduction could not determine.
+        string _joined_template_param_names(const vector<AstTemplateParam*>& params)
+        {
+            string joined;
+            bool first_param = true;
+
+            for (auto* param : params)
+            {
+                if (!first_param)
+                    joined += ", ";
+                else
+                    first_param = false;
+
+                joined += *param->m_param_name;
+            }
+
+            return joined;
+        }
+
         // Is `namespace_` a descendant of (or equal to) `ancestor`?
         bool is_namespace_inside(lang_Namespace* namespace_, lang_Namespace* ancestor)
         {
@@ -746,7 +766,6 @@ namespace wo
         else if (state == HOLD)
         {
             lang_Symbol* symbol = nullptr;
-            bool consumed_value_alias_arguments = false;
 
             if (node->m_LANG_template_evalating_state)
             {
@@ -762,7 +781,6 @@ namespace wo
                 node->m_LANG_determined_symbol = symbol;
                 node->m_template_arguments.reset();
                 node->m_LANG_determined_and_appended_template_arguments.reset();
-                consumed_value_alias_arguments = true;
             }
             else
             {
@@ -829,31 +847,13 @@ namespace wo
                                 return FAILED;
                             }
 
-                            lang_Symbol::TemplateArgumentListT template_args;
-                            if (node->m_template_arguments.has_value())
-                            {
-                                for (auto& template_argument : node->m_template_arguments.value())
-                                {
-                                    if (template_argument->is_type())
-                                        template_args.push_back(
-                                            template_argument->get_type()->m_LANG_determined_type.value());
-                                    else
-                                        template_args.push_back(
-                                            template_argument->get_constant());
-                                }
-                            }
-                            if (node->m_LANG_determined_and_appended_template_arguments.has_value())
-                            {
-                                const auto& appened_template_arguments =
-                                    node->m_LANG_determined_and_appended_template_arguments.value();
-                                template_args.insert(template_args.end(),
-                                    appened_template_arguments.begin(),
-                                    appened_template_arguments.end());
-                            }
-
+                            // The alias's own arguments instantiate it; whatever
+                            // the target still needs is left to the use site.
                             bool continue_process = false;
                             auto eval_state_may_nullopt = begin_eval_template_ast(
-                                lex, node, symbol, std::move(template_args), out_stack, &continue_process);
+                                lex, node, symbol,
+                                lang_TemplateReference::describe(node).given_arguments(),
+                                out_stack, &continue_process);
 
                             if (!eval_state_may_nullopt)
                                 return FAILED;
@@ -873,7 +873,6 @@ namespace wo
                             node->m_LANG_determined_symbol = symbol;
                             node->m_template_arguments.reset();
                             node->m_LANG_determined_and_appended_template_arguments.reset();
-                            consumed_value_alias_arguments = true;
                         }
                         else
                         {
@@ -932,54 +931,10 @@ namespace wo
                 return OKAY;
             }
 
-            if (consumed_value_alias_arguments)
-            {
-                // The alias consumed the written arguments. The target may
-                // still be a template: its arguments are deduced/appended at
-                // the call site, or diagnosed where the value is used.
-                return OKAY;
-            }
-
-            bool has_template_arguments =
-                node->m_template_arguments.has_value()
-                || node->m_LANG_determined_and_appended_template_arguments.has_value();
-
-            bool accept_template_arguments = symbol->m_is_template;
-
-            if ((has_template_arguments != accept_template_arguments)
-                && !symbol->m_is_builtin)
-            {
-                if (accept_template_arguments)
-                {
-                    lex.record_lang_error(lexer::msglevel_t::error, node,
-                        diagnose::lang2::err_expected_template_argument{symbol});
-
-                    if (symbol->m_symbol_declare_ast.has_value())
-                    {
-                        lex.record_lang_error(lexer::msglevel_t::infom, symbol->m_symbol_declare_ast.value(),
-                            diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(symbol)});
-                    }
-
-                    return FAILED;
-                }
-                else
-                {
-                    // Template argument refill is valid for alias.
-                    if (symbol->m_symbol_kind != lang_Symbol::kind::TYPE_ALIAS)
-                    {
-                        lex.record_lang_error(lexer::msglevel_t::error, node,
-                            diagnose::lang2::err_unexpected_template_argument{symbol});
-
-                        if (symbol->m_symbol_declare_ast.has_value())
-                        {
-                            lex.record_lang_error(lexer::msglevel_t::infom, symbol->m_symbol_declare_ast.value(),
-                                diagnose::lang1::info_symbol_named_defined_here{get_symbol_name(symbol)});
-                        }
-
-                        return FAILED;
-                    }
-                }
-            }
+            // How many template arguments the resolved symbol expects is judged
+            // where the name is consumed (AstValueVariable, AstTypeHolder), so
+            // that deduction gets its chance to supply the missing ones first.
+            return OKAY;
         }
         else
         {
@@ -1134,35 +1089,24 @@ namespace wo
                         lang_TypeAliasInstance* alias_instance;
                     };
 
+                    // The arguments written at this site belong to the written
+                    // name, so the consumer of that name judges them here, once.
+                    // They are not judged again while the alias is refilled.
+                    if (!node->m_LANG_template_evalating_state
+                        && !node->m_LANG_refilling_template_target_symbol.has_value()
+                        && !check_template_arguments_presence(
+                            lex, lang_TemplateReference::describe(identifier), true))
+                        return FAILED;
+
                     if (!node->m_LANG_template_evalating_state)
                     {
                         if (type_symbol->m_is_template)
                         {
-                            lang_Symbol::TemplateArgumentListT template_args;
-                            if (node->m_typeform.m_identifier->m_template_arguments.has_value())
-                            {
-                                for (auto& template_argument : node->m_typeform.m_identifier->m_template_arguments.value())
-                                {
-                                    if (template_argument->is_type())
-                                        template_args.emplace_back(
-                                            template_argument->get_type()->m_LANG_determined_type.value());
-                                    else
-                                        template_args.emplace_back(
-                                            template_argument->get_constant());
-                                }
-                            }
-                            if (node->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
-                            {
-                                const auto& determined_tyope_list =
-                                    node->m_typeform.m_identifier->m_LANG_determined_and_appended_template_arguments.value();
-                                template_args.insert(template_args.end(),
-                                    determined_tyope_list.begin(),
-                                    determined_tyope_list.end());
-                            }
-
                             bool continue_process = false;
                             auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
-                                lex, node, type_symbol, std::move(template_args), out_stack, &continue_process);
+                                lex, node, type_symbol,
+                                lang_TemplateReference::describe(identifier).given_arguments(),
+                                out_stack, &continue_process);
 
                             if (!template_eval_state_instance_may_nullopt)
                                 return FAILED;
@@ -1489,36 +1433,25 @@ namespace wo
                     lang_Symbol* var_symbol = node->m_identifier->m_LANG_determined_symbol.value();
 
                     wo_assert(var_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
+
+                    lang_TemplateReference reference =
+                        lang_TemplateReference::describe(node->m_identifier);
+
+                    // The arguments given at this reference are judged here, by
+                    // the consumer of the name: a deduction has had its chance
+                    // to supply the missing ones by now.
+                    if (!check_template_arguments_presence(lex, reference, false))
+                        return FAILED;
+
                     if (var_symbol->m_is_template)
                     {
                         // TEMPLATE!!!
                         // NOTE: In function call, template arguments will be 
                         //  derived and filled completely.
-                        lang_Symbol::TemplateArgumentListT template_args;
-                        if (node->m_identifier->m_template_arguments.has_value())
-                        {
-                            for (auto& template_argument : node->m_identifier->m_template_arguments.value())
-                            {
-                                if (template_argument->is_type())
-                                    template_args.push_back(
-                                        template_argument->get_type()->m_LANG_determined_type.value());
-                                else
-                                    template_args.push_back(
-                                        template_argument->get_constant());
-                            }
-                        }
-                        if (node->m_identifier->m_LANG_determined_and_appended_template_arguments.has_value())
-                        {
-                            const auto& determined_tyope_list =
-                                node->m_identifier->m_LANG_determined_and_appended_template_arguments.value();
-                            template_args.insert(template_args.end(),
-                                determined_tyope_list.begin(),
-                                determined_tyope_list.end());
-                        }
-
                         bool continue_process = false;
                         auto template_eval_state_instance_may_nullopt = begin_eval_template_ast(
-                            lex, node, var_symbol, std::move(template_args), out_stack, &continue_process);
+                            lex, node, var_symbol, reference.given_arguments(),
+                            out_stack, &continue_process);
 
                         if (!template_eval_state_instance_may_nullopt)
                             return FAILED;
@@ -3463,34 +3396,25 @@ namespace wo
                     case AstBase::AST_VALUE_VARIABLE:
                     {
                         AstValueVariable* argument_variable = static_cast<AstValueVariable*>(argument);
-                        lang_Symbol* symbol = argument_variable->m_identifier->m_LANG_determined_symbol.value();
 
-                        auto& template_instance = symbol->m_template_value_instances;
+                        // The argument names a generic function; see
+                        // LangContext::prepare_value_template_deduction.
+                        lang_TemplateReference argument_reference =
+                            lang_TemplateReference::describe(argument_variable->m_identifier);
+                        lang_Symbol* symbol = argument_reference.m_symbol;
 
                         wo_assert(symbol->m_is_template
                             && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
-                            && !template_instance->m_mutable);
+                            && !symbol->m_template_value_instances->m_mutable);
 
                         unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance> deduction_results;
-                        vector<AstTemplateParam*> pending_template_params;
-                        auto it_template_param = template_instance->m_template_params.begin();
-                        auto it_template_param_end = template_instance->m_template_params.end();
-                        if (argument_variable->m_identifier->m_template_arguments.has_value())
-                        {
-                            for (auto& _useless : argument_variable->m_identifier->m_template_arguments.value())
-                            {
-                                (void)_useless;
-                                ++it_template_param;
-                            }
-                        }
-                        for (; it_template_param != it_template_param_end; ++it_template_param)
-                            pending_template_params.push_back(*it_template_param);
+                        vector<AstTemplateParam*> pending_template_params = argument_reference.pending_params();
 
                         entry_spcify_scope(symbol->m_belongs_to_scope);
 
                         template_function_deduction_extraction_with_complete_type(
                             lex,
-                            static_cast<AstValueFunction*>(template_instance->m_origin_value_ast),
+                            static_cast<AstValueFunction*>(symbol->m_template_value_instances->m_origin_value_ast),
                             param_argument_types,
                             param_return_type,
                             pending_template_params,
@@ -3501,14 +3425,8 @@ namespace wo
                         if (deduction_results.size() == pending_template_params.size())
                         {
                             // We can decided this argument now.
-                            vector<AstIdentifier::TemplateArgumentInstance> template_arguments;
-                            for (AstTemplateParam* param : pending_template_params)
-                            {
-                                template_arguments.push_back(deduction_results.at(param->m_param_name));
-                            }
-
-                            argument_variable->m_identifier->m_LANG_determined_and_appended_template_arguments
-                                = template_arguments;
+                            argument_reference.append_deduced_arguments(
+                                collect_deduced_arguments(pending_template_params, deduction_results, nullptr));
 
                             entry_spcify_scope(node->m_scope_before_deduction);
 
@@ -3519,7 +3437,7 @@ namespace wo
                         }
                         else
                             node->m_LANG_hold_state =
-                            AstValueFunctionCall_FakeAstArgumentDeductionContextA::HOLD_TO_NEXT_ARGUMENT;
+                                AstValueFunctionCall_FakeAstArgumentDeductionContextA::HOLD_TO_NEXT_ARGUMENT;
 
                         break;
                     }
@@ -3540,13 +3458,8 @@ namespace wo
                         if (deduction_results.size() == pending_template_arguments.size())
                         {
                             // We can decided this argument now.
-                            vector<AstIdentifier::TemplateArgumentInstance> template_arguments;
-                            for (AstTemplateParam* param : pending_template_arguments)
-                            {
-                                template_arguments.push_back(deduction_results.at(param->m_param_name));
-                            }
-
-                            argument_function->m_LANG_determined_template_arguments = template_arguments;
+                            argument_function->m_LANG_determined_template_arguments =
+                                collect_deduced_arguments(pending_template_arguments, deduction_results, nullptr);
                             argument_function->m_LANG_in_template_reification_context = true;
 
                             entry_spcify_scope(node->m_scope_before_deduction);
@@ -3702,13 +3615,8 @@ namespace wo
                     if (deduction_results.size() == pending_template_arguments.size())
                     {
                         // We can decided this argument now.
-                        vector<AstIdentifier::TemplateArgumentInstance> template_arguments;
-                        for (AstTemplateParam* param : pending_template_arguments)
-                        {
-                            template_arguments.push_back(deduction_results.at(param->m_param_name));
-                        }
-
-                        argument_function->m_LANG_determined_template_arguments = template_arguments;
+                        argument_function->m_LANG_determined_template_arguments =
+                            collect_deduced_arguments(pending_template_arguments, deduction_results, nullptr);
                         argument_function->m_LANG_in_template_reification_context = true;
                         WO_CONTINUE_PROCESS(param_and_argument_pair.m_argument);
                     }
@@ -3723,34 +3631,25 @@ namespace wo
                 case AstBase::AST_VALUE_VARIABLE:
                 {
                     AstValueVariable* argument_variable = static_cast<AstValueVariable*>(argument);
-                    lang_Symbol* symbol = argument_variable->m_identifier->m_LANG_determined_symbol.value();
 
-                    auto& template_instance = symbol->m_template_value_instances;
+                    // The argument names a generic function; see
+                    // LangContext::prepare_value_template_deduction.
+                    lang_TemplateReference argument_reference =
+                        lang_TemplateReference::describe(argument_variable->m_identifier);
+                    lang_Symbol* symbol = argument_reference.m_symbol;
 
                     wo_assert(symbol->m_is_template
                         && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
-                        && !template_instance->m_mutable);
+                        && !symbol->m_template_value_instances->m_mutable);
 
                     unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance> deduction_results;
-                    vector<AstTemplateParam*> pending_template_params;
-                    auto it_template_param = template_instance->m_template_params.begin();
-                    auto it_template_param_end = template_instance->m_template_params.end();
-                    if (argument_variable->m_identifier->m_template_arguments.has_value())
-                    {
-                        for (auto& _useless : argument_variable->m_identifier->m_template_arguments.value())
-                        {
-                            (void)_useless;
-                            ++it_template_param;
-                        }
-                    }
-                    for (; it_template_param != it_template_param_end; ++it_template_param)
-                        pending_template_params.push_back(*it_template_param);
+                    vector<AstTemplateParam*> pending_template_params = argument_reference.pending_params();
 
                     entry_spcify_scope(symbol->m_belongs_to_scope);
 
                     template_function_deduction_extraction_with_complete_type(
                         lex,
-                        static_cast<AstValueFunction*>(template_instance->m_origin_value_ast),
+                        static_cast<AstValueFunction*>(symbol->m_template_value_instances->m_origin_value_ast),
                         param_argument_types,
                         param_return_type,
                         pending_template_params,
@@ -3761,14 +3660,8 @@ namespace wo
                     if (deduction_results.size() == pending_template_params.size())
                     {
                         // We can decided this argument now.
-                        vector<AstIdentifier::TemplateArgumentInstance> template_arguments;
-                        for (AstTemplateParam* param : pending_template_params)
-                        {
-                            template_arguments.push_back(deduction_results.at(param->m_param_name));
-                        }
-
-                        argument_variable->m_identifier->m_LANG_determined_and_appended_template_arguments
-                            = template_arguments;
+                        argument_reference.append_deduced_arguments(
+                            collect_deduced_arguments(pending_template_params, deduction_results, nullptr));
 
                         WO_CONTINUE_PROCESS(param_and_argument_pair.m_argument);
                     }
@@ -3804,36 +3697,9 @@ namespace wo
                 // direct call(-> |> <|). first argument must be eval first;
                 WO_CONTINUE_PROCESS(node->m_arguments.front());
 
-            if (node->m_function->node_type == AstBase::AST_VALUE_VARIABLE)
-            {
-                // Eval from type first;
-                AstValueVariable* invoking_variable = static_cast<AstValueVariable*>(node->m_function);
-                if (invoking_variable->m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
-                {
-                    AstTypeHolder** type_holder = get_if<AstTypeHolder*>(
-                        &invoking_variable->m_identifier->m_from_type.value());
-
-                    if (type_holder != nullptr)
-                        WO_CONTINUE_PROCESS(*type_holder);
-                }
-            }
-            for (auto& argument : node->m_arguments)
-            {
-                auto* origin_argument = get_marked_origin_value_node(argument);
-                if (origin_argument->node_type == AstBase::AST_VALUE_VARIABLE)
-                {
-                    // Eval from type first;
-                    AstValueVariable* argument_variabl = static_cast<AstValueVariable*>(origin_argument);
-                    if (argument_variabl->m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
-                    {
-                        AstTypeHolder** type_holder = get_if<AstTypeHolder*>(
-                            &argument_variabl->m_identifier->m_from_type.value());
-
-                        if (type_holder != nullptr)
-                            WO_CONTINUE_PROCESS(*type_holder);
-                    }
-                }
-            }
+            // The callee's and the arguments' names are resolved when their turn
+            // comes (see prepare_value_template_deduction); an identifier
+            // evaluates what its own name depends on by itself.
 
             node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_FIRST_ARGUMENT_EVAL;
             return HOLD;
@@ -3877,11 +3743,24 @@ namespace wo
                     }
                 }
 
-                if (resolve_value_alias_for_deduction(lex, node->m_function, out_stack))
+                // Resolve the callee's name before anything is decided from
+                // it: what it denotes decides whether the arguments deduce its
+                // template parameters.
+                prepare_value_template_deduction(node->m_function, out_stack);
+
+                node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_CALLEE_RESOLVE;
+                return HOLD;
+            }
+            case AstValueFunctionCall::HOLD_FOR_CALLEE_RESOLVE:
+            {
+                template_deduction_need callee_need =
+                    prepare_value_template_deduction(node->m_function, out_stack);
+
+                if (callee_need == template_deduction_need::PENDING)
                     return HOLD;
 
                 node->m_LANG_target_function_need_deduct_template_arguments =
-                    check_need_template_deduct_function(lex, node->m_function, out_stack);
+                    callee_need == template_deduction_need::NEEDED;
 
                 if (!node->m_LANG_target_function_need_deduct_template_arguments)
                 {
@@ -3894,27 +3773,30 @@ namespace wo
             }
             case AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL:
             {
-                // Eval all arguments beside AstValueFunction or AstValueVariable which refer to
-               // uncomplete template function.
-                bool resolved_value_alias_argument = false;
+                // An argument naming a generic function, or an anonymous
+                // function whose parameter types are template marks, is left to
+                // the deduction; every other argument is evaluated now.
+                bool argument_name_pending = false;
+                vector<AstValueBase*> evaluable_arguments;
+
                 for (auto* argument_value : node->m_arguments)
                 {
-                    if (resolve_value_alias_for_deduction(lex, argument_value, out_stack))
-                        resolved_value_alias_argument = true;
+                    switch (prepare_value_template_deduction(argument_value, out_stack))
+                    {
+                    case template_deduction_need::PENDING:
+                        argument_name_pending = true;
+                        break;
+                    case template_deduction_need::NEEDED:
+                        break;
+                    case template_deduction_need::NONE:
+                        evaluable_arguments.push_back(argument_value);
+                        break;
+                    }
                 }
-                if (resolved_value_alias_argument)
+                if (argument_name_pending)
                     return HOLD;
 
-                vector<AstValueBase*> arguments;
-                for (auto* argument_value : node->m_arguments)
-                {
-                    if (check_need_template_deduct_function(lex, argument_value, out_stack))
-                        continue;
-
-                    arguments.push_back(argument_value);
-                }
-
-                WO_CONTINUE_PROCESS_LIST(arguments);
+                WO_CONTINUE_PROCESS_LIST(evaluable_arguments);
 
                 node->m_LANG_hold_state = AstValueFunctionCall::HOLD_FOR_ARGUMENTS_EVAL;
                 return HOLD;
@@ -3930,7 +3812,7 @@ namespace wo
                     unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance> deduction_results;
 
                     vector<AstTemplateParam*> pending_template_params;
-                    vector<AstTemplateParam*>* template_params;
+                    const vector<AstTemplateParam*>* template_params;
                     vector<AstTypeHolder*> target_param_holders;
 
                     bool entry_function_located_scope = false;
@@ -3943,41 +3825,28 @@ namespace wo
                     case AstBase::AST_VALUE_VARIABLE:
                     {
                         AstValueVariable* function_variable = static_cast<AstValueVariable*>(node->m_function);
-                        lang_Symbol* function_symbol = function_variable->m_identifier->m_LANG_determined_symbol.value();
+
+                        // The callee is known to be a generic function here;
+                        // see HOLD_FOR_CALLEE_RESOLVE.
+                        lang_TemplateReference callee =
+                            lang_TemplateReference::describe(function_variable->m_identifier);
+                        lang_Symbol* function_symbol = callee.m_symbol;
 
                         target_function_scope = function_symbol->m_belongs_to_scope;
 
                         wo_assert(function_symbol->m_is_template
                             && function_symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE);
 
-                        template_params = &function_symbol->m_template_value_instances->m_template_params;
+                        template_params = callee.m_template_params;
 
-                        auto it_template_param = function_symbol->m_template_value_instances->m_template_params.begin();
-                        auto it_template_param_end = function_symbol->m_template_value_instances->m_template_params.end();
-                        if (function_variable->m_identifier->m_template_arguments.has_value())
-                        {
-                            for (auto& template_arg : function_variable->m_identifier->m_template_arguments.value())
-                            {
-                                if (it_template_param == it_template_param_end)
-                                    // Too much template arguments.
-                                    break;
+                        // Arguments written at the call fill the leading
+                        // parameters; the others are what the call arguments
+                        // have to deduce.
+                        callee.collect_written_arguments(&deduction_results);
+                        pending_template_params = callee.pending_params();
 
-                                wo_pstring_t param_name = (*(it_template_param++))->m_param_name;
-
-                                if (template_arg->is_type())
-                                    deduction_results.insert(
-                                        make_pair(
-                                            param_name, template_arg->get_type()->m_LANG_determined_type.value()));
-                                else
-                                    deduction_results.insert(
-                                        make_pair(
-                                            param_name, template_arg->get_constant()));
-                            }
-                        }
-                        for (; it_template_param != it_template_param_end; ++it_template_param)
-                            pending_template_params.push_back(*it_template_param);
-
-                        // NOTE: node type has been checked in HOLD_FOR_FIRST_ARGUMENT_EVAL->HOLD_FOR_FUNCTION_EVAL
+                        // NOTE: The callee is a function definition, checked
+                        // when its need for deduction was decided.
                         wo_assert(function_symbol->m_template_value_instances->m_origin_value_ast->node_type
                             == AstBase::AST_VALUE_FUNCTION);
                         AstValueFunction* origin_ast_value_function = static_cast<AstValueFunction*>(
@@ -4301,39 +4170,23 @@ namespace wo
                     AstValueFunction* function = static_cast<AstValueFunction*>(node->m_function);
                     auto& pending_template_arguments = function->m_pending_param_type_mark_template.value();
 
-                    vector<AstIdentifier::TemplateArgumentInstance> template_arguments;
+                    vector<AstTemplateParam*> undetermined_template_params;
+                    vector<AstIdentifier::TemplateArgumentInstance> template_arguments =
+                        collect_deduced_arguments(
+                            pending_template_arguments,
+                            branch_a_context->m_deduction_results,
+                            &undetermined_template_params);
 
-                    vector<AstTemplateParam*> pending_template_params;
-                    for (AstTemplateParam* param : pending_template_arguments)
+                    if (!undetermined_template_params.empty())
                     {
-                        auto fnd = branch_a_context->m_deduction_results.find(param->m_param_name);
-                        if (fnd == branch_a_context->m_deduction_results.end())
-                            pending_template_params.push_back(param);
-                        else
-                            template_arguments.push_back(fnd->second);
-                    }
-                    if (!pending_template_params.empty())
-                    {
-                        string pending_type_list;
-                        bool first_param = true;
-
-                        for (AstTemplateParam* param : pending_template_params)
-                        {
-                            if (!first_param)
-                                pending_type_list += ", ";
-                            else
-                                first_param = false;
-
-                            pending_type_list += *param->m_param_name;
-                        }
-
                         lex.record_lang_error(lexer::msglevel_t::error, function,
-                            diagnose::lang2::err_not_all_template_argument_determined{pending_type_list.c_str()});
+                            diagnose::lang2::err_not_all_template_argument_determined{
+                                _joined_template_param_names(undetermined_template_params).c_str()});
 
                         report_template_deduction_failure_details(
                             lex,
                             function,
-                            pending_template_params,
+                            undetermined_template_params,
                             _make_function_call_deduction_sites(
                                 function->m_parameters, node->m_arguments));
 
@@ -4349,59 +4202,31 @@ namespace wo
                 case AstBase::AST_VALUE_VARIABLE:
                 {
                     AstValueVariable* function_variable = static_cast<AstValueVariable*>(node->m_function);
-                    lang_Symbol* symbol = function_variable->m_identifier->m_LANG_determined_symbol.value();
 
-                    auto& template_instance = symbol->m_template_value_instances;
+                    // The callee is known to be a generic function; see
+                    // HOLD_FOR_CALLEE_RESOLVE.
+                    lang_TemplateReference callee =
+                        lang_TemplateReference::describe(function_variable->m_identifier);
+                    lang_Symbol* symbol = callee.m_symbol;
 
                     wo_assert(symbol->m_is_template
                         && symbol->m_symbol_kind == lang_Symbol::kind::VARIABLE
-                        && !template_instance->m_mutable);
+                        && !symbol->m_template_value_instances->m_mutable);
 
-                    unordered_map<wo_pstring_t, lang_TypeInstance*> deduction_results;
-                    auto it_template_param = template_instance->m_template_params.begin();
-                    auto it_template_param_end = template_instance->m_template_params.end();
-                    if (function_variable->m_identifier->m_template_arguments.has_value())
+                    // Parameters the written arguments left pending get the
+                    // deduced ones, in parameter order.
+                    vector<AstTemplateParam*> undetermined_template_params;
+                    vector<AstIdentifier::TemplateArgumentInstance> template_arguments =
+                        collect_deduced_arguments(
+                            callee.pending_params(),
+                            branch_a_context->m_deduction_results,
+                            &undetermined_template_params);
+
+                    if (!undetermined_template_params.empty())
                     {
-                        for (auto& _useless : function_variable->m_identifier->m_template_arguments.value())
-                        {
-                            (void)_useless;
-
-                            if (it_template_param == it_template_param_end)
-                                break;
-
-                            ++it_template_param;
-                        }
-                    }
-                    vector<AstIdentifier::TemplateArgumentInstance> template_argument_list;
-
-                    vector<AstTemplateParam*> pending_template_params;
-                    for (; it_template_param != it_template_param_end; ++it_template_param)
-                    {
-                        AstTemplateParam* param_name = *it_template_param;
-                        auto fnd = branch_a_context->m_deduction_results.find(param_name->m_param_name);
-                        if (fnd == branch_a_context->m_deduction_results.end())
-                            pending_template_params.push_back(param_name);
-                        else
-                            template_argument_list.push_back(fnd->second);
-                    }
-
-                    if (!pending_template_params.empty())
-                    {
-                        string pending_type_list;
-                        bool first_param = true;
-
-                        for (AstTemplateParam* param : pending_template_params)
-                        {
-                            if (!first_param)
-                                pending_type_list += ", ";
-                            else
-                                first_param = false;
-
-                            pending_type_list += *param->m_param_name;
-                        }
-
                         lex.record_lang_error(lexer::msglevel_t::error, function_variable,
-                            diagnose::lang2::err_not_all_template_argument_determined{pending_type_list.c_str()});
+                            diagnose::lang2::err_not_all_template_argument_determined{
+                                _joined_template_param_names(undetermined_template_params).c_str()});
 
                         if (symbol->m_template_value_instances->m_origin_value_ast->node_type
                             == AstBase::AST_VALUE_FUNCTION)
@@ -4409,7 +4234,7 @@ namespace wo
                             report_template_deduction_failure_details(
                                 lex,
                                 function_variable,
-                                pending_template_params,
+                                undetermined_template_params,
                                 _make_function_call_deduction_sites(
                                     static_cast<AstValueFunction*>(
                                         symbol->m_template_value_instances->m_origin_value_ast)->m_parameters,
@@ -4425,8 +4250,7 @@ namespace wo
                         return FAILED;
                     }
 
-                    function_variable->m_identifier->m_LANG_determined_and_appended_template_arguments
-                        = template_argument_list;
+                    callee.append_deduced_arguments(template_arguments);
 
                     WO_CONTINUE_PROCESS(function_variable);
                     break;
@@ -4638,6 +4462,9 @@ namespace wo
         {
             switch (node->m_LANG_hold_state)
             {
+            // The callee's name is resolved in the first of these states and
+            // evaluated in the second, when it needs no deduction.
+            case AstValueFunctionCall::HOLD_FOR_CALLEE_RESOLVE:
             case AstValueFunctionCall::HOLD_FOR_FUNCTION_EVAL:
                 if (node->m_is_direct_call)
                 {
@@ -4853,23 +4680,6 @@ namespace wo
         {
             if (node->m_marked_struct_type.has_value())
             {
-                for (auto* member_pair : node->m_fields)
-                {
-                    auto* origin_value = get_marked_origin_value_node(member_pair->m_value);
-                    if (origin_value->node_type == AstBase::AST_VALUE_VARIABLE)
-                    {
-                        // Eval from type first;
-                        AstValueVariable* value_variabl = static_cast<AstValueVariable*>(origin_value);
-                        if (value_variabl->m_identifier->m_formal == AstIdentifier::identifier_formal::FROM_TYPE)
-                        {
-                            AstTypeHolder** type_holder = get_if<AstTypeHolder*>(
-                                &value_variabl->m_identifier->m_from_type.value());
-
-                            if (type_holder != nullptr)
-                                WO_CONTINUE_PROCESS(*type_holder);
-                        }
-                    }
-                }
                 node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_MEMBER_TYPE_EVAL;
             }
             else
@@ -4886,34 +4696,42 @@ namespace wo
             {
             case AstValueStruct::HOLD_FOR_MEMBER_TYPE_EVAL:
             {
-                bool resolved_value_alias_member = false;
-                for (auto* member_pair : node->m_fields)
-                {
-                    if (resolve_value_alias_for_deduction(lex, member_pair->m_value, out_stack))
-                        resolved_value_alias_member = true;
-                }
-                if (resolved_value_alias_member)
+                // Resolve the struct type's name first: whether its parameters
+                // are to be deduced decides how the member values are handled.
+                AstTypeHolder* struct_type = node->m_marked_struct_type.value();
+                template_deduction_need type_need =
+                    prepare_struct_type_template_deduction(struct_type, out_stack);
+
+                if (type_need == template_deduction_need::PENDING)
                     return HOLD;
 
+                // A member value naming a generic function, or an anonymous
+                // function whose parameter types are template marks, is left to
+                // a deduction; every other member value is evaluated now.
+                bool member_name_pending = false;
                 vector<AstValueBase*> member_init_values;
 
                 for (auto* member_pair : node->m_fields)
                 {
-                    if (check_need_template_deduct_function(lex, member_pair->m_value, out_stack))
-                        continue;
-
-                    member_init_values.push_back(member_pair->m_value);
+                    switch (prepare_value_template_deduction(member_pair->m_value, out_stack))
+                    {
+                    case template_deduction_need::PENDING:
+                        member_name_pending = true;
+                        break;
+                    case template_deduction_need::NEEDED:
+                        break;
+                    case template_deduction_need::NONE:
+                        member_init_values.push_back(member_pair->m_value);
+                        break;
+                    }
                 }
+                if (member_name_pending)
+                    return HOLD;
 
                 WO_CONTINUE_PROCESS_LIST(member_init_values);
 
-                AstTypeHolder* struct_type = node->m_marked_struct_type.value();
-                bool need_template_deduct = check_need_template_deduct_struct_type(lex, struct_type, out_stack);
-
-                if (need_template_deduct)
-                {
+                if (type_need == template_deduction_need::NEEDED)
                     node->m_LANG_hold_state = AstValueStruct::HOLD_FOR_EVAL_MEMBER_VALUE_BESIDE_TEMPLATE;
-                }
                 else
                 {
                     WO_CONTINUE_PROCESS(struct_type);
@@ -4929,42 +4747,24 @@ namespace wo
                 unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance> deduction_results;
 
                 vector<AstTemplateParam*> pending_template_params;
-                vector<AstTemplateParam*>* template_params;
+                const vector<AstTemplateParam*>* template_params;
                 vector<AstTypeHolder*> target_param_holders;
 
-                wo_assert(node->m_marked_struct_type.value()->m_formal == AstTypeHolder::IDENTIFIER);
+                // The struct type is known to be a generic struct here; see
+                // prepare_struct_type_template_deduction.
                 AstTypeHolder* struct_type = node->m_marked_struct_type.value();
-                AstIdentifier* struct_type_identifier = struct_type->m_typeform.m_identifier;
+                lang_TemplateReference struct_type_reference =
+                    lang_TemplateReference::describe(struct_type->m_typeform.m_identifier);
+                lang_Symbol* symbol = struct_type_reference.m_symbol;
 
-                lang_Symbol* symbol = struct_type_identifier->m_LANG_determined_symbol.value();
-                auto& template_instance = symbol->m_template_type_instances;
+                template_params = struct_type_reference.m_template_params;
 
-                template_params = &template_instance->m_template_params;
-                auto it_template_param = template_instance->m_template_params.begin();
-                auto it_template_param_end = template_instance->m_template_params.end();
-                if (struct_type_identifier->m_template_arguments.has_value())
-                {
-                    for (auto& exist_template_argument : struct_type_identifier->m_template_arguments.value())
-                    {
-                        if (exist_template_argument->is_type())
-                            deduction_results.insert(
-                                make_pair(
-                                    (*it_template_param)->m_param_name,
-                                    exist_template_argument->get_type()->m_LANG_determined_type.value()));
-                        else
-                            deduction_results.insert(
-                                make_pair(
-                                    (*it_template_param)->m_param_name,
-                                    exist_template_argument->get_constant()));
+                // Arguments written at the literal fill the leading parameters;
+                // the others are what the member values have to deduce.
+                struct_type_reference.collect_written_arguments(&deduction_results);
+                pending_template_params = struct_type_reference.pending_params();
 
-                        ++it_template_param;
-                    }
-                }
-
-                for (; it_template_param != it_template_param_end; ++it_template_param)
-                    pending_template_params.push_back(*it_template_param);
-
-                AstTypeHolder* struct_def_type_holder = template_instance->m_origin_value_ast;
+                AstTypeHolder* struct_def_type_holder = symbol->m_template_type_instances->m_origin_value_ast;
                 unordered_map<wo_pstring_t, AstTypeHolder*> struct_template_deduction_target;
 
                 for (auto& field_type : struct_def_type_holder->m_typeform.m_structure.m_fields)
@@ -5070,54 +4870,29 @@ namespace wo
                 // Now we can do type checking.
                 AstTypeHolder* target_struct_typeholder = node->m_marked_struct_type.value();
 
-                lang_Symbol* symbol =
-                    target_struct_typeholder->m_typeform.m_identifier->m_LANG_determined_symbol.value();
+                // The struct type is known to be a generic struct; see
+                // prepare_struct_type_template_deduction.
+                lang_TemplateReference struct_type_reference =
+                    lang_TemplateReference::describe(target_struct_typeholder->m_typeform.m_identifier);
+                lang_Symbol* symbol = struct_type_reference.m_symbol;
 
                 wo_assert(symbol->m_is_template
                     && symbol->m_symbol_kind == lang_Symbol::kind::TYPE);
 
-                auto& template_instance = symbol->m_template_type_instances;
+                // Parameters the written arguments left pending get the deduced
+                // ones, in parameter order.
+                vector<AstTemplateParam*> undetermined_template_params;
+                vector<AstIdentifier::TemplateArgumentInstance> template_argument_list =
+                    collect_deduced_arguments(
+                        struct_type_reference.pending_params(),
+                        branch_a_context->m_deduction_results,
+                        &undetermined_template_params);
 
-                auto it_template_param = template_instance->m_template_params.begin();
-                auto it_template_param_end = template_instance->m_template_params.end();
-                if (target_struct_typeholder->m_typeform.m_identifier->m_template_arguments.has_value())
+                if (!undetermined_template_params.empty())
                 {
-                    for (auto& _useless : target_struct_typeholder->m_typeform.m_identifier->m_template_arguments.value())
-                    {
-                        (void)_useless;
-                        ++it_template_param;
-                    }
-                }
-                vector<AstIdentifier::TemplateArgumentInstance> template_argument_list;
-                vector<AstTemplateParam*> pending_template_params;
-
-                for (; it_template_param != it_template_param_end; ++it_template_param)
-                {
-                    AstTemplateParam* param_name = *it_template_param;
-                    auto fnd = branch_a_context->m_deduction_results.find(param_name->m_param_name);
-                    if (fnd == branch_a_context->m_deduction_results.end())
-                        pending_template_params.push_back(param_name);
-                    else
-                        template_argument_list.push_back(fnd->second);
-                }
-
-                if (!pending_template_params.empty())
-                {
-                    string pending_type_list;
-                    bool first_param = true;
-
-                    for (AstTemplateParam* param : pending_template_params)
-                    {
-                        if (!first_param)
-                            pending_type_list += ", ";
-                        else
-                            first_param = false;
-
-                        pending_type_list += *param->m_param_name;
-                    }
-
                     lex.record_lang_error(lexer::msglevel_t::error, target_struct_typeholder,
-                        diagnose::lang2::err_not_all_template_argument_determined{pending_type_list.c_str()});
+                        diagnose::lang2::err_not_all_template_argument_determined{
+                            _joined_template_param_names(undetermined_template_params).c_str()});
 
                     if (symbol->m_template_type_instances->m_origin_value_ast->m_formal
                         == AstTypeHolder::STRUCTURE)
@@ -5148,7 +4923,7 @@ namespace wo
                         report_template_deduction_failure_details(
                             lex,
                             target_struct_typeholder,
-                            pending_template_params,
+                            undetermined_template_params,
                             deduction_sites);
                     }
 
@@ -5161,8 +4936,7 @@ namespace wo
                     return FAILED;
                 }
 
-                target_struct_typeholder->m_typeform.m_identifier->
-                    m_LANG_determined_and_appended_template_arguments = template_argument_list;
+                struct_type_reference.append_deduced_arguments(template_argument_list);
 
                 WO_CONTINUE_PROCESS(target_struct_typeholder);
 

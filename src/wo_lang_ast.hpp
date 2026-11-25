@@ -460,7 +460,7 @@ namespace wo
             std::vector<ArgumentMatch>::iterator m_current_argument;
 
             std::unordered_map<wo_pstring_t, AstIdentifier::TemplateArgumentInstance> m_deduction_results;
-            std::vector<AstTemplateParam*>* m_template_params;
+            const std::vector<AstTemplateParam*>* m_template_params;
             std::vector<AstTemplateParam*> m_undetermined_template_params;
 
             AstValueFunctionCall_FakeAstArgumentDeductionContextA(lang_Scope* before, lang_Scope* scope);
@@ -495,6 +495,7 @@ namespace wo
             {
                 UNPROCESSED,
                 HOLD_FOR_FIRST_ARGUMENT_EVAL,
+                HOLD_FOR_CALLEE_RESOLVE,
                 HOLD_FOR_FUNCTION_EVAL,
                 HOLD_FOR_ARGUMENTS_EVAL,
                 HOLD_BRANCH_A_TEMPLATE_ARGUMENT_DEDUCTION,

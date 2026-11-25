@@ -239,6 +239,29 @@ namespace wo
         return false;
     }
 
+    const vector<AstTemplateParam*>& lang_Symbol::template_params() const
+    {
+        static const vector<AstTemplateParam*> no_template_params;
+
+        if (!m_is_template)
+            return no_template_params;
+
+        switch (m_symbol_kind)
+        {
+        case kind::VARIABLE:
+            return m_template_value_instances->m_template_params;
+        case kind::TYPE:
+            return m_template_type_instances->m_template_params;
+        case kind::TYPE_ALIAS:
+            return m_template_type_alias_instances->m_template_params;
+        case kind::VALUE_ALIAS:
+            return m_template_value_alias_instances->m_template_params;
+        default:
+            wo_error("Unexpected symbol kind.");
+            return no_template_params;
+        }
+    }
+
     //////////////////////////////////////
 
     lang_Symbol::TemplateValuePrefab::TemplateValuePrefab(
