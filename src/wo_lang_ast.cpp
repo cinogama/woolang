@@ -1325,6 +1325,7 @@ namespace wo
             , m_LANG_certenly_function_argument_count(0)
             , m_IR_invoking_function_near(std::nullopt)
             , m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
+            , m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
 
         }
@@ -1828,6 +1829,7 @@ namespace wo
             : AstValueBase(AST_VALUE_ARRAY_OR_VEC)
             , m_making_vec(making_vec)
             , m_elements(elements)
+            , m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
         }
         AstBase* AstValueArrayOrVec::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1867,6 +1869,7 @@ namespace wo
             : AstValueBase(AST_VALUE_DICT_OR_MAP)
             , m_making_map(making_map)
             , m_elements(elements)
+            , m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
         }
         AstBase* AstValueDictOrMap::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1887,6 +1890,7 @@ namespace wo
         AstValueTuple::AstValueTuple(const std::vector<AstValueBase*>& elements)
             : AstValueBase(AST_VALUE_TUPLE)
             , m_elements(elements)
+            , m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
         }
         AstBase* AstValueTuple::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const
@@ -1929,6 +1933,7 @@ namespace wo
             , m_fields(fields)
             , m_LANG_hold_state(UNPROCESSED)
             , m_LANG_branch_argument_deduction_context(std::nullopt)
+            , m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL(std::nullopt)
         {
         }
         AstBase* AstValueStruct::make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const

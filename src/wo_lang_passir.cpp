@@ -58,6 +58,52 @@ namespace wo
             || bt == lang_TypeInstance::DeterminedType::HANDLE;
     }
 
+    // Slots cannot be mixed with pushed values, so an element unpacking a tuple
+    // keeps all the elements of its consumer pushing.
+    static bool contains_unpack(const std::vector<AstValueBase*>& elements)
+    {
+        return std::any_of(elements.begin(), elements.end(),
+            [](const AstValueBase* element)
+            { return element->node_type == AstBase::AST_FAKE_VALUE_UNPACK; });
+    }
+    static bool contains_unpack(const std::vector<AstKeyValuePair*>& elements)
+    {
+        return std::any_of(elements.begin(), elements.end(),
+            [](const AstKeyValuePair* element)
+            {
+                return element->m_key->node_type == AstBase::AST_FAKE_VALUE_UNPACK
+                    || element->m_value->node_type == AstBase::AST_FAKE_VALUE_UNPACK;
+            });
+    }
+    static bool contains_unpack(const std::vector<AstStructFieldValuePair*>& elements)
+    {
+        return std::any_of(elements.begin(), elements.end(),
+            [](const AstStructFieldValuePair* element)
+            { return element->m_value->node_type == AstBase::AST_FAKE_VALUE_UNPACK; });
+    }
+
+    // Evaluates a value into a slot of a window. Assigning a void expression writes
+    // nothing, so the junk value it would push is written into the slot instead.
+    static void eval_to_assign_slot(
+        BytecodeGenerateContext& ctx, woort_IRValue* slot, const AstValueBase* value, bool boxed)
+    {
+        if (value->m_LANG_determined_type.value()->is_based_on_void_in_IR())
+            ctx.c().mov(slot, ctx.c().load_imm_nil());
+
+        if (boxed)
+            ctx.eval_to_assign_box(slot, std::nullopt);
+        else
+            ctx.eval_to_assign(slot, std::nullopt);
+    }
+
+    // A value assigned into a slot leaves its target on the eval result stack,
+    // so the consumer of the window drops one entry per slot.
+    static void pop_slot_results(BytecodeGenerateContext& ctx, uint32_t count)
+    {
+        for (uint32_t i = 0; i < count; ++i)
+            ctx.pop_eval_result();
+    }
+
     static ast::AstValueBinaryOperator* try_get_optimizable_comparison_binop(ast::AstValueBase* cond)
     {
         if (cond->node_type != ast::AstBase::AST_VALUE_BINARY_OPERATOR)
@@ -1777,6 +1823,22 @@ namespace wo
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
+                    const uint32_t capture_count = (uint32_t)node->m_LANG_captured_context.m_captured_variables.size();
+                    const woort_IRConstantIndex closure_const = m_ircontext.c().imm_closure(node);
+
+                    // Captures are moved into a slot window, or pushed one by one.
+                    woort_IRWindow* const capture_window = config::ENABLE_SLOT_WINDOW
+                        ? m_ircontext.c().new_window(capture_count)
+                        : nullptr;
+
+                    const auto emit_mkclosure = [&](woort_IRValue* dst) {
+                        if (capture_window != nullptr)
+                            m_ircontext.c().mkclosure2(dst, capture_window, closure_const);
+                        else
+                            m_ircontext.c().mkclosure(dst, capture_count, closure_const);
+                    };
+
+                    uint32_t capture_index = 0;
                     for (auto& [capture_from_value, _useless] : node->m_LANG_captured_context.m_captured_variables)
                     {
                         (void)_useless;
@@ -1784,7 +1846,15 @@ namespace wo
                         auto& storage = capture_from_value->m_IR_storage.value();
 
                         wo_assert(storage.m_type == lang_ValueInstance::Storage::StorageType::STACKOFFSET);
-                        m_ircontext.c().pushchk(storage.m_stack_slot);
+
+                        if (capture_window != nullptr)
+                            m_ircontext.c().mov(
+                                m_ircontext.c().window_slot(capture_window, capture_index),
+                                storage.m_stack_slot);
+                        else
+                            m_ircontext.c().pushchk(storage.m_stack_slot);
+
+                        ++capture_index;
                     }
 
                     const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
@@ -1797,10 +1867,8 @@ namespace wo
                         if (target_irvalue == nullptr)
                         {
                             woort_IRValue* const v = m_ircontext.c().new_value();
-                            m_ircontext.c().mkclosure(
-                                v,
-                                (uint32_t)node->m_LANG_captured_context.m_captured_variables.size(),
-                                m_ircontext.c().imm_closure(node));
+
+                            emit_mkclosure(v);
 
                             if (need_box.has_value())
                                 m_ircontext.c().boxdyn(v, need_box.value(), v);
@@ -1809,10 +1877,7 @@ namespace wo
                         }
                         else
                         {
-                            m_ircontext.c().mkclosure(
-                                *target_irvalue,
-                                (uint32_t)node->m_LANG_captured_context.m_captured_variables.size(),
-                                m_ircontext.c().imm_closure(node));
+                            emit_mkclosure(*target_irvalue);
 
                             if (need_box.has_value())
                                 m_ircontext.c().boxdyn(
@@ -1825,10 +1890,7 @@ namespace wo
                     {
                         woort_IRValue* const v = m_ircontext.c().new_value();
 
-                        m_ircontext.c().mkclosure(
-                            v,
-                            (uint32_t)node->m_LANG_captured_context.m_captured_variables.size(),
-                            m_ircontext.c().imm_closure(node));
+                        emit_mkclosure(v);
 
                         result.set_result_stack_temp(
                             m_ircontext, v, node->m_LANG_determined_type.value());
@@ -1842,17 +1904,36 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.reset();
+
+            // An ignored literal evaluates nothing, so it would have no window to consume.
+            if (config::ENABLE_SLOT_WINDOW
+                && !m_ircontext.is_eval_result_just_ignored()
+                && !contains_unpack(node->m_elements))
+            {
+                node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.emplace(
+                    m_ircontext.c().new_window((uint32_t)node->m_elements.size()));
+            }
+
+            size_t slot_index = node->m_elements.size();
             auto rit_field_end = node->m_elements.rend();
             for (auto rit_field = node->m_elements.rbegin();
                 rit_field != rit_field_end;
                 ++rit_field)
             {
                 auto* field_value = *rit_field;
+                --slot_index;
 
                 if (field_value->node_type == AstBase::AST_FAKE_VALUE_UNPACK)
                 {
                     m_ircontext.do_eval_if_not_ignore(
                         &BytecodeGenerateContext::eval_action_and_ignore);
+                }
+                else if (woort_IRWindow* const window = node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.value_or(nullptr);
+                    window != nullptr)
+                {
+                    eval_to_assign_slot(
+                        m_ircontext, m_ircontext.c().window_slot(window, (uint32_t)slot_index), field_value, false);
                 }
                 else
                 {
@@ -1920,7 +2001,14 @@ namespace wo
                         }
                     }
 
-                    m_ircontext.c().mkstruct(make_result_target, elem_count);
+                    if (woort_IRWindow* const window = node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.value_or(nullptr);
+                        window != nullptr)
+                    {
+                        pop_slot_results(m_ircontext, (uint32_t)node->m_elements.size());
+                        m_ircontext.c().mkstruct2(make_result_target, window);
+                    }
+                    else
+                        m_ircontext.c().mkstruct(make_result_target, elem_count);
 
                     if (need_box.has_value())
                         m_ircontext.c().boxdyn(make_result_target, need_box.value(), make_result_target);
@@ -1945,22 +2033,50 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.reset();
+
+            // An ignored literal evaluates nothing, so it would have no window to consume.
+            if (config::ENABLE_SLOT_WINDOW
+                && !m_ircontext.is_eval_result_just_ignored()
+                && !contains_unpack(node->m_elements))
+            {
+                node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.emplace(
+                    m_ircontext.c().new_window((uint32_t)node->m_elements.size() * 2));
+            }
+
+            size_t pair_index = node->m_elements.size();
             auto rit_field_end = node->m_elements.rend();
             for (auto rit_field = node->m_elements.rbegin();
                 rit_field != rit_field_end;
                 ++rit_field)
             {
                 auto* field_value = *rit_field;
+                --pair_index;
 
-                m_ircontext.do_eval_if_not_ignore(
-                    &BytecodeGenerateContext::eval_to_push_box);
+                if (woort_IRWindow* const window = node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.value_or(nullptr);
+                    window != nullptr)
+                {
+                    // Slot 2p is the key of pair p, slot 2p+1 is its value.
+                    eval_to_assign_slot(m_ircontext,
+                        m_ircontext.c().window_slot(window, (uint32_t)(pair_index * 2 + 1)), field_value->m_value, true);
+                    WO_CONTINUE_PROCESS(field_value->m_value);
 
-                WO_CONTINUE_PROCESS(field_value->m_value);
+                    eval_to_assign_slot(m_ircontext,
+                        m_ircontext.c().window_slot(window, (uint32_t)(pair_index * 2)), field_value->m_key, true);
+                    WO_CONTINUE_PROCESS(field_value->m_key);
+                }
+                else
+                {
+                    m_ircontext.do_eval_if_not_ignore(
+                        &BytecodeGenerateContext::eval_to_push_box);
 
-                m_ircontext.do_eval_if_not_ignore(
-                    &BytecodeGenerateContext::eval_to_push_box);
+                    WO_CONTINUE_PROCESS(field_value->m_value);
 
-                WO_CONTINUE_PROCESS(field_value->m_key);
+                    m_ircontext.do_eval_if_not_ignore(
+                        &BytecodeGenerateContext::eval_to_push_box);
+
+                    WO_CONTINUE_PROCESS(field_value->m_key);
+                }
             }
             return HOLD;
         }
@@ -2006,7 +2122,15 @@ namespace wo
                     }
 
                     const uint32_t elem_count = (uint32_t)node->m_elements.size();
-                    m_ircontext.c().mkmap(make_result_target, elem_count);
+
+                    if (woort_IRWindow* const window = node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.value_or(nullptr);
+                        window != nullptr)
+                    {
+                        pop_slot_results(m_ircontext, (uint32_t)node->m_elements.size() * 2);
+                        m_ircontext.c().mkmap2(make_result_target, window);
+                    }
+                    else
+                        m_ircontext.c().mkmap(make_result_target, elem_count);
 
                     if (need_box.has_value())
                         m_ircontext.c().boxdyn(make_result_target, need_box.value(), make_result_target);
@@ -2030,15 +2154,33 @@ namespace wo
     {
         if (state == UNPROCESSED)
         {
+            node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.reset();
+
+            // An ignored literal evaluates nothing, so it would have no window to consume.
+            if (config::ENABLE_SLOT_WINDOW
+                && !m_ircontext.is_eval_result_just_ignored()
+                && !contains_unpack(node->m_elements))
+            {
+                node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.emplace(
+                    m_ircontext.c().new_window((uint32_t)node->m_elements.size()));
+            }
+
+            size_t slot_index = node->m_elements.size();
             auto rit_field_end = node->m_elements.rend();
             for (auto rit_field = node->m_elements.rbegin();
                 rit_field != rit_field_end;
                 ++rit_field)
             {
                 auto* field_value = *rit_field;
+                --slot_index;
 
-                m_ircontext.do_eval_if_not_ignore(
-                    &BytecodeGenerateContext::eval_to_push_box);
+                if (woort_IRWindow* const window = node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.value_or(nullptr);
+                    window != nullptr)
+                    eval_to_assign_slot(
+                        m_ircontext, m_ircontext.c().window_slot(window, (uint32_t)slot_index), field_value, true);
+                else
+                    m_ircontext.do_eval_if_not_ignore(
+                        &BytecodeGenerateContext::eval_to_push_box);
 
                 WO_CONTINUE_PROCESS(field_value);
             }
@@ -2085,7 +2227,15 @@ namespace wo
                     }
 
                     const uint32_t elem_count = (uint32_t)node->m_elements.size();
-                    m_ircontext.c().mkvec(make_result_target, elem_count);
+
+                    if (woort_IRWindow* const window = node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.value_or(nullptr);
+                        window != nullptr)
+                    {
+                        pop_slot_results(m_ircontext, (uint32_t)node->m_elements.size());
+                        m_ircontext.c().mkvec2(make_result_target, window);
+                    }
+                    else
+                        m_ircontext.c().mkvec(make_result_target, elem_count);
 
                     if (need_box.has_value())
                         m_ircontext.c().boxdyn(make_result_target, need_box.value(), make_result_target);
@@ -2111,6 +2261,7 @@ namespace wo
         {
             // Clear stale IR state from prior compilation (REPL re-compile).
             node->m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL.reset();
+            node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.reset();
             // NOTE: m_IR_unpack_all_counter_MUST_BE_CLEAR_FOR_REPL on AstFakeValueUnpack
             //       arguments is always overwritten by this processor (line below at
             //       emplace) before AstFakeValueUnpack reads it, so no reset needed here.
@@ -2181,6 +2332,19 @@ namespace wo
                 node->m_function->m_LANG_determined_type.value()->get_determined_type().value()->
                 m_external_type_description.m_function->m_param_types.size();
 
+            // Pushed values cannot be mixed with slots, so unpacking keeps pushing.
+            if (config::ENABLE_SLOT_WINDOW && !contains_unpack(node->m_arguments))
+            {
+                wo_assert(node->m_arguments.size() == node->m_LANG_certenly_function_argument_count);
+
+                size_t slot_count = node->m_arguments.size();
+                if (node->m_LANG_invoking_variadic_function)
+                    ++slot_count; // The variadic argument count is passed as the first slot.
+
+                node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.emplace(
+                    m_ircontext.c().new_window((uint32_t)slot_count));
+            }
+
             size_t arg_index = 0;
             for (auto* argument : node->m_arguments)
             {
@@ -2204,6 +2368,16 @@ namespace wo
                         ast_fake_value_unpack->m_IR_unpack_all_counter_MUST_BE_CLEAR_FOR_REPL.emplace(v);
                     }
                     m_ircontext.eval_action_and_ignore();
+                }
+                else if (woort_IRWindow* const window = node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.value_or(nullptr);
+                    window != nullptr)
+                {
+                    woort_IRValue* const slot = m_ircontext.c().window_slot(
+                        window,
+                        (uint32_t)(arg_index + (node->m_LANG_invoking_variadic_function ? 1 : 0)));
+
+                    eval_to_assign_slot(
+                        m_ircontext, slot, argument, arg_index >= target_function_named_param_count);
                 }
                 else if (arg_index < target_function_named_param_count)
                     m_ircontext.eval_to_push();
@@ -2238,6 +2412,12 @@ namespace wo
             case AstValueFunctionCall::IR_HOLD_FOR_NORMAL_CALL:
             {
                 uint32_t fact_argument_to_pop = (uint32_t)node->m_LANG_certenly_function_argument_count;
+                woort_IRWindow* const slot_window =
+                    node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.value_or(nullptr);
+
+                if (slot_window != nullptr)
+                    pop_slot_results(m_ircontext, (uint32_t)node->m_arguments.size());
+
                 if (node->m_LANG_invoking_variadic_function)
                 {
                     // Need push extra argument counter.
@@ -2257,6 +2437,13 @@ namespace wo
 
                         fact_argument_to_pop = 0;
                     }
+                    else if (slot_window != nullptr)
+                    {
+                        // The variadic argument count is the first slot, before all arguments.
+                        m_ircontext.c().mov(
+                            m_ircontext.c().window_slot(slot_window, 0),
+                            m_ircontext.c().load_imm_int((woort_Int)fact_argument_to_pop));
+                    }
                     else
                     {
                         m_ircontext.c().pushchk(
@@ -2271,21 +2458,32 @@ namespace wo
                         AstValueFunction* invoking_function = node->m_IR_invoking_function_near.value();
                         wo_assert(invoking_function->m_LANG_captured_context.m_captured_variables.empty());
 
+                        const woort_IRConstantIndex invoking_function_const =
+                            m_ircontext.c().imm_function(invoking_function);
+
                         if (invoking_function->m_LANG_extern_information.has_value())
-                            m_ircontext.c().callnfp(
-                                m_ircontext.c().imm_function(invoking_function),
-                                fact_argument_to_pop,
-                                dst);
+                        {
+                            if (slot_window != nullptr)
+                                m_ircontext.c().callnfp2(invoking_function_const, slot_window, dst);
+                            else
+                                m_ircontext.c().callnfp(invoking_function_const, fact_argument_to_pop, dst);
+                        }
                         else
-                            m_ircontext.c().callnwo(
-                                m_ircontext.c().imm_function(invoking_function),
-                                fact_argument_to_pop,
-                                dst);
+                        {
+                            if (slot_window != nullptr)
+                                m_ircontext.c().callnwo2(invoking_function_const, slot_window, dst);
+                            else
+                                m_ircontext.c().callnwo(invoking_function_const, fact_argument_to_pop, dst);
+                        }
                     }
                     else
                     {
                         auto* opnumbase = m_ircontext.get_eval_result();
-                        m_ircontext.c().call(opnumbase, fact_argument_to_pop, dst);
+
+                        if (slot_window != nullptr)
+                            m_ircontext.c().call2(opnumbase, slot_window, dst);
+                        else
+                            m_ircontext.c().call(opnumbase, fact_argument_to_pop, dst);
                     }
                     };
 
@@ -2669,9 +2867,8 @@ namespace wo
                         }
                         else
                         {
-                            woort_IRValue* const v = m_ircontext.c().new_value();
                             m_ircontext.c().checkdyn(
-                                v,
+                                *target_irvalue,
                                 convert_lang_base_type_to_woort_type_exclude_compile_type(
                                     target_determined_type_instance->m_base_type),
                                 opnum_to_check);
@@ -4531,10 +4728,31 @@ namespace wo
                     });
             }
 
+            node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.reset();
+
+            // An ignored literal evaluates nothing, so it would have no window to consume.
+            if (config::ENABLE_SLOT_WINDOW
+                && !m_ircontext.is_eval_result_just_ignored()
+                && !contains_unpack(node->m_fields))
+            {
+                node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.emplace(
+                    m_ircontext.c().new_window((uint32_t)node->m_fields.size()));
+            }
+
+            // Fields are requested from the last one, so they are evaluated by declaration order.
+            size_t slot_index = node->m_fields.size();
             for (auto* field_value : struct_value_tobe_make)
             {
-                m_ircontext.do_eval_if_not_ignore(
-                    &BytecodeGenerateContext::eval_to_push);
+                --slot_index;
+
+                if (woort_IRWindow* const window = node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.value_or(nullptr);
+                    window != nullptr)
+                    eval_to_assign_slot(
+                        m_ircontext, m_ircontext.c().window_slot(window, (uint32_t)slot_index), field_value->m_value, false);
+                else
+                    m_ircontext.do_eval_if_not_ignore(
+                        &BytecodeGenerateContext::eval_to_push);
+
                 WO_CONTINUE_PROCESS(field_value->m_value);
             }
 
@@ -4545,6 +4763,19 @@ namespace wo
             m_ircontext.apply_eval_result(
                 [&](BytecodeGenerateContext::EvalResult& result)
                 {
+                    woort_IRWindow* const slot_window =
+                        node->m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL.value_or(nullptr);
+
+                    const auto emit_mkstruct = [&](woort_IRValue* dst) {
+                        if (slot_window != nullptr)
+                        {
+                            pop_slot_results(m_ircontext, (uint32_t)node->m_fields.size());
+                            m_ircontext.c().mkstruct2(dst, slot_window);
+                        }
+                        else
+                            m_ircontext.c().mkstruct(dst, (uint32_t)node->m_fields.size());
+                    };
+
                     const auto& target_storage = result.get_assign_target(node->m_LANG_determined_type.value());
                     if (target_storage.has_value())
                     {
@@ -4555,9 +4786,8 @@ namespace wo
                         if (target_irvalue == nullptr)
                         {
                             woort_IRValue* const v = m_ircontext.c().new_value();
-                            m_ircontext.c().mkstruct(
-                                v,
-                                (uint32_t)node->m_fields.size());
+
+                            emit_mkstruct(v);
 
                             if (need_box.has_value())
                                 m_ircontext.c().boxdyn(v, need_box.value(), v);
@@ -4566,9 +4796,7 @@ namespace wo
                         }
                         else
                         {
-                            m_ircontext.c().mkstruct(
-                                *target_irvalue,
-                                (uint32_t)node->m_fields.size());
+                            emit_mkstruct(*target_irvalue);
 
                             if (need_box.has_value())
                                 m_ircontext.c().boxdyn(
@@ -4578,9 +4806,9 @@ namespace wo
                     else
                     {
                         woort_IRValue* const v = m_ircontext.c().new_value();
-                        m_ircontext.c().mkstruct(
-                            v,
-                            (uint32_t)node->m_fields.size());
+
+                        emit_mkstruct(v);
+
                         result.set_result_stack_temp(m_ircontext, v, node->m_LANG_determined_type.value());
                     }
                 }

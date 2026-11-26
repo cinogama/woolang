@@ -69,6 +69,8 @@ void wo_init(
                 wo::config::ENABLE_CHECK_GRAMMAR_AND_UPDATE = (bool)atoi(argv[++command_idx]);
             else if ("woolang-ignore-not-found-extern-func" == current_arg)
                 wo::config::ENABLE_IGNORE_NOT_FOUND_EXTERN_SYMBOL = (bool)atoi(argv[++command_idx]);
+            else if ("woolang-slot-window" == current_arg)
+                wo::config::ENABLE_SLOT_WINDOW = (bool)atoi(argv[++command_idx]);
             else
                 wo_warning(("Unknown command line option named `" + current_arg + "`.").c_str());
         }
@@ -105,8 +107,12 @@ void wo_print_compiler_help(void)
     std::cout << "    --woolang-update-grammar <0|1>\n";
     std::cout << "        Enable grammar check and auto-update. Default: 0.\n";
     std::cout << "    --woolang-ignore-not-found-extern-func <0|1>\n";
-    std::cout << "        Ignore missing extern function symbols (replace with panic function). Default: 0.\n";
-}
+        std::cout << "        Ignore missing extern function symbols (replace with panic function). Default: 0.\n";
+        std::cout << "    --woolang-slot-window <0|1>\n";
+        std::cout << "        Evaluate call arguments, container literal elements and closure captures\n";
+        std::cout << "        into stack slots reserved at the function entry, instead of pushing them.\n";
+        std::cout << "        Default: 1.\n";
+    }
 
 #undef wo_finish
 void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)

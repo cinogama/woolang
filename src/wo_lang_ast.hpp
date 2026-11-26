@@ -510,6 +510,9 @@ namespace wo
             std::optional<AstValueFunction*> m_IR_invoking_function_near;
             std::optional<woort_IRValue*> m_IR_unpack_counter_if_in_variadic_func_MUST_BE_CLEAR_FOR_REPL;
 
+            // The slot window the arguments are evaluated into, nullopt if they are pushed.
+            std::optional<woort_IRWindow*> m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL;
+
             AstValueFunctionCall(bool direct, AstValueBase* function, const std::vector<AstValueBase*>& arguments);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override final;
         };
@@ -846,6 +849,9 @@ namespace wo
             bool m_making_vec;
             std::vector<AstValueBase*> m_elements;
 
+            // The slot window the elements are evaluated into, nullopt if they are pushed.
+            std::optional<woort_IRWindow*> m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL;
+
             AstValueArrayOrVec(const std::vector<AstValueBase*>& elements, bool making_vec);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
@@ -863,12 +869,18 @@ namespace wo
             std::vector<AstKeyValuePair*>
                 m_elements;
 
+            // The slot window the keys and values are evaluated into, nullopt if they are pushed.
+            std::optional<woort_IRWindow*> m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL;
+
             AstValueDictOrMap(const std::vector<AstKeyValuePair*>& elements, bool making_map);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
         };
         struct AstValueTuple : public AstValueBase
         {
             std::vector<AstValueBase*> m_elements;
+
+            // The slot window the fields are evaluated into, nullopt if they are pushed.
+            std::optional<woort_IRWindow*> m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL;
 
             AstValueTuple(const std::vector<AstValueBase*>& elements);
             virtual AstBase* make_dup(std::optional<AstBase*> exist_instance, ContinuesList& out_continues) const override;
@@ -903,6 +915,9 @@ namespace wo
                 AstValueFunctionCall_FakeAstArgumentDeductionContextA*,
                 AstValueFunctionCall_FakeAstArgumentDeductionContextB*>>
                 m_LANG_branch_argument_deduction_context;
+
+            // The slot window the fields are evaluated into, nullopt if they are pushed.
+            std::optional<woort_IRWindow*> m_IR_slot_window_MUST_BE_CLEAR_FOR_REPL;
 
             AstValueStruct(
                 const std::optional<AstTypeHolder*>& marked_struct_type,

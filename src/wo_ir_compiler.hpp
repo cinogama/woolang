@@ -171,12 +171,25 @@ namespace wo
         void call(const woort_IRValue* func_val, uint32_t argc, /* OPTIONAL */ woort_IRValue* dst);
         void packarg(woort_IRValue* dst, uint16_t named_param_count);
 
+        /* --- Slot Windows --- */
+        woort_IRWindow* new_window(uint32_t count);
+        woort_IRValue* window_slot(woort_IRWindow* window, uint32_t index);
+
         /* --- Closures / Containers --- */
         void mkclosure(woort_IRValue* dst, uint32_t elem_count, woort_IRConstantIndex func_idx);
         void mkvec(woort_IRValue* dst, uint32_t elem_count);
         void mkmap(woort_IRValue* dst, uint32_t kvpair_count);
         void mkstruct(woort_IRValue* dst, uint32_t elem_count);
         void mkunion(woort_IRValue* dst, const woort_IRValue* src, uint32_t union_id);
+
+        /* --- Calls / Containers over a slot window --- */
+        void callnwo2(woort_IRConstantIndex target, woort_IRWindow* args, /* OPTIONAL */ woort_IRValue* dst);
+        void callnfp2(woort_IRConstantIndex target, woort_IRWindow* args, /* OPTIONAL */ woort_IRValue* dst);
+        void call2(const woort_IRValue* func_val, woort_IRWindow* args, /* OPTIONAL */ woort_IRValue* dst);
+        void mkclosure2(woort_IRValue* dst, woort_IRWindow* captures, woort_IRConstantIndex func_idx);
+        void mkvec2(woort_IRValue* dst, woort_IRWindow* elems);
+        void mkmap2(woort_IRValue* dst, woort_IRWindow* kvs);
+        void mkstruct2(woort_IRValue* dst, woort_IRWindow* fields);
 
         /* --- Dynamic Typing --- */
         void boxdyn(woort_IRValue* dst, uint8_t typ, const woort_IRValue* src);

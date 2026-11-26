@@ -46,5 +46,19 @@ namespace wo
         * --------------------------------------------------------------------
         */
         inline bool ENABLE_SKIP_INVOKE_UNSAFE_CAST = true;
+
+        /*
+        * ENABLE_SLOT_WINDOW = true
+        * --------------------------------------------------------------------
+        *   Evaluate call arguments, container literal elements and closure
+        *   captures into stack slots that are reserved at the function entry
+        *   (the slot window IR of woort, woort_IR_*2), instead of pushing
+        *   them one by one.
+        * --------------------------------------------------------------------
+        * ATTENTION:
+        *   Requires a woort providing the slot window interfaces. Calls and
+        *   literals containing a tuple unpacking keep pushing.
+        */
+        inline bool ENABLE_SLOT_WINDOW = true;
     }
 }

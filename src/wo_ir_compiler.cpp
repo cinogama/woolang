@@ -708,6 +708,101 @@ namespace wo
             abondon();
     }
 
+    woort_IRWindow* IRCompiler::new_window(uint32_t count)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
+        woort_IRWindow* const result = woort_IRFunction_new_window(cur, count);
+        if (result == nullptr)
+            abondon();
+
+        return result;
+    }
+
+    woort_IRValue* IRCompiler::window_slot(woort_IRWindow* window, uint32_t index)
+    {
+        if (is_abondoned())
+            return nullptr;
+
+        woort_IRValue* const result = woort_IRWindow_slot(window, index);
+        if (result == nullptr)
+            abondon();
+
+        return result;
+    }
+
+    void IRCompiler::callnwo2(woort_IRConstantIndex target, woort_IRWindow* args, woort_IRValue* dst)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_CALLNWO2(cur, target, args, dst))
+            abondon();
+    }
+
+    void IRCompiler::callnfp2(woort_IRConstantIndex target, woort_IRWindow* args, woort_IRValue* dst)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_CALLNFP2(cur, target, args, dst))
+            abondon();
+    }
+
+    void IRCompiler::call2(const woort_IRValue* func_val, woort_IRWindow* args, woort_IRValue* dst)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_CALL2(cur, func_val, args, dst))
+            abondon();
+    }
+
+    void IRCompiler::mkclosure2(woort_IRValue* dst, woort_IRWindow* captures, woort_IRConstantIndex func_idx)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_MKCLOSURE2(cur, dst, captures, func_idx))
+            abondon();
+    }
+
+    void IRCompiler::mkvec2(woort_IRValue* dst, woort_IRWindow* elems)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_MKVEC2(cur, dst, elems))
+            abondon();
+    }
+
+    void IRCompiler::mkmap2(woort_IRValue* dst, woort_IRWindow* kvs)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_MKMAP2(cur, dst, kvs))
+            abondon();
+    }
+
+    void IRCompiler::mkstruct2(woort_IRValue* dst, woort_IRWindow* fields)
+    {
+        if (is_abondoned())
+            return;
+
+        woort_IRFunction* const cur = m_current_functions_stack.back().m_irfunction;
+        if (!woort_IR_MKSTRUCT2(cur, dst, fields))
+            abondon();
+    }
+
     void IRCompiler::mkunion(woort_IRValue* dst, const woort_IRValue* src, uint32_t union_id)
     {
         if (is_abondoned())
