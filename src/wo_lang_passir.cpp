@@ -2669,9 +2669,8 @@ namespace wo
                         }
                         else
                         {
-                            woort_IRValue* const v = m_ircontext.c().new_value();
                             m_ircontext.c().checkdyn(
-                                v,
+                                *target_irvalue,
                                 convert_lang_base_type_to_woort_type_exclude_compile_type(
                                     target_determined_type_instance->m_base_type),
                                 opnum_to_check);

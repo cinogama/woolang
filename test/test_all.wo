@@ -40,6 +40,7 @@ import test_thread;
 import test_string_decode;
 import test_string_encode;
 import test_operator_as;
+import test_operator_is;
 import test_lexer_coverage;
 import test_parser_coverage;
 import test_type_coverage;

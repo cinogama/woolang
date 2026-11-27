@@ -1,0 +1,197 @@
+import pkg::std;
+import test_tool;
+
+namespace test_operator_is
+{
+    /* Runtime `is` checks on dynamic values.
+       `AstValueTypeCheckIs` stores its result into one of three kinds of
+       targets:
+         1. an IRValue: a local's stack slot, or a temporary handed down by
+            `&&`/`||`, `? |` and `return` (when defers are pending),
+         2. a static index: global variables,
+         3. nothing at all: read-only requests such as conditions and
+            call arguments.
+       Each case asserts both outcomes, so a result that is never written
+       to its target cannot pass by accident. */
+
+    /* Static-slot targets, initialized at import time. */
+    let g_dyn_int = 233 as dynamic;
+    let g_dyn_nil = nil as dynamic;
+    let g_is_int = g_dyn_int is int;
+    let g_is_real = g_dyn_nil is real;
+
+    let mut g_defer_runs = 0;
+
+    /* 1a. `let` initializer: the result goes straight into the new local. */
+    func test_let_initializer()
+    {
+        let d_int = 233 as dynamic;
+        let d_real = 3.14 as dynamic;
+        let d_bool = true as dynamic;
+        let d_str = "233" as dynamic;
+        let d_nil = nil as dynamic;
+
+        let int_is_int = d_int is int;
+        let int_is_real = d_int is real;
+        test_assure(int_is_int);
+        test_assure(!(int_is_real));
+
+        let nil_is_int = d_nil is int;
+        test_assure(!(nil_is_int));
+
+        let real_is_real = d_real is real;
+        let bool_is_bool = d_bool is bool;
+        let str_is_string = d_str is string;
+        test_assure(real_is_real);
+        test_assure(bool_is_bool);
+        test_assure(str_is_string);
+
+        let real_is_int = d_real is int;
+        let bool_is_real = d_bool is real;
+        let str_is_bool = d_str is bool;
+        test_assure(!(real_is_int));
+        test_assure(!(bool_is_real));
+        test_assure(!(str_is_bool));
+    }
+
+    /* 1b. Assignment: the local's own slot is the target, so its previous
+       value must be overwritten in both directions. */
+    func test_assign_local()
+    {
+        let mut d = nil as dynamic;
+        let mut flag = true;
+        flag = d is int;
+        test_assure(!(flag));
+
+        d = 233 as dynamic;
+        flag = false;
+        flag = d is int;
+        test_assure(flag);
+        flag = d is string;
+        test_assure(!(flag));
+
+        d = false as dynamic;
+        flag = true;
+        flag = d is bool;
+        test_assure(flag);
+
+        d = 2.5 as dynamic;
+        flag = false;
+        flag = d is real;
+        test_assure(flag);
+    }
+
+    /* 1c. Boxed target: `as dynamic` on top of the check boxes the result
+       in place, and here the checked value is the target itself. */
+    func test_boxed_target()
+    {
+        let mut d = 233 as dynamic;
+        d = (d is int) as dynamic;
+        test_assure(d is bool);
+        test_assure(d as bool);
+
+        d = "233" as dynamic;
+        d = (d is int) as dynamic;
+        test_assure(d is bool);
+        test_assure(!(d as bool));
+    }
+
+    /* 2. Operands of `&&` / `||`: both sides are evaluated into the same
+       short-cut temporary, which drives the branch and carries the result. */
+    func test_logical()
+    {
+        let d_int = 233 as dynamic;
+        let d_nil = nil as dynamic;
+
+        let both_hit = d_int is int && d_int is int;
+        let left_hit = d_int is int && d_nil is int;
+        let left_miss = d_nil is int && d_int is int;
+        test_assure(both_hit);
+        test_assure(!(left_hit));
+        test_assure(!(left_miss));
+
+        let either_hit = d_int is int || d_nil is int;
+        let right_hit = d_nil is int || d_int is int;
+        let both_miss = d_nil is int || d_nil is int;
+        test_assure(either_hit);
+        test_assure(right_hit);
+        test_assure(!(both_miss));
+    }
+
+    /* 3. Branch of `? |` whose value is only read: each branch fills a
+       temporary, boxed when the result is cast to dynamic. */
+    func pick(c: bool, d: dynamic)
+    {
+        return c ? d is int | false;
+    }
+
+    func pick_boxed(c: bool, d: dynamic)
+    {
+        return (c ? d is int | false) as dynamic;
+    }
+
+    func test_ternary()
+    {
+        let d_int = 233 as dynamic;
+        let d_nil = nil as dynamic;
+
+        test_assure(pick(true, d_int));
+        test_assure(!(pick(true, d_nil)));
+        test_assure(!(pick(false, d_int)));
+
+        let hit = pick_boxed(true, d_int);
+        let miss = pick_boxed(true, d_nil);
+        test_assure(hit is bool);
+        test_assure(hit as bool);
+        test_assure(miss is bool);
+        test_assure(!(miss as bool));
+    }
+
+    /* 4. `return` inside a scope with a pending `defer`: the value is held
+       in a temporary while the defers run. */
+    func check_with_defer(d: dynamic)
+    {
+        defer g_defer_runs += 1;
+        return d is int;
+    }
+
+    func test_return_with_defer()
+    {
+        let d_int = 233 as dynamic;
+        let d_nil = nil as dynamic;
+        let runs = g_defer_runs;
+
+        test_assure(check_with_defer(d_int));
+        test_assure(!(check_with_defer(d_nil)));
+        test_equal(g_defer_runs, runs + 2);
+    }
+
+    /* 5. Static-slot target: global initializers. */
+    func test_static_target()
+    {
+        test_assure(g_is_int);
+        test_assure(!(g_is_real));
+    }
+
+    /* 6. Read-only request: the result is a stack temporary. */
+    func test_readonly()
+    {
+        let d_int = 233 as dynamic;
+        test_assure(d_int is int);
+        test_assure(!(d_int is real));
+
+        let mut hit = false;
+        if (d_int is int)
+            hit = true;
+        test_assure(hit);
+    }
+}
+
+test_function("test_operator_is.test_let_initializer", test_operator_is::test_let_initializer);
+test_function("test_operator_is.test_assign_local", test_operator_is::test_assign_local);
+test_function("test_operator_is.test_boxed_target", test_operator_is::test_boxed_target);
+test_function("test_operator_is.test_logical", test_operator_is::test_logical);
+test_function("test_operator_is.test_ternary", test_operator_is::test_ternary);
+test_function("test_operator_is.test_return_with_defer", test_operator_is::test_return_with_defer);
+test_function("test_operator_is.test_static_target", test_operator_is::test_static_target);
+test_function("test_operator_is.test_readonly", test_operator_is::test_readonly);
